@@ -11,7 +11,8 @@
  *    daftar di bawah; beberapa kunci sejenis diambil dengan id terurut naik.
  * 3. Kunci aplikasi selalu mendahului `lockRows()`/FOR UPDATE baris data (urutan kunci global di tx.ts).
  *
- * Urutan (kasar -> halus): superAdmins -> holidays -> subjects -> classYear -> class -> nisnRelease -> user.
+ * Urutan (kasar -> halus): superAdmins -> holidays -> subjects -> classYear -> class -> nisnRelease -> user
+ * -> attendance.
  */
 
 /** Mutasi yang dapat mengubah jumlah super admin aktif (cegah menonaktifkan SA terakhir). */
@@ -40,3 +41,10 @@ export const nisnReleaseLockKey = (schoolId: string): string => `nisn-release:${
  * Identik dengan kunci sesi auth (`userSessionLockKey` di src/lib/auth/session-service.ts).
  */
 export const userLockKey = (userId: string): string => `auth:user:${userId}`;
+
+/**
+ * Per siswa: SEMUA penulisan absensi siswa itu (check-in, catatan percobaan ditolak, pengajuan &
+ * persetujuan izin, izin dicatat admin, koreksi admin). Diambil PALING AWAL di transaksi, sebelum
+ * `Student ... FOR UPDATE` (urutan kunci global: AppLock -> Student -> LeaveRequest -> Attendance).
+ */
+export const attendanceLockKey = (studentId: string): string => `attendance:${studentId}`;

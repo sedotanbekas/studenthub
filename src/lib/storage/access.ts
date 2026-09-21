@@ -14,6 +14,11 @@ export interface FileAccessView {
   readonly sponsorId: string | null;
   readonly uploadedById: string;
   readonly deletedAt: Date | null;
+  /**
+   * Pengguna yang menjadi subjek berkas bila bukan pengunggahnya (lampiran izin yang dicatat admin atas
+   * nama siswa -> userId siswa pemilik izin). null/tidak diisi bila tidak ada.
+   */
+  readonly subjectUserId?: string | null;
 }
 
 export type FileViewer = Pick<Principal, "userId" | "role" | "schoolId" | "sponsorId">;
@@ -23,6 +28,7 @@ const SPONSOR_KINDS: ReadonlySet<FileKind> = new Set<FileKind>(["AD_BANNER", "TO
 
 function isAllowed(viewer: FileViewer, file: FileAccessView): boolean {
   if (file.uploadedById === viewer.userId) return true;
+  if (file.subjectUserId != null && file.subjectUserId === viewer.userId) return true;
   switch (viewer.role) {
     case "SUPER_ADMIN":
       return true;

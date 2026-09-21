@@ -24,16 +24,22 @@ describe("platform: waktu basis data", () => {
   });
 
   test("@db.Date 2026-09-21 ditulis via toDbDate dan terbaca kembali utuh via fromDbDate", async () => {
+    // Libur nasional (schoolId null) berlaku untuk SEMUA sekolah di DB test: wajib dihapus lagi agar
+    // test absensi berjam nyata pada tanggal ini tidak mendapat NOT_SCHOOL_DAY.
     const holiday = await prisma.holiday.create({
       data: { name: `Libur ${uniq("h")}`, startDate: toDbDate("2026-09-21"), endDate: toDbDate("2026-09-21") },
     });
-    const read = await prisma.holiday.findUniqueOrThrow({ where: { id: holiday.id } });
-    assert.equal(fromDbDate(read.startDate), "2026-09-21");
-    assert.equal(read.startDate.getTime(), Date.UTC(2026, 8, 21), "harus UTC-midnight");
+    try {
+      const read = await prisma.holiday.findUniqueOrThrow({ where: { id: holiday.id } });
+      assert.equal(fromDbDate(read.startDate), "2026-09-21");
+      assert.equal(read.startDate.getTime(), Date.UTC(2026, 8, 21), "harus UTC-midnight");
 
-    const raw = await prisma.$queryRaw<{ d: string }[]>`
-      SELECT CAST(startDate AS CHAR) AS d FROM Holiday WHERE id = ${holiday.id}`;
-    assert.equal(raw[0]?.d, "2026-09-21", "nilai tersimpan di DB = tanggal lokal, tidak bergeser zona");
+      const raw = await prisma.$queryRaw<{ d: string }[]>`
+        SELECT CAST(startDate AS CHAR) AS d FROM Holiday WHERE id = ${holiday.id}`;
+      assert.equal(raw[0]?.d, "2026-09-21", "nilai tersimpan di DB = tanggal lokal, tidak bergeser zona");
+    } finally {
+      await prisma.holiday.deleteMany({ where: { id: holiday.id } });
+    }
   });
 
   test("DATETIME instan UTC roundtrip tanpa pergeseran (termasuk batas 16:59:59Z = 23:59 WIB)", async () => {

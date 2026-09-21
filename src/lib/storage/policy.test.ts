@@ -33,8 +33,8 @@ test("assertCanUpload: matriks peran × jenis", () => {
   const allowed: Record<UserRole, readonly FileKind[]> = {
     STUDENT: ["ATTENDANCE_SELFIE", "PAYMENT_PROOF", "LEAVE_ATTACHMENT"],
     SPONSOR: ["AD_BANNER", "TOPUP_PROOF"],
-    SCHOOL_ADMIN: [],
-    SUPER_ADMIN: [],
+    SCHOOL_ADMIN: ["LEAVE_ATTACHMENT"],
+    SUPER_ADMIN: ["LEAVE_ATTACHMENT"],
   };
   for (const role of ROLES) {
     for (const kind of KINDS) {

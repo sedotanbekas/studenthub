@@ -61,7 +61,12 @@ export const UPLOAD_POLICY: Readonly<Record<FileKind, UploadPolicy>> = Object.fr
     maxInputBytes: 5 * MIB,
     profile: Object.freeze({ type: "jpeg", quality: 70, maxSide: 640, minShortSide: 240 } as const),
   }),
-  LEAVE_ATTACHMENT: Object.freeze({ roles: Object.freeze(["STUDENT"] as const), maxInputBytes: 8 * MIB, profile: PROOF_PROFILE }),
+  // Admin boleh melampirkan saat mencatat izin atas nama siswa (POST /school/leave-requests).
+  LEAVE_ATTACHMENT: Object.freeze({
+    roles: Object.freeze(["STUDENT", "SCHOOL_ADMIN", "SUPER_ADMIN"] as const),
+    maxInputBytes: 8 * MIB,
+    profile: PROOF_PROFILE,
+  }),
   PAYMENT_PROOF: Object.freeze({ roles: Object.freeze(["STUDENT"] as const), maxInputBytes: 8 * MIB, profile: PROOF_PROFILE }),
   TOPUP_PROOF: Object.freeze({ roles: Object.freeze(["SPONSOR"] as const), maxInputBytes: 8 * MIB, profile: PROOF_PROFILE }),
   AD_BANNER: Object.freeze({ roles: Object.freeze(["SPONSOR"] as const), maxInputBytes: 5 * MIB, profile: BANNER_PROFILE }),

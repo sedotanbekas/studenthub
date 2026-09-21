@@ -106,10 +106,13 @@ async function streamStored(fileId: string, storageKey: string): Promise<{ body:
 export async function openFileForViewer(fileId: string, viewer: FileViewer): Promise<FileDownload> {
   const file = await prisma.storedFile.findFirst({
     where: { id: fileId },
-    select: { id: true, kind: true, storageKey: true, mimeType: true, schoolId: true, sponsorId: true, uploadedById: true, deletedAt: true },
+    select: {
+      id: true, kind: true, storageKey: true, mimeType: true, schoolId: true, sponsorId: true, uploadedById: true, deletedAt: true,
+      leaveRequest: { select: { student: { select: { userId: true } } } },
+    },
   });
   if (!file) throw notFound();
-  const access = canReadFile(viewer, file);
+  const access = canReadFile(viewer, { ...file, subjectUserId: file.leaveRequest?.student.userId ?? null });
   if (access === "DENY") throw notFound();
   if (access === "GONE") throw gone("FILE_PURGED", "Berkas sudah dihapus sesuai kebijakan retensi.");
   const { body, size } = await streamStored(file.id, file.storageKey);

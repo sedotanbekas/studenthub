@@ -1,5 +1,6 @@
 import type { AnyContract } from "@/lib/http/contract";
 import { platformContracts } from "@/lib/platform/contracts";
+import { filesContracts } from "@/lib/platform/files-contracts";
 import { authContracts } from "@/lib/auth/contracts";
 import { schoolsContracts } from "@/lib/schools/contracts";
 import { usersContracts } from "@/lib/users/contracts";
@@ -18,6 +19,7 @@ import { adsContracts } from "@/lib/ads/contracts";
 /** Semua kontrak route /api/v1. Setiap domain WAJIB terdaftar di sini (dicek guard test). */
 export const ALL_CONTRACTS: readonly AnyContract[] = [
   ...platformContracts,
+  ...filesContracts,
   ...authContracts,
   ...schoolsContracts,
   ...usersContracts,

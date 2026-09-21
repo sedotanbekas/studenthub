@@ -7,6 +7,7 @@
 import type { Tx } from "../../src/lib/db";
 import { toDbDate } from "../../src/lib/time/zone";
 import { withTx } from "../../src/lib/tx";
+import { ensureDemoAttendance } from "./demo-attendance";
 import {
   DEMO_ACADEMIC_YEAR,
   DEMO_ACTIVATED_AT,
@@ -215,6 +216,7 @@ export async function seedDemoSchool(spec: DemoSchoolSpec, options: DemoSeedOpti
     await ensureClassSubjects(tx, [...classIds.values()], subjectIds);
     await ensureSchoolAdmin(tx, schoolId, spec, options);
     for (const student of spec.students) await ensureStudent(tx, schoolId, classIds, student, options);
+    await ensureDemoAttendance(tx, schoolId, spec.students.map((s) => s.nisn), new Date());
     return summarizeSchool(tx, spec, schoolId, academicYearId);
   });
 }

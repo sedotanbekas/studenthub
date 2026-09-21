@@ -85,3 +85,11 @@ test("GONE tidak pernah dibocorkan ke penonton yang DENY", () => {
   assert.equal(canReadFile(viewer("SCHOOL_ADMIN", { schoolId: "school-b" }), file("ATTENDANCE_SELFIE", { deletedAt: PURGED })), "DENY");
   assert.equal(canReadFile(viewer("SCHOOL_ADMIN"), file("ATTENDANCE_SELFIE", { deletedAt: PURGED })), "GONE");
 });
+
+test("lampiran izin yang dicatat admin: siswa pemilik izin ALLOW, siswa lain DENY", () => {
+  const onBehalf = file("LEAVE_ATTACHMENT", { uploadedById: "admin-a", subjectUserId: "student-user" });
+  assert.equal(canReadFile(viewer("STUDENT", { userId: "student-user" }), onBehalf), "ALLOW");
+  assert.equal(canReadFile(viewer("STUDENT", { userId: "student-user" }), { ...onBehalf, deletedAt: PURGED }), "GONE");
+  assert.equal(canReadFile(viewer("STUDENT", { userId: "student-lain" }), onBehalf), "DENY");
+  assert.equal(canReadFile(viewer("STUDENT", { userId: "student-lain" }), { ...onBehalf, subjectUserId: null }), "DENY");
+});
