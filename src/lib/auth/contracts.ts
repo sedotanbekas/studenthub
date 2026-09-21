@@ -94,11 +94,13 @@ export const changePasswordContract = defineContract({
   description: [
     "Kebijakan: minimal 8 karakter, maks 72 byte, huruf + angka, tidak memuat NISN/NIS/email/tanggal lahir, bukan kata sandi umum.",
     "Sesi saat ini tetap berlaku; semua sesi lain dicabut. 5 kali kata sandi lama salah -> 429 `RATE_LIMITED`.",
+    "Bila kata sandi diubah/direset di tempat lain saat permintaan berjalan: sesi ikut dicabut -> 401 `SESSION_INVALID`,",
+    "atau 409 `PASSWORD_CHANGED_CONCURRENTLY` (muat ulang lalu coba lagi).",
   ].join(" "),
   action: "auth.self",
   body: changePasswordBodySchema,
   response: changePasswordResultSchema,
-  errors: ["CURRENT_PASSWORD_INVALID", "PASSWORD_POLICY", "PASSWORD_REUSED", "RATE_LIMITED"],
+  errors: ["CURRENT_PASSWORD_INVALID", "PASSWORD_POLICY", "PASSWORD_REUSED", "PASSWORD_CHANGED_CONCURRENTLY", "RATE_LIMITED"],
 });
 
 export const listMySessionsContract = defineContract({

@@ -52,7 +52,7 @@ const BY_ID: readonly ByIdCall[] = [
   { name: "GET detail", handler: getOne, method: "GET", suffix: "" },
   { name: "PATCH", handler: patchOne, method: "PATCH", suffix: "", json: { address: "Jl. Diretas No. 1, Kota" } },
   { name: "DELETE", handler: deleteOne, method: "DELETE", suffix: "" },
-  { name: "activate", handler: activate, method: "POST", suffix: "/activate" },
+  { name: "activate", handler: activate, method: "POST", suffix: "/activate", json: {} },
   { name: "status", handler: changeStatus, method: "POST", suffix: "/status", json: { to: "INACTIVE", reason: "uji IDOR" } },
   { name: "reset-password", handler: resetPassword, method: "POST", suffix: "/reset-password" },
 ];
@@ -99,6 +99,26 @@ describe("IDOR dua sekolah", () => {
     });
     assert.equal(moved.status, 404);
     assert.equal(moved.body?.error?.code, "CLASS_NOT_FOUND");
+  });
+
+  test("id kelas tak dikenal (hingga 191 karakter) -> 404 CLASS_NOT_FOUND, bukan 500, tanpa baris AppLock baru", async () => {
+    const own = await createStudent(a.school.id, { classId: a.klass.id });
+    for (const classId of ["k".repeat(191), `tak-ada-${Date.now()}`]) {
+      const patch = await callRoute(patchOne, {
+        method: "PATCH", url: studentUrl(`/${own.student.id}`), params: { id: own.student.id }, bearer: a.adminToken, json: { currentClassId: classId },
+      });
+      assert.equal(patch.status, 404, JSON.stringify(patch.body));
+      assert.equal(patch.body?.error?.code, "CLASS_NOT_FOUND");
+      const created = await callRoute(create, { method: "POST", url: studentUrl(""), bearer: a.adminToken, json: completeStudentBody(classId) });
+      assert.equal(created.status, 404, JSON.stringify(created.body));
+      assert.equal(await prisma.appLock.count({ where: { key: `class:${classId}` } }), 0);
+    }
+    const bogusSchool = "s".repeat(191);
+    const bySuper = await callRoute(patchOne, {
+      method: "PATCH", url: studentUrl(`/${own.student.id}`, bogusSchool), params: { id: own.student.id }, bearer: superToken, json: { nisn: "0099887766" },
+    });
+    assert.equal(bySuper.status, 404, JSON.stringify(bySuper.body));
+    assert.equal(await prisma.appLock.count({ where: { key: { startsWith: "nisn-release:sss" } } }), 0);
   });
 
   test("impor dengan nama kelas sekolah B tidak cocok (kelas hanya dari sekolah sendiri)", async () => {

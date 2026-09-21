@@ -4,7 +4,9 @@ import type { Tx } from "@/lib/db";
 import { notFound } from "@/lib/http/errors";
 import { resolveSchoolScope, type SchoolScope } from "@/lib/tenant/scope";
 import type { SchoolTz } from "@/lib/time/zone";
+import { lockKey } from "@/lib/tx";
 import type { ActivationClass } from "./activation-rules";
+import { studentLockKeys, type StudentWriteLocks } from "./lock-plan";
 
 /**
  * Akses baris domain siswa yang SELALU melalui SchoolScope: lookup by id = findFirst({ id, schoolId }),
@@ -87,4 +89,19 @@ export async function findStudentRow(db: Tx, scope: SchoolScope, id: string): Pr
 export async function lockStudentRow(tx: Tx, scope: SchoolScope, id: string): Promise<void> {
   const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT \`id\` FROM \`Student\` WHERE \`id\` = ${id} AND \`schoolId\` = ${scope.schoolId} FOR UPDATE`;
   if (rows.length === 0) throw notFound("Siswa tidak ditemukan.");
+}
+
+/** Kunci aplikasi mutasi siswa (kelas lalu kuota pelepasan NISN); WAJIB dipanggil PALING AWAL. */
+export async function lockForStudentWrite(tx: Tx, locks: StudentWriteLocks): Promise<void> {
+  for (const key of studentLockKeys(locks)) await lockKey(tx, key);
+}
+
+/**
+ * currentClassId siswa dibaca SEBELUM transaksi untuk menentukan kunci kelas (kunci diambil sebelum
+ * baca apa pun di transaksi). Di dalam transaksi nilainya dicek ulang; berbeda -> 409 STUDENT_STATE_CHANGED.
+ */
+export async function readClassHint(db: Tx, scope: SchoolScope, id: string): Promise<string | null> {
+  const row = await db.student.findFirst({ where: { id, schoolId: scope.schoolId }, select: { currentClassId: true } });
+  if (!row) throw notFound("Siswa tidak ditemukan.");
+  return row.currentClassId;
 }

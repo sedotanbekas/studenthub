@@ -7,6 +7,9 @@
  * - Saat hitungan mencapai `limit` di dalam jendela, key dikunci sampai `now + (lockMs ?? sisa jendela)`.
  *   Bila kunci berakhir sementara jendela masih aktif, hitungan tidak direset: percobaan berikutnya
  *   langsung mengunci lagi (tidak melemahkan batas per jendela).
+ * - `release(key)` mengembalikan satu percobaan yang sudah dihitung (mis. pekerjaan batal/gagal validasi):
+ *   hitungan dikurangi 1 (tidak pernah negatif); entri dihapus bila mencapai 0 dan tidak terkunci.
+ *   Kunci aktif TIDAK PERNAH dibuka atau diperpendek. Key tak dikenal/kedaluwarsa = no-op.
  * - Batas memori: map tidak pernah melampaui `maxKeys`. Saat penuh, entri yang jendela DAN kuncinya
  *   sudah berakhir disapu; key yang sedang terkunci tidak pernah dibuang. Bila masih penuh, key BARU
  *   gagal-tertutup (diblokir 60 detik) — lebih aman daripada membuang kunci aktif.
@@ -27,6 +30,8 @@ export type RateLimiter = {
   check(key: string): RateLimitDecision;
   hit(key: string): void;
   recordFailure(key: string): void;
+  /** Mengembalikan satu percobaan yang sudah dihitung; kunci aktif tetap berlaku. */
+  release(key: string): void;
   reset(key: string): void;
   /** Mengosongkan seluruh key (untuk test). */
   clear(): void;
@@ -146,10 +151,20 @@ export function createRateLimiter(config: RateLimitConfig, clock: () => number =
     if (next !== null) store.set(key, next);
   }
 
+  function release(key: string): void {
+    const now = clock();
+    const entry = store.get(key);
+    if (entry === undefined || expiryOf(entry) <= now) return;
+    const count = Math.max(0, entry.count - 1);
+    if (count === 0 && !isLocked(entry, now)) store.delete(key);
+    else store.set(key, { ...entry, count });
+  }
+
   return {
     check,
     hit,
     recordFailure: hit,
+    release,
     reset: (key: string): void => store.delete(key),
     clear: (): void => store.clear(),
     size: (): number => store.size(),

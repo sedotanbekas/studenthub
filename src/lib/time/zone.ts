@@ -79,12 +79,17 @@ export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
-/** "2026-09" -> { from: "2026-09-01", to: "2026-09-30" }; null bila format salah. */
+/** Rentang tahun yang diterima monthRange (tahun < 1900 menghasilkan tanggal tak valid -> dulu 500). */
+export const MONTH_RANGE_MIN_YEAR = 1900;
+export const MONTH_RANGE_MAX_YEAR = 9999;
+
+/** "2026-09" -> { from: "2026-09-01", to: "2026-09-30" }; null bila format salah atau tahun di luar 1900..9999. */
 export function monthRange(value: string): { from: LocalDate; to: LocalDate } | null {
   const match = MONTH_PATTERN.exec(value);
   if (!match) return null;
   const year = Number(match[1]);
   const month = Number(match[2]);
+  if (year < MONTH_RANGE_MIN_YEAR || year > MONTH_RANGE_MAX_YEAR) return null;
   if (month < 1 || month > 12) return null;
   const mm = String(month).padStart(2, "0");
   return { from: `${year}-${mm}-01`, to: `${year}-${mm}-${String(daysInMonth(year, month)).padStart(2, "0")}` };

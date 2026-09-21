@@ -77,6 +77,15 @@ const sppAmountInput = z
   .union([z.int().min(0).max(SPP_AMOUNT_MAX, `SPP maksimal ${SPP_AMOUNT_MAX}.`), z.null()])
   .meta({ description: "Tarif SPP per bulan (rupiah). null = tarif default, 0 = bebas SPP." });
 
+/** Opt-in eksplisit pelepasan NISN milik siswa LULUS di sekolah lain (default false -> 409 NISN_HELD_BY_GRADUATE). */
+const confirmReleaseInput = z
+  .boolean()
+  .default(false)
+  .meta({
+    description:
+      "true = setuju melepas NISN yang masih tercatat pada siswa LULUS di sekolah lain (akun lama tidak dapat login; tercatat di audit & dilaporkan ke super admin; kuota 20/hari untuk admin sekolah). false (default) -> 409 NISN_HELD_BY_GRADUATE.",
+  });
+
 const studentFields = {
   birthPlace: optionalText(BIRTH_PLACE_MAX, "Tempat lahir").optional(),
   birthDate: birthDateInput.optional(),
@@ -95,6 +104,7 @@ export const createStudentBody = z
     gender: genderInput,
     ...studentFields,
     activate: z.boolean().default(true).meta({ description: "true (default) = langsung aktif; false = simpan DRAFT." }),
+    confirmReleaseGraduatedNisn: confirmReleaseInput,
   })
   .meta({ id: "CreateStudentInput" });
 export type CreateStudentInput = z.output<typeof createStudentBody>;
@@ -121,6 +131,7 @@ export const changeStatusBody = z
       .transform((v) => collapseText(v) ?? "")
       .pipe(z.string().min(STATUS_REASON_MIN, `Alasan minimal ${STATUS_REASON_MIN} karakter.`).max(STATUS_REASON_MAX))
       .optional(),
+    confirmReleaseGraduatedNisn: confirmReleaseInput.meta({ description: "Hanya berlaku untuk to=ACTIVE. Lihat ActivateStudentInput." }),
   })
   .superRefine((v, ctx) => {
     if (v.to !== "ACTIVE" && v.reason === undefined) {
@@ -129,6 +140,11 @@ export const changeStatusBody = z
   })
   .meta({ id: "ChangeStudentStatusInput" });
 export type ChangeStatusInput = z.output<typeof changeStatusBody>;
+
+export const activateStudentBody = z
+  .strictObject({ confirmReleaseGraduatedNisn: confirmReleaseInput })
+  .meta({ id: "ActivateStudentInput", description: "Body boleh {} (Content-Type application/json wajib)." });
+export type ActivateStudentInput = z.output<typeof activateStudentBody>;
 
 // ----------------------------------------------------------------------------- query daftar
 

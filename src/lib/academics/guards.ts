@@ -3,6 +3,7 @@ import { requirePrincipal, type ActionContext } from "@/lib/auth/principal";
 import type { Tx } from "@/lib/db";
 import { conflict, notFound, unprocessable } from "@/lib/http/errors";
 import type { RuleViolation } from "@/lib/calendar/ranges";
+import { subjectsLockKey } from "@/lib/lock-keys";
 import { resolveSchoolScope, type SchoolScope } from "@/lib/tenant/scope";
 import { localParts, type LocalDate } from "@/lib/time/zone";
 import { lockKey } from "@/lib/tx";
@@ -44,5 +45,15 @@ export const academicLockKey = (schoolId: string): string => `academic:${schoolI
 /** Ambil kunci `academic:<schoolId>` (AppLock, urutan kunci global pertama) lalu baca sekolahnya. */
 export async function lockAcademicScope(tx: Tx, scope: SchoolScope): Promise<ScopedSchool> {
   await lockKey(tx, academicLockKey(scope.schoolId));
+  return requireSchool(tx, scope);
+}
+
+/**
+ * Ambil kunci master mapel `subjects:<schoolId>` PALING AWAL (sebelum membaca apa pun) lalu baca
+ * sekolahnya. Dipakai semua mutasi mapel & pemetaan kelas-mapel agar cek "mapel aktif" (PUT pemetaan)
+ * dan cek "mapel masih dipetakan" (nonaktif/hapus mapel) saling menyerialkan.
+ */
+export async function lockSubjectsScope(tx: Tx, scope: SchoolScope): Promise<ScopedSchool> {
+  await lockKey(tx, subjectsLockKey(scope.schoolId));
   return requireSchool(tx, scope);
 }

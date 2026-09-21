@@ -13,6 +13,10 @@ export const importStudentsBody = z
     file: z.file().meta({ description: "Berkas XLSX (sheet pertama) atau CSV UTF-8 (pemisah , atau ;), maks 2 MiB & 1.000 baris." }),
     dryRun: flag("true", "true (default) = hanya validasi & laporan; false = simpan (all-or-nothing)."),
     activate: flag("true", "true (default) = siswa langsung AKTIF (semua data wajib); false = DRAFT."),
+    confirmReleaseGraduatedNisn: flag(
+      "false",
+      "true = setuju melepas NISN yang masih tercatat pada siswa LULUS di sekolah lain (kuota 20/hari untuk admin sekolah). false (default): dry-run memberi peringatan, commit -> 409 NISN_HELD_BY_GRADUATE.",
+    ),
   })
   .meta({ id: "ImportStudentsInput" });
 export type ImportStudentsInput = z.output<typeof importStudentsBody>;

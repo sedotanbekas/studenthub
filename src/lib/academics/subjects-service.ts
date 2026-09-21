@@ -1,20 +1,21 @@
+import type { Prisma } from "@prisma/client";
 import type { ActionContext } from "@/lib/auth/principal";
 import { writeAudit } from "@/lib/audit";
 import type { Tx } from "@/lib/db";
 import { conflict, notFound } from "@/lib/http/errors";
 import type { SchoolScope } from "@/lib/tenant/scope";
-import { lockKey, withTx } from "@/lib/tx";
+import { withTx } from "@/lib/tx";
 import { SUBJECT_SELECT, toSubjectDto } from "./dto";
-import { requireSchool, type ScopedSchool } from "./guards";
+import { lockSubjectsScope, type ScopedSchool } from "./guards";
 import { normalizeName } from "./rules";
 import type { CreateSubjectInput, SubjectDto, UpdateSubjectInput } from "./schemas";
 
 /**
  * Mutasi mapel. Kode unik per sekolah (409 SUBJECT_CODE_TAKEN) dan tidak bisa diubah setelah
  * dipakai nilai rapor; nonaktif ditolak selama terpetakan ke kelas aktif tahun ajaran aktif.
+ * Setiap mutasi mengambil kunci `subjects:<schoolId>` PALING AWAL (lockSubjectsScope), baru membaca
+ * baris terbaru; UPDATE hanya menulis field yang dikirim; audit before/after dari baris terbaru.
  */
-const subjectLockKey = (schoolId: string): string => `subjects:${schoolId}`;
-
 async function findSubject(tx: Tx, scope: SchoolScope, id: string): Promise<SubjectDto> {
   const row = await tx.subject.findFirst({ where: { id, schoolId: scope.schoolId }, select: SUBJECT_SELECT });
   if (!row) throw notFound("Mapel tidak ditemukan.");
@@ -31,8 +32,7 @@ async function assertCodeFree(tx: Tx, schoolId: string, code: string, excludeId:
 
 export async function createSubject(scope: SchoolScope, input: CreateSubjectInput, ctx: ActionContext): Promise<SubjectDto> {
   return withTx(async (tx) => {
-    await requireSchool(tx, scope);
-    await lockKey(tx, subjectLockKey(scope.schoolId));
+    await lockSubjectsScope(tx, scope);
     await assertCodeFree(tx, scope.schoolId, input.code, null);
     const row = await tx.subject.create({
       data: { schoolId: scope.schoolId, code: input.code, name: normalizeName(input.name), kkm: input.kkm, sortOrder: input.sortOrder ?? 0 },
@@ -63,28 +63,27 @@ async function assertCanDeactivate(tx: Tx, school: ScopedSchool, subjectId: stri
   }
 }
 
+/** Data UPDATE hanya dari field yang dikirim; kolom lain tidak ditulis ulang. */
+function subjectPatchData(patch: UpdateSubjectInput): Prisma.SubjectUpdateInput {
+  return {
+    ...(patch.code === undefined ? {} : { code: patch.code }),
+    ...(patch.name === undefined ? {} : { name: normalizeName(patch.name) }),
+    ...(patch.kkm === undefined ? {} : { kkm: patch.kkm }),
+    ...(patch.sortOrder === undefined ? {} : { sortOrder: patch.sortOrder }),
+    ...(patch.isActive === undefined ? {} : { isActive: patch.isActive }),
+  };
+}
+
 export async function updateSubject(scope: SchoolScope, id: string, patch: UpdateSubjectInput, ctx: ActionContext): Promise<SubjectDto> {
   return withTx(async (tx) => {
-    const school = await requireSchool(tx, scope);
-    await lockKey(tx, subjectLockKey(scope.schoolId));
+    const school = await lockSubjectsScope(tx, scope);
     const current = await findSubject(tx, scope, id);
-    const code = patch.code ?? current.code;
-    if (code !== current.code) {
+    if (patch.code !== undefined && patch.code !== current.code) {
       await assertCodeChangeAllowed(tx, id);
-      await assertCodeFree(tx, scope.schoolId, code, id);
+      await assertCodeFree(tx, scope.schoolId, patch.code, id);
     }
     if (patch.isActive === false && current.isActive) await assertCanDeactivate(tx, school, id);
-    const row = await tx.subject.update({
-      where: { id },
-      data: {
-        code,
-        name: patch.name === undefined ? current.name : normalizeName(patch.name),
-        kkm: patch.kkm ?? current.kkm,
-        sortOrder: patch.sortOrder ?? current.sortOrder,
-        isActive: patch.isActive ?? current.isActive,
-      },
-      select: SUBJECT_SELECT,
-    });
+    const row = await tx.subject.update({ where: { id }, data: subjectPatchData(patch), select: SUBJECT_SELECT });
     const dto = toSubjectDto(row);
     await writeAudit(tx, { action: "subject.update", entityType: "Subject", entityId: id, schoolId: scope.schoolId, before: current, after: dto }, ctx);
     return dto;
@@ -93,7 +92,7 @@ export async function updateSubject(scope: SchoolScope, id: string, patch: Updat
 
 export async function deleteSubject(scope: SchoolScope, id: string, ctx: ActionContext): Promise<{ id: string }> {
   return withTx(async (tx) => {
-    await requireSchool(tx, scope);
+    await lockSubjectsScope(tx, scope);
     const current = await findSubject(tx, scope, id);
     const [grades, mappings] = [
       await tx.reportCardGrade.count({ where: { subjectId: id } }),

@@ -2,31 +2,45 @@ import { onCalendarChanged } from "@/lib/attendance/calendar-sync";
 import { writeAudit } from "@/lib/audit";
 import type { ActionContext } from "@/lib/auth/principal";
 import type { Tx } from "@/lib/db";
+import { holidaysLockKey } from "@/lib/lock-keys";
 import { fromDbDate, toDbDate } from "@/lib/time/zone";
 import { lockKey, withTx } from "@/lib/tx";
 import { HOLIDAY_SELECT, toHolidayDto } from "./dto";
-import { holidayLockKey } from "./holiday-service";
-import { planNationalHolidayImport, type NationalHolidayEntry } from "./national-import";
+import {
+  importYearsOf,
+  planNationalHolidayImport,
+  type ExistingNationalHoliday,
+  type NationalHolidayEntry,
+  type NationalImportOptions,
+  type SkippedImportYear,
+} from "./national-import";
 
 /**
- * Upsert idempoten libur nasional (schoolId NULL) dari berkas SKB: cocok berdasarkan
- * nama + tanggal mulai; hanya endDate yang diperbarui. Satu transaksi, audit per baris,
- * onCalendarChanged untuk setiap baris baru/berubah.
+ * Impor libur nasional (schoolId NULL) dari berkas SKB dalam satu transaksi di bawah kunci
+ * `holidays:national` (sama dengan CRUD /platform/holidays), audit per baris, onCalendarChanged untuk
+ * setiap baris baru/berubah.
+ * Default: tahun yang SUDAH punya libur nasional dilewati seluruhnya (hasil edit/hapus super admin
+ * tidak dihidupkan lagi); tahun kosong dibuat semua. `force`: cocok nama + tanggal mulai, hanya endDate
+ * yang diperbarui (perilaku lama).
  */
 export interface NationalImportResult {
   readonly created: number;
   readonly updated: number;
   readonly unchanged: number;
+  readonly skippedYears: readonly SkippedImportYear[];
 }
 
 const IMPORT_TX_TIMEOUT_MS = 60_000;
 const MAX_EXISTING_SCANNED = 5_000;
 
-async function loadExisting(tx: Tx, entries: readonly NationalHolidayEntry[]) {
-  const starts = entries.map((e) => e.startDate).sort();
+/** Semua libur nasional pada tahun-tahun yang dicakup entri (penentu tahun terisi & pasangan --force). */
+async function loadExisting(tx: Tx, entries: readonly NationalHolidayEntry[]): Promise<ExistingNationalHoliday[]> {
+  const years = importYearsOf(entries);
+  if (years.length === 0) return [];
   const rows = await tx.holiday.findMany({
-    where: { schoolId: null, startDate: { gte: toDbDate(starts[0] ?? "2000-01-01"), lte: toDbDate(starts.at(-1) ?? "2000-01-01") } },
+    where: { schoolId: null, OR: years.map((y) => ({ startDate: { gte: toDbDate(`${y}-01-01`), lte: toDbDate(`${y}-12-31`) } })) },
     select: HOLIDAY_SELECT,
+    orderBy: { startDate: "asc" },
     take: MAX_EXISTING_SCANNED,
   });
   return rows.map((row) => ({ id: row.id, name: row.name, startDate: fromDbDate(row.startDate), endDate: fromDbDate(row.endDate) }));
@@ -53,14 +67,18 @@ async function updateEntry(tx: Tx, id: string, entry: NationalHolidayEntry, befo
   await onCalendarChanged(tx, { schoolId: null, from: entry.startDate, to, kind: "CHANGED" }, ctx);
 }
 
-export async function importNationalHolidays(entries: readonly NationalHolidayEntry[], ctx: ActionContext): Promise<NationalImportResult> {
+export async function importNationalHolidays(
+  entries: readonly NationalHolidayEntry[],
+  ctx: ActionContext,
+  options: NationalImportOptions = {},
+): Promise<NationalImportResult> {
   return withTx(
     async (tx) => {
-      await lockKey(tx, holidayLockKey(null));
-      const plan = planNationalHolidayImport(entries, await loadExisting(tx, entries));
+      await lockKey(tx, holidaysLockKey(null));
+      const plan = planNationalHolidayImport(entries, await loadExisting(tx, entries), options);
       for (const entry of plan.create) await createEntry(tx, entry, ctx);
       for (const item of plan.update) await updateEntry(tx, item.id, item.entry, item.beforeEndDate, ctx);
-      return { created: plan.create.length, updated: plan.update.length, unchanged: plan.unchanged };
+      return { created: plan.create.length, updated: plan.update.length, unchanged: plan.unchanged, skippedYears: plan.skippedYears };
     },
     { timeout: IMPORT_TX_TIMEOUT_MS },
   );

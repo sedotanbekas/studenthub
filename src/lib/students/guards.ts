@@ -11,6 +11,11 @@ import { uniqueIndexOf } from "./unique-error";
 export const NISN_IN_SCHOOL_MESSAGE = "NISN sudah terdaftar di sekolah ini.";
 export const NIS_IN_SCHOOL_MESSAGE = "NIS sudah dipakai siswa lain di sekolah ini.";
 
+/** Baris siswa berubah di antara baca & tulis (compare-and-set gagal / kelas berubah). */
+export function studentStateChanged(): AppError {
+  return conflict("STUDENT_STATE_CHANGED", "Data siswa berubah bersamaan. Silakan muat ulang.");
+}
+
 export function activationIncomplete(gaps: readonly ActivationGap[]): AppError {
   return unprocessable("ACTIVATION_INCOMPLETE", "Data wajib aktivasi belum lengkap.", { gaps });
 }

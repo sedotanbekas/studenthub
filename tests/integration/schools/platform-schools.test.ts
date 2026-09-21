@@ -151,6 +151,31 @@ describe("GET /platform/schools & /platform/schools/{id}", () => {
     assert.equal(inactive.body?.data.length, 0);
   });
 
+  test("q dengan % dan _ dicari harfiah pada nama dan awalan NPSN", async () => {
+    const marker = uniq("like");
+    const npsn = uniqNpsn();
+    const [percent, , underscore, , byNpsn] = await Promise.all([
+      createSchool({ data: { name: `SMA ${marker} 100%` } }),
+      createSchool({ data: { name: `SMA ${marker} 1000` } }),
+      createSchool({ data: { name: `SMA ${marker} A_B` } }),
+      createSchool({ data: { name: `SMA ${marker} AXB` } }),
+      createSchool({ data: { name: `SMA ${uniq("npsn")}`, npsn } }),
+    ]);
+    const search = async (q: string): Promise<string[]> => {
+      const res = await callRoute<Envelope<Array<{ id: string }>>>(listSchools, {
+        method: "GET",
+        url: `/api/v1/platform/schools?q=${encodeURIComponent(q)}&limit=100`,
+        bearer: fx.sa.token,
+      });
+      assert.equal(res.status, 200, q);
+      return (res.body?.data ?? []).map((row) => row.id);
+    };
+    assert.deepEqual(await search(`${marker} 100%`), [percent.id]);
+    assert.deepEqual(await search(`${marker} A_B`), [underscore.id]);
+    assert.deepEqual(await search(npsn.slice(0, 7)), [byNpsn.id], "awalan NPSN biasa tetap cocok");
+    assert.deepEqual(await search(`${npsn.slice(0, 7)}_`), [], "_ bukan wildcard satu karakter");
+  });
+
   test("query tidak valid -> 400", async () => {
     for (const qs of ["limit=101", "isActive=ya", "provinceCode=3"]) {
       const res = await callRoute(listSchools, { method: "GET", url: `/api/v1/platform/schools?${qs}`, bearer: fx.sa.token });

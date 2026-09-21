@@ -5,6 +5,7 @@ import { requirePrincipal, type ActionContext } from "@/lib/auth/principal";
 import { revokeAllSessions } from "@/lib/auth/sessions";
 import { prisma, type Tx } from "@/lib/db";
 import { conflict, notFound } from "@/lib/http/errors";
+import { superAdminsLockKey, userLockKey } from "@/lib/lock-keys";
 import { lockKey, withTx } from "@/lib/tx";
 import { getUserDto, USER_NOT_FOUND_MESSAGE } from "./queries";
 import {
@@ -18,9 +19,11 @@ import {
 } from "./rules";
 import type { CreateUserInput, PlatformUserDto, UpdateUserInput } from "./schemas";
 
-/** Mutex aplikasi untuk cek "super admin aktif terakhir" (lihat urutan kunci di src/lib/tx.ts). */
-export const SUPER_ADMIN_LOCK_KEY = "super-admins";
-
+/**
+ * Kunci aplikasi (src/lib/lock-keys.ts): mutasi yang menyentuh kredensial/sesi/status akun mengambil
+ * `userLockKey` PALING AWAL (sama dengan login & ganti kata sandi) agar login yang sedang membuat sesi
+ * selesai dulu lalu ikut dicabut; penonaktifan mengambil `superAdminsLockKey` lebih dulu (kasar -> halus).
+ */
 type TargetRow = { id: string; role: UserRole; isActive: boolean; email: string | null; name: string; schoolId: string | null };
 
 async function loadTarget(db: Tx, userId: string): Promise<TargetRow> {
@@ -96,12 +99,13 @@ export async function updateUser(userId: string, patch: UpdateUserInput, ctx: Ac
 type DeactivateResult = { id: string; isActive: boolean; revokedSessions: number };
 
 /**
- * Isi transaksi penonaktifan. Kunci 'super-admins' diambil PERTAMA (sebelum baca apa pun) agar
- * hitungan super admin aktif selalu segar di bawah REPEATABLE READ (snapshot dibuat saat baca pertama).
+ * Isi transaksi penonaktifan. Kunci 'super-admins' lalu kunci user diambil PERTAMA (sebelum baca apa pun)
+ * agar hitungan super admin aktif selalu segar dan login yang sedang berjalan selesai sebelum sesi dicabut.
  */
 export async function deactivateUserTx(tx: Tx, userId: string, reason: string, ctx: ActionContext): Promise<DeactivateResult> {
   const actor = requirePrincipal(ctx);
-  await lockKey(tx, SUPER_ADMIN_LOCK_KEY);
+  await lockKey(tx, superAdminsLockKey());
+  await lockKey(tx, userLockKey(userId));
   const target = await loadTarget(tx, userId);
   assertStatusTarget(actor.userId, target);
   if (target.role === "SUPER_ADMIN") {
@@ -142,6 +146,7 @@ export async function activateUser(userId: string, ctx: ActionContext): Promise<
 export async function revokeUserSessions(userId: string, ctx: ActionContext): Promise<{ revokedCount: number }> {
   const actor = requirePrincipal(ctx);
   return withTx(async (tx) => {
+    await lockKey(tx, userLockKey(userId));
     const target = await loadTarget(tx, userId);
     assertSessionTarget(actor.userId, target);
     const revokedCount = await revokeAllSessions(tx, userId, "ADMIN_REVOKED", ctx.now);
@@ -165,6 +170,8 @@ export async function resetUserPassword(
   const plan = planCredential(newPassword, { email: target.email }, ctx.now);
   const passwordHash = await hashPassword(plan.plain, plan.cost);
   await withTx(async (tx) => {
+    // Kunci user PERTAMA: ganti kata sandi/login yang sedang berjalan selesai dulu, lalu tertimpa & dicabut.
+    await lockKey(tx, userLockKey(userId));
     await tx.user.update({
       where: { id: userId },
       data: { passwordHash, mustChangePassword: true, passwordChangedAt: ctx.now, tempPasswordExpiresAt: plan.tempPasswordExpiresAt },

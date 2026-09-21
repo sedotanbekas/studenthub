@@ -1,10 +1,10 @@
 import { Prisma } from "@prisma/client";
 import type { ActionContext } from "@/lib/auth/principal";
 import type { Tx } from "@/lib/db";
-import { conflict } from "@/lib/http/errors";
+import { conflict, unprocessable } from "@/lib/http/errors";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import type { StudentStatusValue } from "../constants";
-import { releaseHolder, type HolderRow, type ReleasedHolder } from "../nisn-claim";
+import { releaseGraduates, type LockedHolder, type ReleasePolicy, type ReleasedHolder } from "../nisn-claim";
 import type { SchoolContext } from "../records";
 import type { ImportClass, ImportLookups } from "./validate-rows";
 
@@ -39,18 +39,31 @@ export async function loadImportLookups(db: Tx, scope: SchoolScope, keys: { nisn
 }
 
 /**
- * Di DALAM transaksi commit: kunci pemegang activeNisn (id naik, FOR UPDATE). Pemegang AKTIF/NONAKTIF
- * (data berubah sejak validasi) -> 409 IMPORT_CONFLICT; pemegang LULUS dilepas.
+ * Di DALAM transaksi commit (setelah kunci aplikasi): kelas tujuan dibaca ULANG di bawah kunci
+ * class:<id>; kelas yang kini nonaktif / hilang -> 422 CLASS_INACTIVE (tidak ada yang ditulis).
  */
-export async function lockAndReleaseHolders(tx: Tx, nisns: readonly string[], ctx: ActionContext): Promise<ReleasedHolder[]> {
+export async function assertClassesStillActive(tx: Tx, scope: SchoolScope, classes: ReadonlyMap<string, string>): Promise<void> {
+  if (classes.size === 0) return;
+  const rows = await tx.schoolClass.findMany({ where: { id: { in: [...classes.keys()] }, schoolId: scope.schoolId, isActive: true }, select: { id: true } });
+  const active = new Set(rows.map((row) => row.id));
+  const inactive = [...classes].filter(([id]) => !active.has(id)).map(([, name]) => name);
+  if (inactive.length > 0) {
+    throw unprocessable("CLASS_INACTIVE", `Kelas sudah dinonaktifkan: ${inactive.join(", ")}. Ulangi validasi.`, { classNames: inactive });
+  }
+}
+
+/**
+ * Di DALAM transaksi commit: kunci pemegang activeNisn (id naik, FOR UPDATE) dalam SATU query.
+ * Pemegang AKTIF/NONAKTIF (data berubah sejak validasi) -> 409 IMPORT_CONFLICT; pemegang LULUS dilepas
+ * sekaligus (opt-in + kuota diperiksa releaseGraduates).
+ */
+export async function lockAndReleaseHolders(tx: Tx, nisns: readonly string[], ctx: ActionContext, policy: ReleasePolicy): Promise<ReleasedHolder[]> {
   if (nisns.length === 0) return [];
-  const holders = await tx.$queryRaw<Array<HolderRow & { activeNisn: string }>>`
+  const holders = await tx.$queryRaw<LockedHolder[]>`
     SELECT \`id\`, \`status\`, \`schoolId\`, \`userId\`, \`activeNisn\` FROM \`Student\`
     WHERE \`activeNisn\` IN (${Prisma.join([...nisns])}) ORDER BY \`id\` FOR UPDATE`;
   if (holders.some((holder) => holder.status !== "GRADUATED")) {
     throw conflict("IMPORT_CONFLICT", "Data berubah sejak validasi (NISN kini aktif di sekolah lain). Ulangi validasi.");
   }
-  const released: ReleasedHolder[] = [];
-  for (const holder of holders) released.push(await releaseHolder(tx, holder, holder.activeNisn, ctx.now));
-  return released;
+  return releaseGraduates(tx, holders, ctx, policy);
 }

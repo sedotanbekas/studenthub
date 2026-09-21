@@ -22,9 +22,13 @@ const METHOD_DEFLATE = 8;
 const FLAG_ENCRYPTED = 0x1;
 export const DEFAULT_MAX_ZIP_ENTRIES = 2000;
 
-interface CentralEntry {
+export interface CentralEntry {
+  readonly name: Buffer;
   readonly flags: number;
   readonly method: number;
+  readonly modTime: number;
+  readonly modDate: number;
+  readonly crc32: number;
   readonly compressedSize: number;
   readonly declaredSize: number;
   readonly localOffset: number;
@@ -44,7 +48,8 @@ function findEocd(buf: Buffer): number {
   return -1;
 }
 
-function readCentralDirectory(buf: Buffer, maxEntries: number): CentralEntry[] | string {
+/** Entri central directory (tanpa ZIP64); string = alasan penolakan. */
+export function readCentralDirectory(buf: Buffer, maxEntries: number = DEFAULT_MAX_ZIP_ENTRIES): CentralEntry[] | string {
   const eocd = findEocd(buf);
   if (eocd < 0) return "struktur ZIP tidak dikenali";
   const count = buf.readUInt16LE(eocd + 10);
@@ -55,19 +60,26 @@ function readCentralDirectory(buf: Buffer, maxEntries: number): CentralEntry[] |
   let pos = cdOffset;
   for (let i = 0; i < count; i += 1) {
     if (pos + CENTRAL_HEADER > buf.length || buf.readUInt32LE(pos) !== SIG_CENTRAL) return "central directory rusak";
+    const nameLength = buf.readUInt16LE(pos + 28);
+    if (pos + CENTRAL_HEADER + nameLength > buf.length) return "central directory rusak";
     entries.push({
+      name: buf.subarray(pos + CENTRAL_HEADER, pos + CENTRAL_HEADER + nameLength),
       flags: buf.readUInt16LE(pos + 8),
       method: buf.readUInt16LE(pos + 10),
+      modTime: buf.readUInt16LE(pos + 12),
+      modDate: buf.readUInt16LE(pos + 14),
+      crc32: buf.readUInt32LE(pos + 16),
       compressedSize: buf.readUInt32LE(pos + 20),
       declaredSize: buf.readUInt32LE(pos + 24),
       localOffset: buf.readUInt32LE(pos + 42),
     });
-    pos += CENTRAL_HEADER + buf.readUInt16LE(pos + 28) + buf.readUInt16LE(pos + 30) + buf.readUInt16LE(pos + 32);
+    pos += CENTRAL_HEADER + nameLength + buf.readUInt16LE(pos + 30) + buf.readUInt16LE(pos + 32);
   }
   return entries;
 }
 
-function entryData(buf: Buffer, entry: CentralEntry): Buffer | null {
+/** Data terkompresi mentah satu entri (lewat local header), atau null bila terpotong. */
+export function entryData(buf: Buffer, entry: CentralEntry): Buffer | null {
   const at = entry.localOffset;
   if (at + LOCAL_HEADER > buf.length || buf.readUInt32LE(at) !== SIG_LOCAL) return null;
   const start = at + LOCAL_HEADER + buf.readUInt16LE(at + 26) + buf.readUInt16LE(at + 28);

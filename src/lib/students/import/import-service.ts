@@ -4,15 +4,16 @@ import { writeAudit } from "@/lib/audit";
 import { prisma, type Tx } from "@/lib/db";
 import { AppError, conflict, unprocessable } from "@/lib/http/errors";
 import type { SchoolScope } from "@/lib/tenant/scope";
-import { toDbDate } from "@/lib/time/zone";
+import { localParts, toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { issueTemporaryPassword, type TemporaryCredential } from "../guards";
-import { recordNisnReleases } from "../nisn-claim";
-import { loadSchoolContext, scopeFor, type SchoolContext } from "../records";
+import { nisnHeldByGraduate } from "../nisn-claim";
+import { recordNisnReleases } from "../nisn-release-log";
+import { loadSchoolContext, lockForStudentWrite, scopeFor, type SchoolContext } from "../records";
 import { uniqueIndexOf } from "../unique-error";
 import { IMPORT_CREATE_CHUNK, IMPORT_HASH_CONCURRENCY, IMPORT_MAX_FILE_BYTES, IMPORT_MAX_ROWS, IMPORT_TX_OPTIONS } from "./constants";
 import { HEADER_LABELS, matchHeaders } from "./headers";
-import { loadImportClasses, loadImportLookups, lockAndReleaseHolders } from "./lookups";
+import { assertClassesStillActive, loadImportClasses, loadImportLookups, lockAndReleaseHolders } from "./lookups";
 import { readImportFile } from "./read-file";
 import type { ImportStudentsInput, ImportStudentsResult } from "./schemas";
 import {
@@ -29,7 +30,11 @@ import {
 /**
  * Impor siswa XLSX/CSV: dry-run (laporan saja) lalu commit yang MEMVALIDASI ULANG seluruh berkas dan
  * bersifat all-or-nothing (satu transaksi 60 s). Kata sandi di-generate + di-hash sebelum transaksi.
+ * NISN milik siswa LULUS di sekolah lain hanya dilepas dengan confirmReleaseGraduatedNisn=true
+ * (tanpa itu commit -> 409 NISN_HELD_BY_GRADUATE; dry-run memberi peringatan per baris).
  */
+/** Nomor baris pemegang LULUS yang dicantumkan di detail 409 NISN_HELD_BY_GRADUATE. */
+const HELD_ROWS_SHOWN = 20;
 interface PreparedRow {
   readonly row: ParsedImportRow;
   readonly userId: string;
@@ -52,9 +57,15 @@ async function readBytes(file: File): Promise<Uint8Array> {
   return bytes;
 }
 
-async function validateFile(bytes: Uint8Array, scope: SchoolScope, school: SchoolContext, activate: boolean, now: Date): Promise<ValidatedImport> {
+interface ValidateOptions {
+  readonly activate: boolean;
+  readonly confirmRelease: boolean;
+  readonly now: Date;
+}
+
+async function validateFile(bytes: Uint8Array, scope: SchoolScope, school: SchoolContext, options: ValidateOptions): Promise<ValidatedImport> {
   const sheet = await readImportFile(bytes);
-  const header = matchHeaders(sheet.header, activate);
+  const header = matchHeaders(sheet.header, options.activate);
   if (header.missing.length > 0) {
     const missing = header.missing.map((field) => HEADER_LABELS[field]);
     throw unprocessable("IMPORT_HEADERS_MISSING", `Kolom wajib tidak ditemukan: ${missing.join(", ")}.`, { missing });
@@ -67,10 +78,11 @@ async function validateFile(bytes: Uint8Array, scope: SchoolScope, school: Schoo
   if (rows.length === 0) throw unprocessable("IMPORT_EMPTY", "Berkas tidak berisi baris data siswa.");
   if (rows.length > IMPORT_MAX_ROWS) throw unprocessable("IMPORT_TOO_MANY_ROWS", `Maksimal ${IMPORT_MAX_ROWS} baris data per impor.`, { rows: rows.length });
   const classes = await loadImportClasses(prisma, scope, school);
-  const parsed = parseImportRows(rows, header.columns, buildClassLookup(classes, school.activeAcademicYearId));
+  const today = localParts(options.now, school.timezone).ymd;
+  const parsed = parseImportRows(rows, header.columns, buildClassLookup(classes, school.activeAcademicYearId), { today });
   const lookups = await loadImportLookups(prisma, scope, collectLookupKeys(parsed));
-  const activation = { schoolId: school.id, schoolActive: school.isActive, timezone: school.timezone, activeAcademicYearId: school.activeAcademicYearId, now };
-  return validateImportRows(parsed, lookups, { activate, activation });
+  const activation = { schoolId: school.id, schoolActive: school.isActive, timezone: school.timezone, activeAcademicYearId: school.activeAcademicYearId, now: options.now };
+  return validateImportRows(parsed, lookups, { activate: options.activate, activation, confirmRelease: options.confirmRelease });
 }
 
 async function prepareRows(rows: readonly ParsedImportRow[], now: Date): Promise<PreparedRow[]> {
@@ -122,20 +134,40 @@ interface CommitInput {
   readonly scope: SchoolScope;
   readonly prepared: readonly PreparedRow[];
   readonly activate: boolean;
+  readonly confirmRelease: boolean;
   readonly fileSha256: string;
 }
 
-async function commitImport(tx: Tx, input: CommitInput, ctx: ActionContext): Promise<void> {
+/** Kelas tujuan unik (id -> nama) dari baris yang akan dibuat. */
+function targetClasses(prepared: readonly PreparedRow[]): Map<string, string> {
+  return new Map(prepared.flatMap((p) => (p.row.class ? [[p.row.class.id, p.row.class.name] as const] : [])));
+}
+
+async function insertRows(tx: Tx, input: CommitInput, now: Date): Promise<void> {
   const { scope, prepared, activate } = input;
-  const nisns = prepared.flatMap((p) => (p.row.nisn ? [p.row.nisn] : []));
-  const released = activate ? await lockAndReleaseHolders(tx, nisns, ctx) : [];
   for (let i = 0; i < prepared.length; i += IMPORT_CREATE_CHUNK) {
     await tx.user.createMany({ data: prepared.slice(i, i + IMPORT_CREATE_CHUNK).map((p) => userRow(p, scope, activate)) });
   }
   for (let i = 0; i < prepared.length; i += IMPORT_CREATE_CHUNK) {
-    await tx.student.createMany({ data: prepared.slice(i, i + IMPORT_CREATE_CHUNK).map((p) => studentRow(p, scope, activate, ctx.now)) });
+    await tx.student.createMany({ data: prepared.slice(i, i + IMPORT_CREATE_CHUNK).map((p) => studentRow(p, scope, activate, now)) });
   }
-  await recordNisnReleases(tx, released, ctx);
+}
+
+/**
+ * Transaksi commit: kunci aplikasi PALING AWAL (kelas tujuan id naik, lalu kuota pelepasan NISN bila
+ * activate) -> cek ulang kelas aktif -> kunci & lepas pemegang LULUS (satu query) -> INSERT batch ->
+ * jejak pelepasan & audit impor.
+ */
+async function commitImport(tx: Tx, input: CommitInput, ctx: ActionContext): Promise<void> {
+  const { scope, prepared, activate } = input;
+  const classes = targetClasses(prepared);
+  await lockForStudentWrite(tx, { classIds: [...classes.keys()], claimingSchoolId: activate ? scope.schoolId : null });
+  const school = await loadSchoolContext(tx, scope);
+  await assertClassesStillActive(tx, scope, classes);
+  const nisns = prepared.flatMap((p) => (p.row.nisn ? [p.row.nisn] : []));
+  const released = activate ? await lockAndReleaseHolders(tx, nisns, ctx, { confirmRelease: input.confirmRelease, claimer: school }) : [];
+  await insertRows(tx, input, ctx.now);
+  await recordNisnReleases(tx, released, school, ctx);
   await writeAudit(
     tx,
     {
@@ -162,15 +194,19 @@ export async function importStudents(ctx: ActionContext, schoolId: string | unde
   const scope = scopeFor(ctx, schoolId);
   const school = await loadSchoolContext(prisma, scope);
   const bytes = await readBytes(input.file);
-  const validated = await validateFile(bytes, scope, school, input.activate, ctx.now);
+  const confirmRelease = input.confirmReleaseGraduatedNisn;
+  const validated = await validateFile(bytes, scope, school, { activate: input.activate, confirmRelease, now: ctx.now });
   const report = toReportDto(validated.report);
   if (input.dryRun) return { dryRun: true, report };
   if (validated.report.errorRows > 0) {
     throw unprocessable("IMPORT_INVALID", "Masih ada baris bermasalah; tidak ada data yang disimpan.", { report });
   }
+  if (!confirmRelease && validated.graduateRows.length > 0) {
+    throw nisnHeldByGraduate({ count: validated.graduateRows.length, rows: validated.graduateRows.slice(0, HELD_ROWS_SHOWN) });
+  }
   const prepared = await prepareRows(validated.rows, ctx.now);
   const fileSha256 = createHash("sha256").update(bytes).digest("hex");
-  await commitWithConflictMapping({ scope, prepared, activate: input.activate, fileSha256 }, ctx);
+  await commitWithConflictMapping({ scope, prepared, activate: input.activate, confirmRelease, fileSha256 }, ctx);
   const credentials = prepared.map((p) => ({
     row: p.row.row,
     nisn: p.row.nisn ?? "",

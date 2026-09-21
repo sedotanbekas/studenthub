@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { inclusiveDays } from "./ranges";
-import { parseNationalHolidayFile, planNationalHolidayImport, type NationalHolidayEntry } from "./national-import";
+import { parseNationalHolidayFile, parseNationalImportArgs, planNationalHolidayImport, type NationalHolidayEntry } from "./national-import";
 
 const DATA_FILE = path.join(process.cwd(), "prisma", "data", "national-holidays.json");
 
@@ -29,21 +29,44 @@ test("parseNationalHolidayFile menolak duplikat, tanggal tidak nyata, dan rentan
   assert.throws(() => parseNationalHolidayFile({ bukan: "array" }));
 });
 
-test("planNationalHolidayImport: buat baru, perbarui endDate, sisanya tidak berubah", () => {
+test("planNationalHolidayImport --force: buat baru, perbarui endDate, sisanya tidak berubah", () => {
   const entries = [entry("Tahun Baru", "2026-01-01"), entry("Idulfitri", "2026-03-21", "2026-03-22"), entry("Nyepi", "2026-03-19")];
   const existing = [
     { id: "h1", name: "Tahun Baru", startDate: "2026-01-01", endDate: "2026-01-01" },
     { id: "h2", name: "Idulfitri", startDate: "2026-03-21", endDate: "2026-03-21" },
     { id: "h3", name: "Lain", startDate: "2026-05-05", endDate: "2026-05-05" },
   ];
-  const plan = planNationalHolidayImport(entries, existing);
+  const plan = planNationalHolidayImport(entries, existing, { force: true });
   assert.deepEqual(plan.create.map((e) => e.name), ["Nyepi"]);
   assert.deepEqual(plan.update.map((u) => [u.id, u.entry.endDate, u.beforeEndDate]), [["h2", "2026-03-22", "2026-03-21"]]);
   assert.equal(plan.unchanged, 1);
 });
 
-test("planNationalHolidayImport idempoten: impor kedua tidak mengubah apa pun", () => {
+test("planNationalHolidayImport --force idempoten: impor kedua tidak mengubah apa pun", () => {
   const entries = [entry("Tahun Baru", "2026-01-01")];
-  const plan = planNationalHolidayImport(entries, [{ id: "h1", name: "Tahun Baru", startDate: "2026-01-01", endDate: "2026-01-01" }]);
+  const plan = planNationalHolidayImport(entries, [{ id: "h1", name: "Tahun Baru", startDate: "2026-01-01", endDate: "2026-01-01" }], { force: true });
   assert.deepEqual([plan.create.length, plan.update.length, plan.unchanged], [0, 0, 1]);
+});
+
+test("planNationalHolidayImport tanpa --force: tahun yang sudah punya libur nasional dilewati seluruhnya", () => {
+  const entries = [entry("Tahun Baru", "2026-01-01"), entry("Idulfitri", "2026-03-21", "2026-03-22"), entry("Tahun Baru", "2027-01-01")];
+  const existing = [{ id: "h1", name: "Diganti Admin", startDate: "2026-03-21", endDate: "2026-03-21" }];
+  const plan = planNationalHolidayImport(entries, existing);
+  assert.deepEqual(plan.create.map((e) => e.startDate), ["2027-01-01"]);
+  assert.deepEqual([plan.update.length, plan.unchanged], [0, 0], "baris tahun yang dilewati tidak diperbarui");
+  assert.deepEqual(plan.skippedYears, [{ year: "2026", entries: 2 }]);
+});
+
+test("planNationalHolidayImport tanpa --force: tahun kosong dibuat semua, tidak ada tahun dilewati", () => {
+  const plan = planNationalHolidayImport([entry("Tahun Baru", "2028-01-01"), entry("Natal", "2028-12-25")], []);
+  assert.deepEqual([plan.create.length, plan.update.length, plan.unchanged, plan.skippedYears.length], [2, 0, 0, 0]);
+});
+
+test("parseNationalImportArgs: --force opsional, satu berkas opsional, flag lain ditolak", () => {
+  assert.deepEqual(parseNationalImportArgs([]), { force: false, file: null });
+  assert.deepEqual(parseNationalImportArgs(["data.json"]), { force: false, file: "data.json" });
+  assert.deepEqual(parseNationalImportArgs(["--force", "data.json"]), { force: true, file: "data.json" });
+  assert.deepEqual(parseNationalImportArgs(["data.json", "--force"]), { force: true, file: "data.json" });
+  assert.throws(() => parseNationalImportArgs(["--dry-run"]), /--dry-run/);
+  assert.throws(() => parseNationalImportArgs(["a.json", "b.json"]), /satu berkas/i);
 });

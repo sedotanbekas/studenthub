@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma, type Tx } from "@/lib/db";
 import { notFound } from "@/lib/http/errors";
+import { likeSearch } from "@/lib/http/like";
 import { toSkipTake } from "@/lib/http/pagination";
 import type { ListUsersQuery, PlatformUserDetailDto, PlatformUserDto } from "./schemas";
 
@@ -45,9 +46,11 @@ export function toUserDto(row: UserRow): PlatformUserDto {
   };
 }
 
+/** `q` dicari harfiah: wildcard LIKE (`%`, `_`, `\`) diloloskan (lihat src/lib/http/like.ts). */
 function listWhere(query: ListUsersQuery): Prisma.UserWhereInput {
+  const q = likeSearch(query.q);
   return {
-    ...(query.q ? { OR: [{ name: { contains: query.q } }, { email: { contains: query.q } }] } : {}),
+    ...(q ? { OR: [{ name: { contains: q } }, { email: { contains: q } }] } : {}),
     ...(query.role ? { role: query.role } : {}),
     ...(query.schoolId ? { schoolId: query.schoolId } : {}),
     ...(query.sponsorId ? { sponsorId: query.sponsorId } : {}),

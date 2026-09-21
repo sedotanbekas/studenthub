@@ -1,25 +1,63 @@
 import "@/lib/http/zod-setup";
 import { createDocument, type ZodOpenApiOperationObject, type ZodOpenApiPathsObject } from "zod-openapi";
 import type { AnyContract } from "@/lib/http/contract";
+import { statusForCode } from "@/lib/http/error-status";
 import { envelopeOf, errorEnvelopeSchema } from "./schemas";
 
 const errorContent = { "application/json": { schema: errorEnvelopeSchema } };
 
-function errorResponses(contract: AnyContract): ZodOpenApiOperationObject["responses"] {
-  const domainCodes = contract.errors?.length ? ` Kode domain: ${contract.errors.join(", ")}.` : "";
-  const responses: ZodOpenApiOperationObject["responses"] = {
-    "400": { description: "VALIDATION_FAILED / INVALID_JSON.", content: errorContent },
-    "404": { description: "NOT_FOUND (termasuk data milik sekolah lain).", content: errorContent },
-    "409": { description: `Konflik status/duplikat.${domainCodes}`, content: errorContent },
-    "422": { description: `Pelanggaran aturan bisnis.${domainCodes}`, content: errorContent },
-    "500": { description: "INTERNAL_ERROR.", content: errorContent },
-  };
-  if (contract.action !== "public") {
-    responses["401"] = { description: "UNAUTHENTICATED / TOKEN_EXPIRED / SESSION_INVALID / ACCOUNT_INACTIVE.", content: errorContent };
-    responses["403"] = { description: "FORBIDDEN / PASSWORD_CHANGE_REQUIRED / SCOPE_MISMATCH / status akun.", content: errorContent };
+const STATUS_DESCRIPTIONS: Readonly<Record<number, string>> = {
+  400: "Permintaan tidak valid.",
+  401: "Tidak terautentikasi.",
+  403: "Akses ditolak.",
+  404: "Data tidak ditemukan (termasuk data milik sekolah lain).",
+  409: "Konflik status/duplikat.",
+  410: "Berkas sudah tidak tersedia.",
+  411: "Header Content-Length wajib.",
+  413: "Body melebihi batas ukuran.",
+  415: "Content-Type tidak didukung.",
+  422: "Pelanggaran aturan bisnis.",
+  429: "Terlalu banyak permintaan (lihat header Retry-After).",
+  500: "Kesalahan server.",
+  503: "Layanan sedang tidak tersedia.",
+};
+
+/** Kode dari pipeline defineRoute untuk setiap operasi terautentikasi. */
+const AUTHENTICATED_CODES = ["UNAUTHENTICATED", "TOKEN_EXPIRED", "SESSION_INVALID", "ACCOUNT_INACTIVE", "FORBIDDEN", "PASSWORD_CHANGE_REQUIRED", "SCOPE_MISMATCH"];
+
+/** Kode umum dari pipeline (validasi, auth, body, rate limit) sesuai bentuk kontrak. */
+function pipelineCodes(contract: AnyContract): string[] {
+  const multipart = contract.body !== undefined && contract.bodyType === "multipart";
+  const bodyCodes = contract.body ? [multipart ? "INVALID_MULTIPART" : "INVALID_JSON", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE"] : [];
+  return [
+    "VALIDATION_FAILED",
+    "NOT_FOUND",
+    "INTERNAL_ERROR",
+    ...(contract.action === "public" ? [] : AUTHENTICATED_CODES),
+    ...bodyCodes,
+    ...(multipart ? ["LENGTH_REQUIRED"] : []),
+    ...(contract.rateLimit ? ["RATE_LIMITED"] : []),
+  ];
+}
+
+/** Kode dikelompokkan per status HTTP (statusForCode); setiap status muncul sekali, kode unik. */
+function codesByStatus(contract: AnyContract): Map<number, string[]> {
+  const groups = new Map<number, string[]>();
+  for (const code of new Set([...pipelineCodes(contract), ...(contract.errors ?? [])])) {
+    const status = statusForCode(code);
+    groups.set(status, [...(groups.get(status) ?? []), code]);
   }
-  if (contract.rateLimit || contract.errors?.includes("RATE_LIMITED")) responses["429"] = { description: "RATE_LIMITED (lihat header Retry-After).", content: errorContent };
-  return responses;
+  return groups;
+}
+
+function errorResponses(contract: AnyContract): ZodOpenApiOperationObject["responses"] {
+  const entries = [...codesByStatus(contract)]
+    .sort(([a], [b]) => a - b)
+    .map(([status, codes]) => {
+      const base = STATUS_DESCRIPTIONS[status] ?? "Error.";
+      return [String(status), { description: `${base} Kode: ${codes.join(", ")}.`, content: errorContent }] as const;
+    });
+  return Object.fromEntries(entries);
 }
 
 function requestBody(contract: AnyContract): ZodOpenApiOperationObject["requestBody"] {

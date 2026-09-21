@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { GET as listClassesRoute, POST as createClassRoute } from "@/app/api/v1/school/classes/route";
 import { DELETE as deleteClassRoute, PATCH as patchClassRoute } from "@/app/api/v1/school/classes/[id]/route";
 import { GET as getSubjectsRoute, PUT as putSubjectsRoute } from "@/app/api/v1/school/classes/[id]/subjects/route";
+import { classLockKey, classYearLockKey } from "@/lib/lock-keys";
 import { disconnect, prisma, uniq } from "../helpers/db";
 import { createAcademicYearWithTerm, createClass, createStudent } from "../helpers/factories";
 import { callRoute, type Envelope } from "../helpers/request";
-import { createTenant, findAudit, setupTenants, withSchool, type Tenant, type TwoTenants } from "./helpers";
+import { createTenant, findAudit, holdLock, raceWhileHeld, setupTenants, withSchool, type Tenant, type TwoTenants } from "./helpers";
 
 interface ClassItem {
   id: string;
@@ -125,6 +126,43 @@ test("PATCH kelas: ubah nama, nonaktif ditolak selama ada siswa aktif", async ()
   assert.equal(off.body?.data.isActive, false);
   assert.ok(await findAudit(cls.id, "class.update"));
   assert.equal((await patchClass(cls.id, {}, t.adminToken)).status, 400);
+});
+
+test("PATCH kelas paralel (nonaktif & ganti nama) -> keduanya tersimpan, audit before dari baris terbaru", async () => {
+  const { t, yearId } = await tenantWithYears();
+  const cls = await createClass(t.schoolId, yearId, { name: "X-A", gradeLevel: 10 });
+  const held = await holdLock(classYearLockKey(yearId));
+  const [off, renamed] = await raceWhileHeld(held, [
+    () => patchClass(cls.id, { isActive: false }, t.adminToken),
+    () => patchClass(cls.id, { name: "X-Z" }, t.adminToken),
+  ]);
+  assert.deepEqual([off?.status, renamed?.status], [200, 200], JSON.stringify([off?.body?.error, renamed?.body?.error]));
+  const row = await prisma.schoolClass.findUniqueOrThrow({ where: { id: cls.id } });
+  assert.deepEqual([row.isActive, row.name], [false, "X-Z"], "perubahan pertama tidak boleh tertimpa data basi");
+  const audits = await prisma.auditLog.findMany({ where: { entityId: cls.id, action: "class.update" } });
+  const renameAudit = audits.find((a) => (a.after as { name?: string } | null)?.name === "X-Z");
+  assert.equal((renameAudit?.before as { isActive?: boolean } | null)?.isActive, false, "before diambil dari baris setelah kunci");
+});
+
+test("nonaktif kelas menunggu aktivasi siswa yang sedang berjalan (kunci class:<id>) -> 409 CLASS_HAS_STUDENTS", async () => {
+  const { t, yearId } = await tenantWithYears();
+  const cls = await createClass(t.schoolId, yearId);
+  const { student } = await createStudent(t.schoolId, { classId: cls.id, status: "INACTIVE" });
+  const held = await holdLock(classLockKey(cls.id), (tx) => tx.student.update({ where: { id: student.id }, data: { status: "ACTIVE" } }));
+  const [res] = await raceWhileHeld(held, [() => patchClass(cls.id, { isActive: false }, t.adminToken)]);
+  assert.equal(res?.status, 409);
+  assert.equal(res?.body?.error?.code, "CLASS_HAS_STUDENTS");
+  assert.equal((await prisma.schoolClass.findUniqueOrThrow({ where: { id: cls.id } })).isActive, true);
+});
+
+test("buat kelas paralel dengan nama sama -> satu 201 + satu 409 CLASS_NAME_TAKEN", async () => {
+  const { t, yearId } = await tenantWithYears();
+  const held = await holdLock(classYearLockKey(yearId));
+  const body = { academicYearId: yearId, name: "XI-Paralel", gradeLevel: 11 };
+  const results = await raceWhileHeld(held, [() => postClass(body, t.adminToken), () => postClass(body, t.adminToken)]);
+  assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
+  assert.equal(results.find((r) => r.status === 409)?.body?.error?.code, "CLASS_NAME_TAKEN");
+  assert.equal(await prisma.schoolClass.count({ where: { academicYearId: yearId, name: "XI-Paralel" } }), 1);
 });
 
 test("DELETE kelas: dirujuk siswa -> 409 CLASS_IN_USE; kosong -> 200 (pemetaan mapel ikut terhapus)", async () => {

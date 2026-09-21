@@ -3,6 +3,7 @@ import { defineContract, type AnyContract } from "@/lib/http/contract";
 import { IMPORT_MAX_BODY_BYTES } from "./import/constants";
 import { importStudentsBody, importStudentsResponse } from "./import/schemas";
 import {
+  activateStudentBody,
   changeStatusBody,
   createStudentBody,
   createStudentResponse,
@@ -21,6 +22,10 @@ import {
 /** Kontrak route domain siswa: /school/students* (admin) & /student/profile (siswa). */
 const TAG = "Siswa";
 const SCOPE_NOTE = "SUPER_ADMIN wajib mengirim ?schoolId=. Id siswa/kelas milik sekolah lain -> 404.";
+const RELEASE_NOTE =
+  "NISN yang masih dipegang siswa LULUS di sekolah lain hanya dilepas bila confirmReleaseGraduatedNisn=true (409 NISN_HELD_BY_GRADUATE bila tidak); admin sekolah maks 20 pelepasan per hari lokal (429 NISN_RELEASE_LIMIT, super admin dikecualikan); setiap pelepasan diaudit di kedua sekolah dan dilaporkan ke super admin.";
+/** Kode pelepasan NISN siswa LULUS lintas sekolah (lihat RELEASE_NOTE). */
+const RELEASE_ERRORS = ["NISN_HELD_BY_GRADUATE", "NISN_RELEASE_LIMIT"] as const;
 
 export const listStudentsContract = defineContract({
   id: "listSchoolStudents",
@@ -42,13 +47,13 @@ export const createStudentContract = defineContract({
   path: "/api/v1/school/students",
   tag: TAG,
   summary: "Buat siswa (default langsung aktif)",
-  description: `activate=true: data wajib lengkap (422 ACTIVATION_INCOMPLETE tanpa menulis apa pun) & NISN diklaim. activate=false: DRAFT. Kata sandi sementara selalu di-generate dan hanya ditampilkan sekali. ${SCOPE_NOTE}`,
+  description: `activate=true: data wajib lengkap (422 ACTIVATION_INCOMPLETE tanpa menulis apa pun) & NISN diklaim. activate=false: DRAFT. Kata sandi sementara selalu di-generate dan hanya ditampilkan sekali. ${RELEASE_NOTE} ${SCOPE_NOTE}`,
   action: "students.manage",
   query: schoolScopeQuery,
   body: createStudentBody,
   response: createStudentResponse,
   successStatus: 201,
-  errors: ["ACTIVATION_INCOMPLETE", "NISN_ALREADY_IN_SCHOOL", "NIS_ALREADY_IN_SCHOOL", "NISN_ACTIVE_ELSEWHERE", "CLASS_NOT_FOUND", "CLASS_INACTIVE", "SCHOOL_NOT_FOUND"],
+  errors: ["ACTIVATION_INCOMPLETE", "NISN_ALREADY_IN_SCHOOL", "NIS_ALREADY_IN_SCHOOL", "NISN_ACTIVE_ELSEWHERE", ...RELEASE_ERRORS, "CLASS_NOT_FOUND", "CLASS_INACTIVE", "SCHOOL_NOT_FOUND"],
 });
 
 export const getStudentContract = defineContract({
@@ -76,7 +81,7 @@ export const updateStudentContract = defineContract({
   query: schoolScopeQuery,
   body: updateStudentBody,
   response: studentDetailSchema,
-  errors: ["NISN_LOCKED", "ACTIVATION_INCOMPLETE", "NISN_ALREADY_IN_SCHOOL", "NIS_ALREADY_IN_SCHOOL", "NISN_ACTIVE_ELSEWHERE", "CLASS_NOT_FOUND", "CLASS_INACTIVE"],
+  errors: ["NISN_LOCKED", "ACTIVATION_INCOMPLETE", "NISN_ALREADY_IN_SCHOOL", "NIS_ALREADY_IN_SCHOOL", "NISN_ACTIVE_ELSEWHERE", "CLASS_NOT_FOUND", "CLASS_INACTIVE", "STUDENT_STATE_CHANGED"],
 });
 
 export const deleteStudentContract = defineContract({
@@ -99,12 +104,13 @@ export const activateStudentContract = defineContract({
   path: "/api/v1/school/students/{id}/activate",
   tag: TAG,
   summary: "Aktivasi siswa (cek data wajib + klaim NISN)",
-  description: `NISN milik siswa LULUS di sekolah lain dilepas (audit & notifikasi ke sekolah asal). ${SCOPE_NOTE}`,
+  description: `Body JSON boleh {} (Content-Type application/json wajib). Kelas nonaktif muncul sebagai kekurangan CLASS_INACTIVE (422 ACTIVATION_INCOMPLETE). ${RELEASE_NOTE} ${SCOPE_NOTE}`,
   action: "students.manage",
   params: studentIdParams,
   query: schoolScopeQuery,
+  body: activateStudentBody,
   response: statusChangeResponse,
-  errors: ["ACTIVATION_INCOMPLETE", "NISN_ACTIVE_ELSEWHERE", "INVALID_STATUS_TRANSITION"],
+  errors: ["ACTIVATION_INCOMPLETE", "NISN_ACTIVE_ELSEWHERE", ...RELEASE_ERRORS, "INVALID_STATUS_TRANSITION", "STUDENT_STATE_CHANGED"],
 });
 
 export const changeStudentStatusContract = defineContract({
@@ -113,13 +119,13 @@ export const changeStudentStatusContract = defineContract({
   path: "/api/v1/school/students/{id}/status",
   tag: TAG,
   summary: "Ubah status siswa (Aktif/Nonaktif/Lulus/Pindah)",
-  description: `Satu tabel transisi; alasan wajib kecuali ke ACTIVE. PINDAH melepas NISN, menonaktifkan akun, dan me-void tagihan masa depan. ${SCOPE_NOTE}`,
+  description: `Satu tabel transisi; alasan wajib kecuali ke ACTIVE. PINDAH melepas NISN, menonaktifkan akun, dan me-void tagihan masa depan. Ke ACTIVE: ${RELEASE_NOTE} ${SCOPE_NOTE}`,
   action: "students.manage",
   params: studentIdParams,
   query: schoolScopeQuery,
   body: changeStatusBody,
   response: statusChangeResponse,
-  errors: ["INVALID_STATUS_TRANSITION", "ACTIVATION_INCOMPLETE", "NISN_ACTIVE_ELSEWHERE"],
+  errors: ["INVALID_STATUS_TRANSITION", "ACTIVATION_INCOMPLETE", "NISN_ACTIVE_ELSEWHERE", ...RELEASE_ERRORS, "STUDENT_STATE_CHANGED"],
 });
 
 export const resetStudentPasswordContract = defineContract({
@@ -155,7 +161,7 @@ export const importStudentsContract = defineContract({
   path: "/api/v1/school/students/import",
   tag: TAG,
   summary: "Impor siswa XLSX/CSV (dry-run lalu commit)",
-  description: `dryRun=true (default) hanya melaporkan. Commit memvalidasi ulang, all-or-nothing (422 IMPORT_INVALID + laporan bila ada baris salah), dan mengembalikan kata sandi sementara SEKALI. Maks 2 MiB & 1.000 baris. ${SCOPE_NOTE}`,
+  description: `dryRun=true (default) hanya melaporkan. Commit memvalidasi ulang, all-or-nothing (422 IMPORT_INVALID + laporan bila ada baris salah), dan mengembalikan kata sandi sementara SEKALI. Maks 2 MiB & 1.000 baris (XLSX: sheet pertama, maks 8 MiB setelah dekompresi). Commit mengunci & memeriksa ulang kelas tujuan (422 CLASS_INACTIVE). ${RELEASE_NOTE} ${SCOPE_NOTE}`,
   action: "students.import",
   query: schoolScopeQuery,
   body: importStudentsBody,
@@ -172,6 +178,8 @@ export const importStudentsContract = defineContract({
     "IMPORT_TOO_MANY_ROWS",
     "IMPORT_INVALID",
     "IMPORT_CONFLICT",
+    "CLASS_INACTIVE",
+    ...RELEASE_ERRORS,
   ],
 });
 

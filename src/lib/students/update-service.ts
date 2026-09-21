@@ -2,24 +2,38 @@ import type { ActionContext } from "@/lib/auth/principal";
 import { requirePrincipal } from "@/lib/auth/principal";
 import { writeAudit } from "@/lib/audit";
 import { revokeAllSessions } from "@/lib/auth/sessions";
-import type { Tx } from "@/lib/db";
+import { prisma, type Tx } from "@/lib/db";
 import { conflict } from "@/lib/http/errors";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { fromDbDate, toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { getActivationGaps, newGapsAfterPatch, type ActivationInput } from "./activation-rules";
 import { activationInputOf } from "./dto";
-import { activationIncomplete, assertIdentityFree, resolveAssignableClass, withStudentConflicts } from "./guards";
-import { claimNisn, recordNisnReleases, type ReleasedHolder } from "./nisn-claim";
+import { activationIncomplete, assertIdentityFree, resolveAssignableClass, studentStateChanged, withStudentConflicts } from "./guards";
+import { claimNisn, type ReleasedHolder } from "./nisn-claim";
+import { recordNisnReleases } from "./nisn-release-log";
 import { canChangeNisn, diffStudentPatch, gapFieldsOf, type PatchableSnapshot, type StudentPatch } from "./patch-rules";
 import { loadStudentDetail } from "./queries";
-import { findStudentRow, loadSchoolContext, lockStudentRow, scopeFor, type ClassRef, type SchoolContext, type StudentRow } from "./records";
+import {
+  findClassInSchool,
+  findStudentRow,
+  loadSchoolContext,
+  lockForStudentWrite,
+  lockStudentRow,
+  readClassHint,
+  scopeFor,
+  type ClassRef,
+  type SchoolContext,
+  type StudentRow,
+} from "./records";
 import type { StudentDetail, UpdateStudentInput } from "./schemas";
 
 /**
  * PATCH siswa (parsial). Nama juga memperbarui User.name. NISN: admin sekolah hanya saat DRAFT
  * (409 NISN_LOCKED); super admin kapan saja (klaim ulang + cabut sesi bila NISN sedang dipegang).
- * Ganti kelas: kelas aktif milik sekolah; siswa AKTIF tidak boleh memperoleh kekurangan baru (422).
+ * Ganti kelas: kelas aktif milik sekolah (dicek ulang di bawah kunci class:<id>); siswa AKTIF tidak boleh
+ * memperoleh kekurangan baru (422). Urutan: kunci aplikasi (kelas tujuan + kuota pelepasan NISN bila NISN
+ * dikirim) -> Student FOR UPDATE -> baru membaca -> tulis compare-and-set pada status yang dibaca (409).
  */
 function snapshotOf(row: StudentRow): PatchableSnapshot {
   return {
@@ -82,27 +96,32 @@ function studentUpdateData(row: StudentRow, changes: StudentPatch) {
   };
 }
 
-async function persistChanges(tx: Tx, scope: SchoolScope, row: StudentRow, changes: StudentPatch, ctx: ActionContext): Promise<ReleasedHolder | null> {
+async function persistChanges(tx: Tx, school: SchoolContext, row: StudentRow, changes: StudentPatch, ctx: ActionContext): Promise<ReleasedHolder | null> {
   const reclaim = changes.nisn !== undefined && row.activeNisn !== null;
-  const released = reclaim ? await claimNisn(tx, { studentId: row.id, nisn: changes.nisn as string }, ctx) : null;
-  const updated = await tx.student.updateMany({ where: { id: row.id, schoolId: scope.schoolId }, data: studentUpdateData(row, changes) });
-  if (updated.count !== 1) throw conflict("STUDENT_STATE_CHANGED", "Data siswa berubah bersamaan. Silakan muat ulang.");
+  // Klaim ulang hanya dicapai super admin (admin sekolah hanya boleh ganti NISN saat DRAFT = tanpa activeNisn):
+  // koreksi NISN eksplisit oleh super admin dianggap persetujuan pelepasan (tetap diaudit & dilaporkan).
+  const policy = { confirmRelease: true, claimer: school };
+  const released = reclaim ? await claimNisn(tx, { studentId: row.id, nisn: changes.nisn as string }, ctx, policy) : null;
+  const updated = await tx.student.updateMany({ where: { id: row.id, schoolId: school.id, status: row.status }, data: studentUpdateData(row, changes) });
+  if (updated.count !== 1) throw studentStateChanged();
   if (changes.name !== undefined) await tx.user.update({ where: { id: row.userId }, data: { name: changes.name } });
   if (reclaim) await revokeAllSessions(tx, row.userId, "ADMIN_REVOKED", ctx.now);
   return released;
 }
 
-async function applyUpdate(tx: Tx, scope: SchoolScope, id: string, input: UpdateStudentInput, ctx: ActionContext): Promise<void> {
-  const school = await loadSchoolContext(tx, scope);
+/** PATCH di dalam transaksi (diekspor untuk komposisi & test isolasi). */
+export async function applyUpdate(tx: Tx, scope: SchoolScope, id: string, input: UpdateStudentInput, ctx: ActionContext): Promise<void> {
+  await lockForStudentWrite(tx, { classIds: [input.currentClassId], claimingSchoolId: input.nisn !== undefined ? scope.schoolId : null });
   await lockStudentRow(tx, scope, id);
+  const school = await loadSchoolContext(tx, scope);
   const row = await findStudentRow(tx, scope, id);
   const current = snapshotOf(row);
   const changes = diffStudentPatch(current, input);
   if (Object.keys(changes).length === 0) return;
   const klass = await checkChanges(tx, scope, row, changes, ctx);
   assertStillComplete(row, school, changes, klass, ctx.now);
-  const released = await persistChanges(tx, scope, row, changes, ctx);
-  await recordNisnReleases(tx, released ? [released] : [], ctx);
+  const released = await persistChanges(tx, school, row, changes, ctx);
+  await recordNisnReleases(tx, released ? [released] : [], school, ctx);
   const before = Object.fromEntries(Object.keys(changes).map((key) => [key, current[key as keyof PatchableSnapshot]]));
   await writeAudit(
     tx,
@@ -111,8 +130,18 @@ async function applyUpdate(tx: Tx, scope: SchoolScope, id: string, input: Update
   );
 }
 
+/**
+ * Target kunci aplikasi divalidasi SEBELUM transaksi agar kunci hanya diambil untuk entitas nyata milik
+ * sekolah ini (id asing/acak -> 404, tanpa baris AppLock baru, tanpa kunci kepanjangan -> 500).
+ */
+async function assertLockTargets(scope: SchoolScope, id: string, input: UpdateStudentInput): Promise<void> {
+  await readClassHint(prisma, scope, id);
+  if (typeof input.currentClassId === "string") await findClassInSchool(prisma, scope, input.currentClassId);
+}
+
 export async function updateStudent(ctx: ActionContext, schoolId: string | undefined, id: string, input: UpdateStudentInput): Promise<StudentDetail> {
   const scope = scopeFor(ctx, schoolId);
+  await assertLockTargets(scope, id, input);
   await withStudentConflicts(() => withTx((tx) => applyUpdate(tx, scope, id, input, ctx)));
   return loadStudentDetail(scope, id, ctx.now);
 }

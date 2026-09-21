@@ -10,21 +10,51 @@ import { log } from "./log";
  *   Terpisah: Sponsor -> Ad / TopUpRequest -> AdDailyStat.
  *   Notification & AuditLog selalu ditulis TERAKHIR.
  * JANGAN pernah `FOR UPDATE` baris School/SchoolClass sebagai mutex (baris induk sibuk karena cek FK);
- * pakai lockKey() dengan kunci bernama.
+ * pakai lockKey() dengan kunci bernama. Kunci aplikasi (src/lib/lock-keys.ts) diambil PALING AWAL,
+ * sebelum membaca apa pun.
+ *
+ * ISOLASI DEFAULT = READ COMMITTED. Service mengambil lockKey()/FOR UPDATE lalu MEMBACA ULANG data.
+ * Di REPEATABLE READ (default InnoDB) snapshot dibuat pada baca pertama transaksi, sehingga baca
+ * ulang setelah menunggu kunci tetap melihat data basi -> terbukti menimbulkan lost update & duplikat.
+ * READ COMMITTED membuat setiap baca melihat commit terbaru. Syarat server: binlog_format ROW/MIXED
+ * (STATEMENT menolak tulis InnoDB di READ COMMITTED).
  */
 export const TX_DEFAULTS = { timeout: 20_000, maxWait: 10_000 } as const;
 const MAX_RETRIES = 3;
+const DEFAULT_ISOLATION = Prisma.TransactionIsolationLevel.ReadCommitted;
 
 export type TxOptions = {
   timeout?: number;
   maxWait?: number;
   retries?: number;
+  /** Default READ COMMITTED (lihat catatan di atas). */
   isolationLevel?: Prisma.TransactionIsolationLevel;
 };
 
+/** errno MariaDB: 1213 deadlock, 1205 lock wait timeout. */
+const LOCK_FAILURE_ERRNOS = new Set(["1213", "1205"]);
+const LOCK_FAILURE_TEXT = /Code: `(?:1213|1205)`|deadlock|lock wait timeout/i;
+
+type DbErrorLike = {
+  code?: unknown;
+  message?: unknown;
+  meta?: { code?: unknown; message?: unknown; driverAdapterError?: { cause?: { originalCode?: unknown; originalMessage?: unknown } } };
+};
+
+/** Query mentah ($queryRaw/$executeRaw) melaporkan deadlock/lock wait sebagai P2010 + errno di meta/pesan. */
+function isRawLockFailure(error: DbErrorLike): boolean {
+  const cause = error.meta?.driverAdapterError?.cause;
+  const codes = [error.meta?.code, cause?.originalCode].map((value) => String(value ?? ""));
+  if (codes.some((value) => LOCK_FAILURE_ERRNOS.has(value))) return true;
+  const texts = [error.message, error.meta?.message, cause?.originalMessage];
+  return texts.some((text) => typeof text === "string" && LOCK_FAILURE_TEXT.test(text));
+}
+
 function isRetryable(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-  return code === "P2034";
+  if (typeof error !== "object" || error === null) return false;
+  const dbError = error as DbErrorLike;
+  if (dbError.code === "P2034") return true;
+  return dbError.code === "P2010" && isRawLockFailure(dbError);
 }
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,11 +66,11 @@ export async function withTx<T>(fn: (tx: Tx) => Promise<T>, options: TxOptions =
       return await prisma.$transaction((tx) => fn(tx as Tx), {
         timeout: options.timeout ?? TX_DEFAULTS.timeout,
         maxWait: options.maxWait ?? TX_DEFAULTS.maxWait,
-        ...(options.isolationLevel ? { isolationLevel: options.isolationLevel } : {}),
+        isolationLevel: options.isolationLevel ?? DEFAULT_ISOLATION,
       });
     } catch (error) {
       if (!isRetryable(error) || attempt > retries) throw error;
-      log.warn("tx.retry", { attempt });
+      log.warn("tx.retry", { attempt, code: (error as DbErrorLike).code });
       await pause(25 * attempt + Math.floor(Math.random() * 25));
     }
   }

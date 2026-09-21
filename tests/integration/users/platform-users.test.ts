@@ -133,6 +133,25 @@ describe("GET /platform/users & /platform/users/{id}", () => {
     assert.equal((await callRoute(listUsersRoute, { method: "GET", url: "/api/v1/platform/users", bearer: fx.adminA.token })).status, 403);
   });
 
+  test("q dengan %, _ dan backslash dicari harfiah (bukan wildcard LIKE)", async () => {
+    const marker = uniq("like");
+    const school = await createSchool();
+    const names = ["50%", "50x", "a_b", "axb", String.raw`c\d`, "cd"].map((suffix) => `Admin ${marker} ${suffix}`);
+    const users = await Promise.all(names.map((name) => createSchoolAdmin(school.id, { name })));
+    const search = async (q: string): Promise<string[]> => {
+      const url = `/api/v1/platform/users?q=${encodeURIComponent(q)}&schoolId=${school.id}`;
+      const res = await callRoute<Envelope<UserBody[]>>(listUsersRoute, { method: "GET", url, bearer: fx.sa.token });
+      assert.equal(res.status, 200, q);
+      return (res.body?.data ?? []).map((u) => u.name);
+    };
+    assert.deepEqual(await search(`${marker} 50%`), [names[0]]);
+    assert.deepEqual(await search(`${marker} a_b`), [names[2]]);
+    assert.deepEqual(await search(String.raw`${marker} c\d`), [names[4]]);
+    assert.deepEqual(await search("%"), [names[0]], "hanya nama yang benar-benar memuat %");
+    assert.deepEqual(await search("_"), [names[2]], "email uji tidak memuat _, jadi hanya nama a_b");
+    assert.equal(users.length, names.length);
+  });
+
   test("detail dengan jumlah sesi aktif; id tak dikenal 404", async () => {
     const admin = await createSchoolAdmin(fx.schoolB.id);
     await createSessionToken(admin.id, { platform: "WEB", deviceId: null });

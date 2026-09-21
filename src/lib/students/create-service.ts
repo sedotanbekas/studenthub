@@ -13,8 +13,9 @@ import {
   withStudentConflicts,
   type TemporaryCredential,
 } from "./guards";
-import { claimNisn, recordNisnReleases } from "./nisn-claim";
-import { loadSchoolContext, scopeFor, type ClassRef, type SchoolContext } from "./records";
+import { claimNisn } from "./nisn-claim";
+import { recordNisnReleases } from "./nisn-release-log";
+import { loadSchoolContext, lockForStudentWrite, scopeFor, type ClassRef, type SchoolContext } from "./records";
 import { loadStudentDetail } from "./queries";
 import type { CreateStudentInput, StudentDetail } from "./schemas";
 
@@ -22,6 +23,8 @@ import type { CreateStudentInput, StudentDetail } from "./schemas";
  * Buat siswa (POST /school/students). activate=true (default): data wajib harus lengkap (422
  * ACTIVATION_INCOMPLETE, TANPA tulis apa pun), NISN diklaim, status ACTIVE. activate=false: DRAFT,
  * User.isActive=false, activeNisn NULL. Kata sandi awal SELALU di-generate dan dikembalikan sekali.
+ * Pemeriksaan di luar transaksi hanya fail-fast; di dalam transaksi kunci (kelas + kuota pelepasan NISN)
+ * diambil PALING AWAL lalu sekolah, kelas (aktif? 422 CLASS_INACTIVE) & kelengkapan diperiksa ULANG.
  */
 export interface CreateStudentResult {
   readonly student: StudentDetail;
@@ -70,6 +73,15 @@ function studentData(scope: SchoolScope, input: CreateStudentInput, userId: stri
   };
 }
 
+/** Sekolah & kelas yang valid SAAT INI; aktivasi wajib lengkap (422 tanpa menulis apa pun). */
+async function checkAssignable(db: Tx, scope: SchoolScope, input: CreateStudentInput, now: Date): Promise<SchoolContext> {
+  const school = await loadSchoolContext(db, scope);
+  const klass = await resolveAssignableClass(db, scope, input.currentClassId ?? null);
+  const gaps = getActivationGaps(toActivationInput(input, klass, school), now);
+  if (input.activate && gaps.length > 0) throw activationIncomplete(gaps);
+  return school;
+}
+
 async function insertStudent(
   tx: Tx,
   scope: SchoolScope,
@@ -77,7 +89,10 @@ async function insertStudent(
   credential: TemporaryCredential,
   ctx: ActionContext,
 ): Promise<{ id: string; nisnReleased: boolean }> {
-  const released = input.activate ? await claimNisn(tx, { studentId: null, nisn: input.nisn }, ctx) : null;
+  await lockForStudentWrite(tx, { classIds: [input.currentClassId], claimingSchoolId: input.activate ? scope.schoolId : null });
+  const school = await checkAssignable(tx, scope, input, ctx.now);
+  const policy = { confirmRelease: input.confirmReleaseGraduatedNisn, claimer: school };
+  const released = input.activate ? await claimNisn(tx, { studentId: null, nisn: input.nisn }, ctx, policy) : null;
   const user = await tx.user.create({
     data: {
       role: "STUDENT",
@@ -92,7 +107,7 @@ async function insertStudent(
   });
   const data = studentData(scope, input, user.id, ctx.now);
   const student = await tx.student.create({ data, select: { id: true } });
-  await recordNisnReleases(tx, released ? [released] : [], ctx);
+  await recordNisnReleases(tx, released ? [released] : [], school, ctx);
   const { userId: _userId, schoolId: _schoolId, ...snapshot } = data;
   await writeAudit(
     tx,
@@ -104,11 +119,8 @@ async function insertStudent(
 
 export async function createStudent(ctx: ActionContext, schoolId: string | undefined, input: CreateStudentInput): Promise<CreateStudentResult> {
   const scope = scopeFor(ctx, schoolId);
-  const school = await loadSchoolContext(prisma, scope);
-  const klass = await resolveAssignableClass(prisma, scope, input.currentClassId ?? null);
+  await checkAssignable(prisma, scope, input, ctx.now);
   await assertIdentityFree(prisma, scope, { nisn: input.nisn, nis: input.nis });
-  const gaps = getActivationGaps(toActivationInput(input, klass, school), ctx.now);
-  if (input.activate && gaps.length > 0) throw activationIncomplete(gaps);
   const credential = await issueTemporaryPassword(ctx.now);
   const created = await withStudentConflicts(() => withTx((tx) => insertStudent(tx, scope, input, credential, ctx)));
   return {

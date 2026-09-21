@@ -3,6 +3,7 @@ import { writeAudit } from "@/lib/audit";
 import type { Tx } from "@/lib/db";
 import { notFound, unprocessable } from "@/lib/http/errors";
 import type { SchoolScope } from "@/lib/tenant/scope";
+import { classLockKey, subjectsLockKey } from "@/lib/lock-keys";
 import { lockKey, withTx } from "@/lib/tx";
 import { SUBJECT_SELECT, toClassSubjectItem } from "./dto";
 import { requireSchool } from "./guards";
@@ -12,6 +13,10 @@ import type { ClassSubjectItemDto, ClassSubjectsDto, SetClassSubjectsInput, SetC
  * Pemetaan kelas-mapel (dasar kelengkapan rapor). PUT mengganti seluruh set; urutan array =
  * sortOrder. Mapel yang BARU dipetakan wajib aktif dan milik sekolah yang sama; mapel nonaktif
  * yang sudah terpetakan boleh tetap dipertahankan.
+ *
+ * Kunci PUT (paling awal, sebelum membaca): `subjects:<schoolId>` -> `class:<classId>` (kasar -> halus,
+ * src/lib/lock-keys.ts). Kunci mapel menyerialkan cek "mapel aktif" di sini dengan nonaktif/hapus mapel;
+ * kunci kelas menyerialkan dengan ubah/hapus kelas.
  */
 async function requireClass(tx: Tx, scope: SchoolScope, classId: string): Promise<{ id: string }> {
   const found = await tx.schoolClass.findFirst({ where: { id: classId, schoolId: scope.schoolId }, select: { id: true } });
@@ -61,9 +66,10 @@ export async function setClassSubjects(
   ctx: ActionContext,
 ): Promise<SetClassSubjectsResult> {
   return withTx(async (tx) => {
+    await lockKey(tx, subjectsLockKey(scope.schoolId));
+    await lockKey(tx, classLockKey(classId));
     await requireSchool(tx, scope);
     await requireClass(tx, scope, classId);
-    await lockKey(tx, `class-subjects:${classId}`);
     const before = await listMapped(tx, classId);
     await assertSubjectsMappable(tx, scope, input.subjectIds, new Set(before.map((s) => s.subjectId)));
     await tx.classSubject.deleteMany({ where: { classId } });

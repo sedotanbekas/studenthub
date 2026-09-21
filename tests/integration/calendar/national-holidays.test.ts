@@ -6,10 +6,11 @@ import { GET as listSchoolRoute } from "@/app/api/v1/school/holidays/route";
 import type { ActionContext } from "@/lib/auth/principal";
 import type { NationalHolidayEntry } from "@/lib/calendar/national-import";
 import { importNationalHolidays } from "@/lib/calendar/national-import-service";
+import { holidaysLockKey } from "@/lib/lock-keys";
 import { toDbDate } from "@/lib/time/zone";
 import { disconnect, prisma, uniq } from "../helpers/db";
 import { callRoute, type Envelope } from "../helpers/request";
-import { findAudit, setupTenants, type TwoTenants } from "../academics/helpers";
+import { findAudit, holdLock, raceWhileHeld, setupTenants, type TwoTenants } from "../academics/helpers";
 
 interface Holiday {
   id: string;
@@ -23,14 +24,22 @@ interface Holiday {
 const BASE = "/api/v1/platform/holidays";
 /** Semua data uji di tahun 2094 agar tidak memengaruhi kalender domain lain; dibersihkan di after(). */
 const YEAR = "2094";
+/** Tahun khusus uji impor: harus bebas libur nasional sebelum impor pertama (impor melewati tahun terisi). */
+const IMPORT_YEARS = ["2095", "2096"] as const;
 const created: string[] = [];
+
+const nationalInYears = (years: readonly string[]) => ({
+  schoolId: null,
+  OR: years.map((y) => ({ startDate: { gte: toDbDate(`${y}-01-01`), lte: toDbDate(`${y}-12-31`) } })),
+});
 
 let env: TwoTenants;
 before(async () => {
+  await prisma.holiday.deleteMany({ where: nationalInYears(IMPORT_YEARS) });
   env = await setupTenants();
 });
 after(async () => {
-  await prisma.holiday.deleteMany({ where: { OR: [{ id: { in: created } }, { schoolId: null, startDate: { gte: toDbDate(`${YEAR}-01-01`), lte: toDbDate(`${YEAR}-12-31`) } }] } });
+  await prisma.holiday.deleteMany({ where: { OR: [{ id: { in: created } }, nationalInYears([YEAR, ...IMPORT_YEARS])] } });
   await disconnect();
 });
 
@@ -113,19 +122,50 @@ test("admin sekolah & siswa ditolak 403 untuk libur nasional", async () => {
   }
 });
 
-test("impor libur nasional idempoten: buat, lewati yang sama, perbarui endDate", async () => {
-  const ctx: ActionContext = { principal: null, now: new Date(), requestId: "test-import", ip: null, userAgent: null, defer: () => undefined };
-  const entries: NationalHolidayEntry[] = [
-    { name: uniq("Impor A"), startDate: `${YEAR}-06-01`, endDate: `${YEAR}-06-01`, kind: "LIBUR_NASIONAL", source: "https://setneg.go.id/uji" },
-    { name: uniq("Impor B"), startDate: `${YEAR}-06-10`, endDate: `${YEAR}-06-11`, kind: "CUTI_BERSAMA", source: "https://setneg.go.id/uji" },
-  ];
-  assert.deepEqual(await importNationalHolidays(entries, ctx), { created: 2, updated: 0, unchanged: 0 });
-  assert.deepEqual(await importNationalHolidays(entries, ctx), { created: 0, updated: 0, unchanged: 2 });
-  const changed = entries.map((e, i) => (i === 1 ? { ...e, endDate: `${YEAR}-06-12` } : e));
-  assert.deepEqual(await importNationalHolidays(changed, ctx), { created: 0, updated: 1, unchanged: 1 });
+test("POST libur nasional ganda paralel -> satu 201 + satu 409 HOLIDAY_DUPLICATE", async () => {
+  const dup = body("07-07");
+  const held = await holdLock(holidaysLockKey(null));
+  const results = await raceWhileHeld(held, [() => post(dup, env.superToken), () => post(dup, env.superToken)]);
+  created.push(...results.flatMap((r) => (r.status === 201 ? [r.body!.data.id] : [])));
+  assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
+  assert.equal(results.find((r) => r.status === 409)?.body?.error?.code, "HOLIDAY_DUPLICATE");
+  assert.equal(await prisma.holiday.count({ where: { schoolId: null, name: dup.name } }), 1);
+});
+
+const importCtx = (): ActionContext => ({ principal: null, now: new Date(), requestId: uniq("test-import"), ip: null, userAgent: null, defer: () => undefined });
+
+const importEntry = (startDate: string, endDate = startDate, kind: NationalHolidayEntry["kind"] = "LIBUR_NASIONAL"): NationalHolidayEntry => ({
+  name: uniq("Impor"), startDate, endDate, kind, source: "https://setneg.go.id/uji",
+});
+
+test("impor: tahun baru dibuat, tahun yang sudah punya libur nasional dilewati; --force cocok nama + tanggal mulai", async () => {
+  const year = IMPORT_YEARS[0];
+  const ctx = importCtx();
+  const entries = [importEntry(`${year}-06-01`), importEntry(`${year}-06-10`, `${year}-06-11`, "CUTI_BERSAMA")];
+  assert.deepEqual(await importNationalHolidays(entries, ctx), { created: 2, updated: 0, unchanged: 0, skippedYears: [] });
+  assert.deepEqual(await importNationalHolidays(entries, ctx), { created: 0, updated: 0, unchanged: 0, skippedYears: [{ year, entries: 2 }] });
+  assert.deepEqual(await importNationalHolidays(entries, ctx, { force: true }), { created: 0, updated: 0, unchanged: 2, skippedYears: [] });
+  const changed = entries.map((e, i) => (i === 1 ? { ...e, endDate: `${year}-06-12` } : e));
+  assert.deepEqual(await importNationalHolidays(changed, ctx, { force: true }), { created: 0, updated: 1, unchanged: 1, skippedYears: [] });
   const rows = await prisma.holiday.findMany({ where: { name: { in: entries.map((e) => e.name) } }, orderBy: { startDate: "asc" } });
   assert.equal(rows.length, 2);
   assert.ok(rows.every((r) => r.schoolId === null));
-  assert.equal(rows[1]?.endDate.toISOString().slice(0, 10), `${YEAR}-06-12`);
+  assert.equal(rows[1]?.endDate.toISOString().slice(0, 10), `${year}-06-12`);
   assert.equal(await prisma.auditLog.count({ where: { action: "national_holiday.import", entityId: { in: rows.map((r) => r.id) } } }), 3);
+});
+
+test("impor ulang tidak menghidupkan lagi libur yang diedit/dihapus super admin lewat API", async () => {
+  const year = IMPORT_YEARS[1];
+  const entries = [importEntry(`${year}-01-01`), importEntry(`${year}-02-02`)];
+  assert.equal((await importNationalHolidays(entries, importCtx())).created, 2);
+  const [first, second] = await prisma.holiday.findMany({ where: { name: { in: entries.map((e) => e.name) } }, orderBy: { startDate: "asc" } });
+  const renamed = uniq("Diganti Super Admin");
+  assert.equal((await patch(first!.id, { name: renamed }, env.superToken)).status, 200);
+  assert.equal((await remove(second!.id, env.superToken)).status, 200);
+  const again = await importNationalHolidays(entries, importCtx());
+  assert.deepEqual(again, { created: 0, updated: 0, unchanged: 0, skippedYears: [{ year, entries: 2 }] });
+  const rows = await prisma.holiday.findMany({ where: nationalInYears([year]) });
+  assert.deepEqual(rows.map((r) => r.name), [renamed], "yang dihapus tidak dibuat ulang, yang diedit tidak digandakan");
+  const forced = await importNationalHolidays(entries, importCtx(), { force: true });
+  assert.equal(forced.created, 2, "--force = perilaku lama (cocok nama + tanggal mulai) -> semua dibuat ulang");
 });

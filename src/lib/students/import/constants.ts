@@ -4,7 +4,8 @@ const MIB = 1024 * 1024;
 export const IMPORT_MAX_FILE_BYTES = 2 * MIB;
 /** Batas body multipart: berkas 2 MiB + ruang untuk boundary & field lain. */
 export const IMPORT_MAX_BODY_BYTES = IMPORT_MAX_FILE_BYTES + 64 * 1024;
-export const IMPORT_MAX_UNCOMPRESSED_BYTES = 25 * MIB;
+/** Total isi XLSX setelah dekompresi (guard zip-bomb): 2 MiB XLSX wajar jauh di bawah ini. */
+export const IMPORT_MAX_UNCOMPRESSED_BYTES = 8 * MIB;
 export const IMPORT_MAX_ROWS = 1000;
 export const IMPORT_MAX_COLUMNS = 64;
 export const IMPORT_TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 } as const;

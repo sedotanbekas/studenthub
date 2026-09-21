@@ -13,12 +13,13 @@ import { classifyIdentifier, limiterIdentifier, type IdentifierKind } from "./id
 import { verifyPassword } from "./password";
 import type { ActionContext } from "./principal";
 import { checkLoginEligibility, type IneligibleReason } from "./principal-rules";
-import { lockUserSessions, openSession, retryOnUniqueConflict } from "./session-service";
+import { lockUserSessions, openSession, retryOnUniqueConflict, type NewSessionInput } from "./session-service";
 
 /**
- * POST /auth/login. Urutan: validasi input murni -> limiter (sebelum DB) -> cari akun -> tepat satu
- * bcrypt (dummy bila tidak ada) -> gagal: catat kegagalan di 3 limiter + padding >= 300 ms + 401 seragam
- * -> kelayakan akun -> satu transaksi pembuatan sesi -> access token.
+ * POST /auth/login. Urutan: validasi input murni -> limiter: cek kunci + pesan slot di 3 limiter (sebelum
+ * DB) -> cari akun -> tepat satu bcrypt (dummy bila tidak ada) -> gagal: slot tetap terpakai + padding
+ * >= 300 ms + 401 seragam -> benar: slot dikembalikan -> kelayakan akun -> satu transaksi pembuatan sesi
+ * (kunci user, baca ulang kredensial & kelayakan, compare-and-set) -> access token.
  */
 const ACCOUNT_INACTIVE_MESSAGES: Readonly<Record<IneligibleReason, string>> = {
   USER_INACTIVE: "Akun Anda dinonaktifkan. Hubungi admin.",
@@ -42,7 +43,7 @@ interface LoginAccount {
   readonly student: { readonly id: string; readonly schoolId: string; readonly status: StudentStatus; readonly boundDeviceId: string | null } | null;
 }
 
-interface LimiterKeys {
+export interface LimiterKeys {
   readonly pair: string;
   readonly identifier: string;
   readonly ip: string;
@@ -105,28 +106,45 @@ async function findLoginAccount(identifier: IdentifierKind): Promise<LoginAccoun
   return user ? toAccount(user, null) : null;
 }
 
-function limiterKeysOf(ip: string | null, identifier: IdentifierKind): LimiterKeys {
+/** Key ketiga limiter login untuk satu permintaan (pola di src/lib/http/rate-limits.ts). */
+export function loginLimiterKeys(ip: string | null, identifier: IdentifierKind): LimiterKeys {
   const ipKey = rateLimitKeyForIp(ip);
   const id = limiterIdentifier(identifier) ?? "invalid";
   return { pair: `login:pair:${ipKey}::${id}`, identifier: `login:id:${id}`, ip: `login:ip:${ipKey}` };
 }
 
-function assertNotLocked(keys: LimiterKeys): void {
+/**
+ * Cek kunci lalu pesan SATU slot di ketiga limiter SEBELUM lookup DB/bcrypt. Cek + pesan berjalan sinkron
+ * (tanpa await di antaranya), jadi burst paralel tidak bisa melampaui batas: setelah slot ke-`limit`
+ * terpakai, permintaan berikutnya langsung 429. Slot permintaan yang gagal tetap terpakai.
+ */
+function reserveAttempt(keys: LimiterKeys): void {
   assertRateLimit("LOGIN_PAIR", keys.pair);
   assertRateLimit("LOGIN_IDENTIFIER", keys.identifier);
   assertRateLimit("LOGIN_IP", keys.ip);
-}
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Gagal login: catat di ketiga limiter (hanya-kegagalan), padding waktu, lalu 401 seragam. */
-async function rejectCredentials(keys: LimiterKeys, startedAt: number): Promise<never> {
   getLimiter("LOGIN_PAIR").recordFailure(keys.pair);
   getLimiter("LOGIN_IDENTIFIER").recordFailure(keys.identifier);
   getLimiter("LOGIN_IP").recordFailure(keys.ip);
+}
+
+/**
+ * Kata sandi benar: slot identifier & IP dikembalikan, pasangan IP+identifier direset. Kunci yang
+ * terpasang karena slot ini tepat mencapai batas tetap berlaku (release tidak pernah membuka kunci).
+ */
+function refundAttempt(keys: LimiterKeys): void {
+  getLimiter("LOGIN_PAIR").reset(keys.pair);
+  getLimiter("LOGIN_IDENTIFIER").release(keys.identifier);
+  getLimiter("LOGIN_IP").release(keys.ip);
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const invalidCredentials = () => unauthorized("INVALID_CREDENTIALS", INVALID_CREDENTIALS_MESSAGE);
+
+/** Gagal login (slot limiter sudah dipesan): padding waktu, lalu 401 seragam. */
+async function rejectCredentials(startedAt: number): Promise<never> {
   const elapsed = performance.now() - startedAt;
   if (elapsed < LOGIN_FAILURE_MIN_MS) await sleep(LOGIN_FAILURE_MIN_MS - elapsed);
-  throw unauthorized("INVALID_CREDENTIALS", INVALID_CREDENTIALS_MESSAGE);
+  throw invalidCredentials();
 }
 
 /** Aturan input murni yang tidak membutuhkan DB (NISN => pasti STUDENT). */
@@ -174,9 +192,39 @@ async function bindStudentDevice(tx: Tx, account: LoginAccount, body: LoginBody,
   });
 }
 
-/** Satu transaksi: kunci user -> ikat perangkat siswa (Student) -> lastLoginAt (User) -> sesi. */
-function createLoginSession(account: LoginAccount, body: LoginBody, ctx: ActionContext): Promise<IssuedSession> {
-  const input = {
+/** Baca ulang akun (user + siswa + sekolah) di dalam transaksi login, setelah kunci user dipegang. */
+async function reloadAccount(tx: Tx, userId: string): Promise<LoginAccount | null> {
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: { ...USER_SELECT, student: { select: { id: true, schoolId: true, status: true, boundDeviceId: true } } },
+  });
+  return user ? toAccount(user, user.student) : null;
+}
+
+/**
+ * Di bawah kunci user, kredensial & kelayakan dibaca ulang (bcrypt tadi berjalan di luar transaksi):
+ * hash berbeda dari yang diverifikasi (kata sandi diganti/direset saat login berjalan) -> 401
+ * INVALID_CREDENTIALS; akun tidak lagi layak -> 403 yang sama dengan permintaan sesudahnya.
+ */
+async function recheckAccount(tx: Tx, verified: LoginAccount, now: Date): Promise<LoginAccount> {
+  const fresh = await reloadAccount(tx, verified.userId);
+  if (!fresh || fresh.passwordHash !== verified.passwordHash) throw invalidCredentials();
+  assertAccountUsable(fresh, now);
+  return fresh;
+}
+
+/**
+ * lastLoginAt sebagai compare-and-set pada hash terverifikasi. Penulis kata sandi yang tidak memegang kunci
+ * user (mis. reset siswa oleh sekolah) memegang kunci baris User: UPDATE ini menunggunya, lalu 0 baris
+ * bila hash berubah -> 401. Sebaliknya penulis itu menunggu login ini commit, lalu mencabut sesinya.
+ */
+async function touchLastLogin(tx: Tx, account: LoginAccount, now: Date): Promise<void> {
+  const touched = await tx.user.updateMany({ where: { id: account.userId, passwordHash: account.passwordHash }, data: { lastLoginAt: now } });
+  if (touched.count === 0) throw invalidCredentials();
+}
+
+function sessionInput(account: LoginAccount, body: LoginBody, ctx: ActionContext): NewSessionInput {
+  return {
     userId: account.userId,
     role: account.role,
     platform: body.platform,
@@ -187,12 +235,27 @@ function createLoginSession(account: LoginAccount, body: LoginBody, ctx: ActionC
     userAgent: ctx.userAgent,
     now: ctx.now,
   };
+}
+
+interface LoginResult {
+  readonly session: IssuedSession;
+  /** Akun hasil baca ulang di dalam transaksi (dipakai untuk respons). */
+  readonly account: LoginAccount;
+}
+
+/**
+ * Satu transaksi: kunci user (PERTAMA) -> baca ulang & periksa ulang akun -> ikat perangkat siswa
+ * (Student) -> lastLoginAt CAS (User) -> sesi.
+ */
+function createLoginSession(verified: LoginAccount, body: LoginBody, ctx: ActionContext): Promise<LoginResult> {
   return retryOnUniqueConflict(() =>
     withTx(async (tx) => {
-      await lockUserSessions(tx, account.userId);
+      await lockUserSessions(tx, verified.userId);
+      const account = await recheckAccount(tx, verified, ctx.now);
       await bindStudentDevice(tx, account, body, ctx.now);
-      await tx.user.update({ where: { id: account.userId }, data: { lastLoginAt: ctx.now }, select: { id: true } });
-      return openSession(tx, input);
+      await touchLastLogin(tx, account, ctx.now);
+      const session = await openSession(tx, sessionInput(account, body, ctx));
+      return { session, account };
     }),
   );
 }
@@ -201,14 +264,14 @@ export async function login(body: LoginBody, ctx: ActionContext): Promise<AuthTo
   const startedAt = performance.now();
   const identifier = classifyIdentifier(body.identifier);
   assertLoginInput(identifier, body);
-  const keys = limiterKeysOf(ctx.ip, identifier);
-  assertNotLocked(keys);
-  const account = await findLoginAccount(identifier);
-  const passwordOk = await verifyPassword(body.password, account?.passwordHash ?? null);
-  if (!account || !passwordOk) return rejectCredentials(keys, startedAt);
-  getLimiter("LOGIN_PAIR").reset(keys.pair);
-  assertAccountUsable(account, ctx.now);
-  const session = await createLoginSession(account, body, ctx);
+  const keys = loginLimiterKeys(ctx.ip, identifier);
+  reserveAttempt(keys);
+  const found = await findLoginAccount(identifier);
+  const passwordOk = await verifyPassword(body.password, found?.passwordHash ?? null);
+  if (!found || !passwordOk) return rejectCredentials(startedAt);
+  refundAttempt(keys);
+  assertAccountUsable(found, ctx.now);
+  const { session, account } = await createLoginSession(found, body, ctx);
   const access = await signAccessToken({ sub: account.userId, sid: session.sessionId }, ctx.now);
   return toAuthTokens(access, session, { ...account, id: account.userId });
 }

@@ -1,6 +1,7 @@
 import type { Prisma, StudentStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notFound } from "@/lib/http/errors";
+import { likeSearch } from "@/lib/http/like";
 import { toSkipTake } from "@/lib/http/pagination";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { SCHOOL_INCLUDE, toActiveTermDto, toSchoolDto } from "./dto";
@@ -10,9 +11,11 @@ export const SCHOOL_NOT_FOUND_MESSAGE = "Sekolah tidak ditemukan.";
 
 const STUDENT_STATUSES: readonly StudentStatus[] = ["DRAFT", "ACTIVE", "INACTIVE", "GRADUATED", "MOVED"];
 
+/** `q` dicari harfiah: wildcard LIKE (`%`, `_`, `\`) diloloskan (lihat src/lib/http/like.ts). */
 function listWhere(query: ListSchoolsQuery): Prisma.SchoolWhereInput {
+  const q = likeSearch(query.q);
   return {
-    ...(query.q ? { OR: [{ name: { contains: query.q } }, { npsn: { startsWith: query.q } }] } : {}),
+    ...(q ? { OR: [{ name: { contains: q } }, { npsn: { startsWith: q } }] } : {}),
     ...(query.provinceCode ? { provinceCode: query.provinceCode } : {}),
     ...(query.cityCode ? { cityCode: query.cityCode } : {}),
     ...(query.isActive !== undefined ? { isActive: query.isActive } : {}),

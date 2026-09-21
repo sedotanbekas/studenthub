@@ -95,6 +95,30 @@ test("tanggal tidak valid (31/02, format lain) -> error", () => {
   assert.deepEqual(parseDateCell(null), { value: null });
 });
 
+test("tanggal: serial Excel di luar 1900-01-01..hari ini ditolak tanpa RangeError", () => {
+  const today = "2026-09-21";
+  for (const serial of [81234567890, 3000000, 2958466, 20120517, 1e308, 0.5]) {
+    const result = parseDateCell(serial, today);
+    assert.equal(result.value, null, String(serial));
+    assert.ok(result.error, String(serial));
+    assert.ok(parseDateCell(serial).error, `${serial} tanpa batas hari ini`);
+  }
+  assert.equal(parseDateCell(2, today).value, "1900-01-01");
+  assert.equal(parseDateCell(46286, today).value, "2026-09-21");
+  assert.ok(parseDateCell(46287, today).error, "besok ditolak");
+});
+
+test("tanggal: Date/teks di luar 1900-01-01..hari ini ditolak; Date tahun > 9999 tidak melempar", () => {
+  const today = "2026-09-21";
+  assert.ok(parseDateCell("31/12/1899", today).error);
+  assert.ok(parseDateCell("0999-01-01", today).error);
+  assert.ok(parseDateCell("22/09/2026", today).error);
+  assert.equal(parseDateCell("21/09/2026", today).value, "2026-09-21");
+  assert.ok(parseDateCell(new Date(Date.UTC(1899, 11, 31)), today).error);
+  assert.ok(parseDateCell(new Date(7e15)).error);
+  assert.doesNotThrow(() => cellText(new Date(7e15)));
+});
+
 test("HP wali: string & angka (nol depan hilang) dinormalisasi", () => {
   assert.equal(parsePhoneCell("0812-3456-7890").value, "+6281234567890");
   assert.equal(parsePhoneCell(81234567890).value, "+6281234567890");

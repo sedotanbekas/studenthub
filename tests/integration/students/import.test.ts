@@ -139,10 +139,10 @@ describe("dry-run & commit", () => {
   test("pemegang NISN LULUS di sekolah lain: dry-run peringatan, commit melepas + notifikasi sekolah asal", async () => {
     const holder = await createStudent(b.school.id, { status: "GRADUATED" });
     const rows = [IMPORT_HEADER, importRow(a.klass.name, { 0: holder.student.nisn })];
-    const dry = await send(csvBlob(rows), "siswa.csv");
+    const dry = await send(csvBlob(rows), "siswa.csv", { confirmReleaseGraduatedNisn: "true" });
     assert.match(dry.body?.data.report.rows[0]?.warnings.join(" ") ?? "", /akun lama akan dilepas/);
     assert.equal(dry.body?.data.report.validRows, 1);
-    const res = await send(csvBlob(rows), "siswa.csv", { dryRun: "false" });
+    const res = await send(csvBlob(rows), "siswa.csv", { dryRun: "false", confirmReleaseGraduatedNisn: "true" });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     const released = await prisma.student.findFirst({ where: { id: holder.student.id, schoolId: b.school.id } });
     assert.equal(released?.activeNisn, null);
@@ -165,7 +165,7 @@ describe("penolakan berkas", () => {
     assert.match(res.body?.error?.message ?? "", /Tempat Lahir/);
   });
 
-  test("zip-bomb (entri mengembang > 25 MiB) -> 422 IMPORT_FILE_INVALID", async () => {
+  test("zip-bomb (entri mengembang > 8 MiB) -> 422 IMPORT_FILE_INVALID", async () => {
     const res = await send(new Blob([new Uint8Array(zipBomb())]), "bom.xlsx");
     assert.equal(res.status, 422);
     assert.equal(res.body?.error?.code, "IMPORT_FILE_INVALID");

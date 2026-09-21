@@ -36,9 +36,11 @@ function row(overrides: Partial<Record<number, unknown>> = {}): RawImportRow {
   return raw;
 }
 
-function validate(rows: RawImportRow[], activate = true, lookups: ImportLookups = NO_LOOKUPS) {
-  const parsed = parseImportRows(rows, COLUMNS, LOOKUP);
-  return validateImportRows(parsed, lookups, { activate, activation: ACTIVATION });
+const TODAY = "2026-09-21";
+
+function validate(rows: RawImportRow[], activate = true, lookups: ImportLookups = NO_LOOKUPS, confirmRelease = true) {
+  const parsed = parseImportRows(rows, COLUMNS, LOOKUP, { today: TODAY });
+  return validateImportRows(parsed, lookups, { activate, activation: ACTIVATION, confirmRelease });
 }
 
 test("baris lengkap -> valid, kelas dicocokkan dengan nama ternormalisasi", () => {
@@ -60,13 +62,13 @@ test("kelas nonaktif / tahun ajaran lain / tak dikenal -> error", () => {
 
 test("nama kelas ganda di tahun yang sama -> error ambigu", () => {
   const lookup = buildClassLookup([...CLASSES, { id: "c9", name: "vii a", schoolId: "s1", isActive: true, academicYearId: "ay1" }], "ay1");
-  const parsed = parseImportRows([row()], COLUMNS, lookup);
+  const parsed = parseImportRows([row()], COLUMNS, lookup, { today: TODAY });
   assert.match(parsed[0]?.errors.join(" ") ?? "", /ganda/);
 });
 
 test("tanpa semester aktif, kelas aktif mana pun dapat dipilih", () => {
   const lookup = buildClassLookup(CLASSES, null);
-  const parsed = parseImportRows([row({ 9: "VI A" })], COLUMNS, lookup);
+  const parsed = parseImportRows([row({ 9: "VI A" })], COLUMNS, lookup, { today: TODAY });
   assert.equal(parsed[0]?.class?.id, "c3");
 });
 
@@ -114,6 +116,36 @@ test("pemegang NISN di sekolah lain: AKTIF/NONAKTIF error, LULUS peringatan (han
   assert.equal(report.warningRows, 1);
   const draft = validate([row({ 0: "0022222222" })], false, lookups);
   assert.deepEqual(draft.report.rows[0]?.errors, []);
+});
+
+test("pemegang LULUS tanpa confirmReleaseGraduatedNisn: peringatan meminta opt-in (bukan 'akan dilepas')", () => {
+  const lookups: ImportLookups = { existingNisns: new Set(), existingNisKeys: new Set(), holders: new Map([["0044444445", "GRADUATED" as const]]) };
+  const { report } = validate([row({ 0: "0044444445" })], true, lookups, false);
+  assert.deepEqual(report.rows[0]?.errors, []);
+  const warning = report.rows[0]?.warnings.join(" ") ?? "";
+  assert.match(warning, /confirmReleaseGraduatedNisn/);
+  assert.doesNotMatch(warning, /akan dilepas/);
+});
+
+test("duplikat massal: daftar nomor baris dibatasi 5 + jumlah sisanya (laporan tidak meledak)", () => {
+  const rows = Array.from({ length: 50 }, () => row({ 0: "0077777777", 1: "DUP-1" }));
+  const { report } = validate(rows);
+  assert.equal(report.errorRows, 50);
+  for (const r of report.rows) {
+    const nisn = r.errors.find((e) => /NISN ganda/.test(e)) ?? "";
+    const nis = r.errors.find((e) => /NIS ganda/.test(e)) ?? "";
+    assert.match(nisn, /dan 45 lainnya/);
+    assert.match(nis, /dan 45 lainnya/);
+    assert.ok(nisn.length < 100, nisn);
+  }
+  const pair = validate([row({ 0: "0088888888" }), row({ 0: "0088888888" })]).report.rows[0]?.errors.join(" ") ?? "";
+  assert.match(pair, /baris \d+, \d+\)/);
+});
+
+test("tanggal lahir serial raksasa / masa depan -> error baris tanpa RangeError", () => {
+  const { report } = validate([row({ 5: 81234567890 }), row({ 5: 2958466 }), row({ 5: "01/01/2030" })], false);
+  assert.equal(report.errorRows, 3);
+  for (const r of report.rows) assert.match(r.errors.join(" "), /Tanggal lahir/);
 });
 
 test("activate=true: kekurangan data aktivasi menjadi error; activate=false tidak", () => {
@@ -167,7 +199,7 @@ test("nonBlankRows melewati baris kosong (termasuk yang hanya berisi kolom tak d
 });
 
 test("collectLookupKeys mengumpulkan NISN & NIS unik yang valid", () => {
-  const parsed = parseImportRows([row({ 0: "0055555555", 1: "a1" }), row({ 0: "0055555555", 1: "A1" }), row({ 0: "x" })], COLUMNS, LOOKUP);
+  const parsed = parseImportRows([row({ 0: "0055555555", 1: "a1" }), row({ 0: "0055555555", 1: "A1" }), row({ 0: "x" })], COLUMNS, LOOKUP, { today: TODAY });
   const keys = collectLookupKeys(parsed);
   assert.deepEqual(keys.nisns, ["0055555555", parsed[2]?.nisn].filter(Boolean));
   assert.deepEqual(keys.nis, ["a1", "A1", parsed[2]?.nis]);

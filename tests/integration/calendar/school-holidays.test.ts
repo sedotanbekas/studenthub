@@ -2,10 +2,11 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { GET as listRoute, POST as createRoute } from "@/app/api/v1/school/holidays/route";
 import { DELETE as deleteRoute, PATCH as patchRoute } from "@/app/api/v1/school/holidays/[id]/route";
+import { holidaysLockKey } from "@/lib/lock-keys";
 import { addDays, localParts, toDbDate } from "@/lib/time/zone";
 import { disconnect, prisma, uniq } from "../helpers/db";
 import { callRoute, type Envelope } from "../helpers/request";
-import { createTenant, findAudit, setupTenants, withSchool, type TwoTenants } from "../academics/helpers";
+import { createTenant, findAudit, holdLock, raceWhileHeld, setupTenants, withSchool, type TwoTenants } from "../academics/helpers";
 
 interface Holiday {
   id: string;
@@ -89,6 +90,30 @@ test("libur ganda (nama + tanggal mulai sama) -> 409", async () => {
   const dup = await post({ ...body, endDate: addDays(body.endDate, 1) }, t.adminToken);
   assert.equal(dup.status, 409);
   assert.equal(dup.body?.error?.code, "HOLIDAY_DUPLICATE");
+});
+
+test("POST libur ganda paralel -> satu 201 + satu 409 HOLIDAY_DUPLICATE", async () => {
+  const t = await createTenant();
+  const body = holiday(22);
+  const held = await holdLock(holidaysLockKey(t.schoolId));
+  const results = await raceWhileHeld(held, [() => post(body, t.adminToken), () => post(body, t.adminToken)]);
+  assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
+  assert.equal(results.find((r) => r.status === 409)?.body?.error?.code, "HOLIDAY_DUPLICATE");
+  assert.equal(await prisma.holiday.count({ where: { schoolId: t.schoolId, name: body.name } }), 1);
+});
+
+test("PATCH libur paralel (nama & tanggal selesai) -> keduanya tersimpan", async () => {
+  const t = await createTenant();
+  const created = (await post(holiday(12, 12), t.adminToken)).body!.data;
+  const held = await holdLock(holidaysLockKey(t.schoolId));
+  const [renamed, extended] = await raceWhileHeld(held, [
+    () => patch(created.id, { name: "Libur Paralel" }, t.adminToken),
+    () => patch(created.id, { endDate: addDays(today, 14) }, t.adminToken),
+  ]);
+  assert.deepEqual([renamed?.status, extended?.status], [200, 200]);
+  assert.deepEqual([extended?.body?.data.name, extended?.body?.data.endDate], ["Libur Paralel", addDays(today, 14)]);
+  const row = await prisma.holiday.findUniqueOrThrow({ where: { id: created.id } });
+  assert.equal(row.name, "Libur Paralel");
 });
 
 test("batas backdate admin sekolah: mulai >= hari ini - 7; super admin tanpa batas", async () => {

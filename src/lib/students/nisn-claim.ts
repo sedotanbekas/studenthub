@@ -1,18 +1,19 @@
 import type { ActionContext } from "@/lib/auth/principal";
-import { writeAudit } from "@/lib/audit";
-import { revokeAllSessions } from "@/lib/auth/sessions";
 import type { Tx } from "@/lib/db";
 import { conflict, type AppError } from "@/lib/http/errors";
-import { notifySchoolAdmins } from "@/lib/notifications/notify";
-import { nisnReleasedNotification } from "@/lib/notifications/templates/students";
+import type { SchoolTz } from "@/lib/time/zone";
 import type { StudentStatusValue } from "./constants";
+import { assertReleaseQuota } from "./nisn-release-log";
 import { decideNisnClaim } from "./nisn-rules";
 
 /**
- * Klaim activeNisn di DALAM transaksi (aktivasi / reaktivasi / ganti NISN oleh super admin).
- * Pemegang dikunci `FOR UPDATE` lewat indeks unik activeNisn; pemegang LULUS dilepas (activeNisn NULL,
- * sesi dicabut), pemegang AKTIF/NONAKTIF -> 409 NISN_ACTIVE_ELSEWHERE. Audit & notifikasi pelepasan
- * ditulis TERAKHIR lewat `recordNisnReleases` (urutan kunci global).
+ * Klaim activeNisn di DALAM transaksi (aktivasi / reaktivasi / ganti NISN oleh super admin / impor).
+ * Pemegang dikunci `FOR UPDATE` lewat indeks unik activeNisn; pemegang AKTIF/NONAKTIF -> 409
+ * NISN_ACTIVE_ELSEWHERE. Pemegang LULUS di sekolah lain HANYA dilepas bila pemanggil ikut serta secara
+ * eksplisit (`confirmRelease`, 409 NISN_HELD_BY_GRADUATE bila tidak) dan kuota harian sekolah
+ * pengklaim masih cukup (429 NISN_RELEASE_LIMIT; super admin dikecualikan). Pemanggil WAJIB sudah
+ * memegang lockKey(nisnReleaseLockKey(claimer.id)) (lihat lock-plan.ts). Audit & notifikasi pelepasan
+ * ditulis TERAKHIR lewat `recordNisnReleases` (nisn-release-log.ts).
  */
 export interface ReleasedHolder {
   readonly id: string;
@@ -22,11 +23,29 @@ export interface ReleasedHolder {
 }
 
 export type HolderRow = { id: string; status: string; schoolId: string; userId: string };
+/** Pemegang yang sudah dikunci FOR UPDATE beserta NISN yang dipegangnya. */
+export type LockedHolder = HolderRow & { activeNisn: string };
 
-/** Konteks sistem untuk audit di sekolah asal: tanpa aktor/IP sekolah lain (tanpa id tenant lain). */
-const SYSTEM_ACTOR = { principal: null, ip: null, userAgent: null } as const;
+export interface ClaimingSchool {
+  readonly id: string;
+  readonly name: string;
+  readonly timezone: SchoolTz;
+}
+
+export interface ReleasePolicy {
+  /** Opt-in eksplisit (confirmReleaseGraduatedNisn) untuk melepas NISN siswa LULUS di sekolah lain. */
+  readonly confirmRelease: boolean;
+  /** Sekolah yang mengklaim NISN (kuota, audit student.nisn_release_claimed, notifikasi super admin). */
+  readonly claimer: ClaimingSchool;
+}
 
 export const NISN_ACTIVE_ELSEWHERE_MESSAGE = "NISN masih aktif di sekolah lain; sekolah asal harus menandai Pindah/Lulus terlebih dahulu.";
+export const NISN_HELD_BY_GRADUATE_MESSAGE =
+  "NISN masih tercatat pada siswa LULUS di sekolah lain. Kirim confirmReleaseGraduatedNisn=true untuk melepas akun lama siswa tersebut (tercatat di audit dan dilaporkan ke super admin).";
+
+export function nisnHeldByGraduate(details?: unknown): AppError {
+  return conflict("NISN_HELD_BY_GRADUATE", NISN_HELD_BY_GRADUATE_MESSAGE, details);
+}
 
 async function nisnConflict(tx: Tx, holder: HolderRow, ctx: ActionContext): Promise<AppError> {
   if (ctx.principal?.role !== "SUPER_ADMIN") return conflict("NISN_ACTIVE_ELSEWHERE", NISN_ACTIVE_ELSEWHERE_MESSAGE);
@@ -38,49 +57,34 @@ export async function claimNisn(
   tx: Tx,
   target: { readonly studentId: string | null; readonly nisn: string },
   ctx: ActionContext,
+  policy: ReleasePolicy,
 ): Promise<ReleasedHolder | null> {
-  const rows = await tx.$queryRaw<HolderRow[]>`SELECT \`id\`, \`status\`, \`schoolId\`, \`userId\` FROM \`Student\` WHERE \`activeNisn\` = ${target.nisn} FOR UPDATE`;
+  const rows = await tx.$queryRaw<LockedHolder[]>`SELECT \`id\`, \`status\`, \`schoolId\`, \`userId\`, \`activeNisn\` FROM \`Student\` WHERE \`activeNisn\` = ${target.nisn} FOR UPDATE`;
   const holder = rows[0] ?? null;
   const decision = decideNisnClaim(holder && { id: holder.id, status: holder.status as StudentStatusValue }, target.studentId);
   if (decision === "CLAIM" || holder === null) return null;
   if (decision === "CONFLICT") throw await nisnConflict(tx, holder, ctx);
-  return releaseHolder(tx, holder, target.nisn, ctx.now);
+  const [released] = await releaseGraduates(tx, [holder], ctx, policy);
+  return released ?? null;
 }
 
-/** Lepas activeNisn pemegang LULUS (compare-and-set) + cabut sesinya. */
-export async function releaseHolder(tx: Tx, holder: HolderRow, nisn: string, now: Date): Promise<ReleasedHolder> {
+/**
+ * Lepas activeNisn para pemegang LULUS yang SUDAH dikunci (satu UPDATE compare-and-set + satu pencabutan
+ * sesi untuk semua; tanpa query per pemegang). Opt-in & kuota diperiksa lebih dulu.
+ */
+export async function releaseGraduates(tx: Tx, holders: readonly LockedHolder[], ctx: ActionContext, policy: ReleasePolicy): Promise<ReleasedHolder[]> {
+  if (holders.length === 0) return [];
+  if (!policy.confirmRelease) throw nisnHeldByGraduate({ count: holders.length });
+  await assertReleaseQuota(tx, policy.claimer, holders.length, ctx);
   const released = await tx.student.updateMany({
-    where: { id: holder.id, activeNisn: nisn, status: "GRADUATED" },
+    where: { id: { in: holders.map((h) => h.id) }, activeNisn: { in: holders.map((h) => h.activeNisn) }, status: "GRADUATED" },
     data: { activeNisn: null },
   });
-  if (released.count !== 1) throw conflict("NISN_ACTIVE_ELSEWHERE", NISN_ACTIVE_ELSEWHERE_MESSAGE);
-  await revokeAllSessions(tx, holder.userId, "ACCOUNT_DISABLED", now);
-  return { id: holder.id, schoolId: holder.schoolId, userId: holder.userId, nisn };
-}
-
-/** Audit `student.nisn_release` di sekolah ASAL + notifikasi NISN_RELEASED ke admin sekolah asal. */
-export async function recordNisnReleases(tx: Tx, released: readonly ReleasedHolder[], ctx: ActionContext): Promise<void> {
-  if (released.length === 0) return;
-  const users = await tx.user.findMany({ where: { id: { in: released.map((r) => r.userId) } }, select: { id: true, name: true } });
-  const nameOf = new Map(users.map((u) => [u.id, u.name]));
-  for (const holder of released) {
-    await writeAudit(
-      tx,
-      {
-        action: "student.nisn_release",
-        entityType: "Student",
-        entityId: holder.id,
-        schoolId: holder.schoolId,
-        before: { activeNisn: holder.nisn, status: "GRADUATED" },
-        after: { activeNisn: null, reason: "NISN diaktifkan di sekolah lain" },
-      },
-      SYSTEM_ACTOR,
-    );
-  }
-  const schoolIds = [...new Set(released.map((holder) => holder.schoolId))];
-  for (const schoolId of schoolIds) {
-    const holders = released.filter((holder) => holder.schoolId === schoolId);
-    const info = holders.map((h) => ({ studentId: h.id, name: nameOf.get(h.userId) ?? "Siswa", nisn: h.nisn }));
-    await notifySchoolAdmins(tx, schoolId, nisnReleasedNotification(info), ctx);
-  }
+  if (released.count !== holders.length) throw conflict("NISN_ACTIVE_ELSEWHERE", NISN_ACTIVE_ELSEWHERE_MESSAGE);
+  // Sama dengan revokeAllSessions (src/lib/auth/sessions.ts), sekaligus untuk semua pemegang.
+  await tx.authSession.updateMany({
+    where: { userId: { in: holders.map((h) => h.userId) }, revokedAt: null },
+    data: { revokedAt: ctx.now, revokeReason: "ACCOUNT_DISABLED", expoPushToken: null },
+  });
+  return holders.map((h) => ({ id: h.id, schoolId: h.schoolId, userId: h.userId, nisn: h.activeNisn }));
 }

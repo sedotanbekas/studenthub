@@ -2,10 +2,12 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { GET as listSubjectsRoute, POST as createSubjectRoute } from "@/app/api/v1/school/subjects/route";
 import { DELETE as deleteSubjectRoute, PATCH as patchSubjectRoute } from "@/app/api/v1/school/subjects/[id]/route";
+import { PUT as putClassSubjectsRoute } from "@/app/api/v1/school/classes/[id]/subjects/route";
+import { subjectsLockKey } from "@/lib/lock-keys";
 import { disconnect, prisma } from "../helpers/db";
 import { createAcademicYearWithTerm, createClass, createStudent } from "../helpers/factories";
 import { callRoute, type Envelope } from "../helpers/request";
-import { createTenant, findAudit, setupTenants, withSchool, type Tenant, type TwoTenants } from "./helpers";
+import { createTenant, findAudit, holdLock, holdTx, raceWhileHeld, setupTenants, withSchool, type Tenant, type TwoTenants } from "./helpers";
 
 interface Subject {
   id: string;
@@ -119,6 +121,38 @@ test("nonaktif mapel ditolak selama terpetakan ke kelas aktif tahun ajaran aktif
   const ok = await patchSubject(s.id, { isActive: false }, t.adminToken);
   assert.equal(ok.status, 200);
   assert.equal(ok.body?.data.isActive, false);
+});
+
+test("PATCH mapel paralel (nonaktif & ganti nama) -> keduanya tersimpan", async () => {
+  const t = await createTenant();
+  const s = await created(t, { code: "PRL", name: "Paralel", kkm: 70 });
+  const held = await holdLock(subjectsLockKey(t.schoolId));
+  const [off, renamed] = await raceWhileHeld(held, [
+    () => patchSubject(s.id, { isActive: false }, t.adminToken),
+    () => patchSubject(s.id, { name: "Paralel Baru" }, t.adminToken),
+  ]);
+  assert.deepEqual([off?.status, renamed?.status], [200, 200]);
+  const row = await prisma.subject.findUniqueOrThrow({ where: { id: s.id } });
+  assert.deepEqual([row.isActive, row.name], [false, "Paralel Baru"]);
+  assert.equal(renamed?.body?.data.isActive, false, "respons & audit dari baris terbaru");
+});
+
+test("nonaktif mapel vs PUT pemetaan kelas yang sedang berjalan -> tidak ada mapel nonaktif yang baru terpetakan", async () => {
+  const t = await createTenant();
+  const { academicYear } = await createAcademicYearWithTerm(t.schoolId);
+  const cls = await createClass(t.schoolId, academicYear.id);
+  const [base, target] = [await created(t, { code: "BASE", name: "Dasar", kkm: 70 }), await created(t, { code: "TGT", name: "Target", kkm: 70 })];
+  await prisma.classSubject.create({ data: { classId: cls.id, subjectId: base.id } });
+  // Penahan memegang baris pemetaan lama: PUT berhenti di antara validasi mapel dan penulisan.
+  const held = await holdTx((tx) => tx.classSubject.update({ where: { classId_subjectId: { classId: cls.id, subjectId: base.id } }, data: { sortOrder: 9 } }));
+  const [put, off] = await raceWhileHeld(held, [
+    () => callRoute<Envelope<unknown>>(putClassSubjectsRoute, { method: "PUT", url: `/api/v1/school/classes/${cls.id}/subjects`, bearer: t.adminToken, json: { subjectIds: [base.id, target.id] }, params: { id: cls.id } }),
+    () => patchSubject(target.id, { isActive: false }, t.adminToken),
+  ]);
+  assert.equal(put?.status, 200, JSON.stringify(put?.body?.error));
+  assert.equal(off?.status, 409);
+  assert.equal(off?.body?.error?.code, "SUBJECT_MAPPED");
+  assert.equal((await prisma.subject.findUniqueOrThrow({ where: { id: target.id } })).isActive, true);
 });
 
 test("DELETE mapel hanya bila tidak dipetakan dan belum dinilai", async () => {

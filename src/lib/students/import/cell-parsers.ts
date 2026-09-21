@@ -106,6 +106,7 @@ const DMY = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/;
 const YMD = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
 const pad2 = (part: string): string => part.padStart(2, "0");
 const INVALID_DATE = "Tanggal lahir tidak valid (format DD/MM/YYYY, DD-MM-YYYY, atau YYYY-MM-DD).";
+const DATE_OUT_OF_RANGE = "Tanggal lahir harus antara 01/01/1900 dan hari ini.";
 
 function dateFromText(text: string): string | null {
   const dmy = DMY.exec(text);
@@ -115,17 +116,44 @@ function dateFromText(text: string): string | null {
   return null;
 }
 
-export function parseDateCell(value: unknown): CellResult<LocalDate> {
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? fail(INVALID_DATE) : { value: isoDate(value) };
-  if (typeof value === "number") {
-    if (!Number.isFinite(value) || value < 1) return fail(INVALID_DATE);
-    return { value: isoDate(new Date(EXCEL_EPOCH_MS + Math.floor(value) * DAY_MS)) };
-  }
+/** Tanggal lahir yang diterima: 1900-01-01 .. hari ini (serial Excel 2 .. serial hari ini). */
+export const MIN_CELL_DATE: LocalDate = "1900-01-01";
+/** Serial Excel terbesar yang masih bertahun 4 digit (9999-12-31). */
+const MAX_EXCEL_SERIAL = 2_958_465;
+
+/** Date -> "YYYY-MM-DD" hanya bila Date sah & bertahun 4 digit (toISOString melempar RangeError bila tidak sah). */
+function localDateOf(date: Date): LocalDate | null {
+  if (!Number.isFinite(date.getTime())) return null;
+  const year = date.getUTCFullYear();
+  if (year < 1000 || year > 9999) return null;
+  return parseLocalDate(isoDate(date));
+}
+
+function serialToDate(serial: number): LocalDate | null {
+  if (!Number.isFinite(serial) || serial < 1 || serial > MAX_EXCEL_SERIAL) return null;
+  return localDateOf(new Date(EXCEL_EPOCH_MS + Math.floor(serial) * DAY_MS));
+}
+
+function textToDate(value: unknown): LocalDate | null | undefined {
   const text = cellText(value);
-  if (text === null) return empty();
+  if (text === null) return undefined;
   const candidate = dateFromText(stripApostrophe(text));
-  const valid = candidate === null ? null : parseLocalDate(candidate);
-  return valid === null ? fail(INVALID_DATE) : { value: valid };
+  return candidate === null ? null : parseLocalDate(candidate);
+}
+
+/**
+ * Sel tanggal lahir: Date (sel bertanggal), serial Excel, atau teks DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD.
+ * Di luar 1900-01-01 .. `today` (bila diberikan) -> error; tidak pernah melempar RangeError.
+ */
+export function parseDateCell(value: unknown, today?: LocalDate): CellResult<LocalDate> {
+  let date: LocalDate | null | undefined;
+  if (value instanceof Date) date = localDateOf(value);
+  else if (typeof value === "number") date = serialToDate(value);
+  else date = textToDate(value);
+  if (date === undefined) return empty();
+  if (date === null) return fail(INVALID_DATE);
+  if (date < MIN_CELL_DATE || (today !== undefined && date > today)) return fail(DATE_OUT_OF_RANGE);
+  return { value: date };
 }
 
 function phoneText(value: unknown): string | null {

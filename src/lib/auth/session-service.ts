@@ -1,6 +1,7 @@
 import type { ClientPlatform, SessionRevokeReason, UserRole } from "@prisma/client";
 import { prisma, type Tx } from "@/lib/db";
 import { notFound, unprocessable } from "@/lib/http/errors";
+import { userLockKey } from "@/lib/lock-keys";
 import { lockKey, withTx } from "@/lib/tx";
 import { EXPO_PUSH_TOKEN_PATTERN, SESSION_LIST_MAX } from "./constants";
 import { isMobilePlatform, planLoginRevocations } from "./device";
@@ -20,7 +21,7 @@ const UNIQUE_VIOLATION = "P2002";
 
 /** Kunci aplikasi per user: menyerialkan login paralel agar batas sesi & satu-HP-per-siswa konsisten. */
 export function userSessionLockKey(userId: string): string {
-  return `auth:user:${userId}`;
+  return userLockKey(userId);
 }
 
 export async function lockUserSessions(tx: Tx, userId: string): Promise<void> {

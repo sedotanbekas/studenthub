@@ -1,7 +1,9 @@
+import type { Prisma } from "@prisma/client";
 import type { ActionContext } from "@/lib/auth/principal";
 import { writeAudit } from "@/lib/audit";
-import type { Tx } from "@/lib/db";
+import { prisma, type Tx } from "@/lib/db";
 import { conflict, notFound } from "@/lib/http/errors";
+import { classLockKey, classYearLockKey } from "@/lib/lock-keys";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { lockKey, withTx } from "@/lib/tx";
 import { CLASS_SELECT, toClassDto } from "./dto";
@@ -12,13 +14,37 @@ import type { ClassDto, CreateClassInput, UpdateClassInput } from "./schemas";
 /**
  * Mutasi kelas (rombongan belajar). Nama unik per tahun ajaran (409 CLASS_NAME_TAKEN);
  * nonaktif hanya tanpa siswa AKTIF; hapus hanya bila tidak dirujuk data lain.
+ *
+ * KUNCI (src/lib/lock-keys.ts), selalu PALING AWAL di transaksi sebelum membaca apa pun:
+ * - buat kelas: `classes:<academicYearId>` (nama unik per tahun ajaran).
+ * - ubah/hapus kelas: `classes:<academicYearId>` -> `class:<classId>` (kasar -> halus). Kunci kelas
+ *   menyerialkan penonaktifan dengan penempatan/aktivasi siswa ke kelas itu (domain siswa memakai
+ *   `classLockKey` yang sama), sehingga jumlah siswa aktif dihitung ulang di bawah kunci.
+ * Setelah kunci: baca baris terbaru, UPDATE hanya field yang dikirim, audit before/after dari baris terbaru.
  */
-const classLockKey = (academicYearId: string): string => `classes:${academicYearId}`;
-
 export async function loadClassDto(tx: Tx, scope: SchoolScope, id: string): Promise<ClassDto> {
   const row = await tx.schoolClass.findFirst({ where: { id, schoolId: scope.schoolId }, select: CLASS_SELECT });
   if (!row) throw notFound("Kelas tidak ditemukan.");
   return toClassDto(row);
+}
+
+/**
+ * Tahun ajaran kelas untuk nama kunci, dibaca SEBELUM transaksi. Aman karena academicYearId kelas tidak
+ * pernah berubah (updateClassBody tidak menerimanya); data kelas lain dibaca ulang setelah kunci.
+ */
+async function resolveClassYearId(scope: SchoolScope, id: string): Promise<string> {
+  const row = await prisma.schoolClass.findFirst({ where: { id, schoolId: scope.schoolId }, select: { academicYearId: true } });
+  if (row) return row.academicYearId;
+  await requireSchool(prisma, scope);
+  throw notFound("Kelas tidak ditemukan.");
+}
+
+/** Kunci `classes:<tahun>` -> `class:<id>`, lalu baca sekolah & kelas terbaru (404 bila terhapus sementara). */
+async function lockClass(tx: Tx, scope: SchoolScope, id: string, academicYearId: string): Promise<ClassDto> {
+  await lockKey(tx, classYearLockKey(academicYearId));
+  await lockKey(tx, classLockKey(id));
+  await requireSchool(tx, scope);
+  return loadClassDto(tx, scope, id);
 }
 
 async function assertNameFree(tx: Tx, academicYearId: string, name: string, excludeId: string | null): Promise<void> {
@@ -32,10 +58,10 @@ async function assertNameFree(tx: Tx, academicYearId: string, name: string, excl
 export async function createClass(scope: SchoolScope, input: CreateClassInput, ctx: ActionContext): Promise<ClassDto> {
   const name = normalizeName(input.name);
   return withTx(async (tx) => {
+    await lockKey(tx, classYearLockKey(input.academicYearId));
     await requireSchool(tx, scope);
     const year = await tx.academicYear.findFirst({ where: { id: input.academicYearId, schoolId: scope.schoolId }, select: { id: true } });
     if (!year) throw notFound("Tahun ajaran tidak ditemukan.");
-    await lockKey(tx, classLockKey(year.id));
     await assertNameFree(tx, year.id, name, null);
     const row = await tx.schoolClass.create({
       data: { schoolId: scope.schoolId, academicYearId: year.id, name, gradeLevel: input.gradeLevel },
@@ -47,6 +73,7 @@ export async function createClass(scope: SchoolScope, input: CreateClassInput, c
   });
 }
 
+/** Dihitung di bawah kunci `class:<id>`: aktivasi siswa yang sedang berjalan sudah commit atau menunggu. */
 async function assertCanDeactivate(tx: Tx, classId: string): Promise<void> {
   const active = await tx.student.count({ where: { currentClassId: classId, status: "ACTIVE" } });
   if (active > 0) {
@@ -54,18 +81,23 @@ async function assertCanDeactivate(tx: Tx, classId: string): Promise<void> {
   }
 }
 
+/** Data UPDATE hanya dari field yang dikirim; kolom lain tidak ditulis ulang. */
+function classPatchData(patch: UpdateClassInput, name: string | undefined): Prisma.SchoolClassUpdateInput {
+  return {
+    ...(name === undefined ? {} : { name }),
+    ...(patch.gradeLevel === undefined ? {} : { gradeLevel: patch.gradeLevel }),
+    ...(patch.isActive === undefined ? {} : { isActive: patch.isActive }),
+  };
+}
+
 export async function updateClass(scope: SchoolScope, id: string, patch: UpdateClassInput, ctx: ActionContext): Promise<ClassDto> {
+  const academicYearId = await resolveClassYearId(scope, id);
   return withTx(async (tx) => {
-    await requireSchool(tx, scope);
-    const current = await loadClassDto(tx, scope, id);
-    await lockKey(tx, classLockKey(current.academicYearId));
-    const name = patch.name === undefined ? current.name : normalizeName(patch.name);
-    if (name !== current.name) await assertNameFree(tx, current.academicYearId, name, id);
+    const current = await lockClass(tx, scope, id, academicYearId);
+    const name = patch.name === undefined ? undefined : normalizeName(patch.name);
+    if (name !== undefined && name !== current.name) await assertNameFree(tx, current.academicYearId, name, id);
     if (patch.isActive === false && current.isActive) await assertCanDeactivate(tx, id);
-    await tx.schoolClass.update({
-      where: { id },
-      data: { name, gradeLevel: patch.gradeLevel ?? current.gradeLevel, isActive: patch.isActive ?? current.isActive },
-    });
+    await tx.schoolClass.update({ where: { id }, data: classPatchData(patch, name) });
     const dto = await loadClassDto(tx, scope, id);
     await writeAudit(tx, { action: "class.update", entityType: "SchoolClass", entityId: id, schoolId: scope.schoolId, before: current, after: dto }, ctx);
     return dto;
@@ -83,9 +115,9 @@ async function classReferenceCount(tx: Tx, classId: string): Promise<number> {
 }
 
 export async function deleteClass(scope: SchoolScope, id: string, ctx: ActionContext): Promise<{ id: string }> {
+  const academicYearId = await resolveClassYearId(scope, id);
   return withTx(async (tx) => {
-    await requireSchool(tx, scope);
-    const current = await loadClassDto(tx, scope, id);
+    const current = await lockClass(tx, scope, id, academicYearId);
     if ((await classReferenceCount(tx, id)) > 0) {
       throw conflict("CLASS_IN_USE", "Kelas sudah dipakai (siswa, absensi, rapor, atau pengumuman). Nonaktifkan kelas sebagai gantinya.");
     }

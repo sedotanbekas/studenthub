@@ -88,6 +88,8 @@ export interface ImportReport {
 export interface ValidatedImport {
   readonly report: ImportReport;
   readonly rows: readonly ParsedImportRow[];
+  /** Nomor baris yang NISN-nya dipegang siswa LULUS di sekolah lain (hanya saat activate=true). */
+  readonly graduateRows: readonly number[];
 }
 
 /** Kelas aktif di tahun ajaran semester aktif (atau semua kelas aktif bila belum ada semester aktif). */
@@ -126,7 +128,12 @@ const FIELD_TO_GAP: Readonly<Partial<Record<ImportField, GapField>>> = {
   address: "address", guardianName: "guardianName", guardianPhone: "guardianPhone", className: "currentClassId",
 };
 
-function parseCells(raw: RawImportRow, columns: ColumnMap, classes: ClassLookup): Parsed {
+/** Opsi tahap parse: `today` = tanggal lokal sekolah (batas atas tanggal lahir). */
+export interface ParseOptions {
+  readonly today?: LocalDate;
+}
+
+function parseCells(raw: RawImportRow, columns: ColumnMap, classes: ClassLookup, options: ParseOptions): Parsed {
   const cell = (field: ImportField) => cellOf(raw, columns, field);
   return {
     nisn: parseNisnCell(cell("nisn")),
@@ -134,7 +141,7 @@ function parseCells(raw: RawImportRow, columns: ColumnMap, classes: ClassLookup)
     name: parseNameCell(cell("name")),
     gender: parseGenderCell(cell("gender")),
     birthPlace: parseTextCell(cell("birthPlace"), BIRTH_PLACE_MAX, "Tempat lahir"),
-    birthDate: parseDateCell(cell("birthDate")),
+    birthDate: parseDateCell(cell("birthDate"), options.today),
     address: parseTextCell(cell("address"), ADDRESS_MAX, "Alamat"),
     guardianName: parseTextCell(cell("guardianName"), GUARDIAN_NAME_MAX, "Nama wali"),
     guardianPhone: parsePhoneCell(cell("guardianPhone")),
@@ -143,8 +150,8 @@ function parseCells(raw: RawImportRow, columns: ColumnMap, classes: ClassLookup)
   };
 }
 
-function parseImportRow(raw: RawImportRow, columns: ColumnMap, classes: ClassLookup): ParsedImportRow {
-  const cells = parseCells(raw, columns, classes);
+function parseImportRow(raw: RawImportRow, columns: ColumnMap, classes: ClassLookup, options: ParseOptions): ParsedImportRow {
+  const cells = parseCells(raw, columns, classes, options);
   const entries = IMPORT_FIELDS.map((field) => [field, cells[field]] as const);
   return {
     row: raw.row,
@@ -166,8 +173,13 @@ function parseImportRow(raw: RawImportRow, columns: ColumnMap, classes: ClassLoo
   };
 }
 
-export function parseImportRows(rows: readonly RawImportRow[], columns: ColumnMap, classes: ClassLookup): ParsedImportRow[] {
-  return nonBlankRows(rows, columns).map((raw) => parseImportRow(raw, columns, classes));
+export function parseImportRows(
+  rows: readonly RawImportRow[],
+  columns: ColumnMap,
+  classes: ClassLookup,
+  options: ParseOptions = {},
+): ParsedImportRow[] {
+  return nonBlankRows(rows, columns).map((raw) => parseImportRow(raw, columns, classes, options));
 }
 
 /** NISN & NIS unik (valid) untuk lookup DB batch. */
@@ -177,12 +189,25 @@ export function collectLookupKeys(rows: readonly ParsedImportRow[]): { nisns: st
 }
 
 function occurrences(rows: readonly ParsedImportRow[], keyOf: (r: ParsedImportRow) => string | null): Map<string, number[]> {
+  // Akumulator lokal O(n): menyalin array per baris menjadi O(n²) untuk duplikat massal.
   const map = new Map<string, number[]>();
   for (const r of rows) {
     const key = keyOf(r);
-    if (key !== null) map.set(key, [...(map.get(key) ?? []), r.row]);
+    if (key === null) continue;
+    const list = map.get(key);
+    if (list === undefined) map.set(key, [r.row]);
+    else list.push(r.row);
   }
   return map;
+}
+
+/** Nomor baris duplikat yang ditampilkan per pesan; sisanya diringkas "dan N lainnya". */
+export const DUPLICATE_ROWS_SHOWN = 5;
+
+export function duplicateRowsText(rows: readonly number[]): string {
+  const shown = rows.slice(0, DUPLICATE_ROWS_SHOWN).join(", ");
+  const more = rows.length - DUPLICATE_ROWS_SHOWN;
+  return more > 0 ? `${shown} dan ${more} lainnya` : shown;
 }
 
 const REQUIRED_LABELS: ReadonlyArray<readonly [GapField, string]> = [
@@ -213,19 +238,24 @@ interface CrossContext {
   readonly lookups: ImportLookups;
   readonly activate: boolean;
   readonly activation: ActivationContext;
+  readonly confirmRelease: boolean;
 }
+
+export const GRADUATE_RELEASE_WARNING = "NISN milik siswa lulus di sekolah lain; akun lama akan dilepas saat disimpan.";
+export const GRADUATE_CONFIRM_WARNING =
+  "NISN milik siswa lulus di sekolah lain. Kirim confirmReleaseGraduatedNisn=true untuk melepas akun lama; tanpa itu penyimpanan ditolak (409 NISN_HELD_BY_GRADUATE).";
 
 function identityIssues(row: ParsedImportRow, ctx: CrossContext): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
   const dupNisn = row.nisn === null ? [] : (ctx.nisnRows.get(row.nisn) ?? []);
-  if (dupNisn.length > 1) errors.push(`NISN ganda di berkas (baris ${dupNisn.join(", ")}).`);
+  if (dupNisn.length > 1) errors.push(`NISN ganda di berkas (baris ${duplicateRowsText(dupNisn)}).`);
   const dupNis = row.nis === null ? [] : (ctx.nisRows.get(row.nis.toUpperCase()) ?? []);
-  if (dupNis.length > 1) errors.push(`NIS ganda di berkas (baris ${dupNis.join(", ")}).`);
+  if (dupNis.length > 1) errors.push(`NIS ganda di berkas (baris ${duplicateRowsText(dupNis)}).`);
   if (row.nisn !== null && ctx.lookups.existingNisns.has(row.nisn)) errors.push("NISN sudah terdaftar di sekolah ini.");
   if (row.nis !== null && ctx.lookups.existingNisKeys.has(row.nis.toUpperCase())) errors.push("NIS sudah dipakai siswa lain di sekolah ini.");
   const holder = ctx.activate && row.nisn !== null ? ctx.lookups.holders.get(row.nisn) : undefined;
-  if (holder === "GRADUATED") warnings.push("NISN milik siswa lulus di sekolah lain; akun lama akan dilepas.");
+  if (holder === "GRADUATED") warnings.push(ctx.confirmRelease ? GRADUATE_RELEASE_WARNING : GRADUATE_CONFIRM_WARNING);
   else if (holder !== undefined) errors.push("NISN masih aktif di sekolah lain; sekolah asal harus menandai Pindah/Lulus.");
   return { errors, warnings };
 }
@@ -249,7 +279,7 @@ function finalizeRow(row: ParsedImportRow, ctx: CrossContext): ParsedImportRow {
 export function validateImportRows(
   rows: readonly ParsedImportRow[],
   lookups: ImportLookups,
-  options: { readonly activate: boolean; readonly activation: ActivationContext },
+  options: { readonly activate: boolean; readonly activation: ActivationContext; readonly confirmRelease: boolean },
 ): ValidatedImport {
   const ctx: CrossContext = {
     nisnRows: occurrences(rows, (r) => r.nisn),
@@ -257,6 +287,7 @@ export function validateImportRows(
     lookups,
     activate: options.activate,
     activation: options.activation,
+    confirmRelease: options.confirmRelease,
   };
   const finalized = [...rows].sort((a, b) => a.row - b.row).map((row) => finalizeRow(row, ctx));
   const report: ImportReport = {
@@ -266,5 +297,6 @@ export function validateImportRows(
     warningRows: finalized.filter((r) => r.warnings.length > 0).length,
     rows: finalized.map((r) => ({ row: r.row, nisn: r.nisn, name: r.name, errors: r.errors, warnings: r.warnings })),
   };
-  return { report, rows: finalized };
+  const graduateRows = options.activate ? finalized.filter((r) => r.nisn !== null && lookups.holders.get(r.nisn) === "GRADUATED").map((r) => r.row) : [];
+  return { report, rows: finalized, graduateRows };
 }

@@ -71,3 +71,24 @@ test("monthRange & formatMinute", () => {
   assert.equal(monthRange("2026-13"), null);
   assert.equal(formatMinute(435), "07:15");
 });
+
+test("monthRange hanya menerima tahun 1900..9999 (bulan 0999-01 dulu memicu 500)", () => {
+  assert.equal(monthRange("0999-01"), null);
+  assert.equal(monthRange("0000-01"), null);
+  assert.equal(monthRange("0050-06"), null);
+  assert.equal(monthRange("1899-12"), null);
+  assert.deepEqual(monthRange("1900-01"), { from: "1900-01-01", to: "1900-01-31" });
+  assert.deepEqual(monthRange("9999-12"), { from: "9999-12-01", to: "9999-12-31" });
+  assert.equal(monthRange("2026-00"), null);
+  assert.equal(monthRange("10000-01"), null);
+  assert.equal(monthRange("2026-1"), null);
+});
+
+test("hasil monthRange selalu tanggal lokal valid (aman untuk toDbDate)", () => {
+  for (const value of ["1900-02", "2000-02", "2100-02", "9999-02"]) {
+    const range = monthRange(value);
+    assert.ok(range);
+    assert.equal(parseLocalDate(range.from), range.from);
+    assert.equal(parseLocalDate(range.to), range.to);
+  }
+});

@@ -212,3 +212,60 @@ test("konfigurasi tidak valid ditolak saat pembuatan", () => {
   assert.throws(() => createRateLimiter({ limit: 1, windowMs: 1_000, lockMs: -1 }));
   assert.throws(() => createRateLimiter({ limit: 1, windowMs: 1_000, maxKeys: 0 }));
 });
+
+test("release mengurangi hitungan jendela aktif satu per satu", () => {
+  const clock = fakeClock();
+  const rl = createRateLimiter({ limit: 3, windowMs: 10 * MIN, lockMs: 15 * MIN }, clock.now);
+  rl.hit("k");
+  rl.hit("k");
+  rl.release("k");
+  rl.hit("k");
+  assert.deepEqual(rl.check("k"), { ok: true });
+  rl.hit("k");
+  assert.deepEqual(rl.check("k"), { ok: false, retryAfterSeconds: 15 * 60 });
+});
+
+test("release sampai nol menghapus entri; key tak dikenal = no-op (tidak negatif)", () => {
+  const clock = fakeClock();
+  const rl = createRateLimiter({ limit: 2, windowMs: 60_000 }, clock.now);
+  rl.release("tidak-ada");
+  assert.equal(rl.size(), 0);
+  rl.hit("k");
+  rl.release("k");
+  assert.equal(rl.size(), 0);
+  rl.release("k");
+  rl.hit("k");
+  assert.deepEqual(rl.check("k"), { ok: true });
+  rl.hit("k");
+  assert.equal(rl.check("k").ok, false);
+});
+
+test("release tidak membuka atau memperpendek kunci aktif", () => {
+  const clock = fakeClock();
+  const rl = createRateLimiter({ limit: 2, windowMs: 60 * MIN, lockMs: MIN }, clock.now);
+  rl.hit("k");
+  rl.hit("k");
+  clock.advance(10_000);
+  rl.release("k");
+  rl.release("k");
+  rl.release("k");
+  assert.equal(rl.size(), 1);
+  assert.deepEqual(rl.check("k"), { ok: false, retryAfterSeconds: 50 });
+  clock.advance(50_000);
+  assert.deepEqual(rl.check("k"), { ok: true });
+  rl.hit("k");
+  assert.deepEqual(rl.check("k"), { ok: true });
+});
+
+test("release pada entri kedaluwarsa = no-op; hit berikutnya membuka jendela baru", () => {
+  const clock = fakeClock();
+  const rl = createRateLimiter({ limit: 2, windowMs: 60_000 }, clock.now);
+  rl.hit("k");
+  clock.advance(60_000);
+  rl.release("k");
+  assert.equal(rl.size(), 1);
+  rl.hit("k");
+  assert.deepEqual(rl.check("k"), { ok: true });
+  rl.hit("k");
+  assert.deepEqual(rl.check("k"), { ok: false, retryAfterSeconds: 60 });
+});

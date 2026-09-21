@@ -88,13 +88,13 @@ describe("transisi status", () => {
 
   test("aktivasi DRAFT: data kurang -> 422 tanpa perubahan; lengkap -> ACTIVE + activatedAt", async () => {
     const incomplete = await createStudent(a.school.id, { status: "DRAFT", classId: a.klass.id, data: { guardianPhone: null } });
-    const res = await callRoute(activate, { method: "POST", url: studentUrl(`/${incomplete.student.id}/activate`), params: { id: incomplete.student.id }, bearer: a.adminToken });
+    const res = await callRoute(activate, { method: "POST", url: studentUrl(`/${incomplete.student.id}/activate`), params: { id: incomplete.student.id }, bearer: a.adminToken, json: {} });
     assert.equal(res.status, 422);
     assert.equal(res.body?.error?.code, "ACTIVATION_INCOMPLETE");
     const still = await prisma.student.findFirst({ where: { id: incomplete.student.id, schoolId: a.school.id } });
     assert.equal(still?.status, "DRAFT");
     const complete = await createStudent(a.school.id, { status: "DRAFT", classId: a.klass.id });
-    const ok = await callRoute<StatusBody>(activate, { method: "POST", url: studentUrl(`/${complete.student.id}/activate`), params: { id: complete.student.id }, bearer: a.adminToken });
+    const ok = await callRoute<StatusBody>(activate, { method: "POST", url: studentUrl(`/${complete.student.id}/activate`), params: { id: complete.student.id }, bearer: a.adminToken, json: {} });
     assert.equal(ok.status, 200, JSON.stringify(ok.body));
     assert.equal(ok.body?.data.student.status, "ACTIVE");
     assert.ok(ok.body?.data.student.activatedAt);
@@ -107,7 +107,7 @@ describe("klaim NISN lintas sekolah", () => {
     const holder = await createStudent(a.school.id, { status: "GRADUATED", name: "Alumni Lepas" });
     const holderSession = await createSessionToken(holder.user.id);
     const res = await callRoute<{ data: { student: { id: string }; nisnReleased: boolean } }>(create, {
-      method: "POST", url: studentUrl(""), bearer: b.adminToken, json: completeStudentBody(b.klass.id, { nisn: holder.student.nisn }),
+      method: "POST", url: studentUrl(""), bearer: b.adminToken, json: completeStudentBody(b.klass.id, { nisn: holder.student.nisn, confirmReleaseGraduatedNisn: true }),
     });
     assert.equal(res.status, 201, JSON.stringify(res.body));
     assert.equal(res.body?.data.nisnReleased, true);
@@ -130,11 +130,11 @@ describe("klaim NISN lintas sekolah", () => {
     const holder = await createStudent(a.school.id);
     const draft = await createStudent(b.school.id, { status: "DRAFT", classId: b.klass.id, nisn: holder.student.nisn });
     const url = studentUrl(`/${draft.student.id}/activate`);
-    const asAdmin = await callRoute(activate, { method: "POST", url, params: { id: draft.student.id }, bearer: b.adminToken });
+    const asAdmin = await callRoute(activate, { method: "POST", url, params: { id: draft.student.id }, bearer: b.adminToken, json: {} });
     assert.equal(asAdmin.status, 409);
     assert.equal(asAdmin.body?.error?.code, "NISN_ACTIVE_ELSEWHERE");
     assert.equal(asAdmin.body?.error?.details, null);
-    const asSuper = await callRoute(activate, { method: "POST", url: studentUrl(`/${draft.student.id}/activate`, b.school.id), params: { id: draft.student.id }, bearer: superToken });
+    const asSuper = await callRoute(activate, { method: "POST", url: studentUrl(`/${draft.student.id}/activate`, b.school.id), params: { id: draft.student.id }, bearer: superToken, json: {} });
     assert.equal(asSuper.status, 409);
     assert.deepEqual((asSuper.body?.error?.details as { schoolName: string }).schoolName, a.school.name);
   });
@@ -146,8 +146,8 @@ describe("klaim NISN lintas sekolah", () => {
       createStudent(b.school.id, { status: "DRAFT", classId: b.klass.id, nisn }),
     ]);
     const results = await Promise.all([
-      callRoute(activate, { method: "POST", url: studentUrl(`/${da.student.id}/activate`), params: { id: da.student.id }, bearer: a.adminToken }),
-      callRoute(activate, { method: "POST", url: studentUrl(`/${db.student.id}/activate`), params: { id: db.student.id }, bearer: b.adminToken }),
+      callRoute(activate, { method: "POST", url: studentUrl(`/${da.student.id}/activate`), params: { id: da.student.id }, bearer: a.adminToken, json: {} }),
+      callRoute(activate, { method: "POST", url: studentUrl(`/${db.student.id}/activate`), params: { id: db.student.id }, bearer: b.adminToken, json: {} }),
     ]);
     const statuses = results.map((r) => r.status).sort();
     assert.deepEqual(statuses, [200, 409], JSON.stringify(results.map((r) => r.body?.error)));
