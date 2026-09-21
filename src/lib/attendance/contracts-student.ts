@@ -3,6 +3,7 @@ import { CHECKIN_MAX_BODY_BYTES, HISTORY_MAX_MONTHS_BACK } from "./constants";
 import {
   checkInBody,
   checkInResultSchema,
+  historyMetaSchema,
   historyQuery,
   historySchema,
   precheckBody,
@@ -15,6 +16,7 @@ import {
 /** Kontrak route absensi bagian "student": /student/attendance/* (siswa atas dirinya sendiri). */
 const TAG = "Absensi Siswa";
 const SELF_NOTE = "Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.";
+const MOBILE_NOTE = "Hanya sesi aplikasi mobile (ANDROID/IOS) yang terikat deviceId; sesi WEB atau tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY.";
 const LOCATION_ERRORS = ["INVALID_LOCATION", "MOCK_LOCATION", "LOCATION_STALE", "GPS_ACCURACY_TOO_LOW", "OUTSIDE_GEOFENCE"] as const;
 const CALENDAR_ERRORS = ["NOT_SCHOOL_DAY", "CHECKIN_NOT_OPEN", "CHECKIN_CLOSED"] as const;
 const CHECK_IN_RULES =
@@ -30,10 +32,10 @@ export const todayAttendanceContract = defineContract({
   path: "/api/v1/student/attendance/today",
   tag: TAG,
   summary: "Status absensi hari ini (layar Absensi)",
-  description: `Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), radius geofence (TANPA titik pusat), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. ${SELF_NOTE}`,
+  description: `Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), radius geofence (TANPA titik pusat), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. ${MOBILE_NOTE} ${SELF_NOTE}`,
   action: "attendance.self",
   response: todaySchema,
-  errors: ["STUDENT_NOT_ACTIVE"],
+  errors: ["STUDENT_NOT_ACTIVE", "CHECKIN_MOBILE_ONLY"],
 });
 
 export const precheckAttendanceContract = defineContract({
@@ -42,12 +44,16 @@ export const precheckAttendanceContract = defineContract({
   path: "/api/v1/student/attendance/precheck",
   tag: TAG,
   summary: "Cek lokasi sebelum memotret selfie",
-  description: `Menjalankan keputusan yang SAMA dengan check-in tanpa selfie dan tanpa menulis apa pun (percobaan tidak dicatat). ok=false + reason bila check-in akan ditolak. Berbagi rate limit CHECK_IN (10 / 10 menit) dengan check-in. ${SELF_NOTE}`,
+  description:
+    "Menjalankan keputusan yang SAMA dengan check-in tanpa selfie. ok=false + reason bila check-in akan ditolak. " +
+    "Lokasi palsu (reason MOCK_LOCATION) DICATAT sebagai percobaan ditolak untuk admin (kuota 20/hari bersama check-in); penolakan lain tidak dicatat. " +
+    "distanceM hanya diisi bila keputusan mencapai langkah geofence (ok=true atau OUTSIDE_GEOFENCE), selain itu null. " +
+    `Berbagi rate limit CHECK_IN (10 / 10 menit) dengan check-in. ${MOBILE_NOTE} ${SELF_NOTE}`,
   action: "attendance.self",
   body: precheckBody,
   response: precheckResultSchema,
   rateLimit: { limiter: "CHECK_IN", key: "user" },
-  errors: ["STUDENT_NOT_ACTIVE"],
+  errors: ["STUDENT_NOT_ACTIVE", "CHECKIN_MOBILE_ONLY"],
 });
 
 export const checkInAttendanceContract = defineContract({
@@ -56,16 +62,18 @@ export const checkInAttendanceContract = defineContract({
   path: "/api/v1/student/attendance/check-in",
   tag: TAG,
   summary: "Check-in dengan selfie + lokasi",
-  description: `${CHECK_IN_RULES} 201 = tercatat; 200 = catatan hari ini sudah ada (replayed=true, selfie kedua dibuang). Percobaan yang ditolak karena lokasi dicatat untuk admin (maks 20/hari). Selfie hanya diproses bila diterima (415 format, 413 ukuran, 422 IMAGE_*). Flag anomali tidak pernah dikirim ke siswa. ${SELF_NOTE}`,
+  description: `${CHECK_IN_RULES} 201 = tercatat; 200 = catatan hari ini sudah ada (replayed=true, selfie kedua dibuang). Percobaan yang ditolak karena lokasi dicatat untuk admin (maks 20/hari). Selfie hanya diproses bila diterima (415 format, 413 ukuran, 422 IMAGE_*). Flag anomali tidak pernah dikirim ke siswa. ${MOBILE_NOTE} ${SELF_NOTE}`,
   action: "attendance.self",
   body: checkInBody,
   bodyType: "multipart",
   maxBodyBytes: CHECKIN_MAX_BODY_BYTES,
   response: checkInResultSchema,
   successStatus: 201,
+  alternateSuccessStatuses: [200],
   rateLimit: { limiter: "CHECK_IN", key: "user" },
   errors: [
     "STUDENT_NOT_ACTIVE",
+    "CHECKIN_MOBILE_ONLY",
     "ATTENDANCE_ALREADY_RECORDED",
     ...CALENDAR_ERRORS,
     ...LOCATION_ERRORS,
@@ -88,6 +96,7 @@ export const attendanceMonthContract = defineContract({
   action: "attendance.self.read",
   query: historyQuery,
   response: historySchema,
+  meta: historyMetaSchema,
   errors: ["MONTH_OUT_OF_RANGE"],
 });
 

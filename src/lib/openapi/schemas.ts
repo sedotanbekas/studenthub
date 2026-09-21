@@ -23,7 +23,12 @@ export const cursorMetaSchema = z
   .object({ limit: z.int(), nextCursor: z.string().nullable(), hasMore: z.boolean() })
   .meta({ id: "CursorMeta" });
 
-export function envelopeOf(data: z.ZodType, pagination?: "page" | "cursor"): z.ZodType {
-  const meta = pagination === "page" ? pageMetaSchema : pagination === "cursor" ? cursorMetaSchema : z.null();
-  return z.object({ success: z.literal(true), data, error: z.null(), meta });
+/** Skema meta terdokumentasi sebuah kontrak: meta eksplisit > PageMeta/CursorMeta (paginasi) > null. */
+export function metaSchemaOf(pagination?: "page" | "cursor", meta?: z.ZodType): z.ZodType {
+  if (meta) return meta;
+  return pagination === "page" ? pageMetaSchema : pagination === "cursor" ? cursorMetaSchema : z.null();
+}
+
+export function envelopeOf(data: z.ZodType, pagination?: "page" | "cursor", meta?: z.ZodType): z.ZodType {
+  return z.object({ success: z.literal(true), data, error: z.null(), meta: metaSchemaOf(pagination, meta) });
 }

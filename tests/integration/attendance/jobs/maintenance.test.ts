@@ -65,6 +65,39 @@ test("selfie > 180 hari: byte dihapus, deletedAt diisi, baris absensi tetap, und
   assert.deepEqual(again.selfies, { purged: 0, failed: 0 });
 });
 
+test("lampiran izin: CANCELLED dibersihkan, REJECTED > 30 hari dibersihkan; REJECTED baru, PENDING & APPROVED tetap", async () => {
+  const school = await createSchool();
+  const st = await createStudent(school.id);
+  const leaveWith = async (status: "CANCELLED" | "REJECTED" | "PENDING" | "APPROVED", reviewedAt: Date | null) => {
+    const file = await storeFile("LEAVE_ATTACHMENT", st.user.id, school.id, daysAgo(40));
+    await prisma.leaveRequest.create({
+      data: {
+        schoolId: school.id, studentId: st.student.id, type: "SAKIT", reason: "Uji retensi lampiran", status, reviewedAt,
+        startDate: toDbDate("2026-05-04"), endDate: toDbDate("2026-05-05"), attachmentFileId: file.id,
+      },
+    });
+    return file;
+  };
+  const cancelled = await leaveWith("CANCELLED", null);
+  const rejectedOld = await leaveWith("REJECTED", daysAgo(31));
+  const rejectedRecent = await leaveWith("REJECTED", daysAgo(29));
+  const pending = await leaveWith("PENDING", null);
+  const approved = await leaveWith("APPROVED", daysAgo(200));
+
+  const result = await runMaintenanceDaily(jobCtx(NOW, { schoolIds: [school.id], userIds: [] }));
+  assert.deepEqual(result.leaveAttachments, { purged: 2, failed: 0 });
+  for (const file of [cancelled, rejectedOld]) {
+    assert.equal(await getStorage().exists(file.storageKey), false);
+    assert.ok((await prisma.storedFile.findFirstOrThrow({ where: { id: file.id } })).deletedAt);
+  }
+  for (const file of [rejectedRecent, pending, approved]) {
+    assert.equal(await getStorage().exists(file.storageKey), true);
+    assert.equal((await prisma.storedFile.findFirstOrThrow({ where: { id: file.id } })).deletedAt, null);
+  }
+  const again = await runMaintenanceDaily(jobCtx(NOW, { schoolIds: [school.id], userIds: [] }));
+  assert.deepEqual(again.leaveAttachments, { purged: 0, failed: 0 });
+});
+
 test("CheckInRejection > 90 hari dihapus, yang lebih baru tetap", async () => {
   const school = await createSchool();
   const st = await createStudent(school.id);
@@ -121,7 +154,28 @@ test("notifikasi > 365 hari dihapus; JobRun > 90 hari dihapus kecuali auto-alpha
   assert.deepEqual(remaining, [recentGeneric.id, keptAlpha.id].sort());
 });
 
+interface ExplainRow {
+  readonly type: string;
+  readonly key: string | null;
+}
+
+test("query retensi tabel besar memakai indeks (EXPLAIN bukan type=ALL / tanpa key)", async () => {
+  const cutoff = daysAgo(365);
+  const plans: ExplainRow[][] = [
+    await prisma.$queryRaw`EXPLAIN SELECT id FROM Notification WHERE createdAt < ${cutoff} ORDER BY createdAt ASC LIMIT 5000`,
+    await prisma.$queryRaw`EXPLAIN SELECT id FROM AuthSession WHERE revokedAt < ${cutoff} LIMIT 5000`,
+    await prisma.$queryRaw`EXPLAIN SELECT id FROM AuthSession WHERE expiresAt < ${cutoff} LIMIT 5000`,
+    await prisma.$queryRaw`EXPLAIN DELETE FROM CheckInRejection WHERE createdAt < ${cutoff} LIMIT 5000`,
+    await prisma.$queryRaw`EXPLAIN SELECT id FROM JobRun WHERE job = ${AUTO_ALPHA_JOB} AND startedAt < ${cutoff} LIMIT 5000`,
+  ];
+  for (const [plan] of plans) {
+    const label = `type=${String(plan?.type)} key=${String(plan?.key)}`;
+    assert.notEqual(plan?.type, "ALL", label);
+    assert.ok(plan?.key, label);
+  }
+});
+
 test("anggaran waktu habis -> semua bagian dilewati", async () => {
   const result = await runMaintenanceDaily({ ...jobCtx(NOW, { schoolIds: [], userIds: [] }), deadline: Date.now() - 1 });
-  assert.deepEqual(result, { skipped: ["selfies", "checkInRejections", "auth", "notifications", "jobRuns"] });
+  assert.deepEqual(result, { skipped: ["selfies", "leaveAttachments", "checkInRejections", "auth", "notifications", "jobRuns"] });
 });

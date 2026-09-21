@@ -376,6 +376,16 @@ export type DailyRowDto = z.infer<typeof dailyRowSchema>;
 export type AnomalyRowDto = z.infer<typeof anomalyRowSchema>;
 export type RejectionRowDto = z.infer<typeof rejectionRowSchema>;
 export type MapDto = z.infer<typeof mapSchema>;
+// ----------------------------------------------------------------------------- meta non-paginasi
+
+export const mapMetaSchema = z.object({ truncated: z.boolean().meta({ description: "Sama dengan data.truncated." }) }).meta({ id: "MonitorMapMeta" });
+export const classAnalyticsMetaSchema = z
+  .object({ isPartial: z.boolean(), unclosedDates: z.array(dateOut).meta({ description: "Sama dengan period.unclosedDates." }) })
+  .meta({ id: "MonitorClassAnalyticsMeta" });
+export const monthNavigationMetaSchema = z
+  .object({ prevMonth: monthOut.meta({ description: "Bulan sebelumnya (YYYY-MM)." }), nextMonth: monthOut.meta({ description: "Bulan berikutnya (YYYY-MM)." }) })
+  .meta({ id: "MonitorMonthNavigationMeta" });
+
 export type RecapDto = z.infer<typeof recapSchema>;
 export type RecordDetailDto = z.infer<typeof recordDetailSchema>;
 export type ClassAnalyticsDto = z.infer<typeof classAnalyticsSchema>;

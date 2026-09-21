@@ -9,7 +9,7 @@ import { conflict, notFound, unprocessable } from "@/lib/http/errors";
 import { holidaysLockKey } from "@/lib/lock-keys";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { toDbDate, wibDate, type LocalDate } from "@/lib/time/zone";
-import { lockKey, withTx } from "@/lib/tx";
+import { lockKey, lockKeyShared, withTx } from "@/lib/tx";
 import { HOLIDAY_SELECT, toHolidayDto } from "./dto";
 import { unionRange } from "./ranges";
 import { backdateLimitDate, isWithinBackdateLimit, validateHolidayRange } from "./rules";
@@ -29,8 +29,12 @@ interface HolidayTarget {
   readonly today: LocalDate;
 }
 
-/** Kunci libur sekolah diambil dulu, baru sekolahnya dibaca. Target hanya lahir di sini (kunci terpegang). */
+/**
+ * Kunci libur nasional (BERSAMA: kalender nasional stabil selama baris absensi disinkronkan) lalu libur
+ * sekolah (eksklusif) diambil dulu, baru sekolahnya dibaca. Target hanya lahir di sini (kunci terpegang).
+ */
 async function lockSchoolTarget(tx: Tx, scope: SchoolScope, ctx: ActionContext): Promise<HolidayTarget> {
+  await lockKeyShared(tx, holidaysLockKey(null));
   await lockKey(tx, holidaysLockKey(scope.schoolId));
   const school = await requireSchool(tx, scope);
   return { schoolId: school.id, limitBackdate: requirePrincipal(ctx).role === "SCHOOL_ADMIN", today: schoolToday(school, ctx.now) };
@@ -133,14 +137,17 @@ export function deleteSchoolHoliday(scope: SchoolScope, id: string, ctx: ActionC
 
 // ----------------------------------------------------------------------------- libur nasional (SUPER_ADMIN)
 
+/** Libur nasional menyinkronkan absensi SEMUA sekolah (hapus baris turunan per sekolah / tutup ulang hari lama). */
+const NATIONAL_TX = { timeout: 60_000 } as const;
+
 export function createNationalHoliday(input: CreateHolidayInput, ctx: ActionContext): Promise<HolidayDto> {
-  return withTx(async (tx) => createHoliday(tx, await lockNationalTarget(tx, ctx), input, ctx));
+  return withTx(async (tx) => createHoliday(tx, await lockNationalTarget(tx, ctx), input, ctx), NATIONAL_TX);
 }
 
 export function updateNationalHoliday(id: string, patch: UpdateHolidayInput, ctx: ActionContext): Promise<HolidayDto> {
-  return withTx(async (tx) => updateHoliday(tx, await lockNationalTarget(tx, ctx), id, patch, ctx));
+  return withTx(async (tx) => updateHoliday(tx, await lockNationalTarget(tx, ctx), id, patch, ctx), NATIONAL_TX);
 }
 
 export function deleteNationalHoliday(id: string, ctx: ActionContext): Promise<{ id: string }> {
-  return withTx(async (tx) => deleteHoliday(tx, await lockNationalTarget(tx, ctx), id, ctx));
+  return withTx(async (tx) => deleteHoliday(tx, await lockNationalTarget(tx, ctx), id, ctx), NATIONAL_TX);
 }

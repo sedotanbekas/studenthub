@@ -1,4 +1,4 @@
-import { onCalendarChanged } from "@/lib/attendance/calendar-sync";
+import { onCalendarChanges, type CalendarChange } from "@/lib/attendance/calendar-sync";
 import { writeAudit } from "@/lib/audit";
 import type { ActionContext } from "@/lib/auth/principal";
 import type { Tx } from "@/lib/db";
@@ -17,8 +17,9 @@ import {
 
 /**
  * Impor libur nasional (schoolId NULL) dari berkas SKB dalam satu transaksi di bawah kunci
- * `holidays:national` (sama dengan CRUD /platform/holidays), audit per baris, onCalendarChanged untuk
- * setiap baris baru/berubah.
+ * `holidays:national` (sama dengan CRUD /platform/holidays), audit per baris, lalu SATU sinkronisasi
+ * absensi (onCalendarChanges) atas gabungan rentang baris baru/berubah — tetap di bawah kunci yang sama
+ * (penutupan hari auto-ALPHA mengandalkan urutan ini) tetapi waktu kunci dipegang tidak lagi N x DELETE.
  * Default: tahun yang SUDAH punya libur nasional dilewati seluruhnya (hasil edit/hapus super admin
  * tidak dihidupkan lagi); tahun kosong dibuat semua. `force`: cocok nama + tanggal mulai, hanya endDate
  * yang diperbarui (perilaku lama).
@@ -46,17 +47,17 @@ async function loadExisting(tx: Tx, entries: readonly NationalHolidayEntry[]): P
   return rows.map((row) => ({ id: row.id, name: row.name, startDate: fromDbDate(row.startDate), endDate: fromDbDate(row.endDate) }));
 }
 
-async function createEntry(tx: Tx, entry: NationalHolidayEntry, ctx: ActionContext): Promise<void> {
+async function createEntry(tx: Tx, entry: NationalHolidayEntry, ctx: ActionContext): Promise<CalendarChange> {
   const row = await tx.holiday.create({
     data: { schoolId: null, name: entry.name, startDate: toDbDate(entry.startDate), endDate: toDbDate(entry.endDate) },
     select: HOLIDAY_SELECT,
   });
   const after = { ...toHolidayDto(row), kind: entry.kind, source: entry.source };
   await writeAudit(tx, { action: "national_holiday.import", entityType: "Holiday", entityId: row.id, schoolId: null, after }, ctx);
-  await onCalendarChanged(tx, { schoolId: null, from: entry.startDate, to: entry.endDate, kind: "ADDED" }, ctx);
+  return { schoolId: null, from: entry.startDate, to: entry.endDate, kind: "ADDED" };
 }
 
-async function updateEntry(tx: Tx, id: string, entry: NationalHolidayEntry, beforeEndDate: string, ctx: ActionContext): Promise<void> {
+async function updateEntry(tx: Tx, id: string, entry: NationalHolidayEntry, beforeEndDate: string, ctx: ActionContext): Promise<CalendarChange> {
   await tx.holiday.update({ where: { id }, data: { endDate: toDbDate(entry.endDate) } });
   await writeAudit(
     tx,
@@ -64,7 +65,7 @@ async function updateEntry(tx: Tx, id: string, entry: NationalHolidayEntry, befo
     ctx,
   );
   const to = entry.endDate > beforeEndDate ? entry.endDate : beforeEndDate;
-  await onCalendarChanged(tx, { schoolId: null, from: entry.startDate, to, kind: "CHANGED" }, ctx);
+  return { schoolId: null, from: entry.startDate, to, kind: "CHANGED" };
 }
 
 export async function importNationalHolidays(
@@ -76,8 +77,10 @@ export async function importNationalHolidays(
     async (tx) => {
       await lockKey(tx, holidaysLockKey(null));
       const plan = planNationalHolidayImport(entries, await loadExisting(tx, entries), options);
-      for (const entry of plan.create) await createEntry(tx, entry, ctx);
-      for (const item of plan.update) await updateEntry(tx, item.id, item.entry, item.beforeEndDate, ctx);
+      const changes: CalendarChange[] = [];
+      for (const entry of plan.create) changes.push(await createEntry(tx, entry, ctx));
+      for (const item of plan.update) changes.push(await updateEntry(tx, item.id, item.entry, item.beforeEndDate, ctx));
+      await onCalendarChanges(tx, changes, ctx);
       return { created: plan.create.length, updated: plan.update.length, unchanged: plan.unchanged, skippedYears: plan.skippedYears };
     },
     { timeout: IMPORT_TX_TIMEOUT_MS },

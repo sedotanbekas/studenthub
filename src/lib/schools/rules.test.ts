@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  DAY_END_AFTER_CLOSE_MIN,
   DEFAULT_SCHOOL_CONFIG,
   describeSchoolChanges,
   mergeSchoolPatch,
@@ -28,13 +29,15 @@ test("konfigurasi default skema lolos validasi", () => {
   assert.equal(DEFAULT_SCHOOL_CONFIG.schoolDaysMask, 31);
 });
 
-test("urutan jadwal: 0 <= buka < mulai <= tutup <= akhir hari < 1440", () => {
+test("urutan jadwal: 0 <= buka < mulai <= tutup, tutup + 5 menit <= akhir hari < 1440", () => {
   assert.deepEqual(codes({ checkInOpenMinute: 0 }), []);
   assert.deepEqual(codes({ checkInOpenMinute: -1 }), ["SCHEDULE_OPEN_NEGATIVE"]);
   assert.deepEqual(codes({ checkInOpenMinute: 419 }), []);
   assert.deepEqual(codes({ checkInOpenMinute: 420 }), ["SCHEDULE_OPEN_NOT_BEFORE_START"]);
-  assert.deepEqual(codes({ checkInCloseMinute: 900 }), []);
-  assert.deepEqual(codes({ checkInCloseMinute: 901 }), ["SCHEDULE_CLOSE_AFTER_DAY_END"]);
+  assert.equal(DAY_END_AFTER_CLOSE_MIN, 5);
+  assert.deepEqual(codes({ checkInCloseMinute: 895 }), []);
+  assert.deepEqual(codes({ checkInCloseMinute: 896 }), ["SCHEDULE_CLOSE_AFTER_DAY_END"], "check-in yang sedang berjalan harus selesai sebelum hari ditutup");
+  assert.deepEqual(codes({ checkInCloseMinute: 900 }), ["SCHEDULE_CLOSE_AFTER_DAY_END"]);
   assert.deepEqual(codes({ dayEndMinute: 1439 }), []);
   assert.deepEqual(codes({ dayEndMinute: 1440 }), ["SCHEDULE_DAY_END_TOO_LATE"]);
   assert.ok(codes({ startMinute: 601 }).includes("SCHEDULE_START_AFTER_CLOSE"));

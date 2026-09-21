@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import type { ActionContext } from "@/lib/auth/principal";
 import type { Tx } from "@/lib/db";
-import { conflict, isAppError, unprocessable, type AppError } from "@/lib/http/errors";
+import { conflict, forbidden, isAppError, unprocessable, type AppError } from "@/lib/http/errors";
 import { attendanceLockKey } from "@/lib/lock-keys";
 import { ENUM_LABELS } from "@/lib/platform/enum-labels";
 import { assertDiskSpace } from "@/lib/storage/disk";
@@ -30,8 +30,8 @@ import type { CheckInBody, CheckInResultDto } from "./student-schemas";
 
 /**
  * Check-in siswa (multipart selfie + lokasi). Keputusan murni decideCheckIn -> selfie hanya di-decode
- * bila DITERIMA -> tulis: kunci attendance:<studentId> PALING AWAL, baca ulang baris hari ini di bawah
- * kunci (replay/409 tidak menulis berkas), simpan berkas + StoredFile + Attendance (atau konversi baris
+ * bila DITERIMA -> tulis: kunci attendance:<studentId> PALING AWAL, Student FOR UPDATE (status & kelas
+ * dibaca ulang), baca ulang baris hari ini di bawah kunci (replay/409 tidak menulis berkas), simpan berkas + StoredFile + Attendance (atau konversi baris
  * LEAVE), tandai SHARED_DEVICE best effort. Berkas yang tidak ter-commit selalu dihapus.
  */
 export interface CheckInOutcome {
@@ -217,9 +217,22 @@ async function writeCheckIn(plan: WritePlan): Promise<TxOutcome> {
   }
 }
 
+/**
+ * Student FOR UPDATE lalu baca ulang status & kelas (urutan kunci: attendance:<id> -> Student): perubahan
+ * status/kelas yang ter-commit selagi check-in menunggu kunci tidak boleh memakai snapshot sebelum kunci.
+ */
+async function lockActiveStudent(tx: Tx, student: CheckInContext["student"]): Promise<{ readonly classId: string | null }> {
+  const rows = await tx.$queryRaw<Array<{ status: string; currentClassId: string | null }>>`
+    SELECT \`status\`, \`currentClassId\` FROM \`Student\` WHERE \`id\` = ${student.id} AND \`schoolId\` = ${student.schoolId} FOR UPDATE`;
+  const row = rows[0];
+  if (!row || row.status !== "ACTIVE") throw forbidden("STUDENT_NOT_ACTIVE", "Akun siswa tidak aktif untuk absensi.");
+  return { classId: row.currentClassId };
+}
+
 async function writeInTx(tx: Tx, plan: WritePlan, written: string[]): Promise<TxOutcome> {
   const { student } = plan.context;
   await lockKey(tx, attendanceLockKey(student.id));
+  const locked = await lockActiveStudent(tx, student);
   const existing = await findAttendance(tx, student, plan.date);
   const mode = classifyExisting(existing?.source ?? null);
   if (existing && (mode === "REPLAY" || mode === "CONFLICT")) return { kind: mode, row: existing };
@@ -228,7 +241,7 @@ async function writeInTx(tx: Tx, plan: WritePlan, written: string[]): Promise<Tx
   const file = await persistProcessedFile(tx, selfieFileInput(plan), plan.now);
   written.push(file.storageKey);
   const data = presenceData(plan, file.id, flags);
-  const row = existing && mode === "CONVERT_LEAVE" ? await convertLeaveRow(tx, existing.id, plan, data) : await createRow(tx, plan, data);
+  const row = existing && mode === "CONVERT_LEAVE" ? await convertLeaveRow(tx, existing.id, plan, data) : await createRow(tx, plan, locked.classId, data);
   await flagSharedDevice(tx, student.schoolId, shared);
   return { kind: "CREATED", row, storageKey: file.storageKey };
 }
@@ -267,10 +280,10 @@ function presenceData(plan: WritePlan, selfieFileId: string, flags: readonly Ano
 
 type PresenceData = ReturnType<typeof presenceData>;
 
-async function createRow(tx: Tx, plan: WritePlan, data: PresenceData): Promise<AttendanceRow> {
+async function createRow(tx: Tx, plan: WritePlan, classId: string | null, data: PresenceData): Promise<AttendanceRow> {
   const { student } = plan.context;
   return tx.attendance.create({
-    data: { schoolId: student.schoolId, studentId: student.id, classId: student.currentClassId, date: toDbDate(plan.date), ...data },
+    data: { schoolId: student.schoolId, studentId: student.id, classId, date: toDbDate(plan.date), ...data },
     select: ATTENDANCE_ROW_SELECT,
   });
 }

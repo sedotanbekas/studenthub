@@ -14,6 +14,7 @@ test("koreksi ke TERLAMBAT menyebut menit, tautan ke catatan absensi", () => {
     status: "TERLAMBAT",
     lateMinutes: 16,
     reason: "Bukti CCTV gerbang",
+    actorRole: "SCHOOL_ADMIN",
   });
   assert.equal(event.type, "ATTENDANCE_CORRECTED");
   assert.equal(event.title, "Absensi Anda dikoreksi");
@@ -24,7 +25,13 @@ test("koreksi ke TERLAMBAT menyebut menit, tautan ke catatan absensi", () => {
 });
 
 test("status selain TERLAMBAT memakai label enum tanpa menit", () => {
-  const event = attendanceCorrectedNotification({ attendanceId: "a", date: "2026-09-22", status: "HADIR", lateMinutes: null, reason: "Salah input" });
+  const event = attendanceCorrectedNotification({ attendanceId: "a", date: "2026-09-22", status: "HADIR", lateMinutes: null, reason: "Salah input", actorRole: "SCHOOL_ADMIN" });
   assert.match(event.body, /menjadi Hadir oleh admin sekolah/);
   assert.doesNotMatch(event.body, /menit/);
+});
+
+test("koreksi oleh super admin tidak disebut admin sekolah", () => {
+  const event = attendanceCorrectedNotification({ attendanceId: "a", date: "2026-09-22", status: "IZIN", lateMinutes: null, reason: "Koreksi pusat", actorRole: "SUPER_ADMIN" });
+  assert.match(event.body, /menjadi Izin oleh super admin./);
+  assert.doesNotMatch(event.body, /admin sekolah/);
 });

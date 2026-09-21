@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { POST } from "@/app/api/internal/jobs/[job]/route";
 import { resetEnvCache } from "@/lib/env";
 import { runKeyedJob, runQueueJob } from "@/lib/jobs/runner";
-import { getLastTickAt, runSingleJob } from "@/lib/jobs/tick";
+import { getLastTickAt, runSingleJob, setTickScopeForTests } from "@/lib/jobs/tick";
 import { disconnect, prisma, uniq } from "../helpers/db";
 import { callRoute } from "../helpers/request";
 
@@ -56,17 +56,29 @@ test("runQueueJob menjalankan fungsi dan menangkap error", async () => {
   assert.equal(await runQueueJob(`q-${uniq()}`, async () => { throw new Error("x"); }, ctx()), "failed");
 });
 
-test("endpoint tick dengan secret benar menjalankan job dan mencatat lastTickAt", async () => {
+/**
+ * Endpoint tick lewat route asli (secret, runner, semua job jatuh tempo), tetapi setiap job dibatasi cakupan
+ * kosong: DB uji dipakai ulang (ribuan sekolah sisa test lain) sehingga tick tanpa cakupan memindai semuanya.
+ */
+test("endpoint tick dengan secret benar menjalankan job (cakupan uji kosong) dan mencatat lastTickAt", async () => {
   process.env.JOB_SECRET = "rahasia-job-uji-integrasi-0123456789abcd";
   resetEnvCache();
-  const res = await callRoute(POST, {
-    method: "POST",
-    url: "/api/internal/jobs/tick",
-    headers: { "x-job-secret": process.env.JOB_SECRET },
-    params: { job: "tick" },
-  });
-  assert.equal(res.status, 200);
-  assert.ok(getLastTickAt());
-  const single = await runSingleJob("push-dispatch", new Date(), uniq("req"));
-  assert.equal(single.results[0]?.job, "push-dispatch");
+  setTickScopeForTests({ schoolIds: [], userIds: [] });
+  try {
+    const res = await callRoute<{ data: { results: Array<{ job: string; outcome: string }> } }>(POST, {
+      method: "POST",
+      url: "/api/internal/jobs/tick",
+      headers: { "x-job-secret": process.env.JOB_SECRET },
+      params: { job: "tick" },
+    });
+    assert.equal(res.status, 200);
+    assert.ok(getLastTickAt());
+    const outcomes = res.body?.data.results ?? [];
+    assert.ok(outcomes.some((r) => r.job === "attendance-auto-alpha"), JSON.stringify(outcomes));
+    assert.equal(outcomes.some((r) => r.outcome === "failed"), false, JSON.stringify(outcomes));
+    const single = await runSingleJob("attendance-auto-alpha", new Date(), uniq("req"));
+    assert.deepEqual(single.results.map((r) => [r.job, r.outcome]), [["attendance-auto-alpha", "ran"]]);
+  } finally {
+    setTickScopeForTests(undefined);
+  }
 });

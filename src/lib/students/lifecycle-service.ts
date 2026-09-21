@@ -1,4 +1,5 @@
 import type { ActionContext } from "@/lib/auth/principal";
+import { removeFutureDerivedAttendance } from "@/lib/attendance/student-hooks";
 import { writeAudit } from "@/lib/audit";
 import { revokeAllSessions } from "@/lib/auth/sessions";
 import { voidFutureInvoicesForStudent } from "@/lib/billing/student-hooks";
@@ -31,10 +32,12 @@ import { planTransition, type TransitionEffects } from "./status-rules";
 /**
  * Transisi status siswa lewat SATU tabel murni (status-rules). Setiap jalur ke ACTIVE: data wajib
  * lengkap + klaim NISN + activatedAt diisi bila kosong. User.isActive selalu diselaraskan; INACTIVE &
- * MOVED mencabut sesi; MOVED melepas NISN dan memanggil kait billing void tagihan masa depan.
+ * MOVED mencabut sesi; MOVED melepas NISN dan memanggil kait billing void tagihan masa depan. Keluar dari
+ * ACTIVE: baris absensi izin mendatang dihapus (kait absensi, di bawah kunci attendance:<studentId>).
  *
- * Urutan transaksi: kunci aplikasi (kelas siswa + kuota pelepasan NISN, hanya ke ACTIVE) -> Student
- * FOR UPDATE -> BARU membaca sekolah & siswa -> tulis compare-and-set pada status yang dibaca.
+ * Urutan transaksi: kunci aplikasi (kelas siswa + kuota pelepasan NISN hanya ke ACTIVE; absensi siswa hanya
+ * ke non-ACTIVE) -> Student FOR UPDATE -> BARU membaca sekolah & siswa -> tulis compare-and-set pada status
+ * yang dibaca.
  */
 export interface StatusChangeResult {
   readonly student: StudentDetail;
@@ -81,7 +84,11 @@ async function persistTransition(tx: Tx, scope: SchoolScope, row: StudentRow, to
 /** Kunci dulu, baru baca (lihat komentar modul). */
 async function lockAndRead(tx: Tx, request: StatusChangeRequest): Promise<{ school: SchoolContext; row: StudentRow }> {
   const activating = request.input.to === "ACTIVE";
-  await lockForStudentWrite(tx, { classIds: activating ? [request.classHint] : [], claimingSchoolId: activating ? request.scope.schoolId : null });
+  await lockForStudentWrite(tx, {
+    classIds: activating ? [request.classHint] : [],
+    claimingSchoolId: activating ? request.scope.schoolId : null,
+    attendanceStudentId: activating ? null : request.id,
+  });
   await lockStudentRow(tx, request.scope, request.id);
   const school = await loadSchoolContext(tx, request.scope);
   const row = await findStudentRow(tx, request.scope, request.id);
@@ -102,7 +109,15 @@ async function sideEffects(tx: Tx, request: StatusChangeRequest, row: StudentRow
   return { revokedSessions, voidedInvoiceIds };
 }
 
-function statusAudit(request: StatusChangeRequest, row: StudentRow, plan: TransitionEffects, released: ReleasedHolder | null, effects: Omit<Outcome, "nisnReleased">) {
+/** Keluar dari ACTIVE: baris absensi turunan (izin) mendatang dihapus (lihat attendance/student-hooks.ts). */
+async function dropFutureAttendance(tx: Tx, request: StatusChangeRequest, row: StudentRow, school: SchoolContext, now: Date): Promise<number> {
+  if (row.status !== "ACTIVE" || request.input.to === "ACTIVE") return 0;
+  return removeFutureDerivedAttendance(tx, { schoolId: request.scope.schoolId, studentId: row.id, todayLocal: localParts(now, school.timezone).ymd });
+}
+
+type AuditEffects = Omit<Outcome, "nisnReleased"> & { readonly futureAttendanceRemoved: number };
+
+function statusAudit(request: StatusChangeRequest, row: StudentRow, plan: TransitionEffects, released: ReleasedHolder | null, effects: AuditEffects) {
   return {
     action: "student.status_change",
     entityType: "Student",
@@ -123,8 +138,9 @@ export async function applyStatusChange(tx: Tx, request: StatusChangeRequest, ct
   const released = plan.nisn === "CLAIM" ? await claimNisn(tx, { studentId: row.id, nisn: row.nisn }, ctx, policy) : null;
   await persistTransition(tx, request.scope, row, request.input.to, plan, ctx.now);
   const effects = await sideEffects(tx, request, row, school, plan, ctx);
+  const futureAttendanceRemoved = await dropFutureAttendance(tx, request, row, school, ctx.now);
   await recordNisnReleases(tx, released ? [released] : [], school, ctx);
-  await writeAudit(tx, statusAudit(request, row, plan, released, effects), ctx);
+  await writeAudit(tx, statusAudit(request, row, plan, released, { ...effects, futureAttendanceRemoved }), ctx);
   return { nisnReleased: released !== null, ...effects };
 }
 

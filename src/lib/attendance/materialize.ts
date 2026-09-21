@@ -30,7 +30,7 @@ export interface LeaveMaterializeTarget {
   readonly endDate: LocalDate;
   /** Hari sekolah dalam rentang (listSchoolDays). */
   readonly schoolDays: readonly LocalDate[];
-  /** Tanggal lokal aktivasi siswa; hari sebelumnya dilewati NOT_ENROLLED (null = tanpa batas). */
+  /** Tanggal pertama siswa wajib absen (firstEligibleDate); hari sebelumnya dilewati NOT_ENROLLED (null = tanpa batas). */
   readonly enrolledFrom: LocalDate | null;
 }
 

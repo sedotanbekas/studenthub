@@ -193,3 +193,12 @@ test("route analitik: 200 sesuai kontrak (jam nyata), 404 kelas/siswa sekolah la
   const foreignMonth = await callRoute(studentMonthRoute, { method: "GET", url: monthUrl, params: { studentId: moved }, bearer: other.adminToken });
   assert.equal(foreignMonth.status, 404);
 });
+
+test("unclosedDates tidak melaporkan hari sebelum sekolah terdaftar (tanpa JobRun bukan berarti gagal ditutup)", async () => {
+  const late = await createMonitorSchool();
+  await prisma.school.update({ where: { id: late.school.id }, data: { createdAt: new Date("2091-03-26T01:00:00Z") } });
+  const { data } = await getClassAnalytics(adminCtx(late, CLOSED_NOW), { month: "2091-03" });
+  assert.deepEqual(data.period.unclosedDates, ["2091-03-26", "2091-03-27", "2091-03-28", "2091-03-29", "2091-03-30"].filter((d) => ![0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay())));
+  const before = await getClassAnalytics(adminCtx(late, CLOSED_NOW), { month: "2091-02" });
+  assert.deepEqual(before.data.period.unclosedDates, []);
+});

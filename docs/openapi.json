@@ -305,7 +305,7 @@
           "Berkas"
         ],
         "summary": "Tampilkan / unduh berkas privat",
-        "description": "Byte berkas dengan Content-Type asli, X-Content-Type-Options nosniff, CSP sandbox, dan Cache-Control private, max-age=300. Siswa: berkas unggahannya sendiri; admin sekolah: selfie/lampiran izin/bukti bayar sekolahnya; sponsor: banner/bukti top-up miliknya; super admin: semua. Tidak berhak atau tidak ada -> 404; sudah dihapus retensi (selfie 180 hari) -> 410 FILE_PURGED.\n\nAksi POLICY: `file.read`.",
+        "description": "Byte berkas dengan Content-Type asli, X-Content-Type-Options nosniff, CSP sandbox; Cache-Control private, no-store untuk selfie absensi, lampiran izin & bukti bayar (lainnya private, max-age=300). Siswa: berkas unggahannya sendiri; admin sekolah: selfie/lampiran izin/bukti bayar sekolahnya; sponsor: banner/bukti top-up miliknya; super admin: semua. Tidak berhak atau tidak ada -> 404; sudah dihapus retensi (selfie 180 hari) -> 410 FILE_PURGED.\n\nAksi POLICY: `file.read`.",
         "security": [
           {
             "bearerAuth": []
@@ -340,7 +340,27 @@
         ],
         "responses": {
           "200": {
-            "description": "Berkas biner."
+            "description": "Berkas biner dengan Content-Type asli (header cache & keamanan: lihat deskripsi operasi).",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
           },
           "400": {
             "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
@@ -2984,7 +3004,7 @@
           "Sekolah - Profil & Pengaturan"
         ],
         "summary": "Ubah jadwal absensi & hari sekolah",
-        "description": "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `schoolDaysMask`. Lokasi, geofence, zona waktu, dan rekening SPP HANYA dapat diubah super admin (kunci lain -> 400 `VALIDATION_FAILED`). Hasil merge harus memenuhi 0 <= buka < masuk <= tutup <= akhir hari < 1440 dan masuk + toleransi < tutup (422 `SCHOOL_CONFIG_INVALID`). Baris absensi yang SUDAH tercatat tidak ditulis ulang; aturan baru berlaku untuk hari/check-in berikutnya. Diaudit sebagai `school.settings_update`.\n\nAksi POLICY: `schools.settings.update`.",
+        "description": "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `schoolDaysMask`. Lokasi, geofence, zona waktu, dan rekening SPP HANYA dapat diubah super admin (kunci lain -> 400 `VALIDATION_FAILED`). Hasil merge harus memenuhi 0 <= buka < masuk <= tutup, tutup + 5 menit <= akhir hari < 1440, dan masuk + toleransi < tutup (422 `SCHOOL_CONFIG_INVALID`). Baris absensi yang SUDAH tercatat tidak ditulis ulang; aturan baru berlaku untuk hari/check-in berikutnya. Diaudit sebagai `school.settings_update`.\n\nAksi POLICY: `schools.settings.update`.",
         "security": [
           {
             "bearerAuth": []
@@ -10618,7 +10638,27 @@
         ],
         "responses": {
           "200": {
-            "description": "Berkas biner."
+            "description": "Berkas biner dengan Content-Type asli (header cache & keamanan: lihat deskripsi operasi).",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
           },
           "400": {
             "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
@@ -11627,7 +11667,7 @@
           "Absensi Siswa"
         ],
         "summary": "Status absensi hari ini (layar Absensi)",
-        "description": "Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), radius geofence (TANPA titik pusat), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
+        "description": "Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), radius geofence (TANPA titik pusat), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. Hanya sesi aplikasi mobile (ANDROID/IOS) yang terikat deviceId; sesi WEB atau tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
         "security": [
           {
             "bearerAuth": []
@@ -11688,7 +11728,7 @@
             }
           },
           "403": {
-            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, STUDENT_NOT_ACTIVE.",
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, STUDENT_NOT_ACTIVE, CHECKIN_MOBILE_ONLY.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11727,7 +11767,7 @@
           "Absensi Siswa"
         ],
         "summary": "Cek lokasi sebelum memotret selfie",
-        "description": "Menjalankan keputusan yang SAMA dengan check-in tanpa selfie dan tanpa menulis apa pun (percobaan tidak dicatat). ok=false + reason bila check-in akan ditolak. Berbagi rate limit CHECK_IN (10 / 10 menit) dengan check-in. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
+        "description": "Menjalankan keputusan yang SAMA dengan check-in tanpa selfie. ok=false + reason bila check-in akan ditolak. Lokasi palsu (reason MOCK_LOCATION) DICATAT sebagai percobaan ditolak untuk admin (kuota 20/hari bersama check-in); penolakan lain tidak dicatat. distanceM hanya diisi bila keputusan mencapai langkah geofence (ok=true atau OUTSIDE_GEOFENCE), selain itu null. Berbagi rate limit CHECK_IN (10 / 10 menit) dengan check-in. Hanya sesi aplikasi mobile (ANDROID/IOS) yang terikat deviceId; sesi WEB atau tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
         "security": [
           {
             "bearerAuth": []
@@ -11798,7 +11838,7 @@
             }
           },
           "403": {
-            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, STUDENT_NOT_ACTIVE.",
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, STUDENT_NOT_ACTIVE, CHECKIN_MOBILE_ONLY.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11867,7 +11907,7 @@
           "Absensi Siswa"
         ],
         "summary": "Check-in dengan selfie + lokasi",
-        "description": "Urutan: catatan hari ini (CHECKIN -> 200 replayed; ADMIN/AUTO_ALPHA -> 409 ATTENDANCE_ALREADY_RECORDED; LEAVE -> dikonversi) -> hari sekolah (422 NOT_SCHOOL_DAY {reason, holidayName}) -> jendela [buka, tutup) (422 CHECKIN_NOT_OPEN {opensAt} / CHECKIN_CLOSED {closedAt}) -> lokasi: (0,0) 422 INVALID_LOCATION, mocked=true 422 MOCK_LOCATION, umur fix > 180 s 422 LOCATION_STALE {fixAgeS}, akurasi kosong/> 100 m 422 GPS_ACCURACY_TOO_LOW {accuracyM, maxAccuracyM}, jarak > radius + min(akurasi, 50) 422 OUTSIDE_GEOFENCE {distanceM, radiusM}. Diterima: TERLAMBAT bila menit lokal > mulai + toleransi (lateMinutes dari bel masuk), selain itu HADIR. Tanggal & jam dari server. 201 = tercatat; 200 = catatan hari ini sudah ada (replayed=true, selfie kedua dibuang). Percobaan yang ditolak karena lokasi dicatat untuk admin (maks 20/hari). Selfie hanya diproses bila diterima (415 format, 413 ukuran, 422 IMAGE_*). Flag anomali tidak pernah dikirim ke siswa. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
+        "description": "Urutan: catatan hari ini (CHECKIN -> 200 replayed; ADMIN/AUTO_ALPHA -> 409 ATTENDANCE_ALREADY_RECORDED; LEAVE -> dikonversi) -> hari sekolah (422 NOT_SCHOOL_DAY {reason, holidayName}) -> jendela [buka, tutup) (422 CHECKIN_NOT_OPEN {opensAt} / CHECKIN_CLOSED {closedAt}) -> lokasi: (0,0) 422 INVALID_LOCATION, mocked=true 422 MOCK_LOCATION, umur fix > 180 s 422 LOCATION_STALE {fixAgeS}, akurasi kosong/> 100 m 422 GPS_ACCURACY_TOO_LOW {accuracyM, maxAccuracyM}, jarak > radius + min(akurasi, 50) 422 OUTSIDE_GEOFENCE {distanceM, radiusM}. Diterima: TERLAMBAT bila menit lokal > mulai + toleransi (lateMinutes dari bel masuk), selain itu HADIR. Tanggal & jam dari server. 201 = tercatat; 200 = catatan hari ini sudah ada (replayed=true, selfie kedua dibuang). Percobaan yang ditolak karena lokasi dicatat untuk admin (maks 20/hari). Selfie hanya diproses bila diterima (415 format, 413 ukuran, 422 IMAGE_*). Flag anomali tidak pernah dikirim ke siswa. Hanya sesi aplikasi mobile (ANDROID/IOS) yang terikat deviceId; sesi WEB atau tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
         "security": [
           {
             "bearerAuth": []
@@ -11885,6 +11925,38 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Berhasil (status alternatif; lihat deskripsi operasi).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceCheckInResult"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
           "201": {
             "description": "Berhasil.",
             "content": {
@@ -11938,7 +12010,7 @@
             }
           },
           "403": {
-            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, STUDENT_NOT_ACTIVE.",
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, STUDENT_NOT_ACTIVE, CHECKIN_MOBILE_ONLY.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12085,7 +12157,7 @@
                       "type": "null"
                     },
                     "meta": {
-                      "type": "null"
+                      "$ref": "#/components/schemas/AttendanceHistoryMeta"
                     }
                   },
                   "required": [
@@ -12424,7 +12496,7 @@
           "Absensi — Izin & Sakit"
         ],
         "summary": "Ajukan izin/sakit (multipart)",
-        "description": "Tanggal mulai paling awal hari ini - 7. Tanggal lokal sekolah; rentang maks 14 hari kalender, tanggal selesai paling lambat hari ini + 30, wajib memuat >= 1 hari sekolah (422 NO_SCHOOL_DAYS_IN_RANGE); tidak boleh beririsan dengan izin Menunggu/Disetujui milik siswa (409 LEAVE_OVERLAP; rentang bersebelahan boleh); SAKIT yang mencakup >= 3 hari sekolah wajib lampiran foto (422 ATTACHMENT_REQUIRED). Lampiran JPEG/PNG/WebP di-encode ulang (EXIF dibuang) dan disimpan privat. Admin sekolah aktif menerima notifikasi LEAVE_SUBMITTED.\n\nAksi POLICY: `leave.self`.",
+        "description": "Tanggal mulai paling awal hari ini - 7. Tanggal lokal sekolah; rentang maks 14 hari kalender, tanggal selesai paling lambat hari ini + 30, wajib memuat >= 1 hari sekolah (422 NO_SCHOOL_DAYS_IN_RANGE); tidak boleh beririsan dengan izin Menunggu/Disetujui milik siswa (409 LEAVE_OVERLAP; rentang bersebelahan boleh); SAKIT yang mencakup >= 3 hari sekolah wajib lampiran foto (422 ATTACHMENT_REQUIRED). Lampiran JPEG/PNG/WebP di-encode ulang (EXIF dibuang) dan disimpan privat. Maks 5 pengajuan per siswa per hari lokal, termasuk yang dibatalkan (429 LEAVE_DAILY_LIMIT + Retry-After). Admin sekolah aktif menerima notifikasi LEAVE_SUBMITTED.\n\nAksi POLICY: `leave.self`.",
         "security": [
           {
             "bearerAuth": []
@@ -12565,7 +12637,7 @@
             }
           },
           "429": {
-            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
+            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED, LEAVE_DAILY_LIMIT.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12717,7 +12789,7 @@
           "Absensi — Izin & Sakit"
         ],
         "summary": "Batalkan pengajuan yang masih Menunggu",
-        "description": "Hanya pengajuan milik sendiri berstatus PENDING (409 LEAVE_NOT_PENDING). Id milik siswa lain -> 404.\n\nAksi POLICY: `leave.self`.",
+        "description": "Hanya pengajuan milik sendiri berstatus PENDING (409 LEAVE_NOT_PENDING). Lampiran dimusnahkan (unduhan -> 410 FILE_PURGED). Id milik siswa lain -> 404.\n\nAksi POLICY: `leave.self`.",
         "security": [
           {
             "bearerAuth": []
@@ -13998,6 +14070,146 @@
         }
       }
     },
+    "/api/v1/platform/attendance/close-day": {
+      "post": {
+        "operationId": "recloseAttendanceDay",
+        "tags": [
+          "Absensi (Super Admin)"
+        ],
+        "summary": "Tutup ulang satu hari sekolah (auto-ALPHA manual)",
+        "description": "Untuk hari lampau yang sudah ditutup tetapi datanya hilang/berubah (mis. libur ditambah lalu dihapus, tick mati lebih dari 7 hari). Penutupan idempoten yang sama dengan job auto-ALPHA: siswa wajib absen tanpa catatan -> ALPHA, atau IZIN/SAKIT bila izin disetujui mencakup tanggal; catatan yang ada tidak diubah; bukan hari sekolah -> isSchoolDay=false tanpa baris. JobRun tanggal itu ditulis SUCCEEDED dan tindakan diaudit (attendance.reclose_day). Tanggal harus sudah ditutup (422 DAY_NOT_CLOSED) dan tidak sebelum sekolah terdaftar (422 DATE_BEFORE_SCHOOL_START); sekolah tak dikenal -> 404.\n\nAksi POLICY: `attendance.reclose`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceRecloseDayInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceRecloseDayResult"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, SCHOOL_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: DAY_NOT_CLOSED, DATE_BEFORE_SCHOOL_START.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/school/attendance/stats/today": {
       "get": {
         "operationId": "monitorAttendanceToday",
@@ -14407,7 +14619,7 @@
                       "type": "null"
                     },
                     "meta": {
-                      "type": "null"
+                      "$ref": "#/components/schemas/MonitorMapMeta"
                     }
                   },
                   "required": [
@@ -14985,7 +15197,7 @@
                       "type": "null"
                     },
                     "meta": {
-                      "type": "null"
+                      "$ref": "#/components/schemas/MonitorClassAnalyticsMeta"
                     }
                   },
                   "required": [
@@ -15519,7 +15731,7 @@
                       "type": "null"
                     },
                     "meta": {
-                      "type": "null"
+                      "$ref": "#/components/schemas/MonitorMonthNavigationMeta"
                     }
                   },
                   "required": [
@@ -16310,6 +16522,28 @@
         },
         "required": [
           "note"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceRecloseDayInput": {
+        "type": "object",
+        "properties": {
+          "schoolId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Sekolah yang harinya ditutup ulang."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-07-13",
+            "description": "Tanggal lokal sekolah yang sudah ditutup (YYYY-MM-DD)."
+          }
+        },
+        "required": [
+          "schoolId",
+          "date"
         ],
         "additionalProperties": false
       },
@@ -19694,7 +19928,7 @@
                 "type": "null"
               }
             ],
-            "description": "Null bila lokasi (0,0)."
+            "description": "Jarak ke sekolah (meter); hanya diisi bila keputusan mencapai langkah geofence (ok=true / OUTSIDE_GEOFENCE), selain itu null."
           },
           "radiusM": {
             "type": "integer",
@@ -19992,6 +20226,32 @@
           "days",
           "nonSchoolDays",
           "summary"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceHistoryMeta": {
+        "type": "object",
+        "properties": {
+          "prevMonth": {
+            "description": "Bulan sebelumnya (YYYY-MM); null di luar batas 24 bulan.",
+            "example": "2026-08",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextMonth": {
+            "description": "Bulan berikutnya (YYYY-MM); null bila melewati bulan berjalan.",
+            "example": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "prevMonth",
+          "nextMonth"
         ],
         "additionalProperties": false
       },
@@ -20476,6 +20736,79 @@
           "student",
           "schoolDays",
           "reviewedBy"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceRecloseDayResult": {
+        "type": "object",
+        "properties": {
+          "schoolId": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-07-13"
+          },
+          "isSchoolDay": {
+            "type": "boolean"
+          },
+          "skippedReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "SCHOOL_DAY",
+                  "DAY_OFF",
+                  "HOLIDAY",
+                  "OUTSIDE_TERM"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alasan bukan hari sekolah (libur/di luar semester/hari libur mingguan); null bila ditutup."
+          },
+          "planned": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Siswa wajib absen tanpa baris pada tanggal itu."
+          },
+          "inserted": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Baris ALPHA/LEAVE yang benar-benar ditulis."
+          },
+          "alphaPlanned": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "leavePlanned": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "anomaliesSwept": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Baris check-in yang ditandai SHARED_DEVICE oleh sapuan."
+          }
+        },
+        "required": [
+          "schoolId",
+          "date",
+          "isSchoolDay",
+          "skippedReason",
+          "planned",
+          "inserted",
+          "alphaPlanned",
+          "leavePlanned",
+          "anomaliesSwept"
         ],
         "additionalProperties": false
       },
@@ -21088,6 +21421,19 @@
         ],
         "additionalProperties": false
       },
+      "MonitorMapMeta": {
+        "type": "object",
+        "properties": {
+          "truncated": {
+            "type": "boolean",
+            "description": "Sama dengan data.truncated."
+          }
+        },
+        "required": [
+          "truncated"
+        ],
+        "additionalProperties": false
+      },
       "MonitorClassRecap": {
         "type": "object",
         "properties": {
@@ -21590,6 +21936,28 @@
         ],
         "additionalProperties": false
       },
+      "MonitorClassAnalyticsMeta": {
+        "type": "object",
+        "properties": {
+          "isPartial": {
+            "type": "boolean"
+          },
+          "unclosedDates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-09-21"
+            },
+            "description": "Sama dengan period.unclosedDates."
+          }
+        },
+        "required": [
+          "isPartial",
+          "unclosedDates"
+        ],
+        "additionalProperties": false
+      },
       "MonitorSummaryAnalytics": {
         "type": "object",
         "properties": {
@@ -22055,6 +22423,26 @@
           "days",
           "nonSchoolDays",
           "summary"
+        ],
+        "additionalProperties": false
+      },
+      "MonitorMonthNavigationMeta": {
+        "type": "object",
+        "properties": {
+          "prevMonth": {
+            "type": "string",
+            "example": "2026-09",
+            "description": "Bulan sebelumnya (YYYY-MM)."
+          },
+          "nextMonth": {
+            "type": "string",
+            "example": "2026-09",
+            "description": "Bulan berikutnya (YYYY-MM)."
+          }
+        },
+        "required": [
+          "prevMonth",
+          "nextMonth"
         ],
         "additionalProperties": false
       },

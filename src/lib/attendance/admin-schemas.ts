@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { dateOutSchema, entityIdSchema, localDateSchema, schoolIdQuery } from "@/lib/academics/schema-common";
+import { DAY_REASONS } from "@/lib/calendar/rules";
 import {
   ATTENDANCE_SOURCES,
   ATTENDANCE_STATUSES,
@@ -66,3 +67,30 @@ export const correctionResponse = z.object({
 });
 
 export type CorrectionResultDto = z.infer<typeof correctionResponse>;
+
+// ----------------------------------------------------------------------------- tutup-ulang hari (super admin)
+
+export const recloseDayBody = z
+  .strictObject({
+    schoolId: entityIdSchema.meta({ description: "Sekolah yang harinya ditutup ulang." }),
+    date: localDateSchema.meta({ description: "Tanggal lokal sekolah yang sudah ditutup (YYYY-MM-DD)." }),
+  })
+  .meta({ id: "AttendanceRecloseDayInput" });
+
+export type RecloseDayBody = z.output<typeof recloseDayBody>;
+
+export const recloseDayResponse = z
+  .object({
+    schoolId: z.string(),
+    date: dateOutSchema,
+    isSchoolDay: z.boolean(),
+    skippedReason: z.enum(DAY_REASONS).nullable().meta({ description: "Alasan bukan hari sekolah (libur/di luar semester/hari libur mingguan); null bila ditutup." }),
+    planned: z.int().meta({ description: "Siswa wajib absen tanpa baris pada tanggal itu." }),
+    inserted: z.int().meta({ description: "Baris ALPHA/LEAVE yang benar-benar ditulis." }),
+    alphaPlanned: z.int(),
+    leavePlanned: z.int(),
+    anomaliesSwept: z.int().meta({ description: "Baris check-in yang ditandai SHARED_DEVICE oleh sapuan." }),
+  })
+  .meta({ id: "AttendanceRecloseDayResult" });
+
+export type RecloseDayDto = z.infer<typeof recloseDayResponse>;

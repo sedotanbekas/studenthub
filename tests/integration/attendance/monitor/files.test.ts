@@ -62,7 +62,8 @@ test("pemilik: 200 dengan byte utuh & header aman (inline; download=1 -> attachm
   assert.deepEqual([bytes[0], bytes[1]], [0xff, 0xd8], "JPEG hasil re-encode");
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
   assert.equal(res.headers.get("content-security-policy"), "sandbox; default-src 'none'");
-  assert.equal(res.headers.get("cache-control"), "private, max-age=300");
+  assert.equal(res.headers.get("cache-control"), "private, no-store", "selfie anak tidak boleh tersimpan di cache");
+  assert.equal(res.headers.get("pragma"), "no-cache");
   assert.match(res.headers.get("content-disposition") ?? "", /^inline; filename="attendance-selfie-[A-Za-z0-9_-]+\.jpg"$/);
   assert.ok(res.headers.get("x-request-id"));
   const attachment = await download(ownerToken, fileId, "?download=1");

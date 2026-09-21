@@ -1,11 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { LEAVE_DAILY_SUBMISSION_LIMIT } from "./leave-constants";
 import {
   checkLeaveDays,
   earliestLeaveStart,
   findOverlappingLeave,
   latestLeaveEnd,
   leaveCoversDate,
+  leaveQuotaWindow,
   planLeaveMaterialization,
   requiresAttachment,
   validateLeaveRange,
@@ -166,5 +168,18 @@ describe("planLeaveMaterialization", () => {
     planLeaveMaterialization(input, rows);
     assert.deepEqual(input, days);
     assert.deepEqual(rows, existing);
+  });
+});
+
+describe("kuota pengajuan harian siswa", () => {
+  test("jendela = awal hari lokal sekolah; Retry-After = detik sampai tengah malam lokal berikutnya", () => {
+    const now = new Date("2026-09-21T05:00:00.000Z"); // 12:00 WIB, 13:00 WITA
+    assert.equal(LEAVE_DAILY_SUBMISSION_LIMIT, 5);
+    const wib = leaveQuotaWindow(now, "WIB");
+    assert.equal(wib.from.toISOString(), "2026-09-20T17:00:00.000Z");
+    assert.equal(wib.retryAfterSeconds, 12 * 3600);
+    const wit = leaveQuotaWindow(new Date("2026-09-21T14:59:59.500Z"), "WIT");
+    assert.equal(wit.from.toISOString(), "2026-09-20T15:00:00.000Z");
+    assert.equal(wit.retryAfterSeconds, 1, "dibulatkan ke atas, minimal 1 detik");
   });
 });

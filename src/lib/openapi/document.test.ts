@@ -118,3 +118,41 @@ test("kontrak publik tanpa body/kode: hanya 400/404/500; multipart menambah 411"
   const post = buildOpenApiDocument([upload], { version: "uji" }).paths?.["/api/v1/uji-polos"]?.post;
   assert.deepEqual(Object.keys(post?.responses ?? {}).sort(), ["200", "400", "404", "411", "413", "415", "500"]);
 });
+
+test("meta non-paginasi terdokumentasi sebagai objek (bukan null) untuk peta, analitik kelas, & navigasi bulan", () => {
+  const doc = JSON.parse(JSON.stringify(buildOpenApiDocument(ALL_CONTRACTS, { version: "uji" }))) as {
+    paths: Record<string, Record<string, { operationId: string; responses: Record<string, { content?: Record<string, { schema: { properties: { meta: unknown } } }> }> }>>;
+    components: { schemas: Record<string, unknown> };
+  };
+  const metaOf = (operationId: string): unknown => {
+    for (const item of Object.values(doc.paths)) {
+      for (const op of Object.values(item)) {
+        if (op.operationId === operationId) return op.responses["200"]?.content?.["application/json"]?.schema.properties.meta;
+      }
+    }
+    throw new Error(`operationId ${operationId} tidak ditemukan`);
+  };
+  const expected: Record<string, string> = {
+    monitorAttendanceMap: "MonitorMapMeta",
+    monitorAttendanceClassAnalytics: "MonitorClassAnalyticsMeta",
+    monitorStudentAttendanceMonth: "MonitorMonthNavigationMeta",
+    listOwnAttendanceMonth: "AttendanceHistoryMeta",
+  };
+  for (const [operationId, component] of Object.entries(expected)) {
+    assert.deepEqual(metaOf(operationId), { $ref: `#/components/schemas/${component}` }, operationId);
+    assert.ok(doc.components.schemas[component], component);
+  }
+  assert.deepEqual(metaOf("getOwnAttendanceSummary"), { type: "null" }, "tanpa meta tetap null");
+});
+
+test("check-in mendokumentasikan 201 (baru) DAN 200 (replay) dengan envelope yang sama; berkas biner punya media type", () => {
+  const doc = JSON.parse(JSON.stringify(buildOpenApiDocument(ALL_CONTRACTS, { version: "uji" }))) as {
+    paths: Record<string, Record<string, { responses: Record<string, { content?: Record<string, { schema: unknown }> }> }>>;
+  };
+  const checkIn = doc.paths["/api/v1/student/attendance/check-in"]?.post?.responses ?? {};
+  assert.ok(checkIn["201"]?.content?.["application/json"]);
+  assert.deepEqual(checkIn["200"]?.content, checkIn["201"]?.content);
+  const file = doc.paths["/api/v1/files/{id}"]?.get?.responses?.["200"]?.content ?? {};
+  assert.deepEqual(Object.keys(file).sort(), ["image/jpeg", "image/png", "image/webp"]);
+  assert.deepEqual(file["image/jpeg"]?.schema, { type: "string", format: "binary" });
+});

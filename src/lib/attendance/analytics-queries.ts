@@ -3,8 +3,8 @@ import { describeDays, listSchoolDays, type DayCheck } from "@/lib/calendar/rule
 import { loadCalendarContext } from "@/lib/calendar/queries";
 import { prisma } from "@/lib/db";
 import { badRequest } from "@/lib/http/errors";
-import { fromDbDate, monthRange, toDbDate, type LocalDate } from "@/lib/time/zone";
-import { closedThrough } from "./auto-alpha-rules";
+import { fromDbDate, localParts, monthRange, toDbDate, type LocalDate } from "@/lib/time/zone";
+import { closedThrough, closureTrackedFrom } from "./auto-alpha-rules";
 import {
   aggregateByMonth,
   buildClassRates,
@@ -89,10 +89,14 @@ async function schoolCounts(schoolId: string, cut: Period | null): Promise<Statu
   return countsFrom(groups.map((g) => ({ status: g.status, count: g._count._all })));
 }
 
-/** Hari sekolah tertutup di periode tanpa JobRun auto-alpha SUCCEEDED (data bisa belum lengkap). */
-async function unclosedDates(school: MonitorSchool, cut: Period | null): Promise<LocalDate[]> {
+/**
+ * Hari sekolah tertutup di periode tanpa JobRun auto-alpha SUCCEEDED (data bisa belum lengkap). Hanya hari
+ * yang status tutupnya bisa diketahui (closureTrackedFrom: setelah sekolah terdaftar, dalam retensi JobRun).
+ */
+async function unclosedDates(school: MonitorSchool, cut: Period | null, now: Date): Promise<LocalDate[]> {
   if (!cut) return [];
-  const days = listSchoolDays(cut.from, cut.to, await loadCalendarContext(prisma, school, cut));
+  const tracked = closureTrackedFrom(schoolToday(school, now), localParts(school.createdAt, school.timezone).ymd);
+  const days = listSchoolDays(cut.from, cut.to, await loadCalendarContext(prisma, school, cut)).filter((day) => day >= tracked);
   if (days.length === 0) return [];
   const done = await prisma.jobRun.findMany({
     where: { job: AUTO_ALPHA_JOB, scopeKey: school.id, runKey: { in: days }, status: "SUCCEEDED" },
@@ -110,7 +114,7 @@ export async function getClassAnalytics(
 ): Promise<{ data: ClassAnalyticsDto; meta: { isPartial: boolean; unclosedDates: LocalDate[] } }> {
   const school = await loadMonitorSchool(monitorScope(ctx, query.schoolId));
   const window = monthWindow(school, query.month ?? currentMonth(school, ctx.now), ctx.now);
-  const [groups, unclosed] = await Promise.all([classStatusGroups(school.id, window.cut), unclosedDates(school, window.cut)]);
+  const [groups, unclosed] = await Promise.all([classStatusGroups(school.id, window.cut), unclosedDates(school, window.cut, ctx.now)]);
   const names = await classNames(school.id, groups.map((g) => g.classId));
   const isPartial = window.range.to > window.closed;
   const data: ClassAnalyticsDto = {

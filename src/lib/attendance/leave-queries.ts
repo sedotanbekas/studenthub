@@ -20,6 +20,8 @@ export interface LeaveSchool {
   readonly id: string;
   readonly timezone: SchoolTz;
   readonly schoolDaysMask: number;
+  /** Batas wajib absen (auto-alpha-rules.firstEligibleDate) untuk materialisasi izin. */
+  readonly checkInCloseMinute: number;
 }
 
 interface DateRangeLike {
@@ -33,7 +35,7 @@ export function leaveScopeOf(ctx: ActionContext, schoolId: string | undefined): 
 
 /** Sekolah dalam cakupan (School tidak ber-schoolId; SUPER_ADMIN dengan id tak dikenal -> 404). */
 export async function loadLeaveSchool(db: Tx, schoolId: string): Promise<LeaveSchool> {
-  const school = await db.school.findUnique({ where: { id: schoolId }, select: { id: true, timezone: true, schoolDaysMask: true } });
+  const school = await db.school.findUnique({ where: { id: schoolId }, select: { id: true, timezone: true, schoolDaysMask: true, checkInCloseMinute: true } });
   if (!school) throw notFound("Sekolah tidak ditemukan.", "SCHOOL_NOT_FOUND");
   return school;
 }

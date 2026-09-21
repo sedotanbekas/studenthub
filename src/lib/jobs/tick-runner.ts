@@ -22,6 +22,8 @@ export interface TickDeps {
   readonly onTick?: (at: Date) => void;
   /** Jam monoton (ms) untuk mengukur durasi; bawaan performance.now(). */
   readonly elapsed?: () => number;
+  /** Cakupan JobContext.scope (hanya test integrasi); undefined = seluruh database. */
+  readonly scope?: () => JobContext["scope"] | undefined;
 }
 
 export interface TickRunner {
@@ -53,7 +55,8 @@ async function timed(deps: TickDeps, due: DueJob, ctx: JobContext, clock: () => 
 
 async function runJobs(deps: TickDeps, jobs: readonly DueJob[], now: Date, requestId: string): Promise<TickResult> {
   const clock = deps.elapsed ?? monotonic;
-  const ctx: JobContext = { now, requestId, deadline: now.getTime() + TICK_BUDGET_MS };
+  const scope = deps.scope?.();
+  const ctx: JobContext = { now, requestId, deadline: now.getTime() + TICK_BUDGET_MS, ...(scope ? { scope } : {}) };
   // Semantik allSettled: timed() tidak pernah menolak, jadi satu job gagal tidak menghentikan yang lain.
   const results = await Promise.all(jobs.map((due) => timed(deps, due, ctx, clock)));
   return { tickAt: now.toISOString(), results };

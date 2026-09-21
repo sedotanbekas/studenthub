@@ -1,5 +1,5 @@
 import { inclusiveDays, rangesOverlap, type DateRange, type RuleViolation } from "@/lib/calendar/ranges";
-import { addDays, type LocalDate } from "@/lib/time/zone";
+import { addDays, instantAtLocal, localParts, type LocalDate, type SchoolTz } from "@/lib/time/zone";
 import {
   LEAVE_ADMIN_MAX_BACKDATE_DAYS,
   LEAVE_MAX_ADVANCE_DAYS,
@@ -50,6 +50,13 @@ export function validateLeaveRange(input: LeaveRangeInput): RuleViolation | null
     return { code: "LEAVE_ADVANCE_LIMIT", message: `Tanggal selesai paling lambat ${latest}.` };
   }
   return null;
+}
+
+/** Jendela kuota pengajuan harian: awal hari lokal sekolah & sisa detik sampai hari berikutnya (Retry-After). */
+export function leaveQuotaWindow(now: Date, tz: SchoolTz): { readonly from: Date; readonly retryAfterSeconds: number } {
+  const today = localParts(now, tz).ymd;
+  const next = instantAtLocal(addDays(today, 1), 0, tz);
+  return { from: instantAtLocal(today, 0, tz), retryAfterSeconds: Math.max(1, Math.ceil((next.getTime() - now.getTime()) / 1000)) };
 }
 
 /** SAKIT yang mencakup >= 3 hari sekolah wajib melampirkan foto. */
@@ -116,8 +123,9 @@ const SKIP_REASON: Readonly<Record<Exclude<AttendanceSourceValue, "AUTO_ALPHA">,
 /**
  * Rencana materialisasi izin yang disetujui untuk setiap hari sekolah dalam rentang (lampau, hari ini,
  * dan mendatang — D10). Baris di luar `schoolDays` tidak disentuh. Keluaran terurut tanggal.
- * `enrolledFrom` = tanggal lokal aktivasi siswa: hari sebelumnya dilewati NOT_ENROLLED (sama dengan
- * eligibilitas auto-ALPHA, agar persentase kehadiran tidak menghitung hari sebelum siswa terdaftar).
+ * `enrolledFrom` = tanggal pertama siswa wajib absen (auto-alpha-rules.firstEligibleDate: tanggal aktivasi,
+ * atau besoknya bila diaktifkan setelah jam tutup check-in): hari sebelumnya dilewati NOT_ENROLLED (sama
+ * dengan eligibilitas auto-ALPHA, agar persentase kehadiran tidak menghitung hari sebelum siswa wajib absen).
  */
 export function planLeaveMaterialization(
   schoolDays: readonly LocalDate[],

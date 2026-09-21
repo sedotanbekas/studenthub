@@ -10,6 +10,11 @@ export const GEOFENCE_RADIUS_MIN_M = 50;
 export const GEOFENCE_RADIUS_MAX_M = 1000;
 export const LATE_TOLERANCE_MAX_MIN = 120;
 export const MINUTES_PER_DAY = 1440;
+/**
+ * Jarak minimal jam tutup absensi -> akhir hari sekolah (penutupan auto-ALPHA): check-in yang diterima tepat
+ * sebelum jam tutup harus sempat ter-commit sebelum hari ditutup (bila sama, auto-ALPHA bisa menang balapan).
+ */
+export const DAY_END_AFTER_CLOSE_MIN = 5;
 export const SCHOOL_DAYS_MASK_MIN = 1;
 export const SCHOOL_DAYS_MASK_MAX = 127;
 export const INDONESIA_BOUNDS = { latMin: -11.5, latMax: 6.5, lngMin: 94.5, lngMax: 141.5 } as const;
@@ -97,8 +102,8 @@ function scheduleErrors(c: SchoolConfig): SchoolConfigError[] {
   if (c.startMinute > c.checkInCloseMinute) {
     errors.push(err("checkInCloseMinute", "SCHEDULE_START_AFTER_CLOSE", "Jam tutup absensi tidak boleh sebelum jam masuk."));
   }
-  if (c.checkInCloseMinute > c.dayEndMinute) {
-    errors.push(err("dayEndMinute", "SCHEDULE_CLOSE_AFTER_DAY_END", "Akhir hari sekolah tidak boleh sebelum jam tutup absensi."));
+  if (c.checkInCloseMinute + DAY_END_AFTER_CLOSE_MIN > c.dayEndMinute) {
+    errors.push(err("dayEndMinute", "SCHEDULE_CLOSE_AFTER_DAY_END", `Akhir hari sekolah minimal ${DAY_END_AFTER_CLOSE_MIN} menit setelah jam tutup absensi.`));
   }
   if (c.dayEndMinute >= MINUTES_PER_DAY) {
     errors.push(err("dayEndMinute", "SCHEDULE_DAY_END_TOO_LATE", "Akhir hari sekolah harus sebelum pukul 24:00."));

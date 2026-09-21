@@ -1,4 +1,4 @@
-import type { AttendanceStatus } from "@prisma/client";
+import type { AttendanceStatus, UserRole } from "@prisma/client";
 import type { NotificationEvent } from "../notify";
 
 /**
@@ -33,7 +33,11 @@ export interface AttendanceCorrectedInfo {
   readonly status: AttendanceStatus;
   readonly lateMinutes: number | null;
   readonly reason: string;
+  /** Peran pengoreksi: menentukan penyebut di teks (admin sekolah / super admin). */
+  readonly actorRole: UserRole;
 }
+
+const ACTOR_LABEL: Partial<Readonly<Record<UserRole, string>>> = { SCHOOL_ADMIN: "admin sekolah", SUPER_ADMIN: "super admin" };
 
 function statusText(status: AttendanceStatus, lateMinutes: number | null): string {
   const label = STATUS_LABEL[status];
@@ -44,7 +48,7 @@ export function attendanceCorrectedNotification(info: AttendanceCorrectedInfo): 
   return {
     type: "ATTENDANCE_CORRECTED",
     title: "Absensi Anda dikoreksi",
-    body: `Absensi ${formatIndonesianDate(info.date)} diubah menjadi ${statusText(info.status, info.lateMinutes)} oleh admin sekolah. Alasan: ${info.reason}`,
+    body: `Absensi ${formatIndonesianDate(info.date)} diubah menjadi ${statusText(info.status, info.lateMinutes)} oleh ${ACTOR_LABEL[info.actorRole] ?? "admin"}. Alasan: ${info.reason}`,
     link: { screen: "attendance", id: info.attendanceId },
   };
 }

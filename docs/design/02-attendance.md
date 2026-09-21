@@ -69,6 +69,7 @@ Every response uses the envelope `{success, data, error:{code,message,details}, 
 | POST | /api/v1/admin/leave-requests | SA, SU | Enter a leave for a student, approved at once | `studentId, type, startDate, endDate, reason, attachment?` | as for approve |
 | GET/PATCH | /api/v1/admin/school/attendance-settings | SA, SU | Geofence, times, days mask. The school domain owns the model; attendance supplies `validateAttendanceSettings`. | `latitude, longitude, geofenceRadiusM, timezone, checkInOpenMinute, startMinute, lateToleranceMinutes, checkInCloseMinute, dayEndMinute, schoolDaysMask` | settings. Each change is written to AuditLog. |
 | POST | /api/internal/jobs/auto-alpha | CRON | Close school days | `{schoolId?, date?}` (`date` only together with `schoolId`) | `{processed[{schoolId, date, outcome: CLOSED\|SKIPPED_NON_SCHOOL_DAY\|ALREADY_DONE\|BUSY\|FAILED, alphaCreated, leaveCreated, anomaliesSwept}], hasMore, durationMs}` |
+| POST | /api/v1/platform/attendance/close-day | SU | Close one past school day again (manual auto-ALPHA, §3.7.8) | `{schoolId, date}` | `{schoolId, date, isSchoolDay, skippedReason, planned, inserted, alphaPlanned, leavePlanned, anomaliesSwept}` |
 | POST | /api/internal/jobs/attendance-retention | CRON | Delete old selfies and rejections | – | `{selfiesPurged, rejectionsDeleted}` |
 | GET | /api/v1/files/:id | ST, SA, SU | Owned by the platform/files domain; attendance supplies the rule | – | Bytes with `Cache-Control: private, no-store`. ATTENDANCE_SELFIE and LEAVE_ATTACHMENT: the owning student, an SA of the same school, or SU. Anyone else gets 404. A purged file gets 410. |
 
@@ -116,6 +117,12 @@ export const REJECTION_RETENTION_DAYS = 90;
 
 `POST /api/v1/student/attendance/check-in`, `Authorization: Bearer <access>`, `multipart/form-data`. `Content-Length` is required: without it the server returns 411, and above `MAX_CHECKIN_BODY_BYTES` it returns 413 before parsing. The route sets `runtime = "nodejs"`. nginx needs `client_max_body_size 8m` for `/api/v1`. If a Next 16 `proxy.ts` matches these routes, its body-buffer limit also applies.
 
+**Mobile only.** `today`, `precheck` and `check-in` require a mobile session: `AuthSession.platform` ANDROID or IOS **with** a `deviceId`. A WEB session (which never rebinds the device and has no `deviceId`) or any session without a `deviceId` gets **403 `CHECKIN_MOBILE_ONLY`** before anything is read. Without this rule a student's credentials used on WEB would check in with no device-identity flag at all (no DEVICE_SESSION_MISMATCH, no NEW_DEVICE, and a random body `deviceId` avoids SHARED_DEVICE). History and the semester summary stay readable on any platform.
+
+**Precheck** (`POST …/precheck`) runs the same `decideCheckIn` without a selfie:
+- A `MOCK_LOCATION` result is **recorded** as a `CheckInRejection` (the same 20-per-day cap as check-in, `deviceId` from the session), because in the app flow the precheck comes before the selfie and the check-in; otherwise a fake-GPS attempt would never reach the admin (client decision: "Fake GPS ditolak + percobaan dicatat untuk admin"). Other precheck rejections are not recorded (an honest student repeats the precheck while walking to school).
+- `distanceM` is returned only when the decision reached the geofence step (accepted, or `OUTSIDE_GEOFENCE`); otherwise it is `null`, so the precheck is not a free distance oracle for spoofers or for locating the school centre.
+
 | Field | Type | Rule (zod v4) |
 |---|---|---|
 | `selfie` | File | Magic bytes must be JPEG `FFD8FF`, PNG `89504E47` or WebP `RIFF….WEBP`. The client's Content-Type is ignored. Size `MIN_SELFIE_BYTES`–`MAX_SELFIE_BYTES` (413 above the limit, 415 for a wrong type). |
@@ -135,7 +142,7 @@ Guidance for the Expo client:
 
 Error codes:
 - **400:** `VALIDATION_ERROR`
-- **403:** `STUDENT_NOT_ACTIVE`
+- **403:** `STUDENT_NOT_ACTIVE`, `CHECKIN_MOBILE_ONLY`
 - **409:** `ATTENDANCE_ALREADY_RECORDED {status, source}`
 - **413 / 415 / 411:** body or file size, file type, missing length
 - **422:** `SELFIE_INVALID`, `NOT_SCHOOL_DAY {reason, holidayName?}`, `CHECKIN_NOT_OPEN {opensAt}`, `CHECKIN_CLOSED {closedAt}`, `INVALID_LOCATION`, `MOCK_LOCATION`, `LOCATION_STALE {fixAgeS}`, `GPS_ACCURACY_TOO_LOW {accuracyM, maxAccuracyM}`, `OUTSIDE_GEOFENCE {distanceM, radiusM}`
@@ -145,7 +152,7 @@ Example message: "Anda berada 412 m dari sekolah (batas 150 m)."
 
 ### 3.3 Check-in algorithm
 
-1. **Gate:** the role is STUDENT, `mustChangePassword` is false (global gate), and the rate limit (key: userId) passes. This all happens before the body is parsed.
+1. **Gate:** the role is STUDENT, `mustChangePassword` is false (global gate), and the rate limit (key: userId) passes. This all happens before the body is parsed. The session must be a mobile session with a `deviceId` (§3.2), otherwise 403 `CHECKIN_MOBILE_ONLY`.
 2. **Parse and validate.** Sniff the selfie's type without decoding it.
 3. **Load context** (`loadCheckInContext`):
    - Student, User, School, currentClass. The check-in needs `Student.status=ACTIVE`, `User.isActive` and `School.isActive`, otherwise 403 `STUDENT_NOT_ACTIVE`.
@@ -180,7 +187,7 @@ Example message: "Anda berada 412 m dari sekolah (batas 150 m)."
 8. **Write:**
    - `storage.putPrivate`: write to a temp file, then rename.
    - Transaction, with retries:
-     - `SELECT id FROM Student WHERE id=? FOR UPDATE`.
+     - AppLock `attendance:<studentId>`, then `SELECT status, currentClassId FROM Student WHERE id=? AND schoolId=? FOR UPDATE`. The status and class are re-read under the lock: a student deactivated while the check-in waited gets 403 `STUDENT_NOT_ACTIVE`, and a new row takes the class from the locked row.
      - Re-read the existing row. If it is CHECKIN, delete the new file and REPLAY. If it is ADMIN or AUTO_ALPHA, delete the file and return 409.
      - Insert the StoredFile. Then insert the Attendance row, or for a LEAVE row run `updateMany where {id, source:'LEAVE'}` to switch it to CHECKIN, keeping `leaveRequestId` and adding the note "Hadir pada hari izin".
      - Retro-flag other students' rows (§3.4).
@@ -197,7 +204,7 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
 | IDENTICAL_COORDINATES | HIGH | `round(lat,6)` and `round(lng,6)` equal another student's check-in at the same school on the same date. Both are flagged. |
 | DUPLICATE_SELFIE | HIGH | The re-encoded sha256 equals an earlier ATTENDANCE_SELFIE in the same school, on any date. |
 | IMPOSSIBLE_TRAVEL | HIGH | Compared with a rejected attempt by the same student in the last 60 minutes: `dist ≥ 2000 m` and `dist / max(Δt, 60 s) > 150 km/h`. |
-| DEVICE_SESSION_MISMATCH | MEDIUM | The request's `deviceId` differs from `AuthSession.deviceId`. If the session has no deviceId, there is no flag. |
+| DEVICE_SESSION_MISMATCH | MEDIUM | The request's `deviceId` differs from `AuthSession.deviceId`. A session without a deviceId (WEB, or a mobile session created without one) cannot check in at all (403 `CHECKIN_MOBILE_ONLY`, §3.2), so every accepted check-in has a session deviceId to compare. |
 | TIME_INCONSISTENT | MEDIUM | `fixAgeS < −FIX_FUTURE_TOLERANCE_S`, meaning the GPS fix is dated after the submit time. |
 | PERFECT_ACCURACY | MEDIUM | `accuracy ≤ 1` m (mock apps report 0 or 1). |
 | DEVICE_CHANGED | LOW | The previous CHECKIN within the last 30 days used a different deviceId. |
@@ -240,7 +247,7 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
 - **`checkSchoolDay(date, ctx)`:** the weekday bit is in the mask, no holiday covers the date (inclusive), and some term covers it.
 - **`listSchoolDays(from, to, ctx)`:** every school day in the range.
 - **Settings validation** (`validateAttendanceSettings`, also enforced by CHECK constraints):
-  - `open < start ≤ close ≤ dayEnd < 1440`
+  - `open < start ≤ close`, `close + 5 ≤ dayEnd < 1440` (service rule `DAY_END_AFTER_CLOSE_MIN`; the CHECK constraint only enforces `close ≤ dayEnd`): a check-in accepted just before the close must commit before auto-ALPHA closes the day
   - `start + tolerance < close`
   - tolerance 0–120
   - radius 50–1000
@@ -261,13 +268,14 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
    - If it is RUNNING and less than 10 minutes old, stop with `BUSY`.
    - If it is RUNNING and stale, or FAILED, take it over with `updateMany where {id, status, startedAt ≤ cutoff}`. A count of 0 means `BUSY`.
 4. **Non-school day** → mark SUCCEEDED with `{skipped:"NON_SCHOOL_DAY"}`.
-5. **Eligible students:** `status=ACTIVE`, and the local date of `activatedAt` ≤ D, and no Attendance row for D (anti-join).
+5. **Eligible students** (one definition, `auto-alpha-rules.isEligibleOn` / `eligibilityCutoff`, shared by the today card, recap, map, `BELUM_ABSEN` and leave materialisation): `status=ACTIVE`, and `activatedAt < instant(D, checkInCloseMinute)` — activated **before D's check-in window closed** — and no Attendance row for D (anti-join). A student activated after the close (e.g. imported at 13:00) could never check in on D, so they are first eligible on D+1 (`firstEligibleDate`).
+   - The close transaction first takes the holiday locks in **shared** mode (`lockCalendarShared`: `holidays:national` then `holidays:<school>`), so a holiday write cannot slip between the calendar read and the INSERT, while closes of other schools and leave approvals do not wait for each other.
    - If an APPROVED LeaveRequest covers D, draft `{status: type, source: LEAVE, leaveRequestId}`.
    - Otherwise draft `{status: ALPHA, source: AUTO_ALPHA}`. `classId` is the snapshot of `currentClassId`.
    - A PENDING leave does not protect the student: they get ALPHA, and approving the leave later converts it.
 6. **Insert** with `createMany({skipDuplicates: true})` in chunks of 500. The unique key (studentId, date) makes this safe to re-run. Then run the §3.4 sweep and mark the JobRun SUCCEEDED with `{alphaCreated, leaveCreated, anomaliesSwept}`.
 7. **Failure:** mark the JobRun FAILED with the error text. The next cron run retries it.
-8. **Manual re-run** (SU/ops): `{schoolId, date}`. The date must be closed and within term.
+8. **Manual re-run** (SU): `POST /api/v1/platform/attendance/close-day {schoolId, date}` (action `attendance.reclose`). The date must already be closed (`422 DAY_NOT_CLOSED`) and not before the school was created (`422 DATE_BEFORE_SCHOOL_START`); outside term or on a holiday it returns `isSchoolDay=false` without rows. It runs the same idempotent close (shared holiday locks, anti-join, INSERT IGNORE, sweep), writes the JobRun as SUCCEEDED and the audit `attendance.reclose_day` in one transaction.
 
 ### 3.8 Leave requests
 
@@ -275,12 +283,14 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
    - `today − 7 ≤ start ≤ end ≤ today + 30`, and `end − start ≤ 13` (a span of 14 days at most).
    - `schoolDayCount ≥ 1`, otherwise 422 `NO_SCHOOL_DAYS_IN_RANGE`.
    - No PENDING or APPROVED leave of this student overlaps the range, otherwise 409 `LEAVE_OVERLAP`. Adjacent ranges do not overlap.
-   - If `type=SAKIT` and `schoolDayCount ≥ 3` and there is no attachment, return 422 `ATTACHMENT_REQUIRED`.
+   - If `type=SAKIT` and `schoolDayCount ≥ 3` and there is no attachment, return 422 `ATTACHMENT_REQUIRED`. An empty (0-byte) `attachment` part counts as no attachment.
+   - At most `LEAVE_DAILY_SUBMISSION_LIMIT` = 5 submissions per student per local day, **cancelled ones included** → 429 `LEAVE_DAILY_LIMIT` with `Retry-After` (checked before the photo is processed and again under the student lock). This bounds a create-then-cancel loop that would fill the shared disk with attachments and flood admins with notifications.
    - Days that already have a CHECKIN row are allowed in the range.
    - Notify every active SA of the school with `LEAVE_SUBMITTED` (inbox only).
-2. **Cancel (student):** `updateMany where {id, studentId, status: PENDING}` sets CANCELLED. A count of 0 means 404 if the request is not the student's, otherwise 409.
+2. **Cancel (student):** `updateMany where {id, studentId, status: PENDING}` sets CANCELLED. A count of 0 means 404 if the request is not the student's, otherwise 409. After commit the attachment bytes are deleted and `StoredFile.deletedAt` is set (the row stays for the FK; download → 410). If that fails, `maintenance-daily` retries: it purges LEAVE_ATTACHMENT bytes of CANCELLED leaves at once and of REJECTED leaves 30 days after review; PENDING and APPROVED attachments are kept.
 3. **Approve (admin):**
    - Read the leave's studentId within the tenant scope (404 if not found).
+   - Take the holiday locks in shared mode (`holidays:national` → `holidays:<school>`) **before** the attendance lock, so the calendar read and the LEAVE INSERT cannot straddle a new holiday (the same locks as the day close). Admin entry on behalf (step 5) does the same.
    - Lock the Student row, then lock the LeaveRequest with `FOR UPDATE`. It must still be PENDING, otherwise 409 `LEAVE_ALREADY_REVIEWED`. The student must be ACTIVE, otherwise 409.
    - `days = listSchoolDays(range)` (past, today and future). Read the existing rows and run `planLeaveMaterialization`:
 
@@ -298,9 +308,13 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
 5. **Admin enters a leave for a student:** same validation, but backdating up to 30 days is allowed. It is created APPROVED and materialised in one transaction.
 6. **Calendar changes.** The school domain calls `onCalendarChanged(schoolId|null, from, to, kind)`.
    - **Holiday added:** delete rows with `source IN (AUTO_ALPHA, LEAVE)` in the range and write an audit entry. CHECKIN and ADMIN rows are kept.
-   - **Holiday removed or shortened:** delete the auto-alpha JobRun rows for those dates within the lookback window, so the next cron run closes them again and restores LEAVE rows. Past days before the lookback window need a manual SU re-run.
-   - A national holiday loops over every school.
+   - **Holiday removed or shortened:** within the lookback window, delete the auto-alpha JobRun rows for those dates, so the next cron run closes them again and restores LEAVE rows. Past days **older** than the lookback window are closed again synchronously in the same transaction (the holiday locks are already held; ALPHA/LEAVE restored, JobRun upserted SUCCEEDED), because the tick never goes back that far.
+   - A national holiday loops over every school: the derived-row DELETE runs per chunk of 50 `schoolId`s so it range-scans `[schoolId, date, …]` and only locks rows of those dates (an unfiltered `date IN … AND source IN …` has no usable index and scans/locks the whole table). The national import collects all created/updated ranges and syncs once at the end, still under `holidays:national`.
+   - Lock modes: national holiday writers take `holidays:national` exclusively; school holiday writers take `holidays:national` shared then `holidays:<school>` exclusively.
    - Changes to `schoolDaysMask` or Term do not change existing rows (documented).
+7. **Student lifecycle.** Future rows are only LEAVE rows from materialisation (D10). Under `attendance:<studentId>` (taken after the class/NISN locks, before `Student FOR UPDATE`):
+   - leaving ACTIVE (INACTIVE, MOVED, GRADUATED) deletes the student's LEAVE/AUTO_ALPHA rows **after today**; the leave stays APPROVED and a later re-activation lets the day close (D17) recreate them; the count is in the status audit (`futureAttendanceRemoved`);
+   - a class change moves the `classId` snapshot of LEAVE rows after today to the new class (`futureLeaveRowsMoved` in the update audit).
 
 ### 3.9 Admin correction (`PUT …/students/:studentId/days/:date`)
 
@@ -326,10 +340,10 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
   - `recorded` = the number of Attendance rows with `date ∈ [from, cut]` (and, for a class, `classId` = the snapshot class).
   - `xPct = count_x / recorded × 100`.
   - The school average is pooled (weighted by student-days), not the mean of the class percentages.
-  - `meta.unclosedDates` = school days in the period with no SUCCEEDED JobRun, so the UI can warn that data is incomplete.
+  - `meta.unclosedDates` = school days in the period with no SUCCEEDED JobRun, so the UI can warn that data is incomplete. Only days whose close status is knowable are listed: on or after the school's `createdAt` local date and within the 400-day auto-alpha JobRun retention.
 - **Change vs last month:** `deltaPp = round1(currPct − prevPct)` in percentage points. `isPartial` is true when the current month is still running. The previous month is always complete.
 - **Today card:**
-  - `eligible` = ACTIVE students whose `activatedAt` local date ≤ today.
+  - `eligible` = ACTIVE students activated before today's check-in window closed (`activatedAt < instant(today, checkInCloseMinute)`, the §3.7 step 5 rule).
   - Counts come from today's rows of those students.
   - `notYet = max(0, eligible − rowsToday)`.
   - `presentPct = present / eligible`.

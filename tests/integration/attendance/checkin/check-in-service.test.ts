@@ -241,7 +241,7 @@ test("sekolah WIT: 15:30Z = 00:30 WIT tanggal berikutnya", async () => {
   assert.equal(row?.date.toISOString(), "2091-03-05T00:00:00.000Z");
 });
 
-test("precheck memakai keputusan yang sama dan tidak menulis apa pun", async () => {
+test("precheck memakai keputusan yang sama; selain MOCK_LOCATION tidak menulis apa pun", async () => {
   const st = await addStudent(world);
   const now = at(445);
   const ctx = actionContext(studentPrincipal(st), now);
@@ -257,12 +257,46 @@ test("precheck memakai keputusan yang sama dan tidak menulis apa pun", async () 
   const nullIsland = await precheckAttendance({ ...precheckBodyAt(now), latitude: 0, longitude: 0 }, ctx);
   assert.equal(nullIsland.reason, "INVALID_LOCATION");
   assert.equal(nullIsland.distanceM, null);
+  const stale = await precheckAttendance(precheckBodyAt(now, { meters: 900, fixAgeMs: 600_000 }), ctx);
+  assert.equal(stale.reason, "LOCATION_STALE");
+  assert.equal(stale.distanceM, null, "jarak hanya dikirim bila keputusan mencapai langkah geofence");
   assert.equal((await rejectionsOf(st.student.id)).length, 0);
   assert.equal(await prisma.attendance.count({ where: { studentId: st.student.id } }), 0);
   assert.equal(await selfieCount(st.user.id), 0);
   await checkInAs(st, now);
-  const replay = await precheckAttendance(precheckBodyAt(now), ctx);
+  const replay = await precheckAttendance(precheckBodyAt(now, { meters: 700 }), ctx);
   assert.equal(replay.reason, "ALREADY_CHECKED_IN");
+  assert.equal(replay.distanceM, null);
+});
+
+test("precheck MOCK_LOCATION dicatat untuk admin (isMocked, deviceId sesi), tanpa jarak; kuota 20/hari dipatuhi", async () => {
+  const st = await addStudent(world);
+  const now = at(430);
+  const ctx = actionContext(studentPrincipal(st), now);
+  const mocked = await precheckAttendance(precheckBodyAt(now, { mocked: true, meters: 4072 }), ctx);
+  assert.equal(mocked.ok, false);
+  assert.equal(mocked.reason, "MOCK_LOCATION");
+  assert.equal(mocked.distanceM, null, "jarak tidak dibocorkan untuk lokasi palsu (cegah trilaterasi titik sekolah)");
+  const [logged] = await rejectionsOf(st.student.id);
+  assert.equal(logged?.reason, "MOCK_LOCATION");
+  assert.equal(logged?.isMocked, true);
+  assert.equal(logged?.deviceId, DEVICE);
+  assert.equal(logged?.distanceM, 4072, "admin tetap melihat jarak");
+  assert.equal(logged?.latitude, null, "jarak > 2 km: koordinat tidak disimpan (rejectionLocation)");
+  for (let i = 0; i < 25; i += 1) await precheckAttendance(precheckBodyAt(now, { mocked: true }), ctx);
+  assert.equal((await rejectionsOf(st.student.id)).length, 20);
+  await assert.rejects(checkInAs(st, now, { mocked: true }), { status: 422, code: "MOCK_LOCATION" });
+  assert.equal((await rejectionsOf(st.student.id)).length, 20, "kuota harian dibagi dengan check-in");
+});
+
+test("precheck di hari libur: NOT_SCHOOL_DAY tanpa jarak dan tanpa catatan", async () => {
+  const st = await addStudent(world);
+  const now = at(430, "2091-03-08");
+  await prisma.holiday.create({ data: { schoolId: world.school.id, name: "Libur Uji Precheck", startDate: toDbDate("2091-03-08"), endDate: toDbDate("2091-03-08") } });
+  const out = await precheckAttendance(precheckBodyAt(now, { mocked: true }), actionContext(studentPrincipal(st), now));
+  assert.equal(out.reason, "NOT_SCHOOL_DAY");
+  assert.equal(out.distanceM, null);
+  assert.equal((await rejectionsOf(st.student.id)).length, 0);
 });
 
 test("SHARED_DEVICE: siswa kedua dengan deviceId sama -> kedua baris ditandai (hasAnomaly)", async () => {
@@ -330,4 +364,22 @@ test("kunci attendance:<studentId>: baris LEAVE yang muncul selagi menunggu -> d
   assert.equal(rows[0]?.source, "CHECKIN");
   assert.equal(rows[0]?.leaveRequestId, leave.id);
   assert.equal(rows[0]?.note, "Hadir pada hari izin");
+});
+
+test("kunci attendance:<studentId>: siswa dinonaktifkan / pindah kelas selagi check-in menunggu -> dibaca ulang di bawah kunci", async () => {
+  const inactive = await addStudent(world);
+  const heldStatus = await holdLock(attendanceLockKey(inactive.student.id), (tx) =>
+    tx.student.update({ where: { id: inactive.student.id }, data: { status: "INACTIVE" } }),
+  );
+  const [code] = await raceWhileHeld(heldStatus, [() => checkInAs(inactive, at(430)).then(() => "OK", (e: { code?: string }) => e.code ?? "ERROR")]);
+  assert.equal(code, "STUDENT_NOT_ACTIVE");
+  assert.equal(await prisma.attendance.count({ where: { studentId: inactive.student.id } }), 0);
+  assert.equal(await selfieCount(inactive.user.id), 0);
+
+  const moved = await addStudent(world);
+  const heldClass = await holdLock(attendanceLockKey(moved.student.id), (tx) => tx.student.update({ where: { id: moved.student.id }, data: { currentClassId: null } }));
+  const [out] = await raceWhileHeld(heldClass, [() => checkInAs(moved, at(430))]);
+  assert.equal(out?.status, 201);
+  const row = await prisma.attendance.findFirstOrThrow({ where: { studentId: moved.student.id } });
+  assert.equal(row.classId, null, "snapshot kelas dari baris siswa terkunci, bukan konteks sebelum kunci");
 });

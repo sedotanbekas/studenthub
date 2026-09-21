@@ -257,6 +257,27 @@ test("403 gerbang peran: admin sekolah & super admin tidak boleh; 401 tanpa toke
   assert.equal(anonymous.status, 401);
 });
 
+test("sesi WEB / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY (today, precheck, check-in) tanpa menulis apa pun", async () => {
+  const now = setLocalTime(430);
+  const st = await addStudent(world);
+  const web = await createSessionToken(st.user.id, { platform: "WEB", deviceId: null });
+  const noDevice = await createSessionToken(st.user.id, { platform: "ANDROID", deviceId: null });
+  for (const { token } of [web, noDevice]) {
+    const today = await getToday(token);
+    assert.equal(today.status, 403);
+    assert.equal(today.body?.error?.code, "CHECKIN_MOBILE_ONLY");
+    assert.equal((await postPrecheck(token, precheckBodyAt(now, { mocked: true }))).body?.error?.code, "CHECKIN_MOBILE_ONLY");
+    const res = await postCheckIn(token, checkInForm(now, await solidSelfie(), { deviceId: "totally-random-9999" }));
+    assert.equal(res.status, 403);
+    assert.equal(res.body?.error?.code, "CHECKIN_MOBILE_ONLY");
+  }
+  assert.equal(await prisma.attendance.count({ where: { studentId: st.student.id } }), 0);
+  assert.equal(await prisma.checkInRejection.count({ where: { studentId: st.student.id } }), 0);
+  assert.equal(await prisma.storedFile.count({ where: { uploadedById: st.user.id } }), 0);
+  const mobile = await createSessionToken(st.user.id);
+  assert.equal((await postCheckIn(mobile.token, checkInForm(now, await solidSelfie()))).status, 201, "sesi mobile ber-deviceId tetap boleh");
+});
+
 test("siswa wajib ganti password / siswa LULUS ditolak check-in (403)", async () => {
   const now = setLocalTime(430);
   const mustChange = await studentWithToken(world, { mustChangePassword: true });

@@ -10,6 +10,7 @@
  * (CHECKIN, LEAVE, koreksi admin) TIDAK pernah ditimpa.
  */
 import type { AttendanceStatus, SchoolTimezone } from "@prisma/client";
+import { isEligibleOn } from "../../src/lib/attendance/auto-alpha-rules";
 import { listSchoolDays } from "../../src/lib/calendar/rules";
 import type { Tx } from "../../src/lib/db";
 import { addDays, fromDbDate, instantAtLocal, localParts, toDbDate, type LocalDate } from "../../src/lib/time/zone";
@@ -111,7 +112,9 @@ export function buildDemoRow(key: DemoRowKey, date: LocalDate, plan: DemoDayPlan
 async function loadDemoSchool(tx: Tx, schoolId: string) {
   const school = await tx.school.findUnique({
     where: { id: schoolId },
-    select: { id: true, timezone: true, schoolDaysMask: true, latitude: true, longitude: true, startMinute: true, lateToleranceMinutes: true },
+    select: {
+      id: true, timezone: true, schoolDaysMask: true, latitude: true, longitude: true, startMinute: true, lateToleranceMinutes: true, checkInCloseMinute: true,
+    },
   });
   if (!school) throw new Error(`Sekolah demo ${schoolId} tidak ditemukan`);
   return { ...school, latitude: Number(school.latitude.toString()), longitude: Number(school.longitude.toString()) };
@@ -164,7 +167,7 @@ export async function ensureDemoAttendance(tx: Tx, schoolId: string, nisns: read
   });
   const drafts = students.flatMap((student, index) =>
     dates
-      .filter((date) => student.activatedAt !== null && localParts(student.activatedAt, school.timezone).ymd <= date)
+      .filter((date) => isEligibleOn({ status: "ACTIVE", activatedAt: student.activatedAt }, date, school))
       .map((date) => buildDemoRow({ schoolId, studentId: student.id, classId: student.currentClassId }, date, demoDayPlan(index, dayNumber(date), school), school)),
   );
   return drafts.length === 0 ? { created: 0, updated: 0 } : writeDemoRows(tx, drafts);

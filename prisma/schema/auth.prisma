@@ -106,6 +106,8 @@ model AuthSession {
   @@index([userId, revokedAt])
   @@index([deviceId, revokedAt])
   @@index([expiresAt])
+  /// Retensi sesi dicabut > 90 hari (maintenance-daily) tanpa scan seluruh tabel.
+  @@index([revokedAt])
 }
 
 /// Hanya hash SHA-256 dari token opak yang disimpan.

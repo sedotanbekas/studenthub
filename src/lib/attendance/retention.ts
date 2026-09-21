@@ -1,6 +1,7 @@
 /**
  * Aturan retensi murni untuk job maintenance-daily & files-orphan-cleanup (PLAN "File & job"):
- * selfie 180 hari (keputusan klien; baris absensi tetap), CheckInRejection 90 hari, token/sesi mati,
+ * selfie 180 hari (keputusan klien; baris absensi tetap), lampiran izin dibatalkan (segera) / ditolak
+ * (30 hari), CheckInRejection 90 hari, token/sesi mati,
  * notifikasi 1 tahun, JobRun 90 hari (auto-alpha 400 hari karena dipakai analitik "hari tertutup").
  */
 
@@ -8,6 +9,8 @@ const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
 export const SELFIE_RETENTION_DAYS = 180;
+/** Lampiran izin DITOLAK dimusnahkan 30 hari setelah ditinjau (masa sanggah); izin DIBATALKAN segera. */
+export const REJECTED_LEAVE_ATTACHMENT_DAYS = 30;
 export const REJECTION_RETENTION_DAYS = 90;
 /** RefreshToken yang sudah ditukar lebih dari 30 hari lalu (jendela deteksi reuse sudah lewat). */
 export const ROTATED_REFRESH_TOKEN_DAYS = 30;
@@ -28,6 +31,7 @@ export const DELETE_CHUNK = 5000;
 
 export interface RetentionCutoffs {
   readonly selfie: Date;
+  readonly rejectedLeaveAttachment: Date;
   readonly rejection: Date;
   readonly rotatedRefreshToken: Date;
   readonly expiredRefreshToken: Date;
@@ -43,6 +47,7 @@ const daysAgo = (now: Date, days: number): Date => new Date(now.getTime() - days
 export function retentionCutoffs(now: Date): RetentionCutoffs {
   return {
     selfie: daysAgo(now, SELFIE_RETENTION_DAYS),
+    rejectedLeaveAttachment: daysAgo(now, REJECTED_LEAVE_ATTACHMENT_DAYS),
     rejection: daysAgo(now, REJECTION_RETENTION_DAYS),
     rotatedRefreshToken: daysAgo(now, ROTATED_REFRESH_TOKEN_DAYS),
     expiredRefreshToken: daysAgo(now, EXPIRED_REFRESH_TOKEN_DAYS),

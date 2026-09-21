@@ -130,7 +130,7 @@ export const updateSchoolSettingsContract = defineContract({
   description: [
     "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `schoolDaysMask`.",
     "Lokasi, geofence, zona waktu, dan rekening SPP HANYA dapat diubah super admin (kunci lain -> 400 `VALIDATION_FAILED`).",
-    "Hasil merge harus memenuhi 0 <= buka < masuk <= tutup <= akhir hari < 1440 dan masuk + toleransi < tutup (422",
+    "Hasil merge harus memenuhi 0 <= buka < masuk <= tutup, tutup + 5 menit <= akhir hari < 1440, dan masuk + toleransi < tutup (422",
     "`SCHOOL_CONFIG_INVALID`). Baris absensi yang SUDAH tercatat tidak ditulis ulang; aturan baru berlaku untuk hari/check-in berikutnya.",
     "Diaudit sebagai `school.settings_update`.",
   ].join(" "),

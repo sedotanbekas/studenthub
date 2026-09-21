@@ -4,8 +4,10 @@ import { requirePrincipal, type ActionContext } from "@/lib/auth/principal";
 import { loadCalendarContext } from "@/lib/calendar/queries";
 import { listSchoolDays } from "@/lib/calendar/rules";
 import { prisma, type Tx } from "@/lib/db";
-import { conflict, forbidden, notFound } from "@/lib/http/errors";
+import { AppError, conflict, forbidden, notFound } from "@/lib/http/errors";
 import { assertRateLimit, getLimiter } from "@/lib/http/rate-limits";
+import { purgeFileBytes } from "@/lib/jobs/files-cleanup";
+import { log, safeErrorFields } from "@/lib/log";
 import { notifySchoolAdmins, notifyStudents } from "@/lib/notifications/notify";
 import { leaveApprovedNotification, leaveRejectedNotification, leaveSubmittedNotification } from "@/lib/notifications/templates/attendance-leave";
 import { assertDiskSpace } from "@/lib/storage/disk";
@@ -16,9 +18,9 @@ import { studentSelf, type SchoolScope } from "@/lib/tenant/scope";
 import { fromDbDate, localParts, toDbDate, type LocalDate } from "@/lib/time/zone";
 import { lockKey, lockRows, withTx } from "@/lib/tx";
 import { attendanceLockKey } from "@/lib/lock-keys";
-import type { LeaveTypeValue } from "./leave-constants";
+import { LEAVE_DAILY_SUBMISSION_LIMIT, type LeaveTypeValue } from "./leave-constants";
 import { getOwnLeave, leaveScopeOf, loadLeaveSchool, loadSchoolLeaveItem, type LeaveSchool } from "./leave-queries";
-import { checkLeaveDays, findOverlappingLeave, validateLeaveRange, type LeaveActor } from "./leave-rules";
+import { checkLeaveDays, findOverlappingLeave, leaveQuotaWindow, validateLeaveRange, type LeaveActor } from "./leave-rules";
 import type {
   ApproveLeaveInput,
   CreateLeaveInput,
@@ -28,11 +30,15 @@ import type {
   RejectLeaveInput,
   SchoolLeaveDto,
 } from "./leave-schemas";
+import { firstEligibleDate } from "./auto-alpha-rules";
+import { lockCalendarShared } from "./calendar-locks";
 import { materializeLeave, withMaterializeRetry, type MaterializeResult } from "./materialize";
 
 /**
- * Mutasi izin/sakit. Urutan kunci di setiap transaksi (src/lib/tx.ts): AppLock `attendance:<studentId>`
- * -> Student FOR UPDATE -> LeaveRequest FOR UPDATE -> Attendance; Notification & AuditLog terakhir.
+ * Mutasi izin/sakit. Urutan kunci di setiap transaksi (src/lib/tx.ts): [materialisasi saja: kunci BERSAMA
+ * holidays:national -> holidays:<schoolId> agar libur baru tidak menyelinap di antara baca kalender & INSERT]
+ * -> AppLock `attendance:<studentId>` -> Student FOR UPDATE -> LeaveRequest FOR UPDATE -> Attendance;
+ * Notification & AuditLog terakhir.
  * Kunci selalu diambil SEBELUM membaca; transisi status memakai compare-and-set (updateMany).
  * Lampiran diproses (sharp) di luar transaksi; berkas percobaan yang gagal dibuang dari disk.
  */
@@ -49,7 +55,7 @@ interface LockedStudent {
   readonly currentClassId: string | null;
   readonly name: string;
   readonly className: string | null;
-  /** Tanggal lokal aktivasi (Student.activatedAt) — batas bawah materialisasi. */
+  /** Tanggal pertama wajib absen (firstEligibleDate dari Student.activatedAt) — batas bawah materialisasi. */
   readonly enrolledFrom: LocalDate | null;
 }
 
@@ -90,7 +96,7 @@ async function lockStudentForLeave(tx: Tx, school: LeaveSchool, studentId: strin
   return {
     id: row.id, userId: row.userId, status: row.status, currentClassId: row.currentClassId, name: row.user.name,
     className: row.currentClass?.name ?? null,
-    enrolledFrom: row.activatedAt ? localParts(row.activatedAt, school.timezone).ymd : null,
+    enrolledFrom: row.activatedAt ? firstEligibleDate(row.activatedAt, school) : null,
   };
 }
 
@@ -130,6 +136,9 @@ async function assessLeave(db: Tx, school: LeaveSchool, studentId: string, input
 }
 
 // ----------------------------------------------------------------------------- lampiran
+
+/** Bagian multipart "attachment" kosong (0 byte, mis. input file form tanpa pilihan) = tanpa lampiran. */
+const presentFile = (file: File | undefined): File | undefined => (file && file.size > 0 ? file : undefined);
 
 /** Proses foto di luar transaksi: guard disk (503) lalu pipeline gambar (re-encode, EXIF dibuang). */
 async function prepareAttachment(file: File | undefined): Promise<ProcessedImage | null> {
@@ -180,18 +189,38 @@ async function withLeaveTx<T>(upload: PendingUpload | null, ctx: ActionContext, 
 
 // ----------------------------------------------------------------------------- siswa
 
+/**
+ * Kuota pengajuan per siswa per hari lokal (termasuk yang kemudian dibatalkan) -> 429 LEAVE_DAILY_LIMIT.
+ * Dicek sebelum memproses lampiran (hemat CPU/disk) DAN diulang di bawah kunci siswa (sumber kebenaran).
+ */
+async function assertSubmissionQuota(db: Tx, school: LeaveSchool, studentId: string, now: Date): Promise<void> {
+  const window = leaveQuotaWindow(now, school.timezone);
+  const submitted = await db.leaveRequest.count({ where: { schoolId: school.id, studentId, createdAt: { gte: window.from } } });
+  if (submitted < LEAVE_DAILY_SUBMISSION_LIMIT) return;
+  throw new AppError(
+    429,
+    "LEAVE_DAILY_LIMIT",
+    `Pengajuan izin dibatasi ${LEAVE_DAILY_SUBMISSION_LIMIT} kali per hari. Silakan coba lagi besok.`,
+    { limit: LEAVE_DAILY_SUBMISSION_LIMIT, retryAfterSeconds: window.retryAfterSeconds },
+    { "Retry-After": String(window.retryAfterSeconds) },
+  );
+}
+
 /** POST /student/leave-requests: PENDING + notifikasi LEAVE_SUBMITTED ke admin sekolah aktif. */
 export async function createOwnLeave(ctx: ActionContext, input: CreateLeaveInput): Promise<LeaveRequestDto> {
   const self = studentSelf(requirePrincipal(ctx));
   const school = await loadLeaveSchool(prisma, self.schoolId);
   assertRange(input, school, ctx.now, "STUDENT");
-  const hasAttachment = input.attachment !== undefined;
+  await assertSubmissionQuota(prisma, school, self.studentId, ctx.now);
+  const attachment = presentFile(input.attachment);
+  const hasAttachment = attachment !== undefined;
   await assessLeave(prisma, school, self.studentId, input, hasAttachment);
-  const processed = await prepareAttachment(input.attachment);
+  const processed = await prepareAttachment(attachment);
   const upload = processed ? { processed, uploadedById: self.userId, schoolId: school.id } : null;
   const id = await withLeaveTx(upload, ctx, async (tx, attach) => {
     const student = await lockStudentForLeave(tx, school, self.studentId);
     if (student.status !== "ACTIVE") throw forbidden("STUDENT_NOT_ACTIVE", "Akun siswa tidak aktif untuk aksi ini.");
+    await assertSubmissionQuota(tx, school, student.id, ctx.now);
     await assessLeave(tx, school, student.id, input, hasAttachment);
     const attachmentFileId = await attach();
     const leave = await tx.leaveRequest.create({
@@ -210,17 +239,32 @@ export async function createOwnLeave(ctx: ActionContext, input: CreateLeaveInput
   return getOwnLeave(ctx, id);
 }
 
-/** POST /student/leave-requests/{id}/cancel: compare-and-set PENDING -> CANCELLED milik sendiri. */
+/**
+ * Lampiran izin yang dibatalkan dimusnahkan setelah commit (byte lalu deletedAt; unduhan -> 410). Gagal ->
+ * dicatat di log dan diulang job maintenance (izin CANCELLED + deletedAt NULL), respons batal tetap 200.
+ */
+async function releaseAttachment(schoolId: string, fileId: string | null, now: Date): Promise<void> {
+  if (fileId === null) return;
+  try {
+    const file = await prisma.storedFile.findFirst({ where: { id: fileId, schoolId, kind: "LEAVE_ATTACHMENT", deletedAt: null }, select: { id: true, storageKey: true } });
+    if (file) await purgeFileBytes([file], now);
+  } catch (error) {
+    log.warn("leave.attachment_release_failed", { fileId, ...safeErrorFields(error) });
+  }
+}
+
+/** POST /student/leave-requests/{id}/cancel: compare-and-set PENDING -> CANCELLED milik sendiri; lampiran dibebaskan. */
 export async function cancelOwnLeave(ctx: ActionContext, id: string): Promise<LeaveRequestDto> {
   const self = studentSelf(requirePrincipal(ctx));
-  await withTx(async (tx) => {
+  const attachmentFileId = await withTx(async (tx) => {
     const owned = { id, schoolId: self.schoolId, studentId: self.studentId };
     const updated = await tx.leaveRequest.updateMany({ where: { ...owned, status: "PENDING" }, data: { status: "CANCELLED" } });
-    if (updated.count === 1) return;
-    const current = await tx.leaveRequest.findFirst({ where: owned, select: { status: true } });
+    const current = await tx.leaveRequest.findFirst({ where: owned, select: { status: true, attachmentFileId: true } });
     if (!current) throw notFoundLeave();
+    if (updated.count === 1) return current.attachmentFileId;
     throw conflict("LEAVE_NOT_PENDING", "Hanya pengajuan berstatus Menunggu yang dapat dibatalkan.", { status: current.status });
   });
+  await releaseAttachment(self.schoolId, attachmentFileId, ctx.now);
   return getOwnLeave(ctx, id);
 }
 
@@ -306,6 +350,7 @@ export async function approveLeave(ctx: ActionContext, schoolId: string | undefi
   const note = input.note || null;
   const materialized = await withMaterializeRetry(() =>
     withTx(async (tx) => {
+      await lockCalendarShared(tx, school.id);
       const { student, leave } = await lockForApproval(tx, scope, school, target);
       const result = await materializeFor(tx, school, student, leave, await schoolDaysIn(tx, school, leave));
       if ((await markReviewed(tx, scope, id, { status: "APPROVED", note }, ctx)) !== 1) throw alreadyReviewed(leave.status);
@@ -347,13 +392,15 @@ export async function createLeaveOnBehalf(ctx: ActionContext, schoolId: string |
   const school = await loadLeaveSchool(prisma, scope.schoolId);
   assertRange(input, school, ctx.now, "ADMIN");
   await assertStudentInScope(scope, input.studentId);
-  const hasAttachment = input.attachment !== undefined;
+  const attachment = presentFile(input.attachment);
+  const hasAttachment = attachment !== undefined;
   await assessLeave(prisma, school, input.studentId, input, hasAttachment);
   if (hasAttachment) consumeUploadQuota(principal.userId);
-  const processed = await prepareAttachment(input.attachment);
+  const processed = await prepareAttachment(attachment);
   const upload = processed ? { processed, uploadedById: principal.userId, schoolId: school.id } : null;
   const note = input.note || null;
   const outcome = await withLeaveTx(upload, ctx, async (tx, attach) => {
+    await lockCalendarShared(tx, school.id);
     const student = await lockStudentForLeave(tx, school, input.studentId);
     if (student.status !== "ACTIVE") {
       throw conflict("LEAVE_STUDENT_INACTIVE", "Siswa tidak berstatus Aktif; izin tidak dapat dicatat.", { studentStatus: student.status });

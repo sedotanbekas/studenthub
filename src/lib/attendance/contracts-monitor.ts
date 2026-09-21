@@ -3,6 +3,7 @@ import { defineContract, type AnyContract } from "@/lib/http/contract";
 import {
   anomaliesQuery,
   anomalyRowSchema,
+  classAnalyticsMetaSchema,
   classAnalyticsSchema,
   classParams,
   classTrendQuery,
@@ -10,9 +11,11 @@ import {
   dailyQuery,
   dailyRowSchema,
   dateScopeQuery,
+  mapMetaSchema,
   mapQuery,
   mapSchema,
   monitorScopeQuery,
+  monthNavigationMetaSchema,
   monthScopeQuery,
   recapSchema,
   recordDetailSchema,
@@ -71,6 +74,7 @@ export const mapContract = defineContract({
   action: ACTION,
   query: mapQuery,
   response: mapSchema,
+  meta: mapMetaSchema,
   errors: ["SCHOOL_NOT_FOUND", "CLASS_NOT_FOUND"],
 });
 
@@ -125,6 +129,7 @@ export const classAnalyticsContract = defineContract({
   action: ACTION,
   query: monthScopeQuery,
   response: classAnalyticsSchema,
+  meta: classAnalyticsMetaSchema,
   errors: ["SCHOOL_NOT_FOUND"],
 });
 
@@ -180,6 +185,7 @@ export const studentMonthContract = defineContract({
   params: studentParams,
   query: monthScopeQuery,
   response: studentMonthSchema,
+  meta: monthNavigationMetaSchema,
   errors: ["SCHOOL_NOT_FOUND"],
 });
 

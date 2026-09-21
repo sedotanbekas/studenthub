@@ -14,7 +14,7 @@ import { POST as createOwn } from "@/app/api/v1/student/leave-requests/route";
 import { isAttendanceDuplicate } from "@/lib/attendance/materialize";
 import { resetAllLimiters } from "@/lib/http/rate-limits";
 import { setStorageDriver } from "@/lib/storage/driver";
-import { addDays, fromDbDate, localParts, toDbDate } from "@/lib/time/zone";
+import { addDays, fromDbDate, instantAtLocal, toDbDate } from "@/lib/time/zone";
 import { disconnect, prisma } from "../../helpers/db";
 import { callRoute, type Envelope } from "../../helpers/request";
 import { createTempStorage, type TempStorage } from "../../helpers/storage";
@@ -260,20 +260,22 @@ describe("catat atas nama siswa", () => {
     assert.equal(audit?.before, null);
   });
 
-  test("hari sebelum aktivasi siswa tidak dimaterialisasi (NOT_ENROLLED)", async () => {
-    const today = todayWib();
-    const activatedAt = new Date(Date.now() - 3 * 86_400_000);
-    const st = await createStudentWithToken(fx, { activatedAt });
-    const enrolledFrom = localParts(activatedAt, "WIB").ymd;
-    const [startDate, endDate] = [addDays(today, -10), addDays(today, -1)];
-    const res = await onBehalf({ studentId: st.student.id, startDate, endDate });
-    assert.equal(res.status, 201, JSON.stringify(res.body));
-    const days = await schoolDaysBetween(startDate, endDate);
-    const { created, skipped } = res.body?.data.materialized ?? { created: [], skipped: [] };
-    assert.deepEqual(created, days.filter((d) => d >= enrolledFrom));
-    assert.deepEqual(skipped, days.filter((d) => d < enrolledFrom).map((date) => ({ date, reason: "NOT_ENROLLED" })));
-    assert.ok(skipped.length > 0);
-  });
+  for (const [label, minute, firstOffset] of [["sebelum jam tutup check-in (07:00)", 420, -4], ["setelah jam tutup check-in (13:00)", 780, -3]] as const) {
+    test(`hari sebelum siswa wajib absen tidak dimaterialisasi (NOT_ENROLLED): aktivasi ${label}`, async () => {
+      const today = todayWib();
+      const activatedAt = instantAtLocal(addDays(today, -4), minute, "WIB");
+      const st = await createStudentWithToken(fx, { activatedAt });
+      const enrolledFrom = addDays(today, firstOffset);
+      const [startDate, endDate] = [addDays(today, -10), addDays(today, -1)];
+      const res = await onBehalf({ studentId: st.student.id, startDate, endDate });
+      assert.equal(res.status, 201, JSON.stringify(res.body));
+      const days = await schoolDaysBetween(startDate, endDate);
+      const { created, skipped } = res.body?.data.materialized ?? { created: [], skipped: [] };
+      assert.deepEqual(created, days.filter((d) => d >= enrolledFrom));
+      assert.deepEqual(skipped, days.filter((d) => d < enrolledFrom).map((date) => ({ date, reason: "NOT_ENROLLED" })));
+      assert.ok(skipped.length > 0);
+    });
+  }
 
   test("mundur 31 hari -> 422; beririsan -> 409; siswa tidak aktif -> 409; siswa tak dikenal -> 404", async () => {
     const st = await createStudentWithToken(fx);

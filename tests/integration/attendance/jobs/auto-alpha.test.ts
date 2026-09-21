@@ -2,7 +2,10 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { runAutoAlpha } from "@/lib/attendance/auto-alpha-job";
 import { AUTO_ALPHA_JOB } from "@/lib/attendance/auto-alpha-rules";
+import { dailyQuery } from "@/lib/attendance/monitor-schemas";
+import { getTodayStats, listDaily } from "@/lib/attendance/monitoring-queries";
 import { sweepSharedDevice } from "@/lib/attendance/sweep";
+import { makePrincipal } from "@/lib/auth/test-principal";
 import { toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { disconnect, prisma, uniq } from "../../helpers/db";
@@ -151,4 +154,22 @@ test("anggaran waktu habis -> hasMore tanpa menutup apa pun", async () => {
 
 test("scope kosong tidak memindai sekolah mana pun", async () => {
   assert.deepEqual(await runAutoAlpha(jobCtx(NOW, { schoolIds: [] })), { schools: 0, ran: 0, skipped: 0, failed: 0, hasMore: false });
+});
+
+test("siswa diaktifkan setelah jam tutup check-in D: tanpa ALPHA pada D, tidak BELUM_ABSEN/terhitung pada D, ALPHA pada D+1", async () => {
+  const school = await schoolOnD();
+  const early = await createStudent(school.id, { activatedAt: new Date("2031-03-18T02:59:00Z") }); // 09:59 WIB, sebelum tutup 10:00
+  const late = await createStudent(school.id, { activatedAt: new Date("2031-03-18T06:00:00Z") }); // 13:00 WIB
+  const principal = makePrincipal({ userId: uniq("admin"), role: "SCHOOL_ADMIN", schoolId: school.id });
+  const ctxAt = (now: Date) => ({ principal, now, requestId: uniq("req"), ip: null, userAgent: null, defer: () => undefined });
+  const midday = new Date("2031-03-18T07:00:00Z"); // 14:00 WIB, belum tutup hari
+  const waiting = await listDaily(ctxAt(midday), dailyQuery.parse({ date: D, status: "BELUM_ABSEN" }));
+  assert.deepEqual(waiting.data.map((row) => row.student.id), [early.student.id], "siswa yang diaktifkan setelah tutup tidak 'belum absen'");
+  assert.equal((await getTodayStats(ctxAt(midday), undefined)).eligible, 1);
+
+  await runAutoAlpha(jobCtx(NOW, { schoolIds: [school.id] }));
+  assert.deepEqual((await rowsOn(school.id)).map((r) => [r.studentId, r.status]), [[early.student.id, "ALPHA"]]);
+  await runAutoAlpha(jobCtx(new Date("2031-03-19T09:00:00Z"), { schoolIds: [school.id] }));
+  const next = await rowsOn(school.id, "2031-03-19");
+  assert.deepEqual(next.map((r) => r.studentId).sort(), [early.student.id, late.student.id].sort());
 });

@@ -1,4 +1,5 @@
 import "@/lib/http/zod-setup";
+import { z } from "zod";
 import { createDocument, type ZodOpenApiOperationObject, type ZodOpenApiPathsObject } from "zod-openapi";
 import type { AnyContract } from "@/lib/http/contract";
 import { statusForCode } from "@/lib/http/error-status";
@@ -66,11 +67,24 @@ function requestBody(contract: AnyContract): ZodOpenApiOperationObject["requestB
   return { required: true, content: { [type]: { schema: contract.body } } };
 }
 
+/** Tipe konten berkas privat yang disajikan (hasil re-encode: JPEG; banner JPEG/PNG/WebP). */
+const BINARY_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const binarySchema = z.string().meta({ format: "binary" });
+
+function binaryResponse() {
+  return {
+    description: "Berkas biner dengan Content-Type asli (header cache & keamanan: lihat deskripsi operasi).",
+    content: Object.fromEntries(BINARY_MEDIA_TYPES.map((type) => [type, { schema: binarySchema }])),
+  };
+}
+
 function successResponse(contract: AnyContract): ZodOpenApiOperationObject["responses"] {
-  const status = String(contract.successStatus ?? 200);
-  if (contract.binary) return { [status]: { description: "Berkas biner." } };
-  const content = { "application/json": { schema: envelopeOf(contract.response, contract.pagination) } };
-  return { [status]: { description: "Berhasil.", content } };
+  const primary = contract.successStatus ?? 200;
+  if (contract.binary) return { [String(primary)]: binaryResponse() };
+  const content = { "application/json": { schema: envelopeOf(contract.response, contract.pagination, contract.meta) } };
+  const statuses = [primary, ...(contract.alternateSuccessStatuses ?? []).filter((status) => status !== primary)];
+  const describe = (status: number) => (status === primary ? "Berhasil." : "Berhasil (status alternatif; lihat deskripsi operasi).");
+  return Object.fromEntries(statuses.map((status) => [String(status), { description: describe(status), content }]));
 }
 
 function toOperation(contract: AnyContract): ZodOpenApiOperationObject {

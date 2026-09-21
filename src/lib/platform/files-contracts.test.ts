@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fileIdParams, fileResponseHeaders, getFileContract } from "./files-contracts";
 
-const FILE = { size: 4096, mimeType: "image/jpeg", filename: "attendance-selfie-abc123.jpg" };
+const FILE = { kind: "AD_BANNER" as const, size: 4096, mimeType: "image/jpeg", filename: "attendance-selfie-abc123.jpg" };
 
-test("header unduhan: tipe & panjang, nosniff, CSP sandbox, cache privat 5 menit, inline default", () => {
+test("header unduhan: tipe & panjang, nosniff, CSP sandbox, cache privat 5 menit (non-sensitif), inline default", () => {
   assert.deepEqual(fileResponseHeaders(FILE, false), {
     "Content-Type": "image/jpeg",
     "Content-Length": "4096",
@@ -15,6 +15,16 @@ test("header unduhan: tipe & panjang, nosniff, CSP sandbox, cache privat 5 menit
     "Referrer-Policy": "no-referrer",
     Vary: "Authorization",
   });
+});
+
+test("berkas pribadi anak (selfie, lampiran izin, bukti bayar) tidak boleh disimpan cache: no-store + Pragma", () => {
+  for (const kind of ["ATTENDANCE_SELFIE", "LEAVE_ATTACHMENT", "PAYMENT_PROOF"] as const) {
+    const headers = fileResponseHeaders({ ...FILE, kind }, false);
+    assert.equal(headers["Cache-Control"], "private, no-store", kind);
+    assert.equal(headers.Pragma, "no-cache", kind);
+    assert.equal(headers["X-Content-Type-Options"], "nosniff", kind);
+  }
+  assert.equal(fileResponseHeaders(FILE, false).Pragma, undefined);
 });
 
 test("download=1 -> attachment; nama berkas disaring ke karakter aman", () => {

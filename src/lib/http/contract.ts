@@ -33,7 +33,14 @@ export interface RouteContract<
   readonly maxBodyBytes?: number;
   readonly response: R;
   readonly successStatus?: 200 | 201;
+  /** Status sukses lain dengan envelope yang sama (mis. check-in: 201 baru, 200 replay). Hanya dokumentasi. */
+  readonly alternateSuccessStatuses?: readonly (200 | 201)[];
   readonly pagination?: "page" | "cursor";
+  /**
+   * Skema `meta` untuk respons non-paginasi yang membawa meta objek (mis. navigasi bulan). Tanpa ini meta
+   * terdokumentasi = PageMeta/CursorMeta (bila pagination) atau null. Divalidasi di mode test.
+   */
+  readonly meta?: z.ZodType;
   /** Kode error domain yang mungkin dikembalikan (untuk dokumentasi). */
   readonly errors?: readonly string[];
   readonly rateLimit?: { readonly limiter: LimiterName; readonly key: "ip" | "user" };

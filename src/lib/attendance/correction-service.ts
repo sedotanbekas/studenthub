@@ -102,7 +102,9 @@ async function recordCorrection(tx: Tx, request: CorrectionRequest, row: Attenda
     },
     ctx,
   );
-  const event = attendanceCorrectedNotification({ attendanceId: row.id, date: request.date, status: row.status, lateMinutes: row.lateMinutes, reason: request.body.reason });
+  const event = attendanceCorrectedNotification({
+    attendanceId: row.id, date: request.date, status: row.status, lateMinutes: row.lateMinutes, reason: request.body.reason, actorRole: requirePrincipal(ctx).role,
+  });
   await notifyStudents(tx, [request.studentId], event, ctx);
 }
 

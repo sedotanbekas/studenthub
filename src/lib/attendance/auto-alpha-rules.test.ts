@@ -1,16 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { eachDate } from "@/lib/time/zone";
 import {
   AUTO_ALPHA_LOOKBACK_DAYS,
-  activatedBefore,
   candidateCloseDates,
   chunk,
+  closureTrackedFrom,
+  eligibilityCutoff,
+  firstEligibleDate,
   holidayDates,
   isEligibleOn,
   isSettledRun,
   lookbackRunKeys,
   planDayClose,
+  recloseViolation,
   reopenDates,
+  staleCloseDates,
   summarizeDrafts,
   type CloseCandidate,
   type CoveringLeave,
@@ -68,18 +73,35 @@ test("isSettledRun: SUCCEEDED dan FAILED yang kehabisan percobaan dianggap seles
   assert.equal(isSettledRun({ status: "RUNNING", attempts: 1 }), false);
 });
 
-test("isEligibleOn: tanggal lokal activatedAt menurut zona sekolah", () => {
+const WIB_POLICY = { timezone: "WIB" as const, checkInCloseMinute: 600 };
+const WIT_POLICY = { timezone: "WIT" as const, checkInCloseMinute: 600 };
+
+test("isEligibleOn: aktif sebelum jendela check-in D ditutup (instant, zona sekolah)", () => {
   const student = { status: "ACTIVE" as const, activatedAt: new Date("2026-09-20T15:30:00Z") };
-  assert.equal(isEligibleOn(student, "2026-09-21", "WIT"), true);
-  assert.equal(isEligibleOn(student, "2026-09-20", "WIT"), false, "WIT: aktif 2026-09-21 00:30 lokal");
-  assert.equal(isEligibleOn(student, "2026-09-20", "WIB"), true, "WIB: aktif 2026-09-20 22:30 lokal");
-  assert.equal(isEligibleOn({ ...student, status: "INACTIVE" }, "2026-09-22", "WIB"), false);
-  assert.equal(isEligibleOn({ ...student, activatedAt: null }, "2026-09-22", "WIB"), false);
+  assert.equal(isEligibleOn(student, "2026-09-21", WIT_POLICY), true, "WIT: aktif 2026-09-21 00:30 lokal, sebelum tutup 10:00");
+  assert.equal(isEligibleOn(student, "2026-09-20", WIT_POLICY), false);
+  assert.equal(isEligibleOn(student, "2026-09-20", WIB_POLICY), false, "WIB: aktif 2026-09-20 22:30 lokal = setelah jendela ditutup");
+  assert.equal(isEligibleOn(student, "2026-09-21", WIB_POLICY), true);
+  assert.equal(isEligibleOn({ ...student, status: "INACTIVE" }, "2026-09-22", WIB_POLICY), false);
+  assert.equal(isEligibleOn({ ...student, activatedAt: null }, "2026-09-22", WIB_POLICY), false);
 });
 
-test("activatedBefore = awal hari berikutnya lokal (batas eksklusif kueri)", () => {
-  assert.equal(activatedBefore("2026-09-21", "WIT").toISOString(), "2026-09-21T15:00:00.000Z");
-  assert.equal(activatedBefore("2026-09-21", "WIB").toISOString(), "2026-09-21T17:00:00.000Z");
+test("diaktifkan 13:00 WIB pada D (setelah tutup 10:00) -> tidak wajib absen D, wajib D+1; 09:59 -> wajib D", () => {
+  const afterClose = { status: "ACTIVE" as const, activatedAt: new Date("2026-09-21T06:00:00Z") };
+  const beforeClose = { status: "ACTIVE" as const, activatedAt: new Date("2026-09-21T02:59:00Z") };
+  assert.equal(isEligibleOn(afterClose, "2026-09-21", WIB_POLICY), false);
+  assert.equal(isEligibleOn(afterClose, "2026-09-22", WIB_POLICY), true);
+  assert.equal(isEligibleOn(beforeClose, "2026-09-21", WIB_POLICY), true);
+  assert.equal(isEligibleOn({ ...beforeClose, activatedAt: new Date("2026-09-21T03:00:00Z") }, "2026-09-21", WIB_POLICY), false, "tepat 10:00 = sudah tutup");
+  assert.equal(firstEligibleDate(afterClose.activatedAt, WIB_POLICY), "2026-09-22");
+  assert.equal(firstEligibleDate(beforeClose.activatedAt, WIB_POLICY), "2026-09-21");
+  assert.equal(firstEligibleDate(new Date("2026-09-21T09:00:00Z"), WIB_POLICY), "2026-09-22", "16:00 setelah akhir hari");
+});
+
+test("eligibilityCutoff = instant jendela check-in D ditutup (batas eksklusif kueri)", () => {
+  assert.equal(eligibilityCutoff("2026-09-21", WIT_POLICY).toISOString(), "2026-09-21T01:00:00.000Z");
+  assert.equal(eligibilityCutoff("2026-09-21", WIB_POLICY).toISOString(), "2026-09-21T03:00:00.000Z");
+  assert.equal(eligibilityCutoff("2026-09-21", { timezone: "WITA", checkInCloseMinute: 540 }).toISOString(), "2026-09-21T01:00:00.000Z");
 });
 
 const candidate = (id: string, overrides: Partial<CloseCandidate> = {}): CloseCandidate => ({
@@ -100,7 +122,7 @@ const leave = (overrides: Partial<CoveringLeave> = {}): CoveringLeave => ({
 });
 
 test("planDayClose: izin disetujui -> LEAVE, lainnya ALPHA dengan snapshot kelas", () => {
-  const drafts = planDayClose("2026-09-21", [candidate("s1"), candidate("s2", { currentClassId: null })], [leave()], "WIB");
+  const drafts = planDayClose("2026-09-21", [candidate("s1"), candidate("s2", { currentClassId: null })], [leave()], WIB_POLICY);
   assert.deepEqual(drafts, [
     { studentId: "s1", classId: "class-s1", status: "SAKIT", source: "LEAVE", leaveRequestId: "leave-1" },
     { studentId: "s2", classId: null, status: "ALPHA", source: "AUTO_ALPHA", leaveRequestId: null },
@@ -110,14 +132,20 @@ test("planDayClose: izin disetujui -> LEAVE, lainnya ALPHA dengan snapshot kelas
 
 test("planDayClose: izin di luar tanggal tidak melindungi; siswa belum aktif pada tanggal dilewati", () => {
   const late = candidate("s3", { activatedAt: new Date("2026-09-21T18:00:00Z") }); // 22 Sep WIB
-  const drafts = planDayClose("2026-09-21", [candidate("s1"), late], [leave({ startDate: "2026-09-22", endDate: "2026-09-23" })], "WIB");
+  const drafts = planDayClose("2026-09-21", [candidate("s1"), late], [leave({ startDate: "2026-09-22", endDate: "2026-09-23" })], WIB_POLICY);
   assert.deepEqual(drafts.map((d) => [d.studentId, d.status]), [["s1", "ALPHA"]]);
-  assert.deepEqual(planDayClose("2026-09-21", [], [leave()], "WIB"), []);
+  assert.deepEqual(planDayClose("2026-09-21", [], [leave()], WIB_POLICY), []);
+});
+
+test("planDayClose: siswa diaktifkan 13:00 WIB pada D -> tanpa draf D, ALPHA pada D+1", () => {
+  const onboarded = candidate("s9", { activatedAt: new Date("2026-09-21T06:00:00Z") });
+  assert.deepEqual(planDayClose("2026-09-21", [onboarded], [], WIB_POLICY), []);
+  assert.deepEqual(planDayClose("2026-09-22", [onboarded], [], WIB_POLICY).map((d) => d.status), ["ALPHA"]);
 });
 
 test("planDayClose: dua izin mencakup tanggal -> dipilih deterministik (mulai paling awal)", () => {
   const leaves = [leave({ id: "b", type: "IZIN", startDate: "2026-09-21" }), leave({ id: "a", type: "SAKIT", startDate: "2026-09-19" })];
-  const [draft] = planDayClose("2026-09-21", [candidate("s1")], leaves, "WIB");
+  const [draft] = planDayClose("2026-09-21", [candidate("s1")], leaves, WIB_POLICY);
   assert.equal(draft?.leaveRequestId, "a");
   assert.equal(draft?.status, "SAKIT");
 });
@@ -146,4 +174,34 @@ test("reopenDates: hanya dalam jendela lookback, tidak di masa depan, tanpa tang
     "2026-09-21",
   ]);
   assert.deepEqual(reopenDates({ from: "2026-09-01", to: "2026-09-10" }, today, new Set()), []);
+});
+
+test("staleCloseDates: tanggal lebih lama dari jendela lookback yang tidak lagi libur, tidak sebelum sekolah dibuat", () => {
+  const today = "2026-09-21";
+  assert.deepEqual(staleCloseDates({ from: "2026-09-10", to: "2026-09-11" }, today, new Set(), "2026-01-01"), ["2026-09-10", "2026-09-11"]);
+  assert.deepEqual(
+    staleCloseDates({ from: "2026-09-05", to: "2026-09-20" }, today, new Set(["2026-09-06"]), "2026-09-04"),
+    ["2026-09-05", "2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-12", "2026-09-13"],
+    "jendela lookback [09-14, 09-21] ditangani reopenDates",
+  );
+  assert.deepEqual(staleCloseDates({ from: "2026-09-01", to: "2026-09-03" }, today, new Set(), "2026-09-02"), ["2026-09-02", "2026-09-03"]);
+  assert.deepEqual(staleCloseDates({ from: "2026-09-14", to: "2026-09-30" }, today, new Set(), "2026-01-01"), []);
+  const reopened = reopenDates({ from: "2026-09-05", to: "2026-09-20" }, today, new Set());
+  const stale = staleCloseDates({ from: "2026-09-05", to: "2026-09-20" }, today, new Set(), "2026-01-01");
+  assert.deepEqual([...stale, ...reopened], eachDate("2026-09-05", "2026-09-20"), "keduanya menutup seluruh rentang lampau tanpa celah/tumpang tindih");
+});
+
+test("recloseViolation: hanya hari yang sudah ditutup dan tidak sebelum sekolah dibuat", () => {
+  const school = { timezone: "WIB" as const, dayEndMinute: 900, createdAt: new Date("2026-09-01T02:00:00Z") };
+  const now = new Date("2026-09-21T07:00:00Z"); // 14:00 WIB, hari ini belum ditutup
+  assert.equal(recloseViolation("2026-09-20", school, now), null);
+  assert.equal(recloseViolation("2026-09-01", school, now), null);
+  assert.equal(recloseViolation("2026-09-21", school, now)?.code, "DAY_NOT_CLOSED");
+  assert.equal(recloseViolation("2026-09-21", school, new Date("2026-09-21T08:00:00Z")), null, "15:00 WIB = hari ini tertutup");
+  assert.equal(recloseViolation("2026-08-31", school, now)?.code, "DATE_BEFORE_SCHOOL_START");
+});
+
+test("closureTrackedFrom: status tutup hanya diketahui sejak sekolah terdaftar dan dalam retensi JobRun auto-alpha (400 hari)", () => {
+  assert.equal(closureTrackedFrom("2026-09-21", "2026-01-05"), "2026-01-05");
+  assert.equal(closureTrackedFrom("2026-09-21", "2024-01-01"), "2025-08-18", "today - 399: JobRun tanggal lebih lama sudah dihapus retensi");
 });

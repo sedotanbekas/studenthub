@@ -32,6 +32,7 @@ export interface PersistedFile {
 }
 
 export interface FileDownload {
+  readonly kind: FileKind;
   readonly body: ReadableStream<Uint8Array>;
   readonly size: number;
   readonly mimeType: string;
@@ -116,5 +117,5 @@ export async function openFileForViewer(fileId: string, viewer: FileViewer): Pro
   if (access === "DENY") throw notFound();
   if (access === "GONE") throw gone("FILE_PURGED", "Berkas sudah dihapus sesuai kebijakan retensi.");
   const { body, size } = await streamStored(file.id, file.storageKey);
-  return { body, size, mimeType: file.mimeType, filename: downloadFilename(file.kind, file.id, file.mimeType) };
+  return { kind: file.kind, body, size, mimeType: file.mimeType, filename: downloadFilename(file.kind, file.id, file.mimeType) };
 }

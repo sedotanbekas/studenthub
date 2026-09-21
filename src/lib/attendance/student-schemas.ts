@@ -96,6 +96,13 @@ export const historyQuery = z.object({
 });
 export type HistoryQuery = z.output<typeof historyQuery>;
 
+export const historyMetaSchema = z
+  .object({
+    prevMonth: z.string().nullable().meta({ description: "Bulan sebelumnya (YYYY-MM); null di luar batas 24 bulan.", example: "2026-08" }),
+    nextMonth: z.string().nullable().meta({ description: "Bulan berikutnya (YYYY-MM); null bila melewati bulan berjalan.", example: null }),
+  })
+  .meta({ id: "AttendanceHistoryMeta" });
+
 export const summaryQuery = z.object({
   termId: entityIdSchema.optional().meta({ description: "Default: semester yang mencakup hari ini, selain itu semester terakhir yang sudah dimulai." }),
 });
@@ -160,7 +167,10 @@ export const precheckResultSchema = z
     ok: z.boolean(),
     reason: z.enum(PRECHECK_REASONS).nullable(),
     message: z.string(),
-    distanceM: z.int().nullable().meta({ description: "Null bila lokasi (0,0)." }),
+    distanceM: z
+      .int()
+      .nullable()
+      .meta({ description: "Jarak ke sekolah (meter); hanya diisi bila keputusan mencapai langkah geofence (ok=true / OUTSIDE_GEOFENCE), selain itu null." }),
     radiusM: z.int(),
     window: z.enum(WINDOW_STATES),
     wouldBeLate: z.boolean(),

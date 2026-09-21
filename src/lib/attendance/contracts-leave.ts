@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { schoolIdQuery } from "@/lib/academics/schema-common";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
-import { LEAVE_MAX_BODY_BYTES } from "./leave-constants";
+import { LEAVE_DAILY_SUBMISSION_LIMIT, LEAVE_MAX_BODY_BYTES } from "./leave-constants";
 import {
   approveLeaveBody,
   createLeaveBody,
@@ -47,7 +47,7 @@ export const createOwnLeaveContract = defineContract({
   path: "/api/v1/student/leave-requests",
   tag: TAG,
   summary: "Ajukan izin/sakit (multipart)",
-  description: `Tanggal mulai paling awal hari ini - 7. ${RANGE_RULES} Admin sekolah aktif menerima notifikasi LEAVE_SUBMITTED.`,
+  description: `Tanggal mulai paling awal hari ini - 7. ${RANGE_RULES} Maks ${LEAVE_DAILY_SUBMISSION_LIMIT} pengajuan per siswa per hari lokal, termasuk yang dibatalkan (429 LEAVE_DAILY_LIMIT + Retry-After). Admin sekolah aktif menerima notifikasi LEAVE_SUBMITTED.`,
   action: "leave.self",
   body: createLeaveBody,
   bodyType: "multipart",
@@ -55,7 +55,7 @@ export const createOwnLeaveContract = defineContract({
   response: leaveRequestSchema,
   successStatus: 201,
   rateLimit: { limiter: "UPLOAD", key: "user" },
-  errors: [...RANGE_ERRORS, ...UPLOAD_ERRORS],
+  errors: [...RANGE_ERRORS, ...UPLOAD_ERRORS, "LEAVE_DAILY_LIMIT"],
 });
 
 export const getOwnLeaveContract = defineContract({
@@ -76,7 +76,7 @@ export const cancelOwnLeaveContract = defineContract({
   path: "/api/v1/student/leave-requests/{id}/cancel",
   tag: TAG,
   summary: "Batalkan pengajuan yang masih Menunggu",
-  description: "Hanya pengajuan milik sendiri berstatus PENDING (409 LEAVE_NOT_PENDING). Id milik siswa lain -> 404.",
+  description: "Hanya pengajuan milik sendiri berstatus PENDING (409 LEAVE_NOT_PENDING). Lampiran dimusnahkan (unduhan -> 410 FILE_PURGED). Id milik siswa lain -> 404.",
   action: "leave.self",
   params: leaveIdParams,
   response: leaveRequestSchema,

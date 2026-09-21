@@ -12,6 +12,7 @@ import type { AnyContract, RouteHandler, RouteInput } from "./contract";
 import { fail, ok } from "./envelope";
 import { AppError, badRequest, tooManyRequests, unauthorized } from "./errors";
 import { isCheckViolation, mapPrismaError } from "./prisma-errors";
+import { metaSchemaOf } from "@/lib/openapi/schemas";
 import { getLimiter } from "./rate-limits";
 import { requestIdOf, userAgentOf } from "./request-meta";
 
@@ -112,7 +113,7 @@ function toResponse(contract: AnyContract, result: Awaited<ReturnType<RouteHandl
     result.headers.set("X-Request-Id", requestId);
     return result;
   }
-  if (process.env.NODE_ENV === "test") assertResponseShape(contract, result.data);
+  if (process.env.NODE_ENV === "test") assertResponseShape(contract, result.data, result.meta ?? null);
   const status = result.status ?? contract.successStatus ?? 200;
   return Response.json(ok(result.data, result.meta), {
     status,
@@ -120,10 +121,15 @@ function toResponse(contract: AnyContract, result: Awaited<ReturnType<RouteHandl
   });
 }
 
-function assertResponseShape(contract: AnyContract, data: unknown): void {
+/** Mode test: data DAN meta respons wajib sesuai skema terdokumentasi (OpenAPI) agar drift tertangkap. */
+function assertResponseShape(contract: AnyContract, data: unknown, meta: unknown): void {
   const parsed = contract.response.safeParse(data);
   if (!parsed.success) {
     throw new Error(`Respons ${contract.id} tidak sesuai kontrak: ${JSON.stringify(parsed.error.issues.slice(0, 3))}`);
+  }
+  const parsedMeta = metaSchemaOf(contract.pagination, contract.meta).safeParse(meta);
+  if (!parsedMeta.success) {
+    throw new Error(`Meta respons ${contract.id} tidak sesuai kontrak: ${JSON.stringify(parsedMeta.error.issues.slice(0, 3))}`);
   }
 }
 

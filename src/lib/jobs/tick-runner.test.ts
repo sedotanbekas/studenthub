@@ -118,3 +118,12 @@ test("runSingleJob: penolakan tak terduga menjadi failed", async () => {
   const result = await createTickRunner(deps).runSingleJob("attendance-auto-alpha", TICK_AT, "req-single-3");
   assert.deepEqual(result.results.map((r) => r.outcome), ["failed"]);
 });
+
+test("scope (test integrasi) diteruskan ke JobContext semua job; tanpa scope -> ctx tanpa scope", async () => {
+  const scoped = fakeDeps({ scope: () => ({ schoolIds: [], userIds: [] }) });
+  await createTickRunner(scoped.deps).runTick(TICK_AT, "req-scope");
+  for (const call of [...scoped.keyed, ...scoped.queued]) assert.deepEqual(call.ctx.scope, { schoolIds: [], userIds: [] });
+  const plain = fakeDeps();
+  await createTickRunner(plain.deps).runTick(TICK_AT, "req-plain");
+  for (const call of [...plain.keyed, ...plain.queued]) assert.equal("scope" in call.ctx, false);
+});

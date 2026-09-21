@@ -1,11 +1,12 @@
 import type { ActionContext } from "@/lib/auth/principal";
+import { moveFutureLeaveRowsToClass } from "@/lib/attendance/student-hooks";
 import { requirePrincipal } from "@/lib/auth/principal";
 import { writeAudit } from "@/lib/audit";
 import { revokeAllSessions } from "@/lib/auth/sessions";
 import { prisma, type Tx } from "@/lib/db";
 import { conflict } from "@/lib/http/errors";
 import type { SchoolScope } from "@/lib/tenant/scope";
-import { fromDbDate, toDbDate } from "@/lib/time/zone";
+import { fromDbDate, localParts, toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { getActivationGaps, newGapsAfterPatch, type ActivationInput } from "./activation-rules";
 import { activationInputOf } from "./dto";
@@ -33,7 +34,8 @@ import type { StudentDetail, UpdateStudentInput } from "./schemas";
  * (409 NISN_LOCKED); super admin kapan saja (klaim ulang + cabut sesi bila NISN sedang dipegang).
  * Ganti kelas: kelas aktif milik sekolah (dicek ulang di bawah kunci class:<id>); siswa AKTIF tidak boleh
  * memperoleh kekurangan baru (422). Urutan: kunci aplikasi (kelas tujuan + kuota pelepasan NISN bila NISN
- * dikirim) -> Student FOR UPDATE -> baru membaca -> tulis compare-and-set pada status yang dibaca (409).
+ * dikirim; absensi siswa bila kelas dikirim) -> Student FOR UPDATE -> baru membaca -> tulis compare-and-set pada
+ * status yang dibaca (409). Ganti kelas juga memindahkan snapshot kelas baris izin mendatang ke kelas baru.
  */
 function snapshotOf(row: StudentRow): PatchableSnapshot {
   return {
@@ -109,9 +111,20 @@ async function persistChanges(tx: Tx, school: SchoolContext, row: StudentRow, ch
   return released;
 }
 
+/** Ganti kelas: snapshot kelas baris izin mendatang ikut kelas baru (null = kelas tidak berubah). */
+async function moveFutureLeaveRows(tx: Tx, school: SchoolContext, row: StudentRow, changes: StudentPatch, now: Date): Promise<number | null> {
+  if (!("currentClassId" in changes)) return null;
+  const target = { schoolId: school.id, studentId: row.id, todayLocal: localParts(now, school.timezone).ymd };
+  return moveFutureLeaveRowsToClass(tx, target, changes.currentClassId ?? null);
+}
+
 /** PATCH di dalam transaksi (diekspor untuk komposisi & test isolasi). */
 export async function applyUpdate(tx: Tx, scope: SchoolScope, id: string, input: UpdateStudentInput, ctx: ActionContext): Promise<void> {
-  await lockForStudentWrite(tx, { classIds: [input.currentClassId], claimingSchoolId: input.nisn !== undefined ? scope.schoolId : null });
+  await lockForStudentWrite(tx, {
+    classIds: [input.currentClassId],
+    claimingSchoolId: input.nisn !== undefined ? scope.schoolId : null,
+    attendanceStudentId: input.currentClassId !== undefined ? id : null,
+  });
   await lockStudentRow(tx, scope, id);
   const school = await loadSchoolContext(tx, scope);
   const row = await findStudentRow(tx, scope, id);
@@ -121,11 +134,19 @@ export async function applyUpdate(tx: Tx, scope: SchoolScope, id: string, input:
   const klass = await checkChanges(tx, scope, row, changes, ctx);
   assertStillComplete(row, school, changes, klass, ctx.now);
   const released = await persistChanges(tx, school, row, changes, ctx);
+  const futureLeaveRowsMoved = await moveFutureLeaveRows(tx, school, row, changes, ctx.now);
   await recordNisnReleases(tx, released ? [released] : [], school, ctx);
   const before = Object.fromEntries(Object.keys(changes).map((key) => [key, current[key as keyof PatchableSnapshot]]));
   await writeAudit(
     tx,
-    { action: "student.update", entityType: "Student", entityId: row.id, schoolId: scope.schoolId, before, after: { ...changes, nisnReleased: released !== null } },
+    {
+      action: "student.update",
+      entityType: "Student",
+      entityId: row.id,
+      schoolId: scope.schoolId,
+      before,
+      after: { ...changes, nisnReleased: released !== null, ...(futureLeaveRowsMoved === null ? {} : { futureLeaveRowsMoved }) },
+    },
     ctx,
   );
 }

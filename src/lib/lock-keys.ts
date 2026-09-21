@@ -18,7 +18,12 @@
 /** Mutasi yang dapat mengubah jumlah super admin aktif (cegah menonaktifkan SA terakhir). */
 export const superAdminsLockKey = (): string => "super-admins";
 
-/** Libur satu sekolah, atau libur nasional bila schoolId null (impor & CRUD). */
+/**
+ * Libur satu sekolah, atau libur nasional bila schoolId null (impor & CRUD). Selalu nasional DULU lalu
+ * sekolah. Penulis libur nasional: eksklusif nasional. Penulis libur sekolah: bersama nasional + eksklusif
+ * sekolah. Penulis baris absensi turunan kalender (penutupan hari auto-ALPHA, persetujuan/pencatatan izin):
+ * bersama (lockKeyShared) — menahan mutasi libur tanpa saling menunggu.
+ */
 export const holidaysLockKey = (schoolId: string | null): string => `holidays:${schoolId ?? "national"}`;
 
 /** Master mata pelajaran satu sekolah (kode unik & status aktif). */

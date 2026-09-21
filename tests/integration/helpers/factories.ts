@@ -30,8 +30,11 @@ import { prisma, uniq } from "./db";
 export const DEFAULT_TEST_PASSWORD = "Rahasia123";
 const TEST_BCRYPT_COST = 4;
 const DAY_MS = 86_400_000;
-/** Siswa hasil factory dianggap aktif sejak 30 hari lalu (lolos aturan "akun baru < 7 hari"). */
-const DEFAULT_ACTIVATED_DAYS_AGO = 30;
+/**
+ * Siswa hasil factory dianggap aktif sejak 31 hari lalu (lolos aturan "akun baru < 7 hari"), sehingga wajib
+ * absen pada SETIAP tanggal >= hari ini - 30 apa pun jam test berjalan (eligibilitas memakai jam tutup check-in).
+ */
+const DEFAULT_ACTIVATED_DAYS_AGO = 31;
 /** Status yang memegang activeNisn (= nisn); DRAFT & MOVED selalu NULL (chk_student_active_nisn). */
 const NISN_HOLDING_STATUSES: readonly StudentStatus[] = ["ACTIVE", "INACTIVE", "GRADUATED"];
 
@@ -200,7 +203,7 @@ export interface CreateStudentOptions extends Omit<CreateUserOptions, "email"> {
   readonly classId?: string | null;
   readonly nisn?: string;
   readonly nis?: string;
-  /** Default 30 hari lalu untuk status selain DRAFT; DRAFT selalu NULL kecuali diisi. */
+  /** Default 31 hari lalu untuk status selain DRAFT; DRAFT selalu NULL kecuali diisi. */
   readonly activatedAt?: Date | null;
   /** Override kolom Student lain (biodata, sppAmount, perangkat terikat, ...). */
   readonly data?: Partial<Omit<Prisma.StudentUncheckedCreateWithoutUserInput, "schoolId">>;

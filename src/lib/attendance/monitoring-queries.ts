@@ -9,8 +9,9 @@ import { badRequest, notFound } from "@/lib/http/errors";
 import { toSkipTake } from "@/lib/http/pagination";
 import { parseStudentSearch } from "@/lib/students/search-rules";
 import { resolveSchoolScope, type SchoolScope } from "@/lib/tenant/scope";
-import { addDays, fromDbDate, instantAtLocal, localParts, toDbDate, type LocalDate, type SchoolTz } from "@/lib/time/zone";
+import { fromDbDate, localParts, toDbDate, type LocalDate, type SchoolTz } from "@/lib/time/zone";
 import { parseFlags } from "./anomaly-rules";
+import { eligibilityCutoff } from "./auto-alpha-rules";
 import {
   DETAIL_AUDIT_LIMIT,
   DETAIL_REJECTIONS_LIMIT,
@@ -51,7 +52,10 @@ export interface MonitorSchool {
   readonly longitude: number;
   readonly radiusM: number;
   readonly dayEndMinute: number;
+  readonly checkInCloseMinute: number;
   readonly schoolDaysMask: number;
+  /** Sekolah terdaftar (hari sebelumnya tidak pernah ditutup auto-ALPHA). */
+  readonly createdAt: Date;
 }
 
 export function monitorScope(ctx: ActionContext, schoolId: string | undefined): SchoolScope {
@@ -62,7 +66,10 @@ export function monitorScope(ctx: ActionContext, schoolId: string | undefined): 
 export async function loadMonitorSchool(scope: SchoolScope): Promise<MonitorSchool> {
   const school = await prisma.school.findUnique({
     where: { id: scope.schoolId },
-    select: { id: true, timezone: true, latitude: true, longitude: true, geofenceRadiusM: true, dayEndMinute: true, schoolDaysMask: true },
+    select: {
+      id: true, timezone: true, latitude: true, longitude: true, geofenceRadiusM: true, dayEndMinute: true, checkInCloseMinute: true, schoolDaysMask: true,
+      createdAt: true,
+    },
   });
   if (!school) throw notFound("Sekolah tidak ditemukan.", "SCHOOL_NOT_FOUND");
   return {
@@ -72,7 +79,9 @@ export async function loadMonitorSchool(scope: SchoolScope): Promise<MonitorScho
     longitude: decimalToNumber(school.longitude) ?? 0,
     radiusM: school.geofenceRadiusM,
     dayEndMinute: school.dayEndMinute,
+    checkInCloseMinute: school.checkInCloseMinute,
     schoolDaysMask: school.schoolDaysMask,
+    createdAt: school.createdAt,
   };
 }
 
@@ -83,13 +92,15 @@ export async function isSchoolDayOn(school: MonitorSchool, date: LocalDate): Pro
   return checkSchoolDay(date, calendar).isSchoolDay;
 }
 
-/** Siswa ACTIVE yang sudah aktif pada tanggal lokal `date` (activatedAt lokal <= date). */
-export function eligibleOn(school: Pick<MonitorSchool, "id" | "timezone">, date: LocalDate): Prisma.StudentWhereInput {
-  return { schoolId: school.id, status: "ACTIVE", activatedAt: { lt: instantAtLocal(addDays(date, 1), 0, school.timezone) } };
+type EligibilitySchool = Pick<MonitorSchool, "id" | "timezone" | "checkInCloseMinute">;
+
+/** Siswa wajib absen pada `date` (definisi tunggal auto-alpha-rules: ACTIVE & diaktifkan sebelum jam tutup check-in). */
+export function eligibleOn(school: EligibilitySchool, date: LocalDate): Prisma.StudentWhereInput {
+  return { schoolId: school.id, status: "ACTIVE", activatedAt: { lt: eligibilityCutoff(date, school) } };
 }
 
 /** Siswa layak yang belum punya catatan pada `date` (kelas = kelas saat ini). */
-export function notYetWhere(school: Pick<MonitorSchool, "id" | "timezone">, date: LocalDate, classId?: string): Prisma.StudentWhereInput {
+export function notYetWhere(school: EligibilitySchool, date: LocalDate, classId?: string): Prisma.StudentWhereInput {
   return { ...eligibleOn(school, date), ...(classId ? { currentClassId: classId } : {}), attendances: { none: { date: toDbDate(date) } } };
 }
 

@@ -47,6 +47,17 @@ export async function deleteStoredBytes(files: readonly StoredBytes[], extraKeys
   return { removed, failed };
 }
 
+/**
+ * Musnahkan byte lalu isi deletedAt (retensi: baris dipertahankan demi FK, unduhan -> 410 FILE_PURGED).
+ * Byte DULU: bila penghapusan gagal, baris tetap deletedAt NULL sehingga maintenance mencoba lagi.
+ */
+export async function purgeFileBytes(files: readonly StoredBytes[], now: Date): Promise<{ purged: number; failed: readonly string[] }> {
+  const outcome = await deleteStoredBytes(files);
+  if (outcome.removed.length === 0) return { purged: 0, failed: outcome.failed };
+  const marked = await prisma.storedFile.updateMany({ where: { id: { in: [...outcome.removed] }, deletedAt: null }, data: { deletedAt: now } });
+  return { purged: marked.count, failed: outcome.failed };
+}
+
 /** Cakupan test (userIds = pengunggah); null = seluruh database (produksi). */
 function uploaderScope(ctx: JobContext): readonly string[] | null {
   return ctx.scope ? (ctx.scope.userIds ?? []) : null;

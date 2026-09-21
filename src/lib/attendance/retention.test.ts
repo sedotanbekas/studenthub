@@ -9,6 +9,7 @@ test("tenggat retensi dihitung dari now (keputusan klien: selfie 180 hari)", () 
   assert.equal(SELFIE_RETENTION_DAYS, 180);
   const c = retentionCutoffs(NOW);
   assert.equal(c.selfie.toISOString(), daysBefore(180));
+  assert.equal(c.rejectedLeaveAttachment.toISOString(), daysBefore(30));
   assert.equal(c.rejection.toISOString(), daysBefore(90));
   assert.equal(c.rotatedRefreshToken.toISOString(), daysBefore(30));
   assert.equal(c.expiredRefreshToken.toISOString(), daysBefore(1));

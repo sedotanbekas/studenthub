@@ -128,6 +128,8 @@ model Notification {
 
   @@unique([userId, announcementId])
   @@index([userId, createdAt])
+  /// Retensi 365 hari (maintenance-daily) tanpa scan seluruh tabel.
+  @@index([createdAt])
   @@index([userId, type, createdAt])
   @@index([userId, readAt])
   @@index([pushStatus, pushNextAttemptAt])

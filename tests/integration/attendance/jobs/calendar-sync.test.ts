@@ -10,7 +10,7 @@ import { withTx } from "@/lib/tx";
 import { disconnect, prisma, uniq } from "../../helpers/db";
 import { createStudent, createSuperAdmin } from "../../helpers/factories";
 import { callRoute, type Envelope } from "../../helpers/request";
-import { webToken } from "../../academics/helpers";
+import { holdTx, pause, webToken } from "../../academics/helpers";
 import { actionCtx, adminRow, autoAlphaRow, checkInRow, createAttendanceSchool, jobCtx, leaveRequest, leaveRow, pastSchoolDate, wibToday } from "./fixtures";
 
 const TERM_2031 = { termStart: "2031-01-06", termEnd: "2031-06-20" } as const;
@@ -127,4 +127,55 @@ test("libur dihapus membuka ulang hari yang sudah ditutup; tick berikutnya menut
   const row = await prisma.attendance.findFirst({ where: { studentId: st.student.id, date: toDbDate(date) } });
   assert.equal(row?.status, "ALPHA");
   assert.equal(row?.source, "AUTO_ALPHA");
+});
+
+test("libur lama (> 7 hari) ditambah lalu dihapus super admin: ALPHA & LEAVE dipulihkan langsung, JobRun tetap SUCCEEDED", async () => {
+  const today = wibToday();
+  const date = await pastSchoolDate([12, 13, 14, 15]);
+  const school = await createAttendanceSchool({ createdAt: instantAtLocal(addDays(today, -60), 60, "WIB"), termStart: addDays(today, -60), termEnd: addDays(today, 60) });
+  const activatedAt = instantAtLocal(addDays(today, -90), 0, "WIB");
+  const [absent, onLeave] = [await createStudent(school.id, { activatedAt }), await createStudent(school.id, { activatedAt })];
+  const leave = await leaveRequest({ schoolId: school.id, studentId: onLeave.student.id, from: date, to: date, status: "APPROVED", type: "SAKIT" });
+  await autoAlphaRow({ schoolId: school.id, studentId: absent.student.id, date });
+  await leaveRow({ schoolId: school.id, studentId: onLeave.student.id, date, leaveRequestId: leave.id, status: "SAKIT" });
+  await prisma.jobRun.create({ data: { job: AUTO_ALPHA_JOB, scopeKey: school.id, runKey: date, status: "SUCCEEDED", startedAt: new Date() } });
+
+  const created = await createHoliday(school.id, date);
+  assert.equal(created.status, 201, JSON.stringify(created.body?.error));
+  assert.deepEqual(await sourcesOn(school.id, date), []);
+  const removed = await deleteHoliday(school.id, created.body!.data.id);
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+
+  const rows = await prisma.attendance.findMany({ where: { schoolId: school.id, date: toDbDate(date) }, select: { studentId: true, status: true, source: true, leaveRequestId: true } });
+  const byStudent = new Map(rows.map((row) => [row.studentId, row]));
+  assert.deepEqual(byStudent.get(absent.student.id), { studentId: absent.student.id, status: "ALPHA", source: "AUTO_ALPHA", leaveRequestId: null });
+  assert.deepEqual(byStudent.get(onLeave.student.id), { studentId: onLeave.student.id, status: "SAKIT", source: "LEAVE", leaveRequestId: leave.id });
+  const run = await prisma.jobRun.findFirstOrThrow({ where: { job: AUTO_ALPHA_JOB, scopeKey: school.id, runKey: date } });
+  assert.equal(run.status, "SUCCEEDED");
+  assert.equal((run.result as { inserted?: number }).inserted, 2);
+  const audit = await prisma.auditLog.findFirst({ where: { action: "attendance.calendar_sync", schoolId: school.id, after: { path: "$.kind", equals: "REMOVED" } } });
+  assert.equal((audit?.after as { reclosedDays?: number } | null)?.reclosedDays, 1);
+});
+
+test("libur nasional: DELETE per sekolah tidak menunggu baris terkunci sekolah lain di tanggal lain", async () => {
+  const date = "2031-03-14";
+  const [target, busy] = [
+    await createAttendanceSchool({ createdAt: new Date("2031-01-01T00:00:00Z"), ...TERM_2031 }),
+    await createAttendanceSchool({ createdAt: new Date("2031-01-01T00:00:00Z"), ...TERM_2031 }),
+  ];
+  const st = await createStudent(target.id, { activatedAt: ACTIVATED });
+  await autoAlphaRow({ schoolId: target.id, studentId: st.student.id, date });
+  const other = await createStudent(busy.id, { activatedAt: ACTIVATED });
+  const lockedRow = await checkInRow({ schoolId: busy.id, studentId: other.student.id, userId: other.user.id, date: addDays(date, 3), deviceId: uniq("dev") });
+  const holiday = await prisma.holiday.create({ data: { schoolId: null, name: uniq("Nasional"), startDate: toDbDate(date), endDate: toDbDate(date) } });
+  const held = await holdTx((tx) => tx.$queryRaw`SELECT id FROM Attendance WHERE id = ${lockedRow.id} FOR UPDATE`);
+  try {
+    const sync = withTx((tx) => onCalendarChanged(tx, { schoolId: null, from: date, to: date, kind: "ADDED" }, actionCtx()), { retries: 0 });
+    const outcome = await Promise.race([sync.then(() => "done"), pause(5_000).then(() => "blocked")]);
+    assert.equal(outcome, "done", "DELETE libur nasional tidak boleh memindai/mengunci baris sekolah lain");
+    assert.deepEqual(await sourcesOn(target.id, date), []);
+  } finally {
+    await held.release();
+    await prisma.holiday.delete({ where: { id: holiday.id } });
+  }
 });

@@ -76,11 +76,29 @@ export async function withTx<T>(fn: (tx: Tx) => Promise<T>, options: TxOptions =
   }
 }
 
+function assertLockKey(key: string): void {
+  if (key.length === 0 || key.length > 191) throw new Error("Kunci lock tidak valid");
+}
+
 /** Kunci aplikasi bernama (mutex dalam transaksi), mis. "grades:<termId>:<classId>". */
 export async function lockKey(tx: Tx, key: string): Promise<void> {
-  if (key.length === 0 || key.length > 191) throw new Error("Kunci lock tidak valid");
+  assertLockKey(key);
   await tx.$executeRaw`INSERT INTO \`AppLock\` (\`key\`, \`updatedAt\`) VALUES (${key}, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE \`key\` = \`key\``;
   await tx.$queryRaw`SELECT \`key\` FROM \`AppLock\` WHERE \`key\` = ${key} FOR UPDATE`;
+}
+
+/**
+ * Kunci aplikasi mode BERSAMA (LOCK IN SHARE MODE): pembaca yang hanya perlu menahan penulis (lockKey
+ * eksklusif) tanpa saling menunggu, mis. persetujuan izin & penutupan hari terhadap mutasi libur.
+ * Baris AppLock dibuat bila belum ada (INSERT IGNORE tidak mengambil kunci eksklusif atas baris yang sudah
+ * ada). Jangan pernah menaikkan kunci bersama menjadi eksklusif pada key yang sama dalam satu transaksi.
+ */
+export async function lockKeyShared(tx: Tx, key: string): Promise<void> {
+  assertLockKey(key);
+  const rows = await tx.$queryRaw<Array<{ key: string }>>`SELECT \`key\` FROM \`AppLock\` WHERE \`key\` = ${key} LOCK IN SHARE MODE`;
+  if (rows.length > 0) return;
+  await tx.$executeRaw`INSERT IGNORE INTO \`AppLock\` (\`key\`, \`updatedAt\`) VALUES (${key}, UTC_TIMESTAMP(3))`;
+  await tx.$queryRaw`SELECT \`key\` FROM \`AppLock\` WHERE \`key\` = ${key} LOCK IN SHARE MODE`;
 }
 
 const LOCKABLE_TABLES = [

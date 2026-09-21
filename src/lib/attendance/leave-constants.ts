@@ -24,6 +24,12 @@ export const SEARCH_QUERY_MAX = 100;
 /** Batas body multipart pengajuan: lampiran maks 8 MiB (UPLOAD_POLICY) + ruang field teks. */
 export const LEAVE_MAX_BODY_BYTES = 8 * 1024 * 1024 + 64 * 1024;
 
+/**
+ * Pengajuan izin siswa per hari lokal sekolah (termasuk yang kemudian dibatalkan): membatasi loop
+ * ajukan-batal yang memenuhi disk dengan lampiran dan membanjiri admin dengan notifikasi.
+ */
+export const LEAVE_DAILY_SUBMISSION_LIMIT = 5;
+
 /** Percobaan ulang bila insert baris absensi bentrok dengan auto-ALPHA yang berjalan bersamaan. */
 export const MATERIALIZE_MAX_RETRIES = 3;
 

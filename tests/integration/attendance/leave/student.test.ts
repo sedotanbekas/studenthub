@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { POST as cancelRoute } from "@/app/api/v1/student/leave-requests/[id]/cancel/route";
 import { GET as getOne } from "@/app/api/v1/student/leave-requests/[id]/route";
 import { GET as listOwn, POST as createOwn } from "@/app/api/v1/student/leave-requests/route";
+import { GET as fileRoute } from "@/app/api/v1/files/[id]/route";
 import { resetAllLimiters } from "@/lib/http/rate-limits";
 import { getStorage, setStorageDriver } from "@/lib/storage/driver";
 import { addDays, toDbDate } from "@/lib/time/zone";
@@ -101,6 +102,18 @@ describe("ajukan izin/sakit", () => {
     assert.equal(res.body?.error?.code, "ATTACHMENT_REQUIRED");
     const ok = await submit(st, { startDate: three.startDate, endDate: addDays(three.startDate, 1), type: "SAKIT", reason: "Demam tinggi dan flu berat" });
     assert.equal(ok.status, 201, JSON.stringify(ok.body));
+  });
+
+  test("bagian lampiran kosong (0 byte) = tanpa lampiran: IZIN 201 tanpa berkas; SAKIT >= 3 hari -> 422 ATTACHMENT_REQUIRED (bukan 415)", async () => {
+    const st = await createStudentWithToken(fx);
+    const empty = new Blob([], { type: "image/jpeg" });
+    const izin = await submit(st, { ...(await freeRun(19, 1)), attachment: empty });
+    assert.equal(izin.status, 201, JSON.stringify(izin.body));
+    assert.equal(izin.body?.data.attachmentFileId, null);
+    const sakit = await submit(st, { ...(await freeRun(22, 3)), type: "SAKIT", reason: "Demam tinggi dan flu berat", attachment: empty });
+    assert.equal(sakit.status, 422);
+    assert.equal(sakit.body?.error?.code, "ATTACHMENT_REQUIRED");
+    assert.equal(await prisma.storedFile.count({ where: { uploadedById: st.user.id } }), 0);
   });
 
   test("SAKIT dengan lampiran foto -> berkas privat LEAVE_ATTACHMENT tersimpan & terikat", async () => {
@@ -205,6 +218,43 @@ describe("batal, daftar, detail", () => {
     assert.equal(again.status, 409);
     assert.equal(again.body?.error?.code, "LEAVE_NOT_PENDING");
     assert.equal((await submit(st, range)).status, 201);
+  });
+
+  test("batal membebaskan lampiran: byte dihapus, deletedAt diisi, unduhan 410; izin tetap CANCELLED", async () => {
+    const st = await createStudentWithToken(fx);
+    const range = await freeRun(6, 1);
+    const created = await submit(st, { ...range, type: "SAKIT", reason: "Demam tinggi sejak pagi", attachment: await photo() });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const fileId = created.body?.data.attachmentFileId ?? "";
+    const before = await prisma.storedFile.findFirstOrThrow({ where: { id: fileId } });
+    assert.equal(await getStorage().exists(before.storageKey), true);
+    const res = await cancel(st.token, created.body?.data.id ?? "");
+    assert.equal(res.status, 200);
+    assert.equal(res.body?.data.status, "CANCELLED");
+    const after = await prisma.storedFile.findFirstOrThrow({ where: { id: fileId } });
+    assert.ok(after.deletedAt, "baris berkas dipertahankan dengan deletedAt");
+    assert.equal(await getStorage().exists(before.storageKey), false, "byte lampiran izin yang dibatalkan dihapus");
+    const download = await callRoute(fileRoute, { method: "GET", url: `/api/v1/files/${fileId}`, params: { id: fileId }, bearer: st.token });
+    assert.equal(download.status, 410);
+  });
+
+  test("kuota pengajuan harian per siswa: pengajuan ke-6 -> 429 LEAVE_DAILY_LIMIT tanpa berkas & tanpa notifikasi", async () => {
+    const st = await createStudentWithToken(fx);
+    const range = await freeRun(11, 1);
+    for (let i = 0; i < 5; i += 1) {
+      const created = await submit(st, { ...range, attachment: await photo() });
+      assert.equal(created.status, 201, JSON.stringify(created.body));
+      assert.equal((await cancel(st.token, created.body?.data.id ?? "")).status, 200);
+    }
+    const notesBefore = await prisma.notification.count({ where: { userId: fx.admin.id, type: "LEAVE_SUBMITTED" } });
+    const filesBefore = await prisma.storedFile.count({ where: { uploadedById: st.user.id } });
+    const limited = await submit(st, { ...range, attachment: await photo() });
+    assert.equal(limited.status, 429);
+    assert.equal(limited.body?.error?.code, "LEAVE_DAILY_LIMIT");
+    assert.ok(Number(limited.headers.get("retry-after")) > 0);
+    assert.equal(await prisma.storedFile.count({ where: { uploadedById: st.user.id } }), filesBefore);
+    assert.equal(await prisma.notification.count({ where: { userId: fx.admin.id, type: "LEAVE_SUBMITTED" } }), notesBefore);
+    assert.equal(await prisma.storedFile.count({ where: { uploadedById: st.user.id, deletedAt: null } }), 0, "semua lampiran izin yang dibatalkan sudah dibebaskan");
   });
 
   test("daftar milik sendiri terbaru dulu + filter status + paginasi; detail milik lain 404", async () => {
