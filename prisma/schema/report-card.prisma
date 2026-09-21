@@ -1,0 +1,66 @@
+enum ReportCardStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum GradePredicate {
+  A
+  B
+  C
+  D
+}
+
+/// Rapor satu siswa untuk satu semester. Siswa hanya melihat PUBLISHED.
+/// Hapus keras hanya saat DRAFT (nilai ikut terhapus).
+model ReportCard {
+  id                String           @id @default(cuid())
+  schoolId          String
+  studentId         String
+  termId            String
+  /// Snapshot kelas saat rapor dibuat (siswa bisa naik/pindah kelas kemudian).
+  classId           String
+  classNameSnapshot String           @db.VarChar(50)
+  status            ReportCardStatus @default(DRAFT)
+  publishedAt       DateTime?
+  publishedById     String?
+  /// Rekap kehadiran semester, di-snapshot saat publikasi.
+  sickDays          Int?             @db.SmallInt
+  permitDays        Int?             @db.SmallInt
+  absentDays        Int?             @db.SmallInt
+
+  school      School            @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student     Student           @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  term        Term              @relation(fields: [termId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  schoolClass SchoolClass       @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  publishedBy User?             @relation(fields: [publishedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  grades      ReportCardGrade[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, termId])
+  @@index([schoolId, termId, status])
+  @@index([classId, termId])
+}
+
+model ReportCardGrade {
+  id                  String         @id @default(cuid())
+  reportCardId        String
+  subjectId           String
+  subjectNameSnapshot String         @db.VarChar(100)
+  kkmSnapshot         Int            @db.TinyInt
+  /// Nilai akhir bulat 0 s.d. 100.
+  score               Int            @db.UnsignedTinyInt
+  /// Dihitung rule murni dari score dan kkmSnapshot; dibekukan saat publikasi.
+  predicate           GradePredicate
+  description         String?        @db.VarChar(500)
+
+  reportCard ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  subject    Subject    @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([reportCardId, subjectId])
+  @@index([subjectId])
+}

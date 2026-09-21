@@ -1,0 +1,246 @@
+enum SponsorStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+/// "Aktif" di UI = APPROVED && startAt <= now < endAt && sponsor APPROVED && saldo >= cpcAmount.
+/// ENDED TIDAK disimpan: diturunkan dari endAt <= now. Ubah konten iklan APPROVED/PAUSED -> PENDING_REVIEW.
+enum AdStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  PAUSED
+  ARCHIVED
+}
+
+enum AdLinkType {
+  EXTERNAL_URL
+  DEEP_LINK
+}
+
+enum AdTargetScope {
+  ALL
+  PROVINCE
+  CITY
+  SCHOOL
+}
+
+enum DeviceType {
+  MOBILE
+  TABLET
+  DESKTOP
+}
+
+/// SUSPECT = klik tercatat tetapi TIDAK ditagih (tanpa impresi sebelumnya / akun siswa terlalu baru).
+enum ClickBilling {
+  CHARGED
+  DUPLICATE
+  INSUFFICIENT_BALANCE
+  AD_NOT_LIVE
+  SUSPECT
+}
+
+enum LedgerEntryType {
+  TOPUP
+  CLICK_CHARGE
+  ADJUSTMENT
+}
+
+model Sponsor {
+  id           String        @id @default(cuid())
+  companyName  String        @db.VarChar(150)
+  contactName  String        @db.VarChar(100)
+  contactEmail String        @db.VarChar(191)
+  contactPhone String        @db.VarChar(20)
+  address      String?       @db.Text
+  status       SponsorStatus @default(PENDING)
+  statusReason String?       @db.VarChar(255)
+  reviewedById String?
+  reviewedAt   DateTime?
+  /// Cache saldo PPC. Sumber kebenaran = ledger; selalu = balanceAfter entri seq terakhir.
+  balance      Int           @default(0)
+
+  reviewedBy    User?                @relation("SponsorReviewer", fields: [reviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  members       User[]               @relation("SponsorMembers")
+  ads           Ad[]
+  adClicks      AdClick[]
+  dailyStats    AdDailyStat[]
+  ledgerEntries SponsorLedgerEntry[]
+  topUpRequests TopUpRequest[]
+  files         StoredFile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Ad {
+  id             String        @id @default(cuid())
+  sponsorId      String
+  title          String        @db.VarChar(100)
+  /// Banner asli (bucket privat) milik sponsor.
+  imageFileId    String
+  /// Salinan publik banner, dibuat saat APPROVED dan dihapus saat takedown/reject/archive.
+  publicImageKey String?       @db.VarChar(255)
+  /// https:// (EXTERNAL_URL) atau skema aplikasi yang di-allowlist super admin (DEEP_LINK).
+  targetUrl      String        @db.VarChar(2000)
+  linkType       AdLinkType
+  startAt        DateTime
+  endAt          DateTime
+  status         AdStatus      @default(DRAFT)
+  targetScope    AdTargetScope @default(ALL)
+  /// Perkiraan saat DRAFT; snapshot PlatformSetting.defaultCpcAmount setiap SUBMIT.
+  cpcAmount      Int
+  /// Juga token CAS untuk approve/reject.
+  submittedAt    DateTime?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewNote     String?       @db.VarChar(255)
+
+  sponsor    Sponsor       @relation(fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  imageFile  StoredFile    @relation(fields: [imageFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewedBy User?         @relation(fields: [reviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  targets    AdTarget[]
+  clicks     AdClick[]
+  dailyStats AdDailyStat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sponsorId, status])
+  @@index([status, startAt, endAt])
+}
+
+/// Tepat satu kolom target terisi, sesuai Ad.targetScope (tanpa baris bila ALL).
+model AdTarget {
+  id           String  @id @default(cuid())
+  adId         String
+  provinceCode String? @db.VarChar(2)
+  cityCode     String? @db.VarChar(5)
+  schoolId     String?
+
+  ad       Ad        @relation(fields: [adId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  province Province? @relation(fields: [provinceCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  city     City?     @relation(fields: [cityCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  school   School?   @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([adId, provinceCode])
+  @@unique([adId, cityCode])
+  @@unique([adId, schoolId])
+  @@index([provinceCode])
+  @@index([cityCode])
+  @@index([schoolId])
+}
+
+/// Klik mentah (setiap klik dicatat; hanya CHARGED yang memotong saldo).
+model AdClick {
+  id           String       @id @default(cuid())
+  adId         String
+  sponsorId    String
+  userId       String
+  schoolId     String
+  /// Snapshot wilayah sekolah saat klik (breakdown provinsi). Tanpa FK, sengaja.
+  provinceCode String       @db.VarChar(2)
+  cityCode     String       @db.VarChar(5)
+  deviceType   DeviceType
+  /// Hari analitik (WIB).
+  date         DateTime     @db.Date
+  billing      ClickBilling
+  chargeAmount Int          @default(0)
+  /// = date bila billing = CHARGED, selain itu NULL => maks. satu tagihan per siswa/iklan/hari.
+  billableDate DateTime?    @db.Date
+
+  ad          Ad                  @relation(fields: [adId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sponsor     Sponsor             @relation(fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  school      School              @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  ledgerEntry SponsorLedgerEntry?
+
+  createdAt DateTime @default(now())
+
+  @@unique([adId, userId, billableDate])
+  @@index([adId, date, userId])
+  @@index([sponsorId, date, userId])
+  @@index([sponsorId, date, deviceType])
+  @@index([sponsorId, date, provinceCode])
+}
+
+/// Rollup harian per iklan (hari WIB). Impresi HANYA ada di sini (tanpa tabel mentah).
+/// Diperbarui atomik: INSERT ... ON DUPLICATE KEY UPDATE col = col + ?.
+model AdDailyStat {
+  adId          String
+  date          DateTime @db.Date
+  sponsorId     String
+  impressions   Int      @default(0)
+  clicks        Int      @default(0)
+  uniqueClicks  Int      @default(0)
+  chargedClicks Int      @default(0)
+  spend         Int      @default(0)
+
+  ad      Ad      @relation(fields: [adId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sponsor Sponsor @relation(fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@id([adId, date])
+  @@index([sponsorId, date])
+}
+
+/// Buku besar saldo sponsor, append-only. Semua mutasi saldo: kunci Sponsor FOR UPDATE,
+/// tulis entri seq+1, set Sponsor.balance = balanceAfter, dalam satu transaksi.
+model SponsorLedgerEntry {
+  id             String          @id @default(cuid())
+  sponsorId      String
+  seq            Int
+  type           LedgerEntryType
+  /// Bertanda: + kredit, - debit.
+  amount         Int
+  balanceAfter   Int
+  topUpRequestId String?         @unique
+  adClickId      String?         @unique
+  note           String?         @db.VarChar(255)
+  /// NULL untuk potongan klik otomatis.
+  createdById    String?
+
+  sponsor      Sponsor       @relation(fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  topUpRequest TopUpRequest? @relation(fields: [topUpRequestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  adClick      AdClick?      @relation(fields: [adClickId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User?         @relation(fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([sponsorId, seq])
+  @@index([sponsorId, createdAt])
+  @@index([sponsorId, type, createdAt])
+}
+
+model TopUpRequest {
+  id           String       @id @default(cuid())
+  sponsorId    String
+  amount       Int
+  transferDate DateTime     @db.Date
+  senderName   String       @db.VarChar(100)
+  senderBank   String       @db.VarChar(50)
+  proofFileId  String       @unique
+  note         String?      @db.VarChar(255)
+  status       ReviewStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewNote   String?      @db.VarChar(255)
+
+  sponsor     Sponsor             @relation(fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  proofFile   StoredFile          @relation(fields: [proofFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewedBy  User?               @relation(fields: [reviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  ledgerEntry SponsorLedgerEntry?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([sponsorId, createdAt])
+}

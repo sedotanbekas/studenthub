@@ -1,0 +1,135 @@
+/// Kategori ikon feed. SYSTEM hanya untuk notifikasi non-pengumuman (sponsor/admin).
+enum NotificationCategory {
+  ACADEMIC
+  FINANCE
+  EVENT
+  CALENDAR
+  STUDENT_AFFAIRS
+  SYSTEM
+}
+
+enum AnnouncementAudience {
+  ALL
+  CLASSES
+  STUDENTS
+}
+
+/// DRAFT -> PUBLISHED -> CANCELLED (ditarik). Penjadwalan ditunda (backlog).
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+enum NotificationType {
+  ANNOUNCEMENT
+  INVOICE_ISSUED
+  PAYMENT_SUBMITTED
+  PAYMENT_APPROVED
+  PAYMENT_REJECTED
+  LEAVE_SUBMITTED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  REPORT_CARD_PUBLISHED
+  SPONSOR_APPROVED
+  SPONSOR_SUSPENDED
+  AD_SUBMITTED
+  AD_APPROVED
+  AD_REJECTED
+  TOPUP_SUBMITTED
+  TOPUP_APPROVED
+  TOPUP_REJECTED
+  LOW_BALANCE
+  ATTENDANCE_CORRECTED
+  INVOICE_VOIDED
+  PAYMENT_VOIDED
+  NISN_RELEASED
+  SCHOOL_SETTINGS_CHANGED
+}
+
+enum PushStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model Announcement {
+  id             String               @id @default(cuid())
+  schoolId       String
+  authorId       String
+  category       NotificationCategory
+  title          String               @db.VarChar(150)
+  body           String               @db.Text
+  audience       AnnouncementAudience
+  status         AnnouncementStatus   @default(DRAFT)
+  /// Kapan fan-out ke Notification selesai.
+  publishedAt    DateTime?
+  recipientCount Int?
+  /// Diisi saat dibatalkan/ditarik. CANCELLED + publishedAt != NULL = ditarik setelah terbit.
+  cancelledAt    DateTime?
+
+  school        School               @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  author        User                 @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  targets       AnnouncementTarget[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, createdAt])
+  @@index([schoolId, status, createdAt])
+}
+
+/// Tepat satu dari classId / studentId terisi, sesuai audience induk.
+model AnnouncementTarget {
+  id             String  @id @default(cuid())
+  announcementId String
+  classId        String?
+  studentId      String?
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  schoolClass  SchoolClass? @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student      Student?     @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([announcementId, classId])
+  @@unique([announcementId, studentId])
+  @@index([classId])
+  @@index([studentId])
+}
+
+/// Inbox per pengguna (semua peran). Siswa: + push Expo (outbox di pushStatus); dashboard web: polling.
+model Notification {
+  id                String               @id @default(cuid())
+  userId            String
+  type              NotificationType
+  category          NotificationCategory
+  title             String               @db.VarChar(150)
+  /// Pratinjau <= 500 karakter (teks polos); isi penuh pengumuman dibaca dari Announcement.
+  body              String               @db.VarChar(500)
+  /// Payload deep link, mis. {"screen":"invoice","id":"..."}.
+  data              Json?
+  announcementId    String?
+  readAt            DateTime?
+  pushStatus        PushStatus           @default(PENDING)
+  pushAttempts      Int                  @default(0) @db.TinyInt
+  /// Kapan boleh dicoba kirim (backoff). Selalu ditulis dari ctx.now.
+  pushNextAttemptAt DateTime             @default(now())
+  pushedAt          DateTime?
+  pushError         String?              @db.VarChar(255)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, announcementId])
+  @@index([userId, createdAt])
+  @@index([userId, type, createdAt])
+  @@index([userId, readAt])
+  @@index([pushStatus, pushNextAttemptAt])
+  @@index([announcementId])
+}

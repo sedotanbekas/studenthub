@@ -1,0 +1,142 @@
+enum InvoiceType {
+  SPP
+}
+
+/// Status uang saja. "Menunggu verifikasi" & "Jatuh tempo" adalah status TAMPILAN turunan.
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  VOID
+}
+
+enum PaymentMethod {
+  TRANSFER
+  CASH
+}
+
+enum DocumentKind {
+  INVOICE
+  RECEIPT
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  schoolId    String
+  studentId   String
+  /// Nomor INV-YYYY-NNNNNN, unik per sekolah (dari DocumentCounter).
+  invoiceNo   String        @db.VarChar(20)
+  type        InvoiceType   @default(SPP)
+  periodYear  Int           @db.SmallInt
+  periodMonth Int           @db.TinyInt
+  title       String        @db.VarChar(100)
+  amount      Int
+  dueDate     DateTime      @db.Date
+  /// Cache jumlah Payment yang tidak VOID; diperbarui di transaksi yang sama (FOR UPDATE).
+  paidAmount  Int           @default(0)
+  status      InvoiceStatus @default(UNPAID)
+  /// Kapan menjadi PAID.
+  paidAt      DateTime?
+  note        String?       @db.VarChar(255)
+  voidedAt    DateTime?
+  voidedById  String?
+  voidReason  String?       @db.VarChar(255)
+
+  school            School              @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student           Student             @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  voidedBy          User?               @relation(fields: [voidedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  submissions       PaymentSubmission[] @relation("InvoiceSubmissions")
+  pendingSubmission PaymentSubmission?  @relation("InvoicePendingSubmission")
+  payments          Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, type, periodYear, periodMonth])
+  @@unique([schoolId, invoiceNo])
+  @@index([schoolId, status, dueDate])
+  @@index([schoolId, periodYear, periodMonth])
+  @@index([studentId, status])
+}
+
+/// Bukti transfer yang diunggah siswa; admin APPROVE -> membuat tepat satu Payment.
+model PaymentSubmission {
+  id               String       @id @default(cuid())
+  schoolId         String
+  invoiceId        String
+  studentId        String
+  amount           Int
+  transferDate     DateTime     @db.Date
+  senderName       String?      @db.VarChar(100)
+  senderBank       String?      @db.VarChar(50)
+  proofFileId      String       @unique
+  note             String?      @db.VarChar(255)
+  status           ReviewStatus @default(PENDING)
+  /// = invoiceId selama PENDING, selain itu NULL => maks. satu pengajuan menunggu per tagihan.
+  pendingInvoiceId String?      @unique
+  reviewedById     String?
+  reviewedAt       DateTime?
+  reviewNote       String?      @db.VarChar(255)
+
+  school         School     @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  invoice        Invoice    @relation("InvoiceSubmissions", fields: [invoiceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  pendingInvoice Invoice?   @relation("InvoicePendingSubmission", fields: [pendingInvoiceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student        Student    @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  proofFile      StoredFile @relation(fields: [proofFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewedBy     User?      @relation(fields: [reviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  payment        Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, status, createdAt])
+  @@index([invoiceId, status])
+  @@index([studentId, createdAt])
+}
+
+/// Uang yang benar-benar diterima (transfer terverifikasi atau tunai dicatat admin).
+/// Koreksi hanya lewat VOID bercatat, tidak pernah dihapus.
+model Payment {
+  id           String        @id @default(cuid())
+  schoolId     String
+  invoiceId    String
+  /// Nomor kuitansi KWT-YYYY-NNNNNN, unik per sekolah; tetap dipertahankan saat VOID.
+  receiptNo    String        @db.VarChar(20)
+  amount       Int
+  method       PaymentMethod
+  /// Tanggal lokal uang diterima / tanggal transfer.
+  paidDate     DateTime      @db.Date
+  submissionId String?       @unique
+  recordedById String
+  note         String?       @db.VarChar(255)
+  voidedAt     DateTime?
+  voidedById   String?
+  voidReason   String?       @db.VarChar(255)
+
+  school     School             @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  invoice    Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  submission PaymentSubmission? @relation(fields: [submissionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  recordedBy User               @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  voidedBy   User?              @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, receiptNo])
+  @@index([schoolId, paidDate])
+  @@index([invoiceId])
+}
+
+/// Penghitung nomor dokumen per sekolah per tahun lokal; dinaikkan di transaksi yang sama.
+model DocumentCounter {
+  schoolId  String
+  kind      DocumentKind
+  year      Int          @db.SmallInt
+  lastValue Int          @default(0)
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@id([schoolId, kind, year])
+}

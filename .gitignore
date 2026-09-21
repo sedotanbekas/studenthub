@@ -1,0 +1,24 @@
+# dependensi & build
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# env & rahasia
+.env
+.env.*
+!.env.example
+
+# test & coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# penyimpanan berkas lokal (dev/test)
+.storage/
+
+# lain-lain
+.DS_Store
+*.log

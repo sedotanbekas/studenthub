@@ -1,0 +1,26 @@
+// ===================== Student Hub — skema basis data =====================
+// Konvensi global (lihat docs/PLAN.md):
+// - Setelah produksi berjalan: nilai enum baru WAJIB ditambahkan di UJUNG daftar, migrasi aditif.
+// - Uang = Int rupiah (batas divalidasi zod + CHECK). Koordinat = Decimal(10,7).
+// - Jam harian = menit sejak 00:00 waktu lokal sekolah (SmallInt), BUKAN @db.Time.
+// - @db.Date = tanggal LOKAL (sekolah / WIB untuk analitik iklan), ditulis sebagai UTC-midnight.
+//   DateTime biasa = instant UTC. Proses Node WAJIB TZ=UTC dan koneksi DB time_zone='+00:00'.
+// - Tidak ada hapus keras untuk data akademik/keuangan/audit: isActive / VOID / ARCHIVED / CANCELLED.
+// - Tabel ber-schoolId selalu difilter schoolId dari sesi; schoolId anak == schoolId induk.
+// - Baris append-only (ledger, klik, audit, target) sengaja tanpa updatedAt.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+/// Status tinjauan bersama untuk LeaveRequest, PaymentSubmission, TopUpRequest.
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}

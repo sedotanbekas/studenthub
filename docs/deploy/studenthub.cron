@@ -1,0 +1,26 @@
+# /etc/cron.d/studenthub — Student Hub (produksi & staging).
+#
+# Dipasang oleh `scripts/deploy/bootstrap-vps.sh cron` sebagai /etc/cron.d/studenthub
+# (root:root, mode 0644; nama berkas di /etc/cron.d tidak boleh mengandung titik).
+# Format /etc/cron.d: menit jam tgl bln hari USER perintah. Semua baris berjalan sebagai user
+# `studenthub`, BUKAN root.
+#
+# Rahasia job (X-Job-Secret) ada di /etc/studenthub/curl-job-<env>.conf (milik studenthub, 0600),
+# diturunkan dari JOB_SECRET di .env masing-masing — tidak pernah muncul di `ps` maupun di berkas ini.
+# Tick memanggil aplikasi langsung di 127.0.0.1 (nginx memblokir /api/internal/ untuk publik).
+# `flock -n`: tick dilewati bila tick sebelumnya masih berjalan.
+#
+# Port HARUS sama dengan ecosystem.config.cjs. Log: /var/log/studenthub/ (logrotate mingguan).
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+
+# Tick job tiap menit.
+* * * * * studenthub flock -n /tmp/studenthub-tick-production.lock curl -fsS -m 55 -K /etc/studenthub/curl-job-production.conf -X POST -o /dev/null http://127.0.0.1:3030/api/internal/jobs/tick 2>>/var/log/studenthub/cron.log
+* * * * * studenthub flock -n /tmp/studenthub-tick-staging.lock curl -fsS -m 55 -K /etc/studenthub/curl-job-staging.conf -X POST -o /dev/null http://127.0.0.1:3031/api/internal/jobs/tick 2>>/var/log/studenthub/cron.log
+
+# Backup harian produksi 20:30 UTC (03:30 WIB): database (simpan 14), lalu storage (simpan 7).
+# Folder `daily` terpisah dari backup pra-migrasi deploy agar rotasi keduanya tidak saling mendorong.
+30 20 * * * studenthub cd /www/wwwroot/studenthub && BACKUP_DIR=/home/studenthub/backups/production/daily bash scripts/deploy/backup-db.sh >>/var/log/studenthub/backup.log 2>&1
+40 20 * * * studenthub cd /www/wwwroot/studenthub && BACKUP_DIR=/home/studenthub/backups/production/daily bash scripts/deploy/backup-storage.sh >>/var/log/studenthub/backup.log 2>&1

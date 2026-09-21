@@ -1,0 +1,36 @@
+# /etc/systemd/system/pm2-studenthub.service — daemon PM2 milik user `studenthub`.
+#
+# Dipasang oleh `scripts/deploy/bootstrap-vps.sh pm2` (placeholder @NODE_BIN_DIR@ diganti path bin
+# Node aaPanel). Setara dengan keluaran `pm2 startup systemd -u studenthub --hp /home/studenthub`,
+# ditulis eksplisit agar dapat ditinjau dan diberi pengerasan (hardening) systemd.
+#
+# Saat boot unit ini menjalankan `pm2 resurrect` (daftar proses dari `pm2 save` terakhir yang
+# dilakukan remote-deploy.sh). Proses aplikasi yang di-spawn daemon ini ikut berjalan di bawah
+# pembatasan di bawah.
+[Unit]
+Description=PM2 process manager (studenthub)
+Documentation=https://pm2.keymetrics.io/
+After=network-online.target mysqld.service
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=studenthub
+Group=studenthub
+LimitNOFILE=65536
+Environment=PATH=/home/studenthub/.local/bin:@NODE_BIN_DIR@:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PM2_HOME=/home/studenthub/.pm2
+PIDFile=/home/studenthub/.pm2/pm2.pid
+Restart=on-failure
+
+ExecStart=/home/studenthub/.local/bin/pm2 resurrect
+ExecReload=/home/studenthub/.local/bin/pm2 reload all
+ExecStop=/home/studenthub/.local/bin/pm2 kill
+
+# Pengerasan: tanpa eskalasi hak, /usr /boot /etc read-only, /tmp privat.
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

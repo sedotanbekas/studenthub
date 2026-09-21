@@ -1,0 +1,63 @@
+enum Gender {
+  MALE
+  FEMALE
+}
+
+/// DRAFT = akun dibuat, data wajib belum lengkap; tidak bisa login sampai diaktivasi.
+enum StudentStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  MOVED
+}
+
+/// Pendaftaran siswa di SATU sekolah (satu baris per sekolah per NISN).
+model Student {
+  id             String        @id @default(cuid())
+  userId         String        @unique
+  schoolId       String
+  nisn           String        @db.Char(10)
+  /// = nisn untuk ACTIVE/INACTIVE/GRADUATED; NULL untuk DRAFT dan MOVED. Diklaim saat AKTIVASI.
+  /// Kunci login siswa. Unik => maks. satu pendaftaran hidup per NISN secara nasional.
+  activeNisn     String?       @unique @db.Char(10)
+  nis            String        @db.VarChar(20)
+  gender         Gender
+  /// Opsional di DB tetapi WAJIB sebelum aktivasi (rule murni getActivationGaps).
+  birthPlace     String?       @db.VarChar(100)
+  birthDate      DateTime?     @db.Date
+  address        String?       @db.Text
+  guardianName   String?       @db.VarChar(100)
+  /// Dinormalisasi ke format "+628...".
+  guardianPhone  String?       @db.VarChar(20)
+  status         StudentStatus @default(DRAFT)
+  currentClassId String?
+  /// Instant aktivasi pertama; dasar kelayakan auto-ALPHA dan statistik.
+  activatedAt    DateTime?
+  /// Tarif SPP per siswa: NULL = pakai tarif default saat generate massal, 0 = bebas SPP.
+  sppAmount      Int?
+  /// Perangkat terikat (deviceId) dan kapan terakhir berganti: dasar flag NEW_DEVICE.
+  boundDeviceId  String?       @db.VarChar(100)
+  deviceBoundAt  DateTime?
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentClass SchoolClass? @relation(fields: [currentClassId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  attendances         Attendance[]
+  checkInRejections   CheckInRejection[]
+  leaveRequests       LeaveRequest[]
+  reportCards         ReportCard[]
+  invoices            Invoice[]
+  paymentSubmissions  PaymentSubmission[]
+  announcementTargets AnnouncementTarget[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, nisn])
+  @@unique([schoolId, nis])
+  @@index([nisn])
+  @@index([schoolId, status])
+  @@index([currentClassId, status])
+}

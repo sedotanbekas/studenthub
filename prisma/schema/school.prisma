@@ -1,0 +1,215 @@
+enum SchoolTimezone {
+  WIB
+  WITA
+  WIT
+}
+
+enum Semester {
+  GANJIL
+  GENAP
+}
+
+/// Referensi wilayah (kode Kemendagri). Diisi lewat migrasi (insert idempoten).
+model Province {
+  code String @id @db.VarChar(2)
+  name String @db.VarChar(100)
+
+  cities    City[]
+  schools   School[]
+  adTargets AdTarget[]
+}
+
+/// Kabupaten/kota, kode "32.73".
+model City {
+  code         String @id @db.VarChar(5)
+  provinceCode String @db.VarChar(2)
+  name         String @db.VarChar(100)
+
+  province  Province   @relation(fields: [provinceCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  schools   School[]
+  adTargets AdTarget[]
+
+  @@index([provinceCode])
+}
+
+model School {
+  id                   String         @id @default(cuid())
+  npsn                 String?        @unique @db.Char(8)
+  name                 String         @db.VarChar(150)
+  address              String?        @db.Text
+  provinceCode         String         @db.VarChar(2)
+  cityCode             String         @db.VarChar(5)
+  /// Lokasi & geofence: hanya SUPER_ADMIN yang boleh mengubah.
+  latitude             Decimal        @db.Decimal(10, 7)
+  longitude            Decimal        @db.Decimal(10, 7)
+  geofenceRadiusM      Int            @default(150) @db.SmallInt
+  geofenceUpdatedAt    DateTime?
+  timezone             SchoolTimezone @default(WIB)
+  /// Menit lokal. Wajib: 0 <= open < start <= close <= dayEnd < 1440 dan start + toleransi < close.
+  checkInOpenMinute    Int            @default(360) @db.SmallInt
+  startMinute          Int            @default(420) @db.SmallInt
+  /// Check-in setelah start + toleransi => TERLAMBAT (tetap dihitung hadir).
+  lateToleranceMinutes Int            @default(15) @db.SmallInt
+  checkInCloseMinute   Int            @default(600) @db.SmallInt
+  /// Setelah menit ini job AUTO_ALPHA menutup hari tersebut.
+  dayEndMinute         Int            @default(900) @db.SmallInt
+  /// Bitmask: Sen=1 Sel=2 Rab=4 Kam=8 Jum=16 Sab=32 Min=64. 31 = Sen-Jum, 63 = Sen-Sab.
+  schoolDaysMask       Int            @default(31) @db.TinyInt
+  /// Rekening tujuan transfer SPP: hanya SUPER_ADMIN yang boleh mengubah (anti-pengalihan).
+  bankName             String?        @db.VarChar(50)
+  bankAccountNumber    String?        @db.VarChar(30)
+  bankAccountHolder    String?        @db.VarChar(100)
+  bankChangedAt        DateTime?
+  /// Penunjuk semester aktif; @unique => paling banyak satu semester aktif per sekolah.
+  activeTermId         String?        @unique
+  isActive             Boolean        @default(true)
+
+  province   Province @relation(fields: [provinceCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  city       City     @relation(fields: [cityCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  activeTerm Term?    @relation("SchoolActiveTerm", fields: [activeTermId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  terms              Term[]              @relation("SchoolTerms")
+  users              User[]
+  academicYears      AcademicYear[]
+  classes            SchoolClass[]
+  subjects           Subject[]
+  holidays           Holiday[]
+  students           Student[]
+  reportCards        ReportCard[]
+  attendances        Attendance[]
+  checkInRejections  CheckInRejection[]
+  leaveRequests      LeaveRequest[]
+  invoices           Invoice[]
+  paymentSubmissions PaymentSubmission[]
+  payments           Payment[]
+  documentCounters   DocumentCounter[]
+  announcements      Announcement[]
+  adTargets          AdTarget[]
+  adClicks           AdClick[]
+  files              StoredFile[]
+  auditLogs          AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([provinceCode, cityCode])
+  @@index([cityCode])
+}
+
+/// Libur / hari non-sekolah, rentang tanggal lokal inklusif.
+/// schoolId NULL = libur nasional (dikelola super admin, berlaku semua sekolah).
+model Holiday {
+  id        String   @id @default(cuid())
+  schoolId  String?
+  name      String   @db.VarChar(150)
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+
+  school School? @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, startDate])
+  @@index([startDate])
+}
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  schoolId  String
+  /// "2025/2026"
+  name      String   @db.VarChar(9)
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+
+  school  School        @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  terms   Term[]
+  classes SchoolClass[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, name])
+}
+
+/// Semester. Label tampilan "Semester Ganjil 2025/2026" diturunkan, tidak disimpan.
+model Term {
+  id             String   @id @default(cuid())
+  schoolId       String
+  academicYearId String
+  semester       Semester
+  startDate      DateTime @db.Date
+  endDate        DateTime @db.Date
+
+  school          School       @relation("SchoolTerms", fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  activeForSchool School?      @relation("SchoolActiveTerm")
+  reportCards     ReportCard[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([academicYearId, semester])
+  @@index([schoolId, startDate])
+}
+
+/// Rombongan belajar per tahun ajaran, mis. "VII-A". Nonaktifkan, jangan hapus.
+model SchoolClass {
+  id             String  @id @default(cuid())
+  schoolId       String
+  academicYearId String
+  name           String  @db.VarChar(50)
+  /// Tingkat 1 s.d. 12.
+  gradeLevel     Int     @db.TinyInt
+  isActive       Boolean @default(true)
+
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  students            Student[]
+  attendances         Attendance[]
+  reportCards         ReportCard[]
+  announcementTargets AnnouncementTarget[]
+  classSubjects       ClassSubject[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([academicYearId, name])
+  @@index([schoolId, academicYearId])
+}
+
+model Subject {
+  id        String  @id @default(cuid())
+  schoolId  String
+  code      String  @db.VarChar(20)
+  name      String  @db.VarChar(100)
+  /// Kriteria Ketuntasan Minimal 0 s.d. 100 (di-snapshot ke nilai rapor).
+  kkm       Int     @default(75) @db.TinyInt
+  sortOrder Int     @default(0) @db.SmallInt
+  isActive  Boolean @default(true)
+
+  school        School            @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  grades        ReportCardGrade[]
+  classSubjects ClassSubject[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, code])
+}
+
+/// Mapel yang diajarkan di satu kelas; dasar kelengkapan rapor.
+model ClassSubject {
+  classId   String
+  subjectId String
+  sortOrder Int    @default(0) @db.SmallInt
+
+  schoolClass SchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  subject     Subject     @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@id([classId, subjectId])
+  @@index([subjectId])
+}

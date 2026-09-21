@@ -1,0 +1,126 @@
+enum FileKind {
+  AD_BANNER
+  ATTENDANCE_SELFIE
+  PAYMENT_PROOF
+  TOPUP_PROOF
+  LEAVE_ATTACHMENT
+}
+
+enum JobRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// Singleton (id = 1), dibuat oleh migrasi.
+model PlatformSetting {
+  id                 Int     @id @default(1)
+  defaultCpcAmount   Int
+  minTopUpAmount     Int
+  /// Rekening tujuan top-up yang ditampilkan ke sponsor.
+  topUpBankName      String? @db.VarChar(50)
+  topUpAccountNumber String? @db.VarChar(30)
+  topUpAccountHolder String? @db.VarChar(100)
+  /// Skema aplikasi pihak ketiga yang boleh dipakai iklan DEEP_LINK, mis. ["shopee","tokopedia"].
+  deepLinkSchemes    Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Metadata berkas di disk (di luar direktori aplikasi). Kunci diawali "public/" atau "private/".
+/// Berkas privat disajikan lewat route berotorisasi. Gambar di-re-encode (sharp) sebelum disimpan.
+model StoredFile {
+  id           String    @id @default(cuid())
+  kind         FileKind
+  storageKey   String    @unique @db.VarChar(255)
+  mimeType     String    @db.VarChar(100)
+  sizeBytes    Int
+  /// Hash hasil re-encode (identik persis).
+  sha256       String    @db.Char(64)
+  /// Hash perseptual dHash 64-bit (hex) untuk deteksi foto/bukti mirip.
+  phash        String?   @db.Char(16)
+  width        Int?      @db.SmallInt
+  height       Int?      @db.SmallInt
+  originalName String?   @db.VarChar(255)
+  /// Cakupan otorisasi: pemilik tenant berkas privat.
+  schoolId     String?
+  sponsorId    String?
+  uploadedById String
+  /// Diisi saat dirujuk entitas domain (banner); NULL > 24 jam = yatim, dihapus job.
+  attachedAt   DateTime?
+  /// Berkas di disk dimusnahkan (retensi selfie); baris dipertahankan demi FK.
+  deletedAt    DateTime?
+
+  school     School?  @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sponsor    Sponsor? @relation(fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  attendance        Attendance?
+  leaveRequest      LeaveRequest?
+  paymentSubmission PaymentSubmission?
+  topUpRequest      TopUpRequest?
+  ads               Ad[]
+
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, kind, createdAt])
+  @@index([sponsorId, kind])
+  @@index([uploadedById, kind, createdAt])
+  @@index([sha256])
+  @@index([kind, attachedAt, createdAt])
+  @@index([kind, deletedAt, createdAt])
+}
+
+/// Append-only. before/after tanpa data rahasia (hash password, token).
+model AuditLog {
+  id         String    @id @default(cuid())
+  actorId    String?
+  actorRole  UserRole?
+  schoolId   String?
+  /// mis. "student.activate", "invoice.void", "topup.approve"
+  action     String    @db.VarChar(64)
+  entityType String    @db.VarChar(40)
+  entityId   String    @db.VarChar(191)
+  before     Json?
+  after      Json?
+  ipAddress  String?   @db.VarChar(45)
+  userAgent  String?   @db.VarChar(255)
+
+  actor  User?   @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  school School? @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([schoolId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}
+
+/// Penanda idempotensi + mutex job cron, mis. ("auto-alpha", <schoolId>, "2026-09-21").
+model JobRun {
+  id         String       @id @default(cuid())
+  job        String       @db.VarChar(64)
+  scopeKey   String       @db.VarChar(64)
+  runKey     String       @db.VarChar(32)
+  status     JobRunStatus
+  attempts   Int          @default(1) @db.TinyInt
+  startedAt  DateTime     @default(now())
+  finishedAt DateTime?
+  result     Json?
+  error      String?      @db.Text
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([job, scopeKey, runKey])
+  @@index([job, startedAt])
+  @@index([status, startedAt])
+}
+
+/// Baris kunci ringan (mutex aplikasi) agar tidak perlu FOR UPDATE pada baris induk yang sibuk.
+/// Dipakai via INSERT ... ON DUPLICATE KEY UPDATE lalu SELECT ... FOR UPDATE di dalam transaksi.
+model AppLock {
+  key       String   @id @db.VarChar(191)
+  updatedAt DateTime @default(now()) @updatedAt
+}

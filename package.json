@@ -1,0 +1,59 @@
+{
+  "name": "studenthub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Student Hub — API manajemen sekolah multi-sekolah (siswa, admin sekolah, sponsor, super admin)",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "next dev -p 3030",
+    "build": "prisma generate && next build",
+    "start": "next start -H 127.0.0.1",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:validate": "prisma validate",
+    "db:seed:demo": "tsx scripts/seed-demo.ts",
+    "db:super-admin": "tsx scripts/create-super-admin.ts",
+    "regions:gen": "tsx scripts/gen-regions-migration.ts",
+    "test:unit": "node --import tsx --test \"src/**/*.test.ts\" \"scripts/**/*.test.ts\"",
+    "test:int": "tsx scripts/test/prepare-db.ts && node --env-file-if-exists=.env.test --import tsx --test --test-concurrency=1 \"tests/integration/**/*.test.ts\"",
+    "test:e2e": "playwright test",
+    "coverage": "c8 --check-coverage=false --reporter=none pnpm test:unit && c8 --clean=false --check-coverage=false --reporter=none pnpm test:int && c8 report --check-coverage",
+    "openapi:export": "tsx scripts/openapi-export.ts",
+    "openapi:check": "tsx scripts/openapi-export.ts --check",
+    "jobs:run": "tsx scripts/run-job.ts"
+  },
+  "dependencies": {
+    "@node-rs/bcrypt": "1.10.9",
+    "@prisma/adapter-mariadb": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@scalar/nextjs-api-reference": "0.12.0",
+    "exceljs": "4.4.0",
+    "expo-server-sdk": "7.2.0",
+    "file-type": "22.1.1",
+    "jose": "6.2.12",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "sharp": "0.35.4",
+    "zod": "4.6.5",
+    "zod-openapi": "6.0.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.13.6",
+    "@types/react": "19.3.0",
+    "c8": "12.0.0",
+    "dotenv": "17.4.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "prisma": "7.10.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

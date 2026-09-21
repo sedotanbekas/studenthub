@@ -1,0 +1,131 @@
+enum AttendanceStatus {
+  HADIR
+  TERLAMBAT
+  IZIN
+  SAKIT
+  ALPHA
+}
+
+enum AttendanceSource {
+  CHECKIN
+  LEAVE
+  AUTO_ALPHA
+  ADMIN
+}
+
+enum LeaveType {
+  IZIN
+  SAKIT
+}
+
+/// Nama sama dengan kode error 422 check-in.
+enum CheckInRejectReason {
+  OUTSIDE_GEOFENCE
+  GPS_ACCURACY_TOO_LOW
+  MOCK_LOCATION
+  LOCATION_STALE
+  INVALID_LOCATION
+}
+
+/// Satu baris per siswa per tanggal lokal sekolah. Hanya check-in (tanpa check-out).
+model Attendance {
+  id                 String           @id @default(cuid())
+  schoolId           String
+  studentId          String
+  /// Snapshot kelas saat dicatat, agar rekap kelas historis tetap benar.
+  classId            String?
+  date               DateTime         @db.Date
+  status             AttendanceStatus
+  source             AttendanceSource
+  /// Instant server (UTC). NULL untuk LEAVE/AUTO_ALPHA.
+  checkInAt          DateTime?
+  /// Menit setelah startMinute (bel masuk); hanya untuk TERLAMBAT.
+  lateMinutes        Int?             @db.SmallInt
+  latitude           Decimal?         @db.Decimal(10, 7)
+  longitude          Decimal?         @db.Decimal(10, 7)
+  accuracyM          Int?
+  distanceM          Int?
+  /// Flag `mocked` dari Expo Location (hanya Android yang andal).
+  isMocked           Boolean?
+  /// Timestamp fix GPS dari perangkat (deteksi lokasi basi/replay).
+  locationCapturedAt DateTime?
+  deviceId           String?          @db.VarChar(100)
+  /// WAJIB untuk source CHECKIN. Unik: satu foto tidak bisa dipakai dua kali.
+  selfieFileId       String?          @unique
+  /// Boolean agar bisa difilter/di-index (JSON di MariaDB tidak difilter).
+  hasAnomaly         Boolean          @default(false)
+  /// Array kode flag anomali v1 (lihat src/lib/attendance/anomaly-rules.ts).
+  anomalyFlags       Json?
+  leaveRequestId     String?
+  note               String?          @db.VarChar(255)
+
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  schoolClass  SchoolClass?  @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  selfieFile   StoredFile?   @relation(fields: [selfieFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  leaveRequest LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, date])
+  @@index([schoolId, date, classId, status])
+  @@index([schoolId, hasAnomaly, date])
+  @@index([schoolId, date, deviceId])
+  @@index([classId, date])
+  @@index([leaveRequestId])
+}
+
+/// Percobaan check-in yang DITOLAK karena lokasi (tanpa selfie). Append-only; dihapus > 90 hari.
+/// Koordinat dibulatkan 3 desimal (~100 m) dan tidak disimpan bila jarak > 2 km (privasi anak).
+model CheckInRejection {
+  id        String              @id @default(cuid())
+  schoolId  String
+  studentId String
+  /// Tanggal lokal sekolah.
+  date      DateTime            @db.Date
+  reason    CheckInRejectReason
+  latitude  Decimal?            @db.Decimal(10, 7)
+  longitude Decimal?            @db.Decimal(10, 7)
+  accuracyM Int?
+  distanceM Int?
+  isMocked  Boolean?
+  deviceId  String?             @db.VarChar(100)
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, date])
+  @@index([studentId, createdAt])
+  @@index([createdAt])
+}
+
+model LeaveRequest {
+  id               String       @id @default(cuid())
+  schoolId         String
+  studentId        String
+  type             LeaveType
+  startDate        DateTime     @db.Date
+  endDate          DateTime     @db.Date
+  reason           String       @db.VarChar(500)
+  attachmentFileId String?      @unique
+  status           ReviewStatus @default(PENDING)
+  reviewedById     String?
+  reviewedAt       DateTime?
+  reviewNote       String?      @db.VarChar(255)
+
+  school         School       @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  attachmentFile StoredFile?  @relation(fields: [attachmentFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewedBy     User?        @relation(fields: [reviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  attendances    Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, status, createdAt])
+  @@index([schoolId, status, startDate])
+  @@index([studentId, startDate])
+}

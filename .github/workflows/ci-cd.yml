@@ -1,0 +1,193 @@
+name: CI/CD studenthub
+
+# Push ke master = gerbang (gate) -> deploy staging -> deploy produksi. workflow_dispatch hanya
+# menjalankan gerbang (deploy khusus push ke master).
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Dua push beruntun tidak boleh deploy bersamaan, dan deploy yang sedang berjalan TIDAK dibatalkan:
+# memutus SSH di tengah migrasi MariaDB meninggalkan skema setengah jadi (DDL tidak transaksional).
+concurrency:
+  group: deploy-studenthub
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # `shell: bash` eksplisit = bash -eo pipefail (bawaan runner tanpa pipefail).
+    shell: bash
+
+jobs:
+  gate:
+    name: Gerbang (typecheck, lint, test, coverage, build, e2e)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: studenthub_ci_test
+          MARIADB_USER: studenthub
+          MARIADB_PASSWORD: studenthub
+          MARIADB_ROOT_PASSWORD: root
+          TZ: UTC
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      TZ: UTC
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Nama database WAJIB berakhiran _test (penjaga scripts/test/prepare-db.ts).
+      DATABASE_URL: mysql://studenthub:studenthub@127.0.0.1:3306/studenthub_ci_test
+      # Nilai tiruan khusus CI (bukan rahasia produksi): >= 32 karakter dan saling berbeda.
+      JWT_ACCESS_SECRET: ci-only-jwt-access-secret-not-for-production-0001
+      AD_EVENT_SECRET: ci-only-ad-event-secret-not-for-production-000002
+      JOB_SECRET: ci-only-job-secret-not-for-production-0000000003
+      APP_ORIGIN: http://127.0.0.1:3030
+      PUBLIC_MEDIA_BASE_URL: http://127.0.0.1:3030/media
+      STORAGE_ROOT: /tmp/studenthub-storage
+      PUSH_TRANSPORT: memory
+      DOCS_BASIC_AUTH: ci:ci-docs-password
+      E2E_BASE_URL: http://127.0.0.1:3030
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pasang pnpm (versi dari packageManager di package.json)
+        uses: pnpm/action-setup@v4
+
+      - name: Pasang Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Pasang dependensi
+        run: pnpm install --frozen-lockfile
+
+      - name: Siapkan direktori storage
+        run: mkdir -p "$STORAGE_ROOT"
+
+      - name: Validasi skema Prisma
+        run: pnpm exec prisma validate
+
+      - name: Periksa tipe TypeScript
+        run: pnpm typecheck
+
+      - name: Lint (0 error)
+        run: pnpm lint
+
+      - name: Dokumen OpenAPI sinkron dengan kontrak
+        run: pnpm openapi:check
+
+      # c8 mengumpulkan coverage mentah; ambang diperiksa sekali di akhir (unit + integration), jadi
+      # pemeriksaan per-langkah dimatikan (.c8rc.json menyalakan check-coverage).
+      - name: Unit test + coverage (tolak bila 0 test)
+        run: |
+          set -o pipefail
+          NODE_OPTIONS=--test-reporter=tap pnpm exec c8 --reporter=none --check-coverage=false pnpm test:unit 2>&1 | tee "$RUNNER_TEMP/unit.log"
+          grep -Eq '^# pass [1-9][0-9]*$' "$RUNNER_TEMP/unit.log" || {
+            echo "::error::Tidak ada unit test yang lulus (pass 0) — gerbang menolak"
+            exit 1
+          }
+
+      - name: Migrasi berlaku di database kosong
+        run: pnpm db:migrate
+
+      - name: Integration test + coverage (tolak bila 0 test)
+        run: |
+          set -o pipefail
+          NODE_OPTIONS=--test-reporter=tap pnpm exec c8 --clean=false --reporter=none --check-coverage=false pnpm test:int 2>&1 | tee "$RUNNER_TEMP/int.log"
+          grep -Eq '^# pass [1-9][0-9]*$' "$RUNNER_TEMP/int.log" || {
+            echo "::error::Tidak ada integration test yang lulus (pass 0) — gerbang menolak"
+            exit 1
+          }
+
+      - name: Ambang coverage (lines/functions/statements >= 80%, branches >= 75%)
+        run: pnpm exec c8 report --check-coverage
+
+      - name: Build
+        run: pnpm build
+
+      # Playwright `request` saja (tanpa browser); webServer = pnpm start -p 3030 (lihat playwright.config.ts).
+      - name: E2E
+        run: pnpm test:e2e
+
+      - name: Simpan laporan bila gagal
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-reports
+          path: |
+            playwright-report/
+            coverage/
+            !coverage/tmp/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  deploy-staging:
+    name: Deploy staging
+    needs: gate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      # Aksi pihak ketiga yang menerima kunci SSH dipin ke sha commit (= tag v1.2.2).
+      - name: Deploy ke staging via SSH (user studenthub)
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          # Opsional tetapi disarankan: sidik jari host key VPS (SHA256:...) untuk mencegah MITM.
+          fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
+          envs: DEPLOY_SHA
+          command_timeout: 30m
+          # Yang dipasang adalah sha yang lulus gerbang, bukan ujung master terbaru (push berikutnya
+          # yang belum lulus gerbang tidak ikut terpasang).
+          script: |
+            set -euo pipefail
+            [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DEPLOY_SHA tidak sah" >&2; exit 1; }
+            cd /www/wwwroot/studenthub-staging
+            git fetch --depth 50 origin master
+            git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null || git fetch --depth 1 origin "$DEPLOY_SHA"
+            git reset --hard "$DEPLOY_SHA"
+            bash scripts/deploy/remote-deploy.sh staging
+
+  deploy-production:
+    name: Deploy produksi
+    needs: deploy-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Deploy ke produksi via SSH (user studenthub)
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
+          envs: DEPLOY_SHA
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DEPLOY_SHA tidak sah" >&2; exit 1; }
+            cd /www/wwwroot/studenthub
+            git fetch --depth 50 origin master
+            git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null || git fetch --depth 1 origin "$DEPLOY_SHA"
+            git reset --hard "$DEPLOY_SHA"
+            bash scripts/deploy/remote-deploy.sh production
