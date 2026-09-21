@@ -20,6 +20,7 @@ import {
   type RosterCard,
   type RosterStudent,
 } from "./context";
+import { termUnclosedDates } from "./attendance";
 import { loadReportCardDetail } from "./detail";
 import { averageScore, classifyReadiness, computePredicate } from "./rules";
 import type {
@@ -98,7 +99,8 @@ export async function getReadiness(ctx: ActionContext, query: ReadinessQuery): P
     activeStudentIds: roster.activeInClassIds,
     studentsWithCard: studentsWithCard(roster),
   });
-  return { term: { id: term.id, label: term.label }, class: { id: klass.id, name: klass.name }, subjectCount: mapped.length, ...readiness };
+  const attendanceUnclosedDates = await termUnclosedDates(prisma, term, await loadSchoolClock(prisma, scope), ctx.now);
+  return { term: { id: term.id, label: term.label }, class: { id: klass.id, name: klass.name }, subjectCount: mapped.length, ...readiness, attendanceUnclosedDates };
 }
 
 export function getReportCard(ctx: ActionContext, schoolId: string | undefined, id: string): Promise<ReportCardDetailDto> {

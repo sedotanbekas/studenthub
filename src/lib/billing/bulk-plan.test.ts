@@ -1,23 +1,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chunk, overrideScopeViolation, planBulkInvoices, sortBulkStudents, type BulkStudent } from "./bulk-plan";
+import { chunk, overrideScopeViolation, planBulkInvoices, sortBulkStudents, type BulkStudent, type ExistingSlot } from "./bulk-plan";
 
 function student(id: string, overrides: Partial<BulkStudent> = {}): BulkStudent {
   return { id, name: `Siswa ${id}`, className: "VII-A", sppAmount: null, status: "ACTIVE", ...overrides };
 }
 
-const plan = (students: BulkStudent[], opts: { existing?: string[]; overrides?: Array<[string, number]> } = {}) =>
+type Slot = [studentId: string, invoiceId: string, status: ExistingSlot["status"]];
+
+const plan = (students: BulkStudent[], opts: { existing?: Slot[]; overrides?: Array<[string, number]> } = {}) =>
   planBulkInvoices({
     students,
-    existing: new Set(opts.existing ?? []),
+    existing: new Map((opts.existing ?? []).map(([studentId, id, status]) => [studentId, { id, status }])),
     defaultAmount: 150_000,
     overrides: new Map(opts.overrides ?? []),
   });
 
-test("tagihan yang sudah ada (termasuk VOID) dilewati ALREADY_BILLED", () => {
-  const result = plan([student("a"), student("b")], { existing: ["b"] });
+test("tagihan hidup yang sudah ada dilewati ALREADY_BILLED (+ invoiceId)", () => {
+  const result = plan([student("a"), student("b"), student("c")], { existing: [["b", "inv-b", "UNPAID"], ["c", "inv-c", "PAID"]] });
   assert.deepEqual(result.rows, [{ studentId: "a", amount: 150_000 }]);
-  assert.deepEqual(result.skipped, [{ studentId: "b", reason: "ALREADY_BILLED" }]);
+  assert.deepEqual(result.skipped, [
+    { studentId: "b", reason: "ALREADY_BILLED", invoiceId: "inv-b" },
+    { studentId: "c", reason: "ALREADY_BILLED", invoiceId: "inv-c" },
+  ]);
+});
+
+test("slot VOID dilewati VOIDED + invoiceId + hint RESTORE (tidak disamarkan sebagai sudah ditagih)", () => {
+  const result = plan([student("a"), student("b")], { existing: [["b", "inv-b", "VOID"]] });
+  assert.deepEqual(result.rows, [{ studentId: "a", amount: 150_000 }]);
+  assert.deepEqual(result.skipped, [{ studentId: "b", reason: "VOIDED", invoiceId: "inv-b", hint: "RESTORE" }]);
 });
 
 test("sppAmount 0 -> EXEMPT; null -> default; override mengalahkan sppAmount", () => {

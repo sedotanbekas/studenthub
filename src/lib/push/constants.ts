@@ -18,8 +18,13 @@ export const PUSH_ERROR_MAX = 255;
  * baris layak lagi setelah lease habis (at-least-once). Nilai lease juga penjaga update akhir.
  */
 export const PUSH_CLAIM_LEASE_MS = 120_000;
-/** Anggaran satu putaran dispatcher (kick maupun tick). */
+/** Anggaran satu putaran dispatcher (kick maupun tick); dicek sebelum setiap chunk 100 pesan. */
 export const PUSH_DISPATCH_BUDGET_MS = 40_000;
+/**
+ * Batas waktu per request Expo (undici Agent). Default undici 300 detik untuk header & body: Expo yang
+ * lambat akan menahan dispatcher (mutex tunggal) sampai puluhan menit. Timeout = error jaringan -> retry.
+ */
+export const EXPO_HTTP_TIMEOUTS = { connectMs: 5_000, headersMs: 10_000, bodyMs: 10_000 } as const;
 
 /** Layar deep link bawaan bila notifikasi tidak membawa data.screen/id. */
 export const DEFAULT_PUSH_SCREEN = "notification";

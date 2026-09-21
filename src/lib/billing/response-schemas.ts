@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { dateOutSchema } from "@/lib/academics/schema-common";
 import { pageMetaSchema } from "@/lib/openapi/schemas";
-import { BULK_SKIP_REASONS, DISPLAY_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS, SUBMISSION_STATUSES } from "./constants";
+import { BULK_SKIP_REASONS, DISPLAY_STATUSES, DUPLICATE_FLAG_LIMIT, DUPLICATE_LOOKBACK_DAYS, INVOICE_STATUSES, PAYMENT_METHODS, SUBMISSION_STATUSES } from "./constants";
 
 /** Skema respons SPP (OpenAPI + validasi respons di mode test). Uang = rupiah bulat. */
 
@@ -86,7 +86,7 @@ export type SubmissionSummaryDto = z.input<typeof submissionSummarySchema>;
 export const invoiceDetailSchema = invoiceSchema
   .extend({
     voidedBy: billingUserRefSchema.nullable(),
-    payments: z.array(paymentSchema),
+    payments: z.array(paymentSchema).meta({ description: "Terbaru dulu, maks 50 (termasuk yang dibatalkan)." }),
     submissions: z.array(submissionSummarySchema),
   })
   .meta({ id: "InvoiceDetail" });
@@ -104,8 +104,17 @@ export const bulkResultSchema = z
     invoiceNoTo: z.string().nullable(),
     skippedCount: z.int(),
     skipped: z
-      .array(z.object({ studentId: z.string(), reason: z.enum(BULK_SKIP_REASONS) }))
-      .meta({ description: "Maks 500 baris: ALREADY_BILLED, EXEMPT (tarif 0), NOT_ACTIVE (cakupan STUDENTS), AMOUNT_INVALID (tarif siswa < 1.000)." }),
+      .array(
+        z.object({
+          studentId: z.string(),
+          reason: z.enum(BULK_SKIP_REASONS),
+          invoiceId: z.string().optional().meta({ description: "Tagihan yang menempati slot (ALREADY_BILLED / VOIDED)." }),
+          hint: z.enum(["RESTORE"]).optional().meta({ description: "VOIDED: pulihkan lewat POST /school/invoices/{invoiceId}/restore." }),
+        }),
+      )
+      .meta({
+        description: "Maks 500 baris: ALREADY_BILLED (slot periode sudah berisi tagihan hidup), VOIDED (slot berisi tagihan dibatalkan; tidak dibuat ulang — pulihkan), EXEMPT (tarif 0), NOT_ACTIVE (cakupan STUDENTS), AMOUNT_INVALID (tarif siswa < 1.000).",
+      }),
   })
   .meta({ id: "BulkInvoiceResult" });
 export type BulkResultDto = z.input<typeof bulkResultSchema>;
@@ -138,7 +147,10 @@ export const adminSubmissionSchema = submissionSummarySchema
     student: billingStudentRefSchema,
     possibleDuplicateOf: z
       .array(z.string())
-      .meta({ description: "Id pengajuan lain di sekolah ini yang fotonya mirip (dHash). Hanya penanda, bukan penolakan." }),
+      .max(DUPLICATE_FLAG_LIMIT)
+      .meta({
+        description: `Maks ${DUPLICATE_FLAG_LIMIT} id pengajuan lain di sekolah ini dengan foto bukti identik (sha256, siswa mana pun) atau mirip (dHash: siswa yang sama kapan pun; siswa lain ${DUPLICATE_LOOKBACK_DAYS} hari terakhir), urut: identik, mirip siswa sama, mirip siswa lain; lalu terbaru. Hanya penanda, bukan penolakan.`,
+      }),
   })
   .meta({ id: "PaymentSubmission" });
 export type AdminSubmissionDto = z.input<typeof adminSubmissionSchema>;
@@ -188,7 +200,7 @@ export const studentInvoiceDetailSchema = studentInvoiceSchema
     note: z.string().nullable(),
     paidAt: dateTime.nullable(),
     voidReason: z.string().nullable(),
-    payments: z.array(studentPaymentSchema),
+    payments: z.array(studentPaymentSchema).meta({ description: "Terbaru dulu, maks 50." }),
     submissions: z.array(submissionSummarySchema),
     bankAccount: paymentInfoSchema,
   })

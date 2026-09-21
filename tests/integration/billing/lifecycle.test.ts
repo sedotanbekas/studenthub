@@ -46,7 +46,7 @@ describe("siswa PINDAH me-void tagihan masa depan", () => {
     const futurePartial = await issueInvoice(fx, s.student.id, 3, 150_000);
     assert.equal((await submitProof(s, futurePending.id, { amount: 50_000 })).status, 201);
     const pay = await callRoute(cashRoute, {
-      method: "POST", url: schoolUrl(`/invoices/${futurePartial.id}/payments`), params: { id: futurePartial.id }, bearer: fx.adminToken, json: { amount: 50_000, paidDate: todayWib() },
+      method: "POST", url: schoolUrl(`/invoices/${futurePartial.id}/payments`), params: { id: futurePartial.id }, bearer: fx.adminToken, json: { amount: 50_000, expectedPaidAmount: 0, paidDate: todayWib() },
     });
     assert.equal(pay.status, 201);
     const res = await callRoute<Envelope<{ voidedInvoiceIds: string[] }>>(statusRoute, {
@@ -123,5 +123,15 @@ describe("billingStats", () => {
     await seed(wibSchool, { studentId: onlySeptWib.student.id, periodYear: 2026, periodMonth: 9, dueDate: "2026-09-10" });
     const wibAfter = await billingStats(scopeOf(wibSchool), {}, NOW);
     assert.deepEqual([wibAfter.studentsNotFullyPaid, wibAfter.studentsOverdue], [2, 1]);
+  });
+
+  test("tagihan periode depan yang jatuh temponya sudah lewat dihitung (sama dengan JATUH_TEMPO di daftar tagihan)", async () => {
+    const school = await createBillingSchool();
+    const id = school.school.id;
+    const student = (await createStudent(id)).student.id;
+    // Periode Oktober dengan jatuh tempo 5 September (jendela jatuh tempo boleh mulai periode-1 bulan).
+    await seed(id, { studentId: student, periodYear: 2026, periodMonth: 10, dueDate: "2026-09-05", amount: 120_000 });
+    const stats = await billingStats(scopeOf(id), {}, NOW);
+    assert.deepEqual([stats.studentsNotFullyPaid, stats.studentsOverdue, stats.outstandingAmount], [1, 1, 120_000]);
   });
 });

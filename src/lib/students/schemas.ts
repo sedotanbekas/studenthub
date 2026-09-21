@@ -42,7 +42,8 @@ const nisInput = z.string().trim().refine(isValidNis, "NIS hanya huruf, angka, t
 const nameInput = z
   .string()
   .transform((v) => collapseText(v) ?? "")
-  .pipe(z.string().min(NAME_MIN, `Nama minimal ${NAME_MIN} karakter.`).max(NAME_MAX, `Nama maksimal ${NAME_MAX} karakter.`));
+  .pipe(z.string().min(NAME_MIN, `Nama minimal ${NAME_MIN} karakter.`).max(NAME_MAX, `Nama maksimal ${NAME_MAX} karakter.`))
+  .meta({ minLength: NAME_MIN, maxLength: NAME_MAX });
 const genderInput = z.enum(GENDERS);
 
 /** Teks opsional: dirapikan, string kosong -> null, null = kosongkan. */
@@ -130,6 +131,7 @@ export const changeStatusBody = z
       .string()
       .transform((v) => collapseText(v) ?? "")
       .pipe(z.string().min(STATUS_REASON_MIN, `Alasan minimal ${STATUS_REASON_MIN} karakter.`).max(STATUS_REASON_MAX))
+      .meta({ minLength: STATUS_REASON_MIN, maxLength: STATUS_REASON_MAX })
       .optional(),
     confirmReleaseGraduatedNisn: confirmReleaseInput.meta({ description: "Hanya berlaku untuk to=ACTIVE. Lihat ActivateStudentInput." }),
   })

@@ -77,6 +77,8 @@ function loadDemoInvoices(ref: DemoSchoolRef): Promise<DemoInvoiceRow[]> {
 interface CashTask {
   readonly invoiceId: string;
   readonly amount: number;
+  /** paidAmount tagihan saat tugas disusun (token konkurensi tunai). */
+  readonly expectedPaidAmount: number;
   readonly at: Date;
 }
 
@@ -88,7 +90,7 @@ function cashTasks(ref: DemoSchoolRef, invoices: readonly DemoInvoiceRow[], now:
     const period = DEMO_BILLING_PERIODS[p];
     if (!student || !period || !isUntouched(row)) return [];
     const plan = demoCashPlan(demoInvoiceOutcome(student.index, p), row.amount, period, student.index);
-    return plan ? [{ invoiceId: row.id, amount: plan.amount, at: clampToNow(instantAtLocal(plan.date, plan.minuteOfDay, ref.timezone), now) }] : [];
+    return plan ? [{ invoiceId: row.id, amount: plan.amount, expectedPaidAmount: row.paidAmount, at: clampToNow(instantAtLocal(plan.date, plan.minuteOfDay, ref.timezone), now) }] : [];
   });
   return tasks.sort((a, b) => a.at.getTime() - b.at.getTime() || (a.invoiceId < b.invoiceId ? -1 : 1));
 }
@@ -96,7 +98,7 @@ function cashTasks(ref: DemoSchoolRef, invoices: readonly DemoInvoiceRow[], now:
 /** Tunai dengan jam = tanggal bayar; urut kronologis agar nomor kuitansi mengikuti tanggal. */
 async function recordDemoCashPayments(ref: DemoSchoolRef, invoices: readonly DemoInvoiceRow[], now: Date, warnings: string[]): Promise<void> {
   for (const task of cashTasks(ref, invoices, now)) {
-    const input = cashPaymentBody.parse({ amount: task.amount, paidDate: localParts(task.at, ref.timezone).ymd, note: DEMO_CASH_NOTE });
+    const input = cashPaymentBody.parse({ amount: task.amount, paidDate: localParts(task.at, ref.timezone).ymd, note: DEMO_CASH_NOTE, expectedPaidAmount: task.expectedPaidAmount });
     await collectDomainWarning(`tunai ${task.invoiceId}`, warnings, async () => {
       await recordCashPayment(adminContext(ref, task.at), undefined, task.invoiceId, input);
     });

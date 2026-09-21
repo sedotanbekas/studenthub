@@ -4,6 +4,7 @@
  */
 import { after, before, beforeEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { POST as approveRoute } from "@/app/api/v1/school/payment-submissions/[id]/approve/route";
 import { POST as rejectRoute } from "@/app/api/v1/school/payment-submissions/[id]/reject/route";
 import { GET as detailRoute } from "@/app/api/v1/school/payment-submissions/[id]/route";
@@ -192,5 +193,89 @@ describe("antrean, detail, penanda bukti mirip", () => {
       method: "GET", url: schoolUrl(`/payment-submissions/${retry.body?.data.id}`), params: { id: retry.body?.data.id ?? "" }, bearer: fx.adminToken,
     });
     assert.deepEqual(retryDetail.body?.data.history.map((h) => h.id), [second.id]);
+  });
+});
+
+describe("penanda bukti: jendela penuh & terbatas", () => {
+  const DAY_MS = 86_400_000;
+
+  /** 5.000 bukti siswa lain yang dHash-nya sama persis dengan `phash` (tangkapan layar aplikasi bank sejenis). */
+  async function floodSimilarProofs(school: BillingFixture, phash: string, createdAt: Date): Promise<Set<string>> {
+    const other = await createStudentWithToken(school);
+    const inv = await issueInvoice(school, other.student.id, 0);
+    const ids = new Set<string>();
+    for (let start = 0; start < 5_000; start += 1_000) {
+      const files = Array.from({ length: 1_000 }, () => ({
+        id: `flood${randomBytes(10).toString("hex")}`, kind: "PAYMENT_PROOF" as const, storageKey: `uji/flood/${randomBytes(12).toString("hex")}.jpg`,
+        mimeType: "image/jpeg", sizeBytes: 1_000, sha256: randomBytes(32).toString("hex"), phash, schoolId: school.school.id,
+        uploadedById: other.user.id, attachedAt: createdAt, createdAt,
+      }));
+      await prisma.storedFile.createMany({ data: files });
+      const subs = files.map((f) => ({
+        id: `fsub${randomBytes(10).toString("hex")}`, schoolId: school.school.id, invoiceId: inv.id, studentId: other.student.id, amount: 150_000,
+        transferDate: createdAt, proofFileId: f.id, status: "REJECTED" as const, createdAt,
+      }));
+      await prisma.paymentSubmission.createMany({ data: subs });
+      for (const s of subs) ids.add(s.id);
+    }
+    return ids;
+  }
+
+  const listPending = async (school: BillingFixture) =>
+    (await callRoute<Envelope<AdminSubmission[]>>(listRoute, { method: "GET", url: schoolUrl("/payment-submissions?limit=100"), bearer: school.adminToken })).body?.data ?? [];
+
+  test("bukti APPROVED 8 bulan lalu diunggah ulang di balik 5.000 bukti lebih baru tetap ditandai; maks 5 id, urut identik > siswa sama > siswa lain", async () => {
+    const school = await createBillingSchool();
+    const s = await createStudentWithToken(school);
+    const reused = await proofImage(515_151);
+    const invOld = await issueInvoice(school, s.student.id, -1);
+    const old = await submitProof(s, invOld.id, { amount: 150_000, file: reused });
+    assert.equal(old.status, 201, JSON.stringify(old.body));
+    const oldId = old.body?.data.id ?? "";
+    const approved = await callRoute(approveRoute, { method: "POST", url: schoolUrl(`/payment-submissions/${oldId}/approve`), params: { id: oldId }, bearer: school.adminToken, json: {} });
+    assert.equal(approved.status, 200);
+    const eightMonthsAgo = new Date(Date.now() - 240 * DAY_MS);
+    const oldFile = await prisma.storedFile.update({ where: { id: old.body?.data.proofFileId ?? "" }, data: { createdAt: eightMonthsAgo }, select: { phash: true } });
+    await prisma.paymentSubmission.update({ where: { id: oldId }, data: { createdAt: eightMonthsAgo } });
+    const invNear = await issueInvoice(school, s.student.id, -2);
+    const near = await submitProof(s, invNear.id, { amount: 150_000, file: await proofImage(626_262) });
+    const nearId = near.body?.data.id ?? "";
+    // Foto berbeda (sha256 lain) tetapi dHash sama: bukti siswa yang sama yang disimpan ulang/dipotong.
+    await prisma.storedFile.update({ where: { id: near.body?.data.proofFileId ?? "" }, data: { phash: oldFile.phash, createdAt: new Date(Date.now() - 200 * DAY_MS) } });
+    await prisma.paymentSubmission.update({ where: { id: nearId }, data: { status: "CANCELLED", pendingInvoiceId: null, createdAt: new Date(Date.now() - 200 * DAY_MS) } });
+    const flood = await floodSimilarProofs(school, oldFile.phash ?? "", new Date(Date.now() - DAY_MS));
+
+    const invNew = await issueInvoice(school, s.student.id, 0);
+    const again = await submitProof(s, invNew.id, { amount: 150_000, file: reused });
+    assert.equal(again.status, 201, JSON.stringify(again.body));
+    const againId = again.body?.data.id ?? "";
+    const row = (await listPending(school)).find((x) => x.id === againId);
+    const flags = row?.possibleDuplicateOf ?? [];
+    assert.equal(flags.length, 5, JSON.stringify(flags.slice(0, 8)));
+    assert.deepEqual(flags.slice(0, 2), [oldId, nearId], "identik dulu, lalu mirip milik siswa yang sama");
+    assert.ok(flags.slice(2).every((id) => flood.has(id)), "sisanya mirip milik siswa lain");
+    const detail = await callRoute<Envelope<AdminSubmission>>(detailRoute, { method: "GET", url: schoolUrl(`/payment-submissions/${againId}`), params: { id: againId }, bearer: school.adminToken });
+    assert.deepEqual(detail.body?.data.possibleDuplicateOf, flags);
+    const oldDetail = await callRoute<Envelope<AdminSubmission>>(detailRoute, { method: "GET", url: schoolUrl(`/payment-submissions/${oldId}`), params: { id: oldId }, bearer: school.adminToken });
+    assert.deepEqual(oldDetail.body?.data.possibleDuplicateOf, [againId], "penanda dua arah");
+  });
+
+  test("antrean berisi banyak bukti mirip: setiap baris maks 5 id (respons terbatas)", async () => {
+    const school = await createBillingSchool();
+    const image = await proofImage(737_373);
+    const first = await createStudentWithToken(school);
+    const firstInv = await issueInvoice(school, first.student.id, 0);
+    const firstSub = await submitProof(first, firstInv.id, { amount: 150_000, file: image });
+    const phash = (await prisma.storedFile.findUniqueOrThrow({ where: { id: firstSub.body?.data.proofFileId ?? "" }, select: { phash: true } })).phash ?? "";
+    await floodSimilarProofs(school, phash, new Date(Date.now() - DAY_MS));
+    for (let i = 0; i < 3; i += 1) {
+      const s = await createStudentWithToken(school);
+      const inv = await issueInvoice(school, s.student.id, 0);
+      assert.equal((await submitProof(s, inv.id, { amount: 150_000, file: image })).status, 201);
+    }
+    const rows = await listPending(school);
+    assert.equal(rows.length, 4);
+    assert.ok(rows.every((r) => r.possibleDuplicateOf.length <= 5), JSON.stringify(rows.map((r) => r.possibleDuplicateOf.length)));
+    assert.ok(rows.slice(1).every((r) => r.possibleDuplicateOf.length === 5));
   });
 });

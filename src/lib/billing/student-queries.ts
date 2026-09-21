@@ -72,7 +72,7 @@ export async function getMyInvoice(ctx: ActionContext, id: string): Promise<Stud
       ...INVOICE_SELECT,
       payments: {
         select: { id: true, receiptNo: true, amount: true, method: true, paidDate: true, voidedAt: true, createdAt: true },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: HISTORY_LIMIT,
       },
       submissions: { select: SUBMISSION_SUMMARY_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: HISTORY_LIMIT },

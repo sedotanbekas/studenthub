@@ -3,8 +3,8 @@ import { log } from "@/lib/log";
 import { claimPendingBatch, scopedUserIds, type Claim, type ClaimedNotification } from "./claim";
 import { PUSH_BATCH, PUSH_DISPATCH_BUDGET_MS, PUSH_ERROR } from "./constants";
 import { buildDeliveries, clearUnregisteredTokens, loadDevices, sendDeliveries, type Delivery } from "./delivery";
-import { applyOutcomes, type NotificationOutcome } from "./outcomes";
-import { aggregateOutcome, isExpired, type DeviceResult } from "./rules";
+import { applyOutcomes, releaseClaims, type NotificationOutcome } from "./outcomes";
+import { aggregateOutcome, isExpired, unsentNotificationIds, type DeviceResult } from "./rules";
 import { getPushTransport } from "./transport";
 import type { PushTransport } from "./types";
 
@@ -13,7 +13,9 @@ import type { PushTransport } from "./types";
  * klaim <= 500 baris PENDING jatuh tempo (terlama dulu) -> kedaluwarsa (> 60 menit) SKIPPED "EXPIRED" ->
  * penerima tanpa sesi bertoken SKIPPED "NO_DEVICE" -> kirim per 100 -> DeviceNotRegistered melepas token
  * sesi itu -> hasil per notifikasi (SENT / PENDING + backoff / FAILED). Diulang sampai habis atau anggaran
- * waktu (min(ctx.deadline, 40 detik)) terpakai. Aman dijalankan paralel (klaim SKIP LOCKED + update terjaga).
+ * waktu (min(ctx.deadline, 40 detik)) terpakai — dicek juga sebelum setiap chunk; notifikasi yang belum sempat
+ * dikirim dilepas (jatuh tempo lagi, percobaan tidak bertambah). Aman dijalankan paralel (klaim SKIP LOCKED +
+ * update terjaga).
  */
 export interface DispatchSummary {
   readonly claimed: number;
@@ -22,10 +24,12 @@ export interface DispatchSummary {
   readonly failed: number;
   readonly skipped: number;
   readonly expired: number;
+  /** Dilepas tanpa dikirim karena anggaran waktu habis (jatuh tempo lagi, percobaan tidak bertambah). */
+  readonly released: number;
   readonly tokensCleared: number;
 }
 
-export const EMPTY_DISPATCH_SUMMARY: DispatchSummary = { claimed: 0, sent: 0, retried: 0, failed: 0, skipped: 0, expired: 0, tokensCleared: 0 };
+export const EMPTY_DISPATCH_SUMMARY: DispatchSummary = { claimed: 0, sent: 0, retried: 0, failed: 0, skipped: 0, expired: 0, released: 0, tokensCleared: 0 };
 
 export function mergeDispatchSummary(a: DispatchSummary, b: DispatchSummary): DispatchSummary {
   return {
@@ -35,6 +39,7 @@ export function mergeDispatchSummary(a: DispatchSummary, b: DispatchSummary): Di
     failed: a.failed + b.failed,
     skipped: a.skipped + b.skipped,
     expired: a.expired + b.expired,
+    released: a.released + b.released,
     tokensCleared: a.tokensCleared + b.tokensCleared,
   };
 }
@@ -51,7 +56,7 @@ function outcomesOf(rows: readonly ClaimedNotification[], deliveries: readonly D
   return rows.map((row) => ({ id: row.id, outcome: aggregateOutcome(byNotification.get(row.id) ?? [], row.pushAttempts, now) }));
 }
 
-async function processClaim(claim: Claim, now: Date, transport: PushTransport): Promise<DispatchSummary> {
+async function processClaim(claim: Claim, now: Date, transport: PushTransport, deadline: number): Promise<DispatchSummary> {
   const expired = claim.rows.filter((row) => isExpired(row.createdAt, now));
   const live = claim.rows.filter((row) => !isExpired(row.createdAt, now));
   const devices = await loadDevices([...new Set(live.map((row) => row.userId))], now);
@@ -59,10 +64,13 @@ async function processClaim(claim: Claim, now: Date, transport: PushTransport): 
   const unreachable = live.filter((row) => !devices.has(row.userId));
   const expiredCounts = await applyOutcomes(skip(expired, PUSH_ERROR.EXPIRED), claim.leaseUntil, now);
   const deliveries = buildDeliveries(reachable, devices);
-  const results = await sendDeliveries(deliveries, transport);
-  const tokensCleared = await clearUnregisteredTokens(deliveries, results);
-  const counts = await applyOutcomes([...skip(unreachable, PUSH_ERROR.NO_DEVICE), ...outcomesOf(reachable, deliveries, results, now)], claim.leaseUntil, now);
-  return { claimed: claim.rows.length, ...counts, expired: expiredCounts.skipped, tokensCleared };
+  const results = await sendDeliveries(deliveries, transport, deadline);
+  const tokensCleared = await clearUnregisteredTokens(deliveries.slice(0, results.length), results);
+  const unsent = unsentNotificationIds(deliveries, results);
+  const released = await releaseClaims([...unsent], claim.leaseUntil, now);
+  const attempted = reachable.filter((row) => !unsent.has(row.id));
+  const counts = await applyOutcomes([...skip(unreachable, PUSH_ERROR.NO_DEVICE), ...outcomesOf(attempted, deliveries, results, now)], claim.leaseUntil, now);
+  return { claimed: claim.rows.length, ...counts, expired: expiredCounts.skipped, released, tokensCleared };
 }
 
 export async function dispatchPendingPushes(ctx: JobContext, transport: PushTransport = getPushTransport()): Promise<DispatchSummary> {
@@ -73,8 +81,9 @@ export async function dispatchPendingPushes(ctx: JobContext, transport: PushTran
   while (Date.now() < deadline) {
     const claim = await claimPendingBatch(ctx.now, userIds);
     if (claim.rows.length === 0) break;
-    summary = mergeDispatchSummary(summary, await processClaim(claim, ctx.now, transport));
-    if (claim.rows.length < PUSH_BATCH) break;
+    const pass = await processClaim(claim, ctx.now, transport, deadline);
+    summary = mergeDispatchSummary(summary, pass);
+    if (claim.rows.length < PUSH_BATCH || pass.released > 0) break;
   }
   if (summary.claimed > 0) log.info("push.dispatch", { requestId: ctx.requestId, transport: transport.name, ...summary });
   return summary;

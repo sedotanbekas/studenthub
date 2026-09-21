@@ -6,7 +6,7 @@ import { notifyRecipients, type NotifyContext } from "@/lib/notifications/notify
 import { reportCardPublishedNotification } from "@/lib/notifications/templates/report-cards";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { lockKey, lockRows, withTx } from "@/lib/tx";
-import { termAttendanceByStudent } from "./attendance";
+import { assertAttendanceClosed, termAttendanceByStudent } from "./attendance";
 import { gradesLockKey } from "./constants";
 import {
   groupBy,
@@ -21,13 +21,14 @@ import {
   type TermRow,
 } from "./context";
 import { groupAttendanceSnapshots, groupGradeRefresh } from "./grade-plan";
-import { loadSubjectInfo, lockCardRows, lockGrades } from "./grade-writes";
-import { selectPublishTargets } from "./rules";
+import { loadSubjectInfo, lockCardRows, lockGrades, refreshClassSnapshot } from "./grade-writes";
+import { selectPublishTargets, type AttendanceSummary } from "./rules";
 import type { PublishInput, PublishResultDto, UnpublishInput, UnpublishResultDto } from "./schemas";
 
 /**
  * Terbit & tarik terbit rapor (desain 03 §E.8–E.9). Terbit per kelas, semua-atau-tidak (422
- * REPORT_CARD_INCOMPLETE), snapshot mapel/KKM/predikat & rekap kehadiran dibekukan, CAS DRAFT->PUBLISHED,
+ * REPORT_CARD_INCOMPLETE), snapshot nama kelas, mapel/KKM/predikat & rekap kehadiran dibekukan (hanya bila semua hari dalam
+ * rentang rekap sudah ditutup auto-ALPHA; selain itu 422 ATTENDANCE_NOT_CLOSED), CAS DRAFT->PUBLISHED,
  * notifikasi siswa + audit di transaksi yang sama. Tarik terbit wajib alasan, tanpa notifikasi.
  */
 const PUBLISH_TX_TIMEOUT_MS = 60_000;
@@ -43,10 +44,16 @@ async function refreshGradeSnapshots(tx: Tx, scope: SchoolScope, cardIds: readon
   }
 }
 
-/** CAS DRAFT -> PUBLISHED sekaligus menulis rekap sakit/izin/alpha. Jumlah berbeda -> 409 (rollback). */
-async function markPublished(tx: Tx, scope: SchoolScope, term: TermRow, cards: readonly RosterCard[], ctx: ActionContext): Promise<void> {
+/** Rekap sakit/izin/alpha yang akan dibekukan; hari yang belum ditutup auto-ALPHA -> 422 ATTENDANCE_NOT_CLOSED. */
+async function frozenAttendance(tx: Tx, scope: SchoolScope, term: TermRow, cards: readonly RosterCard[], now: Date): Promise<ReadonlyMap<string, AttendanceSummary>> {
   const clock = await loadSchoolClock(tx, scope);
-  const summaries = await termAttendanceByStudent(tx, scope, term, clock, cards.map((c) => c.studentId), ctx.now);
+  const attendance = await termAttendanceByStudent(tx, scope, term, clock, cards.map((c) => c.studentId), now);
+  assertAttendanceClosed(attendance.unclosedDates);
+  return attendance.summaries;
+}
+
+/** CAS DRAFT -> PUBLISHED sekaligus menulis rekap sakit/izin/alpha. Jumlah berbeda -> 409 (rollback). */
+async function markPublished(tx: Tx, scope: SchoolScope, cards: readonly RosterCard[], summaries: ReadonlyMap<string, AttendanceSummary>, ctx: ActionContext): Promise<void> {
   const publishedById = requirePrincipal(ctx).userId;
   let updated = 0;
   for (const { ids, ...snapshot } of groupAttendanceSnapshots(cards, summaries)) {
@@ -89,7 +96,7 @@ async function notifyPublished(tx: Tx, scope: SchoolScope, term: TermRow, cards:
   return notified;
 }
 
-async function selectTargets(tx: Tx, scope: SchoolScope, input: PublishInput): Promise<{ term: TermRow; classId: string; cards: RosterCard[] }> {
+async function selectTargets(tx: Tx, scope: SchoolScope, input: PublishInput): Promise<{ term: TermRow; classId: string; className: string; cards: RosterCard[] }> {
   const { term, klass } = await loadTermClass(tx, scope, input.termId, input.classId);
   const mapped = await loadMappedSubjects(tx, klass.id);
   if (mapped.length === 0) throw unprocessable("CLASS_HAS_NO_SUBJECTS", "Kelas belum memiliki mapel terpetakan; rapor tidak dapat diterbitkan.");
@@ -108,7 +115,7 @@ async function selectTargets(tx: Tx, scope: SchoolScope, input: PublishInput): P
     });
   }
   const chosen = new Set(selection.toPublish.map((c) => c.reportCardId));
-  return { term, classId: klass.id, cards: roster.cards.filter((c) => chosen.has(c.id)) };
+  return { term, classId: klass.id, className: klass.name, cards: roster.cards.filter((c) => chosen.has(c.id)) };
 }
 
 /** POST /school/report-cards/publish. */
@@ -117,11 +124,13 @@ export async function publishReportCards(ctx: ActionContext, schoolId: string | 
   await loadTermClass(prisma, scope, input.termId, input.classId);
   return withTx(async (tx) => {
     await lockGrades(tx, input.termId, input.classId);
-    const { term, classId, cards } = await selectTargets(tx, scope, input);
+    const { term, classId, className, cards } = await selectTargets(tx, scope, input);
     if (cards.length === 0) return { publishedIds: [], notified: 0 };
     const ids = cards.map((c) => c.id);
+    const summaries = await frozenAttendance(tx, scope, term, cards, ctx.now);
     await refreshGradeSnapshots(tx, scope, ids);
-    await markPublished(tx, scope, term, cards, ctx);
+    await refreshClassSnapshot(tx, ids, className);
+    await markPublished(tx, scope, cards, summaries, ctx);
     const notified = await notifyPublished(tx, scope, term, cards, ctx);
     await writeAudit(
       tx,

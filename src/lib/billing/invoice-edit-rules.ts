@@ -2,6 +2,7 @@ import type { StudentStatus } from "@prisma/client";
 import type { LocalDate } from "@/lib/time/zone";
 import type { InvoiceStatusValue } from "./constants";
 import { violation, type BillingViolation } from "./errors";
+import { billableViolation } from "./period-rules";
 
 /** Aturan ubah / batalkan / pulihkan tagihan (murni). Rentang jatuh tempo dicek terpisah (validateDueDate). */
 export interface EditableInvoice {
@@ -48,11 +49,18 @@ export function voidViolation(invoice: VoidableInvoice): BillingViolation | null
   return invoice.hasPending ? pending() : null;
 }
 
-/** VOID -> UNPAID; siswa PINDAH tidak dapat ditagih lagi. */
-export function restoreViolation(invoice: { readonly status: InvoiceStatusValue }, studentStatus: StudentStatus): BillingViolation | null {
+/**
+ * VOID -> UNPAID; siswa PINDAH tidak dapat ditagih lagi, dan pemulihan tunduk pada aturan penagihan yang sama
+ * dengan tagihan baru (siswa nonaktif/lulus hanya untuk periode yang sudah berjalan = tunggakan).
+ */
+export function restoreViolation(
+  invoice: { readonly status: InvoiceStatusValue; readonly periodKey: number },
+  studentStatus: StudentStatus,
+  todayKey: number,
+): BillingViolation | null {
   if (invoice.status !== "VOID") return violation("INVOICE_NOT_VOID", "Hanya tagihan yang dibatalkan yang dapat dipulihkan.");
   if (studentStatus === "MOVED") {
     return violation("STUDENT_NOT_BILLABLE", "Siswa sudah pindah sekolah; tagihannya tidak dapat dipulihkan.", { studentStatus });
   }
-  return null;
+  return billableViolation(studentStatus, invoice.periodKey, todayKey);
 }

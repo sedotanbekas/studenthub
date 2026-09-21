@@ -204,3 +204,35 @@ test("job push-dispatch: menghormati cakupan; cakupan kosong tidak menyentuh apa
   await JOB_HANDLERS["push-dispatch"]({ ...jobCtx(now, []), scope: { schoolIds: [schoolId] } });
   assert.equal((await notificationRow(schoolScoped)).pushStatus, "SENT");
 });
+
+test("anggaran waktu habis di tengah batch: chunk berikutnya tidak dikirim, barisnya dilepas (jatuh tempo lagi, percobaan tidak bertambah)", async () => {
+  const st = await studentWithDevices(schoolId, 1);
+  const now = new Date();
+  const count = 150;
+  await prisma.notification.createMany({
+    data: Array.from({ length: count }, (_, i) => ({
+      userId: st.user.id, type: "INVOICE_ISSUED" as const, category: "FINANCE" as const, title: `Tagihan anggaran ${i}`, body: "Isi", pushNextAttemptAt: now, createdAt: now,
+    })),
+  });
+  const ids = (await prisma.notification.findMany({ where: { userId: st.user.id }, select: { id: true } })).map((r) => r.id);
+  const budgetMs = 1_500;
+  const ctx = { ...jobCtx(now, [st.user.id]), deadline: Date.now() + budgetMs };
+  let requests = 0;
+  const slow: PushTransport = {
+    name: "memory",
+    async send(messages) {
+      requests += 1;
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0, ctx.deadline - Date.now()) + 100));
+      return messages.map((_, i) => ({ status: "ok" as const, id: `slow-${requests}-${i}` }));
+    },
+  };
+  const summary = await dispatchPendingPushes(ctx, slow);
+  assert.equal(requests, 1, "chunk kedua tidak dikirim setelah anggaran habis");
+  assert.deepEqual({ claimed: summary.claimed, sent: summary.sent, released: summary.released, retried: summary.retried }, { claimed: count, sent: 100, released: 50, retried: 0 });
+  const rows = await prisma.notification.findMany({ where: { id: { in: ids } }, select: { pushStatus: true, pushAttempts: true, pushNextAttemptAt: true } });
+  const pending = rows.filter((r) => r.pushStatus === "PENDING");
+  assert.equal(pending.length, 50);
+  assert.ok(pending.every((r) => r.pushAttempts === 0 && r.pushNextAttemptAt.getTime() === now.getTime()), "dilepas: jatuh tempo sekarang, percobaan tidak dipakai");
+  const next = await dispatchPendingPushes(jobCtx(now, [st.user.id]), memoryPushTransport);
+  assert.deepEqual({ claimed: next.claimed, sent: next.sent }, { claimed: 50, sent: 50 }, "putaran berikutnya mengirim sisanya");
+});

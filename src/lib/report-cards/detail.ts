@@ -9,7 +9,7 @@ import type { ReportCardDetailDto } from "./schemas";
 
 /**
  * Detail rapor untuk admin. DRAFT: nama mapel, KKM, dan predikat dihitung dari mapel TERKINI dan rekap
- * kehadiran dihitung langsung. PUBLISHED: semua dari snapshot yang dibekukan saat terbit.
+ * kehadiran dihitung langsung (+ hari yang belum ditutup auto-ALPHA). PUBLISHED: semua dari snapshot yang dibekukan saat terbit.
  */
 const DETAIL_SELECT = {
   id: true,
@@ -70,9 +70,7 @@ export async function loadReportCardDetail(db: Tx, scope: SchoolScope, id: strin
   const term = await findTerm(db, scope, card.termId);
   const mapped = await loadMappedSubjects(db, card.classId);
   const isDraft = card.status === "DRAFT";
-  const live = isDraft
-    ? (await termAttendanceByStudent(db, scope, term, await loadSchoolClock(db, scope), [card.student.id], now)).get(card.student.id) ?? ZERO_ATTENDANCE
-    : null;
+  const live = isDraft ? await termAttendanceByStudent(db, scope, term, await loadSchoolClock(db, scope), [card.student.id], now) : null;
   return {
     id: card.id,
     student: { id: card.student.id, name: card.student.user.name, nis: card.student.nis },
@@ -83,7 +81,11 @@ export async function loadReportCardDetail(db: Tx, scope: SchoolScope, id: strin
     publishedAt: card.publishedAt?.toISOString() ?? null,
     grades: gradeViews(card.grades, isDraft, mapped),
     missingSubjectIds: isDraft ? missingSubjectIds(mapped, card.grades.map((g) => g.subjectId)) : [],
-    attendanceSummary: { ...(live ?? snapshotOf(card)), isSnapshot: !isDraft },
+    attendanceSummary: {
+      ...(live ? live.summaries.get(card.student.id) ?? ZERO_ATTENDANCE : snapshotOf(card)),
+      isSnapshot: !isDraft,
+      unclosedDates: live ? [...live.unclosedDates] : [],
+    },
     average: averageScore(card.grades.map((g) => g.score)),
     updatedAt: card.updatedAt.toISOString(),
   };

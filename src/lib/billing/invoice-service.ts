@@ -152,7 +152,7 @@ export async function voidInvoice(ctx: ActionContext, schoolId: string | undefin
   return loadInvoiceDto(prisma, scope.schoolId, id, schoolClock(school, ctx.now).today);
 }
 
-/** POST /school/invoices/{id}/restore: VOID -> UNPAID (siswa tidak PINDAH). */
+/** POST /school/invoices/{id}/restore: VOID -> UNPAID (siswa tidak PINDAH; nonaktif/lulus hanya tunggakan). */
 export async function restoreInvoice(ctx: ActionContext, schoolId: string | undefined, id: string): Promise<InvoiceDto> {
   const scope = billingScopeOf(ctx, schoolId);
   const school = await loadBillingSchool(prisma, scope.schoolId);
@@ -161,7 +161,8 @@ export async function restoreInvoice(ctx: ActionContext, schoolId: string | unde
     const invoice = await lockAndRead(tx, owner, scope.schoolId);
     const student = await tx.student.findFirst({ where: { id: invoice.studentId, schoolId: scope.schoolId }, select: { status: true } });
     if (!student) throw studentNotFound();
-    assertBilling(restoreViolation(invoice, student.status));
+    const period = periodKey(invoice.periodYear, invoice.periodMonth);
+    assertBilling(restoreViolation({ status: invoice.status, periodKey: period }, student.status, schoolClock(school, ctx.now).todayKey));
     const updated = await tx.invoice.updateMany({
       where: { id, schoolId: scope.schoolId, status: "VOID" },
       data: { status: "UNPAID", voidedAt: null, voidedById: null, voidReason: null },

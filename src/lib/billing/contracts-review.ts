@@ -6,7 +6,7 @@ import { approveSubmissionBody, billingIdParams, listSubmissionsQuery, reasonBod
 /** Kontrak admin: antrean & verifikasi bukti transfer SPP. */
 const TAG = "SPP — Verifikasi Bukti Transfer";
 const SCOPE_NOTE = "SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.";
-const DUPLICATE_NOTE = "possibleDuplicateOf = pengajuan lain di sekolah ini dengan foto bukti mirip (dHash) — penanda, bukan penolakan.";
+const DUPLICATE_NOTE = "possibleDuplicateOf = maks 5 pengajuan lain di sekolah ini dengan foto bukti identik (sha256) atau mirip (dHash) — penanda, bukan penolakan.";
 
 export const listSubmissionsContract = defineContract({
   id: "listSchoolPaymentSubmissions",

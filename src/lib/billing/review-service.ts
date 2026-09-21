@@ -95,7 +95,7 @@ export async function approveSubmission(ctx: ActionContext, schoolId: string | u
   const target = await findTarget(scope.schoolId, id);
   const paymentId = await withTx((tx) => approveInTx(tx, target, scope.schoolId, input, clock, ctx));
   const result = await loadPaymentResult(scope.schoolId, paymentId, target.invoiceId, clock.today);
-  return { submission: await loadAdminSubmission(prisma, scope.schoolId, id, ctx.now), ...result };
+  return { submission: await loadAdminSubmission(prisma, scope.schoolId, id), ...result };
 }
 
 /** POST /school/payment-submissions/{id}/reject: alasan wajib, dikirim ke siswa. */
@@ -114,5 +114,5 @@ export async function rejectSubmission(ctx: ActionContext, schoolId: string | un
     };
     await writeAudit(tx, audit, ctx);
   });
-  return loadAdminSubmission(prisma, scope.schoolId, id, ctx.now);
+  return loadAdminSubmission(prisma, scope.schoolId, id);
 }

@@ -14,8 +14,9 @@ import { loadMappedSubjects } from "../../src/lib/report-cards/context";
 import { upsertClassGrades } from "../../src/lib/report-cards/grade-service";
 import { publishReportCards } from "../../src/lib/report-cards/publish-service";
 import { bulkGradesBody, publishBody } from "../../src/lib/report-cards/schemas";
+import { instantAtLocal, localParts } from "../../src/lib/time/zone";
 import { DEMO_REPORT_CLASS_INDEX, demoAnnouncementPlans, demoGradeDescription, demoScore, type DemoAnnouncementPlan } from "./demo-academic-plan";
-import { adminContext, collectDomainWarning, type DemoSchoolRef, type DemoStudentRef } from "./demo-context";
+import { adminContext, clampToNow, collectDomainWarning, type DemoSchoolRef, type DemoStudentRef } from "./demo-context";
 import type { DemoSchoolSpec } from "./demo-data";
 
 export interface DemoReportCardSummary {
@@ -38,8 +39,18 @@ async function pendingReportTargets(ref: DemoSchoolRef, classId: string, targets
   });
 }
 
+/**
+ * Rapor demo dinilai & diterbitkan "pagi ini" (07.00 lokal, maks. sekarang): rekap kehadiran dipotong di hari
+ * kemarin yang sudah ditutup cron, sehingga seed tidak gagal ATTENDANCE_NOT_CLOSED saat dijalankan setelah jam
+ * tutup hari sebelum tick auto-ALPHA hari ini berjalan.
+ */
+const DEMO_REPORT_PUBLISH_MINUTE = 7 * 60;
+
+const demoPublishInstant = (ref: DemoSchoolRef, now: Date): Date =>
+  clampToNow(instantAtLocal(localParts(now, ref.timezone).ymd, DEMO_REPORT_PUBLISH_MINUTE, ref.timezone), now);
+
 async function gradeAndPublish(ref: DemoSchoolRef, classId: string, pending: readonly DemoStudentRef[], now: Date): Promise<void> {
-  const ctx = adminContext(ref, now);
+  const ctx = adminContext(ref, demoPublishInstant(ref, now));
   const subjects = await loadMappedSubjects(prisma, classId);
   for (const [subjectIndex, subject] of subjects.entries()) {
     const entries = pending.map((s) => {

@@ -56,10 +56,16 @@ async function sendChunk(part: readonly Delivery[], transport: PushTransport): P
   }
 }
 
-/** Kirim berurutan per chunk (<= 100); hasil sejajar dengan `deliveries`. */
-export async function sendDeliveries(deliveries: readonly Delivery[], transport: PushTransport): Promise<DeviceResult[]> {
+/**
+ * Kirim berurutan per chunk (<= 100) selama `deadline` (epoch ms) belum lewat; hasil sejajar dengan prefiks
+ * `deliveries` yang sempat dikirim (results.length <= deliveries.length).
+ */
+export async function sendDeliveries(deliveries: readonly Delivery[], transport: PushTransport, deadline = Number.POSITIVE_INFINITY): Promise<DeviceResult[]> {
   const results: DeviceResult[] = [];
-  for (const part of chunk(deliveries, EXPO_PUSH_CHUNK)) results.push(...(await sendChunk(part, transport)));
+  for (const part of chunk(deliveries, EXPO_PUSH_CHUNK)) {
+    if (Date.now() >= deadline) break;
+    results.push(...(await sendChunk(part, transport)));
+  }
   return results;
 }
 

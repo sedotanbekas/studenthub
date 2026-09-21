@@ -1,10 +1,11 @@
-import type { StudentStatus } from "@prisma/client";
+import type { InvoiceStatus, StudentStatus } from "@prisma/client";
 import { MAX_INVOICE_AMOUNT, MIN_INVOICE_AMOUNT, type BulkSkipReason } from "./constants";
 import { violation, type BillingViolation } from "./errors";
 
 /**
  * Rencana tagihan massal (murni). Nominal = override ?? sppAmount siswa ?? nominal default permintaan;
- * 0 = bebas SPP (EXEMPT). Slot yang sudah ada (termasuk VOID) = ALREADY_BILLED. Urutan: kelas, nama, id.
+ * 0 = bebas SPP (EXEMPT). Slot yang sudah ada = ALREADY_BILLED; slot VOID = VOIDED (+ hint RESTORE: slot tetap
+ * terpakai, tagihan harus dipulihkan, bukan dibuat ulang). Urutan: kelas, nama, id.
  */
 export interface BulkStudent {
   readonly id: string;
@@ -16,10 +17,15 @@ export interface BulkStudent {
 
 export interface BulkPlanInput {
   readonly students: readonly BulkStudent[];
-  /** studentId yang sudah punya tagihan periode ini (VOID termasuk). */
-  readonly existing: ReadonlySet<string>;
+  /** Slot tagihan periode ini per studentId (VOID termasuk). */
+  readonly existing: ReadonlyMap<string, ExistingSlot>;
   readonly defaultAmount: number;
   readonly overrides: ReadonlyMap<string, number>;
+}
+
+export interface ExistingSlot {
+  readonly id: string;
+  readonly status: InvoiceStatus;
 }
 
 export interface BulkRow {
@@ -30,6 +36,10 @@ export interface BulkRow {
 export interface BulkSkip {
   readonly studentId: string;
   readonly reason: BulkSkipReason;
+  /** Tagihan yang menempati slot (ALREADY_BILLED / VOIDED). */
+  readonly invoiceId?: string;
+  /** VOIDED: pulihkan lewat POST /school/invoices/{invoiceId}/restore. */
+  readonly hint?: "RESTORE";
 }
 
 export interface BulkPlan {
@@ -55,11 +65,17 @@ function compareStudents(a: BulkStudent, b: BulkStudent): number {
 /** Salinan terurut (kelas kosong di akhir); input tidak dimutasi. */
 export const sortBulkStudents = (students: readonly BulkStudent[]): BulkStudent[] => [...students].sort(compareStudents);
 
-function skipReason(student: BulkStudent, amount: number, existing: ReadonlySet<string>): BulkSkipReason | null {
-  if (student.status !== "ACTIVE") return "NOT_ACTIVE";
-  if (existing.has(student.id)) return "ALREADY_BILLED";
-  if (amount === 0) return "EXEMPT";
-  if (!Number.isSafeInteger(amount) || amount < MIN_INVOICE_AMOUNT || amount > MAX_INVOICE_AMOUNT) return "AMOUNT_INVALID";
+function skipOf(student: BulkStudent, amount: number, existing: ReadonlyMap<string, ExistingSlot>): BulkSkip | null {
+  const skip = (reason: BulkSkipReason): BulkSkip => ({ studentId: student.id, reason });
+  if (student.status !== "ACTIVE") return skip("NOT_ACTIVE");
+  const slot = existing.get(student.id);
+  if (slot) {
+    return slot.status === "VOID"
+      ? { studentId: student.id, reason: "VOIDED", invoiceId: slot.id, hint: "RESTORE" }
+      : { studentId: student.id, reason: "ALREADY_BILLED", invoiceId: slot.id };
+  }
+  if (amount === 0) return skip("EXEMPT");
+  if (!Number.isSafeInteger(amount) || amount < MIN_INVOICE_AMOUNT || amount > MAX_INVOICE_AMOUNT) return skip("AMOUNT_INVALID");
   return null;
 }
 
@@ -68,8 +84,8 @@ export function planBulkInvoices(input: BulkPlanInput): BulkPlan {
   const skipped: BulkSkip[] = [];
   for (const student of sortBulkStudents(input.students)) {
     const amount = input.overrides.get(student.id) ?? student.sppAmount ?? input.defaultAmount;
-    const reason = skipReason(student, amount, input.existing);
-    if (reason) skipped.push({ studentId: student.id, reason });
+    const skip = skipOf(student, amount, input.existing);
+    if (skip) skipped.push(skip);
     else rows.push({ studentId: student.id, amount });
   }
   return { rows, skipped, totalAmount: rows.reduce((sum, row) => sum + row.amount, 0) };

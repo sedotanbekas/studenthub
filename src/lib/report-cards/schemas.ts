@@ -36,8 +36,10 @@ const descriptionInput = z
   .trim()
   .max(DESCRIPTION_MAX, `Deskripsi maksimal ${DESCRIPTION_MAX} karakter.`)
   .nullish()
-  .transform((value) => normalizeDescription(value))
-  .meta({ description: `Deskripsi capaian (maks ${DESCRIPTION_MAX}); kosong -> null. Diabaikan bila score null.` });
+  .transform((value) => (value === undefined ? undefined : normalizeDescription(value)))
+  .meta({
+    description: `Deskripsi capaian (maks ${DESCRIPTION_MAX}). Tidak dikirim = deskripsi tersimpan dipertahankan (nilai baru: null); null atau kosong = dihapus. Diabaikan bila score null.`,
+  });
 
 // ----------------------------------------------------------------------------- masukan
 
@@ -203,6 +205,9 @@ export const reportCardDetailSchema = z
       .object({
         ...attendanceCountsShape,
         isSnapshot: z.boolean().meta({ description: "true = dibekukan saat terbit; false = dihitung langsung (DRAFT)." }),
+        unclosedDates: z
+          .array(z.string().meta({ format: "date" }))
+          .meta({ description: "DRAFT: hari sekolah dalam rentang rekap yang belum ditutup auto-ALPHA (rekap belum final; terbit ditolak 422 ATTENDANCE_NOT_CLOSED). PUBLISHED: []." }),
       })
       .meta({ description: "Jumlah hari SAKIT/IZIN/ALPHA dari awal semester s.d. min(akhir semester, hari tertutup terakhir)." }),
     average: z.number().nullable(),
@@ -222,6 +227,9 @@ export const readinessSchema = z
     incomplete: z.array(cardRefSchema.extend({ missingSubjectIds: z.array(z.string()) })),
     noReportCard: z.array(z.string()).meta({ description: "Siswa AKTIF kelas ini yang belum punya rapor semester ini." }),
     published: z.array(cardRefSchema),
+    attendanceUnclosedDates: z
+      .array(z.string().meta({ format: "date" }))
+      .meta({ description: "Peringatan: hari sekolah dalam rentang rekap kehadiran yang belum ditutup auto-ALPHA. Selama tidak kosong, terbit ditolak 422 ATTENDANCE_NOT_CLOSED." }),
   })
   .meta({ id: "ReportCardReadiness" });
 export type ReadinessDto = z.input<typeof readinessSchema>;

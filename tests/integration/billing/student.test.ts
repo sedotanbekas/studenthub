@@ -54,7 +54,7 @@ before(async () => {
   const voided = await issueInvoice(fx, s.student.id, 1, 150_000);
   const future = await issueInvoice(fx, s.student.id, 2, 120_000);
   const pay = await callRoute<Envelope<{ payment: { id: string } }>>(cashRoute, {
-    method: "POST", url: schoolUrl(`/invoices/${paid.id}/payments`), params: { id: paid.id }, bearer: fx.adminToken, json: { amount: 100_000, paidDate: todayWib() },
+    method: "POST", url: schoolUrl(`/invoices/${paid.id}/payments`), params: { id: paid.id }, bearer: fx.adminToken, json: { amount: 100_000, expectedPaidAmount: 0, paidDate: todayWib() },
   });
   await callRoute(voidInvoiceRoute, { method: "POST", url: schoolUrl(`/invoices/${voided.id}/void`), params: { id: voided.id }, bearer: fx.adminToken, json: { reason: "Salah periode" } });
   assert.equal((await submitProof(s, future.id, { amount: 50_000 })).status, 201);

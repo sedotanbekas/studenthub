@@ -87,7 +87,7 @@ describe("unggah bukti transfer", () => {
     assert.equal(await codeOf({ amount: 50_000, transferDate: addDays(todayWib(), -91) }), "TRANSFER_DATE_OUT_OF_RANGE");
     assert.equal((await submitProof(s, inv.id, { amount: 50_000, transferDate: addDays(todayWib(), -90) })).status, 201);
     const paidInv = await issueInvoice(fx, s.student.id, 1, 20_000);
-    await callRoute(cashRoute, { method: "POST", url: schoolUrl(`/invoices/${paidInv.id}/payments`), params: { id: paidInv.id }, bearer: fx.adminToken, json: { amount: 20_000, paidDate: todayWib() } });
+    await callRoute(cashRoute, { method: "POST", url: schoolUrl(`/invoices/${paidInv.id}/payments`), params: { id: paidInv.id }, bearer: fx.adminToken, json: { amount: 20_000, expectedPaidAmount: 0, paidDate: todayWib() } });
     assert.equal((await submitProof(s, paidInv.id, { amount: 20_000 })).body?.error?.code, "INVOICE_NOT_PAYABLE");
     const voidInv = await issueInvoice(fx, s.student.id, 2);
     await callRoute(voidInvoiceRoute, { method: "POST", url: schoolUrl(`/invoices/${voidInv.id}/void`), params: { id: voidInv.id }, bearer: fx.adminToken, json: { reason: "Batal uji" } });

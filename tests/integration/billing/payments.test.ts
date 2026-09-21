@@ -44,10 +44,18 @@ after(async () => {
   await disconnect();
 });
 
-const cash = (invoiceId: string, json: Record<string, unknown>, token = fx.adminToken) =>
+/** paidAmount tagihan saat ini (token expectedPaidAmount yang dikirim klien dari tampilan terakhirnya). */
+const paidNow = async (invoiceId: string): Promise<number> =>
+  (await prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { paidAmount: true } })).paidAmount;
+
+const postCash = (invoiceId: string, json: Record<string, unknown>, token = fx.adminToken) =>
   callRoute<Envelope<PaymentResult>>(cashRoute, {
     method: "POST", url: schoolUrl(`/invoices/${invoiceId}/payments`), params: { id: invoiceId }, bearer: token, json: { paidDate: todayWib(), ...json },
   });
+
+/** Tunai dengan expectedPaidAmount = paidAmount terkini (kecuali dikirim eksplisit). */
+const cash = async (invoiceId: string, json: Record<string, unknown>, token = fx.adminToken) =>
+  postCash(invoiceId, { expectedPaidAmount: await paidNow(invoiceId), ...json }, token);
 
 const voidPayment = (paymentId: string, reason: string) =>
   callRoute<Envelope<PaymentResult>>(voidPaymentRoute, { method: "POST", url: schoolUrl(`/payments/${paymentId}/void`), params: { id: paymentId }, bearer: fx.adminToken, json: { reason } });
@@ -90,6 +98,43 @@ describe("pembayaran tunai", () => {
     const paid = await cash(inv.id, { amount: 1_000 });
     assert.equal(paid.status, 409);
     assert.equal(paid.body?.error?.code, "INVOICE_NOT_PAYABLE");
+  });
+
+  test("permintaan tunai yang diulang (respons hilang / klik ganda) ditolak 409 STATE_CONFLICT, tidak tercatat dua kali", async () => {
+    const { student, user } = await createStudentWithToken(fx);
+    const inv = await issueInvoice(fx, student.id, 0, 150_000);
+    const body = { amount: 50_000, note: "Cicilan 1", expectedPaidAmount: 0 };
+    const first = await postCash(inv.id, body);
+    assert.equal(first.status, 201, JSON.stringify(first.body));
+    const retry = await postCash(inv.id, body);
+    assert.equal(retry.status, 409, JSON.stringify(retry.body));
+    assert.equal(retry.body?.error?.code, "STATE_CONFLICT");
+    assert.deepEqual(retry.body?.error?.details, { paidAmount: 50_000 });
+    const after = await prisma.invoice.findUniqueOrThrow({ where: { id: inv.id }, select: { paidAmount: true, status: true } });
+    assert.deepEqual(after, { paidAmount: 50_000, status: "PARTIAL" });
+    assert.equal(await prisma.payment.count({ where: { invoiceId: inv.id, voidedAt: null } }), 1);
+    assert.equal(await prisma.notification.count({ where: { userId: user.id, type: "PAYMENT_APPROVED" } }), 1);
+    const next = await postCash(inv.id, { ...body, expectedPaidAmount: 50_000 });
+    assert.equal(next.status, 201, "cicilan berikutnya dengan token terbaru tetap diterima");
+    assert.equal(next.body?.data.invoice.paidAmount, 100_000);
+    assert.equal((await postCash(inv.id, { amount: 50_000 })).status, 400, "expectedPaidAmount wajib");
+  });
+
+  test("klik ganda paralel: tepat satu tercatat per tagihan, sisanya 409 STATE_CONFLICT", async () => {
+    const school = await createBillingSchool();
+    const invoices: InvoiceBody[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const { student } = await createStudentWithToken(school);
+      invoices.push(await issueInvoice(school, student.id, 0, 150_000, { notify: false }));
+    }
+    const calls = invoices.flatMap((inv) => [0, 1].map(() => postCash(inv.id, { amount: 50_000, expectedPaidAmount: 0 }, school.adminToken)));
+    const results = await Promise.all(calls);
+    for (let i = 0; i < invoices.length; i += 1) {
+      const pair = results.slice(i * 2, i * 2 + 2).map((r) => r.status).sort();
+      assert.deepEqual(pair, [201, 409], JSON.stringify(results.map((r) => r.body?.error?.code)));
+    }
+    const rows = await prisma.invoice.findMany({ where: { schoolId: school.school.id }, select: { paidAmount: true } });
+    assert.ok(rows.every((r) => r.paidAmount === 50_000));
   });
 
   test("tunai diblokir saat bukti transfer menunggu (409); tagihan VOID 409; siswa 403", async () => {
@@ -144,14 +189,14 @@ describe("pembatalan pembayaran & kuitansi", () => {
 });
 
 describe("nomor kuitansi tanpa celah", () => {
-  test("20 pembayaran tunai paralel (10 tagihan x 2) -> kuitansi 1..20 unik, semua tagihan lunas", async () => {
+  test("20 pembayaran tunai paralel (20 tagihan) -> kuitansi 1..20 unik, semua tagihan lunas", async () => {
     const school = await createBillingSchool();
     const invoices: InvoiceBody[] = [];
-    for (let i = 0; i < 10; i += 1) {
+    for (let i = 0; i < 20; i += 1) {
       const { student } = await createStudentWithToken(school);
       invoices.push(await issueInvoice(school, student.id, 0, 100_000, { notify: false }));
     }
-    const calls = invoices.flatMap((inv) => [0, 1].map(() => cash(inv.id, { amount: 50_000 }, school.adminToken)));
+    const calls = invoices.map((inv) => postCash(inv.id, { amount: 100_000, expectedPaidAmount: 0 }, school.adminToken));
     const results = await Promise.all(calls);
     assert.deepEqual(results.map((r) => r.status), Array.from({ length: 20 }, () => 201), JSON.stringify(results.find((r) => r.status !== 201)?.body));
     const receipts = await prisma.payment.findMany({ where: { schoolId: school.school.id }, select: { receiptNo: true } });

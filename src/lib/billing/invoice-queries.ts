@@ -90,7 +90,7 @@ export async function getInvoiceDetail(ctx: ActionContext, schoolId: string | un
     select: {
       ...INVOICE_SELECT,
       voidedBy: { select: { id: true, name: true } },
-      payments: { select: PAYMENT_SELECT, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: HISTORY_LIMIT },
+      payments: { select: PAYMENT_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: HISTORY_LIMIT },
       submissions: { select: SUBMISSION_SUMMARY_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: HISTORY_LIMIT },
     },
   });

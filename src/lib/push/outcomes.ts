@@ -55,6 +55,19 @@ function groupOutcomes(items: readonly NotificationOutcome[]): Array<{ outcome: 
   return [...groups.values()];
 }
 
+/**
+ * Anggaran waktu habis sebelum dikirim: klaim dilepas (jatuh tempo lagi = `now`) tanpa menambah pushAttempts
+ * — belum ada percobaan kirim. Dijaga klaim yang sama seperti hasil lain.
+ */
+export async function releaseClaims(ids: readonly string[], leaseUntil: Date, now: Date): Promise<number> {
+  if (ids.length === 0) return 0;
+  const { count } = await prisma.notification.updateMany({
+    where: { id: { in: [...ids] }, pushStatus: "PENDING", pushNextAttemptAt: leaseUntil },
+    data: { pushNextAttemptAt: now },
+  });
+  return count;
+}
+
 /** Satu updateMany per kelompok hasil yang sama; hitungan = baris yang benar-benar berubah. */
 export async function applyOutcomes(items: readonly NotificationOutcome[], leaseUntil: Date, now: Date): Promise<OutcomeCounts> {
   const counts: Record<keyof OutcomeCounts, number> = { sent: 0, retried: 0, failed: 0, skipped: 0 };

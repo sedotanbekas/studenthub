@@ -156,3 +156,23 @@ test("check-in mendokumentasikan 201 (baru) DAN 200 (replay) dengan envelope yan
   assert.deepEqual(Object.keys(file).sort(), ["image/jpeg", "image/png", "image/webp"]);
   assert.deepEqual(file["image/jpeg"]?.schema, { type: "string", format: "binary" });
 });
+
+test("batas panjang teks masukan (rapikan-lalu-cek) terdokumentasi minLength/maxLength", () => {
+  type Prop = { type?: string; minLength?: number; maxLength?: number; anyOf?: Prop[] };
+  const schemas = (buildOpenApiDocument(ALL_CONTRACTS, { version: "uji" }).components?.schemas ?? {}) as Record<string, { properties?: Record<string, Prop> }>;
+  const lengthOf = (component: string, field: string) => {
+    const prop = schemas[component]?.properties?.[field];
+    assert.ok(prop, `${component}.${field} tidak ditemukan`);
+    const text = prop.anyOf?.find((branch) => branch.type === "string") ?? prop;
+    return [text.minLength, text.maxLength];
+  };
+  assert.deepEqual(lengthOf("BillingReasonInput", "reason"), [5, 255]);
+  assert.deepEqual(lengthOf("SubmitPaymentProofInput", "senderName"), [2, 100]);
+  assert.deepEqual(lengthOf("SubmitPaymentProofInput", "senderBank"), [2, 50]);
+  for (const [component, field] of [["SubmitPaymentProofInput", "note"], ["CashPaymentInput", "note"], ["ApproveSubmissionInput", "note"], ["CreateInvoiceInput", "note"], ["UpdateInvoiceInput", "note"]] as const) {
+    assert.deepEqual(lengthOf(component, field), [undefined, 255], `${component}.${field}`);
+  }
+  for (const component of ["CreateInvoiceInput", "UpdateInvoiceInput", "BulkInvoiceInput"]) assert.deepEqual(lengthOf(component, "title"), [1, 100], component);
+  assert.deepEqual(lengthOf("CreateStudentInput", "name"), [3, 100]);
+  assert.deepEqual(lengthOf("ChangeStudentStatusInput", "reason"), [3, 255]);
+});

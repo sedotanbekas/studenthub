@@ -290,7 +290,7 @@ P2. **Dispatch** (`dispatchPendingPushes(jobCtx, {scope?})`). Loop until `PUSH_D
 2. **Claim:** `UPDATE Notification SET pushStatus='SENDING', pushClaimId=:cid, pushLockedUntil=:now+lease WHERE pushStatus='PENDING' AND pushNextAttemptAt <= :now [AND userId IN scope] ORDER BY pushNextAttemptAt LIMIT 500`, then `findMany where pushClaimId=:cid`.
 3. Rows older than `PUSH_MAX_AGE_MINUTES` → `SKIPPED` ("EXPIRED").
 4. Load the recipients' live sessions that have a token. Users with no token → `SKIPPED`.
-5. Build messages: `{to, title≤100, body≤178, data:{notificationId,screen,id}, sound:"default", channelId:"default", priority:"high"}`. Chunk them into groups of ≤ 100 and send one after another.
+5. Build messages: `{to, title≤100, body≤178, data:{notificationId,screen,id}, sound:"default", channelId:"default", priority:"high"}`. Chunk them into groups of ≤ 100 and send one after another. The budget deadline is checked before every chunk; once it passes, the notifications not yet sent to any device are released (pushNextAttemptAt = now, pushAttempts unchanged, guarded by the claim) instead of holding the dispatcher. Each Expo request is bounded by an undici Agent (connect 5 s, headers 10 s, body 10 s; the undici default is 300 s); a timeout is a network error → RETRY.
 6. Classify each ticket (pure `classifyTicket`):
    - `ok` → insert a `PushTicket`.
    - `DeviceNotRegistered` → `updateMany AuthSession {id, expoPushToken:token} → null`.
@@ -358,7 +358,7 @@ S5. **Local driver:**
 - Streams use `fs.createReadStream` → `Readable.toWeb`.
 - `STORAGE_ROOT` must be outside the app directory in production (checked at boot).
 
-S6. **StoredFile row.** `sha256` is computed over the **stored** bytes, along with width, height and page count. `originalName` is cleaned (basename only, control characters removed, ≤ 255). The upload response never says whether the file is a duplicate. Review screens for admins and super admin show "possible duplicate proof" by joining on `sha256` within the same kind.
+S6. **StoredFile row.** `sha256` is computed over the **stored** bytes, along with width, height and page count. `originalName` is cleaned (basename only, control characters removed, ≤ 255). The upload response never says whether the file is a duplicate. Review screens for admins and super admin show "possible duplicate proof" by joining on `sha256` within the same kind (payment proofs: computed once at upload together with dHash matches and stored in `PaymentProofMatch`, at most 5 per proof — see 03 G2).
 
 S7. **Attaching** (`attachFile(tx, {fileId, kind, ownerUserId, maxAgeMinutes?}, now)`):
 - `updateMany where {id, kind, uploadedById: ownerUserId, attachedAt:null, deletedAt:null, createdAt ≥ now−maxAge}` → `attachedAt=now`.

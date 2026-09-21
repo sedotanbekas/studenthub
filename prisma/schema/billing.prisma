@@ -78,13 +78,15 @@ model PaymentSubmission {
   reviewedAt       DateTime?
   reviewNote       String?      @db.VarChar(255)
 
-  school         School     @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  invoice        Invoice    @relation("InvoiceSubmissions", fields: [invoiceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  pendingInvoice Invoice?   @relation("InvoicePendingSubmission", fields: [pendingInvoiceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  student        Student    @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  proofFile      StoredFile @relation(fields: [proofFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  reviewedBy     User?      @relation(fields: [reviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  school         School              @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  invoice        Invoice             @relation("InvoiceSubmissions", fields: [invoiceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  pendingInvoice Invoice?            @relation("InvoicePendingSubmission", fields: [pendingInvoiceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student        Student             @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  proofFile      StoredFile          @relation(fields: [proofFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewedBy     User?               @relation(fields: [reviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
   payment        Payment?
+  proofMatches   PaymentProofMatch[] @relation("ProofMatches")
+  proofMatchedBy PaymentProofMatch[] @relation("ProofMatchedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -92,6 +94,23 @@ model PaymentSubmission {
   @@index([schoolId, status, createdAt])
   @@index([invoiceId, status])
   @@index([studentId, createdAt])
+}
+
+/// Penanda bukti transfer identik/mirip antar-pengajuan dalam SATU sekolah. Dihitung sekali saat bukti
+/// diunggah (dua arah, maks 5 kecocokan per unggahan) agar antrean admin tidak membandingkan ribuan hash
+/// setiap kali dibaca. Hanya penanda (bukan penolakan); tidak pernah diubah atau dihapus.
+model PaymentProofMatch {
+  submissionId      String
+  matchSubmissionId String
+  /// 0 = sha256 identik; 1 = dHash mirip, siswa yang sama; 2 = dHash mirip, siswa lain.
+  tier              Int      @db.TinyInt
+  createdAt         DateTime @default(now())
+
+  submission      PaymentSubmission @relation("ProofMatches", fields: [submissionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  matchSubmission PaymentSubmission @relation("ProofMatchedBy", fields: [matchSubmissionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([submissionId, matchSubmissionId])
+  @@index([matchSubmissionId])
 }
 
 /// Uang yang benar-benar diterima (transfer terverifikasi atau tunai dicatat admin).

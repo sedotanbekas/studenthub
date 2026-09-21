@@ -3,8 +3,8 @@ import { describeDays, listSchoolDays, type DayCheck } from "@/lib/calendar/rule
 import { loadCalendarContext } from "@/lib/calendar/queries";
 import { prisma } from "@/lib/db";
 import { badRequest } from "@/lib/http/errors";
-import { fromDbDate, localParts, monthRange, toDbDate, type LocalDate } from "@/lib/time/zone";
-import { closedThrough, closureTrackedFrom } from "./auto-alpha-rules";
+import { fromDbDate, monthRange, toDbDate, type LocalDate } from "@/lib/time/zone";
+import { closedThrough } from "./auto-alpha-rules";
 import {
   aggregateByMonth,
   buildClassRates,
@@ -23,7 +23,7 @@ import {
   type ClassStatusCount,
   type StatusCounts,
 } from "./attendance-stats";
-import { AUTO_ALPHA_JOB } from "./auto-alpha-rules";
+import { listUnclosedDates } from "./closure-queries";
 import { timeLocal, toStudentBrief } from "./monitor-dto";
 import type {
   ClassAnalyticsDto,
@@ -89,23 +89,8 @@ async function schoolCounts(schoolId: string, cut: Period | null): Promise<Statu
   return countsFrom(groups.map((g) => ({ status: g.status, count: g._count._all })));
 }
 
-/**
- * Hari sekolah tertutup di periode tanpa JobRun auto-alpha SUCCEEDED (data bisa belum lengkap). Hanya hari
- * yang status tutupnya bisa diketahui (closureTrackedFrom: setelah sekolah terdaftar, dalam retensi JobRun).
- */
-async function unclosedDates(school: MonitorSchool, cut: Period | null, now: Date): Promise<LocalDate[]> {
-  if (!cut) return [];
-  const tracked = closureTrackedFrom(schoolToday(school, now), localParts(school.createdAt, school.timezone).ymd);
-  const days = listSchoolDays(cut.from, cut.to, await loadCalendarContext(prisma, school, cut)).filter((day) => day >= tracked);
-  if (days.length === 0) return [];
-  const done = await prisma.jobRun.findMany({
-    where: { job: AUTO_ALPHA_JOB, scopeKey: school.id, runKey: { in: days }, status: "SUCCEEDED" },
-    select: { runKey: true },
-    take: days.length,
-  });
-  const doneKeys = new Set(done.map((run) => run.runKey));
-  return days.filter((day) => !doneKeys.has(day));
-}
+/** Hari sekolah tertutup di periode tanpa JobRun auto-alpha SUCCEEDED (helper bersama closure-queries). */
+const unclosedDates = (school: MonitorSchool, cut: Period | null, now: Date): Promise<LocalDate[]> => listUnclosedDates(prisma, school, cut, now);
 
 /** Grafik batang per kelas satu bulan + rata-rata sekolah (digabung, berbobot student-day). */
 export async function getClassAnalytics(

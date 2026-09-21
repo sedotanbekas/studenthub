@@ -179,6 +179,15 @@ function invoiceCases(get: GetFixture): readonly CheckCase[] {
   ];
 }
 
+/** Tepi penanda antara dua pengajuan (REJECTED, tanpa slot pending) dengan tingkat `tier`. */
+async function proofMatch(fx: CheckFixture, tier: number) {
+  const [a, b] = [
+    await submission(fx, { invoiceId: fx.otherInvoice.id, status: "REJECTED", pendingInvoiceId: null }),
+    await submission(fx, { invoiceId: fx.otherInvoice.id, status: "REJECTED", pendingInvoiceId: null }),
+  ];
+  return prisma.paymentProofMatch.create({ data: { submissionId: a.id, matchSubmissionId: b.id, tier } });
+}
+
 export function billingCases(get: GetFixture): readonly CheckCase[] {
   return [
     ...invoiceCases(get),
@@ -204,6 +213,18 @@ export function billingCases(get: GetFixture): readonly CheckCase[] {
       constraint: "chk_payment_amount",
       violations: [() => payment(get(), 0), () => payment(get(), -1)],
       valid: () => payment(get(), 1_000),
+    },
+    {
+      constraint: "chk_payment_proof_match",
+      violations: [
+        async () => proofMatch(get(), 3),
+        async () => proofMatch(get(), -1),
+        async () => {
+          const self = await submission(get(), { invoiceId: get().otherInvoice.id, status: "REJECTED", pendingInvoiceId: null });
+          return prisma.paymentProofMatch.create({ data: { submissionId: self.id, matchSubmissionId: self.id, tier: 0 } });
+        },
+      ],
+      valid: () => proofMatch(get(), 2),
     },
     {
       constraint: "chk_document_counter",

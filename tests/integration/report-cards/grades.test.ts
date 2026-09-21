@@ -201,3 +201,23 @@ test("nilai satu rapor: mapel terpetakan atau yang sudah dinilai; ganda/di luar 
   const cleared = await putCardGrades(w.adminToken, cardId, [{ subjectId: bin.id, score: null }]);
   assert.deepEqual(cleared.body?.data.missingSubjectIds, [bin.id]);
 });
+
+test("deskripsi tidak dikirim dipertahankan (massal & satu rapor); null menghapus; skor sama tanpa deskripsi = unchanged", async () => {
+  const w = await createRcWorld(1);
+  const s0 = w.students[0]!.student.id;
+  const mtk = w.subjects[1];
+  const descriptionNow = async () => (await prisma.reportCardGrade.findFirstOrThrow({ where: { reportCard: { studentId: s0 }, subjectId: mtk.id } })).description;
+  await putBulk(w.adminToken, bulkBody(w, 1, [{ studentId: s0, score: 80, description: "Deskripsi lama" }]));
+  const bulkScoreOnly = await putBulk(w.adminToken, bulkBody(w, 1, [{ studentId: s0, score: 85 }]));
+  assert.deepEqual(bulkScoreOnly.body?.data, { updated: 1, unchanged: 0, deleted: 0, createdReportCards: 0 });
+  assert.equal(await descriptionNow(), "Deskripsi lama");
+  const bulkSame = await putBulk(w.adminToken, bulkBody(w, 1, [{ studentId: s0, score: 85 }]));
+  assert.deepEqual(bulkSame.body?.data, { updated: 0, unchanged: 1, deleted: 0, createdReportCards: 0 });
+  const cardId = await cardIdOf(w, s0);
+  const cardScoreOnly = await putCardGrades(w.adminToken, cardId, [{ subjectId: mtk.id, score: 90 }]);
+  assert.equal(cardScoreOnly.status, 200, JSON.stringify(cardScoreOnly.body?.error));
+  assert.equal(cardScoreOnly.body?.data.grades.find((g) => g.subjectId === mtk.id)?.description, "Deskripsi lama");
+  const cleared = await putCardGrades(w.adminToken, cardId, [{ subjectId: mtk.id, score: 90, description: null }]);
+  assert.equal(cleared.body?.data.grades.find((g) => g.subjectId === mtk.id)?.description, null);
+  assert.equal(await descriptionNow(), null);
+});

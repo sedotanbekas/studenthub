@@ -36,9 +36,15 @@ test("voidViolation: hanya UNPAID tanpa bayar & tanpa pengajuan menunggu; void d
   assert.equal(voidViolation({ status: "VOID", paidAmount: 0, hasPending: false })?.code, "INVOICE_VOID");
 });
 
-test("restoreViolation: hanya dari VOID dan bukan siswa PINDAH", () => {
-  assert.equal(restoreViolation({ status: "VOID" }, "ACTIVE"), null);
-  assert.equal(restoreViolation({ status: "VOID" }, "GRADUATED"), null);
-  assert.equal(restoreViolation({ status: "UNPAID" }, "ACTIVE")?.code, "INVOICE_NOT_VOID");
-  assert.equal(restoreViolation({ status: "VOID" }, "MOVED")?.code, "STUDENT_NOT_BILLABLE");
+test("restoreViolation: hanya dari VOID, bukan siswa PINDAH, dan aturan tunggakan untuk siswa nonaktif/lulus", () => {
+  const today = 2026 * 12 + 8; // September 2026
+  const past = { status: "VOID" as const, periodKey: today - 1 };
+  const future = { status: "VOID" as const, periodKey: today + 1 };
+  assert.equal(restoreViolation(future, "ACTIVE", today), null);
+  assert.equal(restoreViolation(past, "GRADUATED", today), null);
+  assert.equal(restoreViolation({ ...past, periodKey: today }, "INACTIVE", today), null, "bulan berjalan = tunggakan");
+  assert.equal(restoreViolation({ ...past, status: "UNPAID" }, "ACTIVE", today)?.code, "INVOICE_NOT_VOID");
+  assert.equal(restoreViolation(past, "MOVED", today)?.code, "STUDENT_NOT_BILLABLE");
+  assert.equal(restoreViolation(future, "INACTIVE", today)?.code, "STUDENT_NOT_BILLABLE", "periode depan siswa nonaktif tidak dipulihkan");
+  assert.equal(restoreViolation(future, "GRADUATED", today)?.code, "STUDENT_NOT_BILLABLE");
 });

@@ -93,7 +93,7 @@ export const readinessContract = defineContract({
   path: "/api/v1/school/report-cards/readiness",
   tag: TAG,
   summary: "Kesiapan terbit rapor satu kelas",
-  description: `ready = DRAFT lengkap semua mapel terpetakan; incomplete = DRAFT dengan missingSubjectIds; noReportCard = siswa AKTIF kelas ini tanpa rapor semester ini; published = sudah terbit. Kelas tanpa mapel -> 422 CLASS_HAS_NO_SUBJECTS. ${SCOPE_NOTE}`,
+  description: `ready = DRAFT lengkap semua mapel terpetakan; incomplete = DRAFT dengan missingSubjectIds; noReportCard = siswa AKTIF kelas ini tanpa rapor semester ini; published = sudah terbit; attendanceUnclosedDates = hari rekap kehadiran yang belum ditutup auto-ALPHA (terbit ditolak selama tidak kosong). Kelas tanpa mapel -> 422 CLASS_HAS_NO_SUBJECTS. ${SCOPE_NOTE}`,
   action: "reportCards.read",
   query: readinessQuery,
   response: readinessSchema,
@@ -106,12 +106,12 @@ export const publishContract = defineContract({
   path: "/api/v1/school/report-cards/publish",
   tag: TAG,
   summary: "Terbitkan rapor satu kelas",
-  description: `Tanpa studentIds: semua rapor DRAFT kelas + siswa AKTIF tanpa rapor wajib lengkap; dengan studentIds (maks ${MAX_PUBLISH_BATCH}): hanya siswa itu. Semua-atau-tidak: ada yang belum lengkap -> 422 REPORT_CARD_INCOMPLETE {incomplete[{reportCardId|null, studentId, missingSubjectIds}]}. Snapshot nama mapel, KKM, predikat, dan rekap sakit/izin/alpha (awal semester s.d. min(akhir semester, hari tertutup terakhir)) dibekukan. Rapor yang sudah terbit dilewati. Siswa menerima notifikasi REPORT_CARD_PUBLISHED. ${SCOPE_NOTE}`,
+  description: `Tanpa studentIds: semua rapor DRAFT kelas + siswa AKTIF tanpa rapor wajib lengkap; dengan studentIds (maks ${MAX_PUBLISH_BATCH}): hanya siswa itu. Semua-atau-tidak: ada yang belum lengkap -> 422 REPORT_CARD_INCOMPLETE {incomplete[{reportCardId|null, studentId, missingSubjectIds}]}. Snapshot nama kelas, nama mapel, KKM, predikat, dan rekap sakit/izin/alpha (awal semester s.d. min(akhir semester, hari tertutup terakhir)) dibekukan; ada hari sekolah dalam rentang itu yang belum ditutup auto-ALPHA -> 422 ATTENDANCE_NOT_CLOSED {unclosedDates} (coba lagi setelah tick, atau super admin menutup ulang hari itu). Rapor yang sudah terbit dilewati. Siswa menerima notifikasi REPORT_CARD_PUBLISHED. ${SCOPE_NOTE}`,
   action: "reportCards.publish",
   query: schoolIdQuery,
   body: publishBody,
   response: publishResultSchema,
-  errors: ["REPORT_CARD_INCOMPLETE", "CLASS_HAS_NO_SUBJECTS", "STATE_CONFLICT", ...TERM_CLASS_ERRORS],
+  errors: ["REPORT_CARD_INCOMPLETE", "ATTENDANCE_NOT_CLOSED", "CLASS_HAS_NO_SUBJECTS", "STATE_CONFLICT", ...TERM_CLASS_ERRORS],
 });
 
 export const unpublishContract = defineContract({

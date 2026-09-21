@@ -103,8 +103,8 @@ All responses use the envelope `{success, data, error, meta}`.
 | PATCH | /school/report-cards/:id | SA, SU | Homeroom teacher's note | `homeroomNote` (≤ 1000; null clears it) | reportCard |
 | PUT | /school/report-cards/:id/grades | SA, SU | Edit one student's grades | `grades[≤40 {subjectId, score\|null, description?}]` | reportCard |
 | DELETE | /school/report-cards/:id | SA, SU | Delete, only DRAFT (grades cascade) | – | `{id}` |
-| GET | /school/report-cards/readiness | SA, SU | Check before publishing | `termId`, `classId` | `{ready[], incomplete[{reportCardId,studentId,missingSubjectIds}], noReportCard[studentId], published[]}` |
-| POST | /school/report-cards/publish | SA, SU | Publish per class | `termId`, `classId`, `studentIds?` (≤ 100) | `{publishedIds[], notified}`; 422 `REPORT_CARD_INCOMPLETE{incomplete[]}` |
+| GET | /school/report-cards/readiness | SA, SU | Check before publishing | `termId`, `classId` | `{ready[], incomplete[{reportCardId,studentId,missingSubjectIds}], noReportCard[studentId], published[], attendanceUnclosedDates[]}` |
+| POST | /school/report-cards/publish | SA, SU | Publish per class | `termId`, `classId`, `studentIds?` (≤ 100) | `{publishedIds[], notified}`; 422 `REPORT_CARD_INCOMPLETE{incomplete[]}`; 422 `ATTENDANCE_NOT_CLOSED{unclosedDates[]}` |
 | POST | /school/report-cards/unpublish | SA, SU | Return to DRAFT | `reportCardIds[≤100]`, `reason` | `{unpublishedIds[]}` |
 | GET | /me/report-cards | ST | Own report cards, PUBLISHED only | – | `[{id,termLabel,className,publishedAt,average}]` |
 | GET | /me/report-cards/:id | ST | Own report card, PUBLISHED only (otherwise 404) | – | `{termLabel,className,homeroomTeacherName,homeroomNote,grades[],attendance{sick,permit,absent},average}` |
@@ -123,14 +123,14 @@ All responses use the envelope `{success, data, error, meta}`.
 | GET | /school/invoices | List | `periodYear?`, `periodMonth?`, `status?` (comma list; may include the derived OVERDUE and PENDING_VERIFICATION), `classId?`, `studentId?`, `q?`, `page`, `limit` | `items[{id,invoiceNo,student{id,name,nis,className},title,periodYear,periodMonth,amount,paidAmount,remaining,dueDate,status,displayStatus,isOverdue,pendingSubmissionId}]` |
 | GET | /school/invoices/:id | Detail | – | invoice plus `payments[{id,receiptNo,amount,method,paidDate,voidedAt,voidReason}]` and `submissions[{id,status,amount,transferDate,reviewNote}]` |
 | POST | /school/invoices | Create one | `studentId`, `periodYear`, `periodMonth`, `amount`, `dueDate?`, `title?`, `note?`, `notify?` (default true) | invoice |
-| POST | /school/invoices/bulk | Generate a month | `periodYear`, `periodMonth`, `amount` (default rate), `dueDate?`, `title?`, `scope` (`{type:SCHOOL}` \| `{type:CLASSES,classIds[]}` \| `{type:STUDENTS,studentIds[]}`), `overrides[{studentId,amount}]`, `dryRun`, `notify` | `{created, totalAmount, invoiceNoFrom, invoiceNoTo, skippedCount, skipped[≤500 {studentId, reason: ALREADY_BILLED\|EXEMPT}]}` |
+| POST | /school/invoices/bulk | Generate a month | `periodYear`, `periodMonth`, `amount` (default rate), `dueDate?`, `title?`, `scope` (`{type:SCHOOL}` \| `{type:CLASSES,classIds[]}` \| `{type:STUDENTS,studentIds[]}`), `overrides[{studentId,amount}]`, `dryRun`, `notify` | `{created, totalAmount, invoiceNoFrom, invoiceNoTo, skippedCount, skipped[≤500 {studentId, reason: ALREADY_BILLED\|VOIDED\|EXEMPT\|NOT_ACTIVE\|AMOUNT_INVALID, invoiceId?, hint?: RESTORE}]}` |
 | PATCH | /school/invoices/:id | Edit | `amount?`, `dueDate?`, `title?`, `note?` | invoice |
 | POST | /school/invoices/:id/void | Cancel | `reason` | invoice |
 | POST | /school/invoices/:id/restore | Undo a cancel (VOID → UNPAID) | – | invoice |
-| POST | /school/invoices/:id/payments | Record a cash payment | `amount`, `paidDate`, `note?` | `{payment{id,receiptNo}, invoice}` |
+| POST | /school/invoices/:id/payments | Record a cash payment | `amount`, `paidDate`, `note?`, `expectedPaidAmount` (concurrency token; mismatch 409 `STATE_CONFLICT{paidAmount}`) | `{payment{id,receiptNo}, invoice}` |
 | POST | /school/payments/:id/void | Correct a payment | `reason` | `{payment, invoice}` |
 | GET | /school/payments/:id/receipt | Receipt data | – | `{receiptNo,school{name,npsn,address},student{name,nis,className},invoice{invoiceNo,title},amount,method,paidDate,recordedBy,voided}` |
-| GET | /school/payment-submissions | Verification queue | `status` (default PENDING), `classId?`, `q?`, `page`, `limit` | `items[{id,invoice{id,invoiceNo,title,remaining},student{name,nis,className},amount,transferDate,senderName,senderBank,createdAt,proofFileId,duplicateProof}]` |
+| GET | /school/payment-submissions | Verification queue | `status` (default PENDING), `classId?`, `q?`, `page`, `limit` | `items[{id,invoice{id,invoiceNo,title,remaining},student{name,nis,className},amount,transferDate,senderName,senderBank,createdAt,proofFileId,possibleDuplicateOf[≤5]}]` |
 | GET | /school/payment-submissions/:id | Detail | – | submission plus invoice, proof link (`/files/:id`), student's submission history |
 | POST | /school/payment-submissions/:id/approve | Approve | `approvedAmount?`, `note?` | `{submission, payment{receiptNo}, invoice}` |
 | POST | /school/payment-submissions/:id/reject | Reject | `reason` (5–255 characters) | submission |
@@ -268,7 +268,7 @@ All responses use the envelope `{success, data, error, meta}`.
    - Re-running moves nothing more; those students are counted as `alreadyMoved`.
 
 ### E. Report cards and grades
-1. Scores: integer 0–100. `score: null` in an entry deletes that grade. `description` is ≤ 500 characters, and whitespace alone becomes null.
+1. Scores: integer 0–100. `score: null` in an entry deletes that grade. `description` is ≤ 500 characters, and whitespace alone becomes null. A missing `description` key keeps the stored description (a new grade gets null); an explicit `null` or blank clears it. A score-only resend of the same score is `unchanged`.
 2. Predicate (pure; K13 interval method using integers only):
    - `A` if `3*score ≥ kkm + 200`
    - `B` if `3*score ≥ 2*kkm + 100`
@@ -292,7 +292,7 @@ All responses use the envelope `{success, data, error, meta}`.
    - Lock the class, then the DRAFT report cards (term, class, filtered by `studentIds`) ordered by id `FOR UPDATE`.
    - Check completeness. If any card is incomplete, 422 `REPORT_CARD_INCOMPLETE{incomplete[]}` and nothing is published (no partial publish; the admin sends the ready `studentIds`).
    - Refresh snapshots: one join UPDATE for the subject name and KKM, then recompute predicates in the app and write them with at most 4 `updateMany` calls (one per predicate).
-   - Attendance snapshot: `groupBy(studentId, status)` over Attendance from `term.startDate` to `min(term.endDate, today)`. SAKIT goes to sickDays, IZIN to permitDays, ALPHA to absentDays. HADIR and TERLAMBAT are not counted.
+   - Attendance snapshot: `groupBy(studentId, status)` over Attendance from `term.startDate` to `min(term.endDate, closedThrough)`. SAKIT goes to sickDays, IZIN to permitDays, ALPHA to absentDays. HADIR and TERLAMBAT are not counted. If any school day in that window has no SUCCEEDED auto-alpha JobRun (the tick has not run yet, it FAILED, or catch-up lapsed), publish fails with 422 `ATTENDANCE_NOT_CLOSED{unclosedDates}` instead of freezing a low absent count; the DRAFT detail (`attendanceSummary.unclosedDates`) and readiness (`attendanceUnclosedDates`) show the same dates. The class-name snapshot is refreshed too.
    - Set status with the compare-and-set `updateMany({id in ids, status: DRAFT} → PUBLISHED, publishedAt, publishedById)`. If the count differs from expected, 409.
    - Create REPORT_CARD_PUBLISHED notifications (category ACADEMIC, `data {screen:"report-card", id}`). On a re-publish the title is "Rapor diperbarui".
    - Write an audit entry `report_card.publish {ids}`.
@@ -327,7 +327,7 @@ All responses use the envelope `{success, data, error, meta}`.
    - Load the ACTIVE students in scope (`id, userId, sppAmount, currentClassId`).
    - Transaction (60 s):
      - `lockDocumentCounter(INVOICE, localYear)`, then read existing invoices for (students, SPP, period), VOID included.
-     - Pure `planBulkInvoices`: amount is the override if given, else `sppAmount` if not null, else the request amount. 0 is skipped as EXEMPT; an existing invoice is skipped as ALREADY_BILLED. Result order: class name, then student name.
+     - Pure `planBulkInvoices`: amount is the override if given, else `sppAmount` if not null, else the request amount. 0 is skipped as EXEMPT; an existing live invoice is skipped as ALREADY_BILLED `{invoiceId}`, and a VOID one as VOIDED `{invoiceId, hint: RESTORE}` (the slot stays taken; restore it instead). Result order: class name, then student name.
      - With `dryRun`, return the plan here and roll back.
      - Otherwise allocate `rows.length` numbers, `createMany` in chunks of 500 **without skipDuplicates**, read the ids back by (schoolId, period, studentIds), create INVOICE_ISSUED notifications with `createMany`, and write an audit entry `invoice.bulk_create {period, count, totalAmount, scope}`.
    - All invoice creation holds the same counter row, so the existence check is exact. A P2002 (year-boundary race) returns 409, and re-running is idempotent.
@@ -352,7 +352,7 @@ All responses use the envelope `{success, data, error, meta}`.
 2. Submit flow:
    - Check Content-Length ≤ `MAX_UPLOAD_BYTES = 5 MB` before parsing (nginx `client_max_body_size 6m`).
    - Validate the fields with zod, then sanitise the file (re-encode, or PDF check) and compute sha256.
-   - If the same hash is on a PENDING or APPROVED submission, 409 `PROOF_ALREADY_USED`.
+   - (PLAN: flag, not reject.) Before the transaction, find matching proofs of the same school in SQL, at most 5, strongest first: identical sha256 (any student, any time), near dHash of the same student (any time), near dHash of other students (last 365 days, newest first, early exit). Inside the transaction they are stored both ways in `PaymentProofMatch`; the queue, detail, approve and reject responses only read that table (`possibleDuplicateOf` ≤ 5).
    - `storage.put` the file.
    - Transaction:
      - Lock the Invoice `WHERE id = ? AND schoolId = ? AND studentId = <session student>` `FOR UPDATE`; a miss is 404.
@@ -377,7 +377,7 @@ All responses use the envelope `{success, data, error, meta}`.
    - Notify PAYMENT_APPROVED to the student (`data {screen:"invoice", id}`) and audit `submission.approve`.
 5. Reject: lock the Invoice (to keep the lock order), then compare-and-set PENDING → REJECTED with `reviewNote = reason` (required, 5–255) and `pendingInvoiceId = NULL`. Notify PAYMENT_REJECTED with the reason in the body. Audit.
 6. Cash payment:
-   - Lock the Invoice. It must not be VOID or PAID (409). No pending submission, otherwise 409 `SUBMISSION_PENDING`.
+   - Lock the Invoice. `expectedPaidAmount` (the paidAmount the admin was shown) must equal the current paidAmount, otherwise 409 `STATE_CONFLICT{paidAmount}`: a retried request (lost response, double click) is not recorded twice. It must not be VOID or PAID (409). No pending submission, otherwise 409 `SUBMISSION_PENDING`.
    - Same amount rules as G1. `paidDate` must be in `[today − MAX_CASH_BACKDATE_DAYS (31), today]`.
    - Allocate a receipt number, create the Payment (CASH), apply the delta, notify PAYMENT_APPROVED ("Pembayaran tunai diterima"), and audit `payment.cash_record`.
 7. Void a payment:
@@ -403,7 +403,7 @@ All responses use the envelope `{success, data, error, meta}`.
 1. `studentsNotFullyPaid` = `COUNT(DISTINCT i.studentId)` over invoices where:
    - `i.schoolId = ?`
    - `i.status IN ('UNPAID','PARTIAL')`
-   - `periodKey ≤ todayKey`, which excludes months billed in advance
+   - `periodKey ≤ todayKey OR dueDate < today`, which excludes months billed in advance until they fall due (then they count, like JATUH_TEMPO in the list)
    - `s.status = 'ACTIVE'`
 
    `studentsOverdue` adds `dueDate < today`. `outstandingAmount = SUM(amount − paidAmount)` over the same rows; SQL SUM returns Decimal or BigInt, so convert with `Number()`. `pendingVerification` counts PENDING submissions of the school.
@@ -809,7 +809,7 @@ Route handlers live under `src/app/api/v1/school/**/route.ts` and `src/app/api/v
 - a pending submission blocks; PAID and VOID invoices are rejected; the 6th submission of the day is rejected
 
 `bulk-plan`:
-- existing invoices, VOID included, are skipped as ALREADY_BILLED
+- existing live invoices are skipped as ALREADY_BILLED; VOID slots as VOIDED with invoiceId and hint RESTORE
 - `sppAmount` 0 is skipped as EXEMPT; null uses the default; an override beats `sppAmount`
 - an override for a student outside the scope is an error; duplicate overrides are an error
 - the order is stable; the total is correct
@@ -874,6 +874,7 @@ Submissions and payments:
 - after a cash payment lowers the remaining amount, approve gives 422 unless `approvedAmount` is sent
 - cash while a submission is pending gives 409
 - 20 concurrent cash payments get receipts 1–20 with no gaps or duplicates
+- a cash request repeated with the same `expectedPaidAmount` (sequential or double click) records once; the other gets 409 `STATE_CONFLICT`
 - a forced failure after allocating a number leaves no gap
 - voiding a payment recomputes the invoice, marks the receipt as voided, and the invoice can then be voided
 

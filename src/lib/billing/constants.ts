@@ -26,15 +26,21 @@ export const MAX_CASH_BACKDATE_DAYS = 31;
 export const MAX_SUBMISSIONS_PER_INVOICE_PER_DAY = 5;
 /** Bukti PAYMENT_PROOF maks 8 MiB (UPLOAD_POLICY) + ruang untuk field teks multipart. */
 export const PROOF_MAX_BODY_BYTES = 8 * 1024 * 1024 + 64 * 1024;
-/** Jendela kandidat penanda bukti mirip (dHash) dalam sekolah yang sama. */
+/** Jendela penanda bukti mirip (dHash) milik siswa LAIN; sha256 identik & bukti siswa yang sama tanpa batas waktu. */
 export const DUPLICATE_LOOKBACK_DAYS = 365;
-export const DUPLICATE_CANDIDATE_LIMIT = 5_000;
+/** Maksimal id penanda bukti identik/mirip per pengajuan (terkuat lalu terbaru). */
+export const DUPLICATE_FLAG_LIMIT = 5;
 
 // ----------------------------------------------------------------------------- massal
 export const BULK_CHUNK_SIZE = 200;
 export const MAX_BULK_INVOICE_STUDENTS = 3_000;
 export const MAX_BULK_SKIPPED_LISTED = 500;
 export const MAX_BULK_CLASSES = 100;
+/**
+ * Body JSON tagihan massal: 3.000 studentIds + 3.000 override (id <= 64 karakter) ~ 500 KB — di atas batas
+ * bawaan 256 KiB. 640 KiB memberi ruang spasi/format tanpa membuka body tak terbatas.
+ */
+export const BULK_INVOICE_MAX_BODY_BYTES = 640 * 1024;
 /** Transaksi per chunk massal (200 siswa) diberi waktu lebih longgar dari default 20 s. */
 export const BULK_TX_TIMEOUT_MS = 60_000;
 
@@ -77,7 +83,8 @@ export type SubmissionStatusFilter = (typeof SUBMISSION_STATUS_FILTERS)[number];
 
 export const PAYMENT_METHODS = ["TRANSFER", "CASH"] as const;
 
-export const BULK_SKIP_REASONS = ["ALREADY_BILLED", "EXEMPT", "NOT_ACTIVE", "AMOUNT_INVALID"] as const;
+/** VOIDED = slot periode ditempati tagihan yang dibatalkan (pulihkan, bukan buat ulang). */
+export const BULK_SKIP_REASONS = ["ALREADY_BILLED", "EXEMPT", "NOT_ACTIVE", "AMOUNT_INVALID", "VOIDED"] as const;
 export type BulkSkipReason = (typeof BULK_SKIP_REASONS)[number];
 
 export const MONTH_NAMES = [

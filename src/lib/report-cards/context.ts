@@ -31,14 +31,21 @@ export interface ClassRow {
 }
 
 export interface SchoolClock {
+  readonly id: string;
   readonly timezone: SchoolTz;
   readonly dayEndMinute: number;
   readonly activeTermId: string | null;
+  /** Kalender & status tutup hari (rekap kehadiran rapor). */
+  readonly schoolDaysMask: number;
+  readonly createdAt: Date;
 }
 
 /** Sekolah dalam cakupan; SUPER_ADMIN dengan schoolId tak dikenal -> 404 SCHOOL_NOT_FOUND. */
 export async function loadSchoolClock(db: Tx, scope: SchoolScope): Promise<SchoolClock> {
-  const school = await db.school.findUnique({ where: { id: scope.schoolId }, select: { timezone: true, dayEndMinute: true, activeTermId: true } });
+  const school = await db.school.findUnique({
+    where: { id: scope.schoolId },
+    select: { id: true, timezone: true, dayEndMinute: true, activeTermId: true, schoolDaysMask: true, createdAt: true },
+  });
   if (!school) throw notFound("Sekolah tidak ditemukan.", "SCHOOL_NOT_FOUND");
   return school;
 }

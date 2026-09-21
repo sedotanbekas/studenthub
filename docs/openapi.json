@@ -16587,7 +16587,7 @@
           "Rapor"
         ],
         "summary": "Kesiapan terbit rapor satu kelas",
-        "description": "ready = DRAFT lengkap semua mapel terpetakan; incomplete = DRAFT dengan missingSubjectIds; noReportCard = siswa AKTIF kelas ini tanpa rapor semester ini; published = sudah terbit. Kelas tanpa mapel -> 422 CLASS_HAS_NO_SUBJECTS. Admin sekolah: sekolahnya sendiri. Super admin: wajib ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `reportCards.read`.",
+        "description": "ready = DRAFT lengkap semua mapel terpetakan; incomplete = DRAFT dengan missingSubjectIds; noReportCard = siswa AKTIF kelas ini tanpa rapor semester ini; published = sudah terbit; attendanceUnclosedDates = hari rekap kehadiran yang belum ditutup auto-ALPHA (terbit ditolak selama tidak kosong). Kelas tanpa mapel -> 422 CLASS_HAS_NO_SUBJECTS. Admin sekolah: sekolahnya sendiri. Super admin: wajib ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `reportCards.read`.",
         "security": [
           {
             "bearerAuth": []
@@ -16732,7 +16732,7 @@
           "Rapor"
         ],
         "summary": "Terbitkan rapor satu kelas",
-        "description": "Tanpa studentIds: semua rapor DRAFT kelas + siswa AKTIF tanpa rapor wajib lengkap; dengan studentIds (maks 100): hanya siswa itu. Semua-atau-tidak: ada yang belum lengkap -> 422 REPORT_CARD_INCOMPLETE {incomplete[{reportCardId|null, studentId, missingSubjectIds}]}. Snapshot nama mapel, KKM, predikat, dan rekap sakit/izin/alpha (awal semester s.d. min(akhir semester, hari tertutup terakhir)) dibekukan. Rapor yang sudah terbit dilewati. Siswa menerima notifikasi REPORT_CARD_PUBLISHED. Admin sekolah: sekolahnya sendiri. Super admin: wajib ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `reportCards.publish`.",
+        "description": "Tanpa studentIds: semua rapor DRAFT kelas + siswa AKTIF tanpa rapor wajib lengkap; dengan studentIds (maks 100): hanya siswa itu. Semua-atau-tidak: ada yang belum lengkap -> 422 REPORT_CARD_INCOMPLETE {incomplete[{reportCardId|null, studentId, missingSubjectIds}]}. Snapshot nama kelas, nama mapel, KKM, predikat, dan rekap sakit/izin/alpha (awal semester s.d. min(akhir semester, hari tertutup terakhir)) dibekukan; ada hari sekolah dalam rentang itu yang belum ditutup auto-ALPHA -> 422 ATTENDANCE_NOT_CLOSED {unclosedDates} (coba lagi setelah tick, atau super admin menutup ulang hari itu). Rapor yang sudah terbit dilewati. Siswa menerima notifikasi REPORT_CARD_PUBLISHED. Admin sekolah: sekolahnya sendiri. Super admin: wajib ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `reportCards.publish`.",
         "security": [
           {
             "bearerAuth": []
@@ -16864,7 +16864,7 @@
             }
           },
           "422": {
-            "description": "Pelanggaran aturan bisnis. Kode: REPORT_CARD_INCOMPLETE, CLASS_HAS_NO_SUBJECTS, CLASS_TERM_MISMATCH.",
+            "description": "Pelanggaran aturan bisnis. Kode: REPORT_CARD_INCOMPLETE, ATTENDANCE_NOT_CLOSED, CLASS_HAS_NO_SUBJECTS, CLASS_TERM_MISMATCH.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18043,7 +18043,7 @@
           "SPP — Tagihan"
         ],
         "summary": "Tagihan SPP massal satu periode (dry run tersedia)",
-        "description": "Hanya siswa ACTIVE (cakupan STUDENTS: siswa lain dilaporkan NOT_ACTIVE). Nominal = override ?? sppAmount siswa ?? amount; 0 = bebas (EXEMPT). Slot yang sudah ada termasuk yang dibatalkan dilewati (ALREADY_BILLED) -> menjalankan ulang aman. Diproses per 200 siswa per transaksi, maks 3000 siswa (422 BULK_TOO_LARGE). dryRun=true hanya menghitung rencana. Kelas/siswa sekolah lain -> 404. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.write`.",
+        "description": "Hanya siswa ACTIVE (cakupan STUDENTS: siswa lain dilaporkan NOT_ACTIVE). Nominal = override ?? sppAmount siswa ?? amount; 0 = bebas (EXEMPT). Slot yang sudah ada dilewati: tagihan hidup -> ALREADY_BILLED {invoiceId}; tagihan dibatalkan -> VOIDED {invoiceId, hint: RESTORE} (slot tetap terpakai; pulihkan lewat /restore). Menjalankan ulang aman. Diproses per 200 siswa per transaksi, maks 3000 siswa (422 BULK_TOO_LARGE). dryRun=true hanya menghitung rencana. Kelas/siswa sekolah lain -> 404. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.write`.",
         "security": [
           {
             "bearerAuth": []
@@ -18661,7 +18661,7 @@
           "SPP — Tagihan"
         ],
         "summary": "Pulihkan tagihan yang dibatalkan (VOID -> UNPAID)",
-        "description": "Tanpa body. Hanya tagihan VOID (409 INVOICE_NOT_VOID); siswa PINDAH -> 422 STUDENT_NOT_BILLABLE. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.write`.",
+        "description": "Tanpa body. Hanya tagihan VOID (409 INVOICE_NOT_VOID); siswa PINDAH, atau siswa nonaktif/lulus untuk periode yang belum berjalan -> 422 STUDENT_NOT_BILLABLE. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.write`.",
         "security": [
           {
             "bearerAuth": []
@@ -18804,7 +18804,7 @@
           "SPP — Tagihan"
         ],
         "summary": "Catat pembayaran tunai",
-        "description": "Nominal <= sisa dan >= min(sisa, 10000); cicilan boleh. paidDate hari ini - 31 .. hari ini. Ditolak bila tagihan lunas/dibatalkan (409 INVOICE_NOT_PAYABLE) atau ada bukti transfer menunggu (409 SUBMISSION_PENDING). Membuat kuitansi KWT-YYYY-NNNNNN; siswa menerima PAYMENT_APPROVED. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.verify`.",
+        "description": "Nominal <= sisa dan >= min(sisa, 10000); cicilan boleh. paidDate hari ini - 31 .. hari ini. Ditolak bila tagihan lunas/dibatalkan (409 INVOICE_NOT_PAYABLE) atau ada bukti transfer menunggu (409 SUBMISSION_PENDING). expectedPaidAmount wajib = paidAmount yang ditampilkan; berbeda dengan paidAmount terkini (pembayaran lain tercatat, atau permintaan yang sama diulang karena klik ganda/timeout) -> 409 STATE_CONFLICT {paidAmount} tanpa mencatat apa pun. Membuat kuitansi KWT-YYYY-NNNNNN; siswa menerima PAYMENT_APPROVED. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.verify`.",
         "security": [
           {
             "bearerAuth": []
@@ -19263,7 +19263,7 @@
           "SPP — Verifikasi Bukti Transfer"
         ],
         "summary": "Antrean bukti transfer",
-        "description": "Default status=PENDING (terlama dulu); status lain/ALL terbaru dulu. possibleDuplicateOf = pengajuan lain di sekolah ini dengan foto bukti mirip (dHash) — penanda, bukan penolakan. Foto diunduh lewat GET /api/v1/files/{proofFileId}. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.read`.",
+        "description": "Default status=PENDING (terlama dulu); status lain/ALL terbaru dulu. possibleDuplicateOf = maks 5 pengajuan lain di sekolah ini dengan foto bukti identik (sha256) atau mirip (dHash) — penanda, bukan penolakan. Foto diunduh lewat GET /api/v1/files/{proofFileId}. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.read`.",
         "security": [
           {
             "bearerAuth": []
@@ -19440,7 +19440,7 @@
           "SPP — Verifikasi Bukti Transfer"
         ],
         "summary": "Detail bukti transfer + riwayat pengajuan tagihan",
-        "description": "possibleDuplicateOf = pengajuan lain di sekolah ini dengan foto bukti mirip (dHash) — penanda, bukan penolakan. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.read`.",
+        "description": "possibleDuplicateOf = maks 5 pengajuan lain di sekolah ini dengan foto bukti identik (sha256) atau mirip (dHash) — penanda, bukan penolakan. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `billing.read`.",
         "security": [
           {
             "bearerAuth": []
@@ -21896,7 +21896,7 @@
           "Dashboard"
         ],
         "summary": "Ringkasan dashboard admin sekolah",
-        "description": "Kartu dashboard dihitung paralel dari query domain: students = jumlah siswa per status; attendanceToday = kartu kehadiran hari ini (sama dengan GET /school/attendance/stats/today); reportCards = corong rapor siswa AKTIF untuk termId (default semester aktif; term null bila tidak ada); billing = siswa AKTIF belum lunas (tagihan berperiode <= bulan ini), bukti menunggu verifikasi, dan rekap tagihan bulan berjalan (waktu lokal sekolah). Admin sekolah: sekolahnya sendiri (schoolId lain -> 403 SCOPE_MISMATCH). Super admin: wajib ?schoolId= (400 SCHOOL_ID_REQUIRED; sekolah tak dikenal -> 404 SCHOOL_NOT_FOUND). termId milik sekolah lain -> 404.\n\nAksi POLICY: `dashboard.read`.",
+        "description": "Kartu dashboard dihitung paralel dari query domain: students = jumlah siswa per status; attendanceToday = kartu kehadiran hari ini (sama dengan GET /school/attendance/stats/today); reportCards = corong rapor siswa AKTIF untuk termId (default semester aktif; term null bila tidak ada); billing = siswa AKTIF belum lunas (tagihan berperiode <= bulan ini atau sudah lewat jatuh tempo), bukti menunggu verifikasi, dan rekap tagihan bulan berjalan (waktu lokal sekolah). Admin sekolah: sekolahnya sendiri (schoolId lain -> 403 SCOPE_MISMATCH). Super admin: wajib ?schoolId= (400 SCHOOL_ID_REQUIRED; sekolah tak dikenal -> 404 SCHOOL_NOT_FOUND). termId milik sekolah lain -> 404.\n\nAksi POLICY: `dashboard.read`.",
         "security": [
           {
             "bearerAuth": []
@@ -22124,6 +22124,8 @@
             "type": "string"
           },
           "name": {
+            "minLength": 3,
+            "maxLength": 100,
             "type": "string"
           },
           "gender": {
@@ -22222,6 +22224,8 @@
             "type": "string"
           },
           "name": {
+            "minLength": 3,
+            "maxLength": 100,
             "type": "string"
           },
           "gender": {
@@ -22317,6 +22321,8 @@
             ]
           },
           "reason": {
+            "minLength": 3,
+            "maxLength": 255,
             "type": "string"
           },
           "confirmReleaseGraduatedNisn": {
@@ -22686,7 +22692,7 @@
                   "example": 88
                 },
                 "description": {
-                  "description": "Deskripsi capaian (maks 500); kosong -> null. Diabaikan bila score null.",
+                  "description": "Deskripsi capaian (maks 500). Tidak dikirim = deskripsi tersimpan dipertahankan (nilai baru: null); null atau kosong = dihapus. Diabaikan bila score null.",
                   "anyOf": [
                     {
                       "type": "string",
@@ -22825,7 +22831,7 @@
                   "example": 88
                 },
                 "description": {
-                  "description": "Deskripsi capaian (maks 500); kosong -> null. Diabaikan bila score null.",
+                  "description": "Deskripsi capaian (maks 500). Tidak dikirim = deskripsi tersimpan dipertahankan (nilai baru: null); null atau kosong = dihapus. Diabaikan bila score null.",
                   "anyOf": [
                     {
                       "type": "string",
@@ -22884,10 +22890,13 @@
             "description": "Jatuh tempo (tanggal lokal). Default tanggal 10 bulan periode; rentang awal (periode-1 bulan) .. akhir (periode+3 bulan)."
           },
           "title": {
+            "minLength": 1,
+            "maxLength": 100,
             "description": "Default: \"SPP <Bulan> <Tahun>\".",
             "type": "string"
           },
           "note": {
+            "maxLength": 255,
             "type": "string"
           },
           "notify": {
@@ -22933,6 +22942,8 @@
             "description": "Jatuh tempo (tanggal lokal). Default tanggal 10 bulan periode; rentang awal (periode-1 bulan) .. akhir (periode+3 bulan)."
           },
           "title": {
+            "minLength": 1,
+            "maxLength": 100,
             "description": "Default: \"SPP <Bulan> <Tahun>\".",
             "type": "string"
           },
@@ -23077,14 +23088,21 @@
             "description": "Jatuh tempo (tanggal lokal). Default tanggal 10 bulan periode; rentang awal (periode-1 bulan) .. akhir (periode+3 bulan)."
           },
           "title": {
+            "minLength": 1,
+            "maxLength": 100,
             "description": "Default: \"SPP <Bulan> <Tahun>\".",
             "type": "string"
           },
           "note": {
             "description": "null/\"\" menghapus catatan.",
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         },
@@ -23094,6 +23112,8 @@
         "type": "object",
         "properties": {
           "reason": {
+            "minLength": 5,
+            "maxLength": 255,
             "type": "string"
           }
         },
@@ -23119,12 +23139,21 @@
             "description": "Tanggal uang diterima (lokal), hari ini - 31 .. hari ini."
           },
           "note": {
+            "maxLength": 255,
             "type": "string"
+          },
+          "expectedPaidAmount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50000000,
+            "description": "paidAmount tagihan yang sedang ditampilkan ke admin (token konkurensi). Berbeda dengan paidAmount terkini -> 409 STATE_CONFLICT {paidAmount}; permintaan yang diulang (klik ganda/timeout) tidak tercatat dua kali.",
+            "example": 0
           }
         },
         "required": [
           "amount",
-          "paidDate"
+          "paidDate",
+          "expectedPaidAmount"
         ],
         "additionalProperties": false
       },
@@ -23140,6 +23169,7 @@
           },
           "note": {
             "description": "Wajib bila approvedAmount < nominal bukti.",
+            "maxLength": 255,
             "type": "string"
           }
         },
@@ -23161,12 +23191,17 @@
             "description": "Tanggal transfer (lokal), hari ini - 90 .. hari ini."
           },
           "senderName": {
+            "minLength": 2,
+            "maxLength": 100,
             "type": "string"
           },
           "senderBank": {
+            "minLength": 2,
+            "maxLength": 50,
             "type": "string"
           },
           "note": {
+            "maxLength": 255,
             "type": "string"
           },
           "file": {
@@ -30095,13 +30130,22 @@
               "isSnapshot": {
                 "type": "boolean",
                 "description": "true = dibekukan saat terbit; false = dihitung langsung (DRAFT)."
+              },
+              "unclosedDates": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "description": "DRAFT: hari sekolah dalam rentang rekap yang belum ditutup auto-ALPHA (rekap belum final; terbit ditolak 422 ATTENDANCE_NOT_CLOSED). PUBLISHED: []."
               }
             },
             "required": [
               "sick",
               "permit",
               "absent",
-              "isSnapshot"
+              "isSnapshot",
+              "unclosedDates"
             ],
             "additionalProperties": false,
             "description": "Jumlah hari SAKIT/IZIN/ALPHA dari awal semester s.d. min(akhir semester, hari tertutup terakhir)."
@@ -30230,6 +30274,14 @@
               ],
               "additionalProperties": false
             }
+          },
+          "attendanceUnclosedDates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Peringatan: hari sekolah dalam rentang rekap kehadiran yang belum ditutup auto-ALPHA. Selama tidak kosong, terbit ditolak 422 ATTENDANCE_NOT_CLOSED."
           }
         },
         "required": [
@@ -30239,7 +30291,8 @@
           "ready",
           "incomplete",
           "noReportCard",
-          "published"
+          "published",
+          "attendanceUnclosedDates"
         ],
         "additionalProperties": false
       },
@@ -30639,7 +30692,19 @@
                     "ALREADY_BILLED",
                     "EXEMPT",
                     "NOT_ACTIVE",
-                    "AMOUNT_INVALID"
+                    "AMOUNT_INVALID",
+                    "VOIDED"
+                  ]
+                },
+                "invoiceId": {
+                  "description": "Tagihan yang menempati slot (ALREADY_BILLED / VOIDED).",
+                  "type": "string"
+                },
+                "hint": {
+                  "description": "VOIDED: pulihkan lewat POST /school/invoices/{invoiceId}/restore.",
+                  "type": "string",
+                  "enum": [
+                    "RESTORE"
                   ]
                 }
               },
@@ -30649,7 +30714,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Maks 500 baris: ALREADY_BILLED, EXEMPT (tarif 0), NOT_ACTIVE (cakupan STUDENTS), AMOUNT_INVALID (tarif siswa < 1.000)."
+            "description": "Maks 500 baris: ALREADY_BILLED (slot periode sudah berisi tagihan hidup), VOIDED (slot berisi tagihan dibatalkan; tidak dibuat ulang — pulihkan), EXEMPT (tarif 0), NOT_ACTIVE (cakupan STUDENTS), AMOUNT_INVALID (tarif siswa < 1.000)."
           }
         },
         "required": [
@@ -30791,7 +30856,8 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Payment"
-            }
+            },
+            "description": "Terbaru dulu, maks 50 (termasuk yang dibatalkan)."
           },
           "submissions": {
             "type": "array",
@@ -31305,11 +31371,12 @@
             "$ref": "#/components/schemas/BillingStudentRef"
           },
           "possibleDuplicateOf": {
+            "maxItems": 5,
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Id pengajuan lain di sekolah ini yang fotonya mirip (dHash). Hanya penanda, bukan penolakan."
+            "description": "Maks 5 id pengajuan lain di sekolah ini dengan foto bukti identik (sha256, siswa mana pun) atau mirip (dHash: siswa yang sama kapan pun; siswa lain 365 hari terakhir), urut: identik, mirip siswa sama, mirip siswa lain; lalu terbaru. Hanya penanda, bukan penolakan."
           }
         },
         "required": [
@@ -31455,11 +31522,12 @@
             "$ref": "#/components/schemas/BillingStudentRef"
           },
           "possibleDuplicateOf": {
+            "maxItems": 5,
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Id pengajuan lain di sekolah ini yang fotonya mirip (dHash). Hanya penanda, bukan penolakan."
+            "description": "Maks 5 id pengajuan lain di sekolah ini dengan foto bukti identik (sha256, siswa mana pun) atau mirip (dHash: siswa yang sama kapan pun; siswa lain 365 hari terakhir), urut: identik, mirip siswa sama, mirip siswa lain; lalu terbaru. Hanya penanda, bukan penolakan."
           },
           "reviewedBy": {
             "anyOf": [
@@ -31847,7 +31915,8 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StudentPayment"
-            }
+            },
+            "description": "Terbaru dulu, maks 50."
           },
           "submissions": {
             "type": "array",
@@ -32441,7 +32510,7 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991,
-            "description": "Siswa AKTIF dengan tagihan BELUM BAYAR/SEBAGIAN berperiode <= bulan ini."
+            "description": "Siswa AKTIF dengan tagihan BELUM BAYAR/SEBAGIAN berperiode <= bulan ini atau sudah lewat jatuh tempo."
           },
           "studentsOverdue": {
             "type": "integer",

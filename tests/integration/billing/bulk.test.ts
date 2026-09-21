@@ -20,7 +20,7 @@ interface BulkBody {
   readonly invoiceNoFrom: string | null;
   readonly invoiceNoTo: string | null;
   readonly skippedCount: number;
-  readonly skipped: Array<{ studentId: string; reason: string }>;
+  readonly skipped: Array<{ studentId: string; reason: string; invoiceId?: string; hint?: string }>;
 }
 
 let other: BillingFixture;
@@ -70,6 +70,27 @@ describe("tagihan massal", () => {
     assert.deepEqual(await invoiceNumbers(fx.school.id), [1, 2, 3]);
     // Chunk tanpa tagihan baru tidak menulis apa pun (termasuk audit).
     assert.equal(await prisma.auditLog.count({ where: { schoolId: fx.school.id, action: "invoice.bulk_create" } }), 1);
+  });
+
+  test("slot VOID dilaporkan VOIDED + invoiceId + hint RESTORE (dryRun & nyata), tagihan hidup ALREADY_BILLED + invoiceId", async () => {
+    const fx = await createBillingSchool();
+    const live = await createStudentWithToken(fx);
+    const voided = await createStudentWithToken(fx);
+    assert.equal((await bulk(fx, { notify: false })).body?.data.created, 2);
+    const rows = await prisma.invoice.findMany({ where: { schoolId: fx.school.id }, select: { id: true, studentId: true } });
+    const idOf = (studentId: string) => rows.find((r) => r.studentId === studentId)?.id;
+    await prisma.invoice.update({ where: { id: idOf(voided.student.id) }, data: { status: "VOID", voidedAt: new Date(), voidReason: "Uji slot VOID" } });
+    const expected = [
+      { studentId: live.student.id, reason: "ALREADY_BILLED", invoiceId: idOf(live.student.id) },
+      { studentId: voided.student.id, reason: "VOIDED", invoiceId: idOf(voided.student.id), hint: "RESTORE" },
+    ];
+    const byStudent = (items: BulkBody["skipped"] = []) => [...items].sort((a, b) => expected.findIndex((e) => e.studentId === a.studentId) - expected.findIndex((e) => e.studentId === b.studentId));
+    for (const dryRun of [true, false]) {
+      const res = await bulk(fx, { dryRun });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(res.body?.data.created, 0);
+      assert.deepEqual(byStudent(res.body?.data.skipped), expected);
+    }
   });
 
   test("dryRun tidak menulis tagihan, penghitung, maupun notifikasi", async () => {

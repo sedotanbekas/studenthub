@@ -182,6 +182,25 @@ describe("daftar & detail", () => {
     assert.deepEqual(res.body?.data.submissions.map((x) => x.id), [sub.body?.data.id]);
     assert.deepEqual(res.body?.data.payments, []);
   });
+
+  test("detail memuat pembayaran TERBARU dulu (maks 50): pembayaran terakhir tetap terlihat & dapat dibatalkan", async () => {
+    const s = await createStudentWithToken(fx);
+    const inv = await issueInvoice(fx, s.student.id, 2, 1_000_000, { notify: false });
+    const base = Date.now() - 60 * 60_000;
+    await prisma.payment.createMany({
+      data: Array.from({ length: 55 }, (_, i) => ({
+        schoolId: fx.school.id, invoiceId: inv.id, receiptNo: `KWT-UJI-${inv.invoiceNo.slice(-6)}${String(i).padStart(2, "0")}`.slice(0, 20),
+        amount: 1_000, method: "CASH" as const, paidDate: new Date(), recordedById: fx.admin.id, createdAt: new Date(base + i * 1_000),
+      })),
+    });
+    const newest = await prisma.payment.findFirstOrThrow({ where: { invoiceId: inv.id }, orderBy: { createdAt: "desc" }, select: { id: true } });
+    const res = await callRoute<Envelope<{ payments: Array<{ id: string }> }>>(detailRoute, {
+      method: "GET", url: schoolUrl(`/invoices/${inv.id}`), params: { id: inv.id }, bearer: fx.adminToken,
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body?.error));
+    assert.equal(res.body?.data.payments.length, 50);
+    assert.equal(res.body?.data.payments[0]?.id, newest.id);
+  });
 });
 
 describe("ubah, batalkan, pulihkan", () => {
@@ -241,5 +260,19 @@ describe("ubah, batalkan, pulihkan", () => {
     const res = await byId(restoreRoute, "POST", inv2.id, "/restore");
     assert.equal(res.status, 422);
     assert.equal(codeOf(res.body), "STUDENT_NOT_BILLABLE");
+  });
+
+  test("restore siswa NONAKTIF: periode depan 422 STUDENT_NOT_BILLABLE (aturan tunggakan), periode lalu boleh", async () => {
+    const s = await createStudentWithToken(fx);
+    const past = await issueInvoice(fx, s.student.id, -1);
+    const future = await issueInvoice(fx, s.student.id, 1);
+    for (const inv of [past, future]) assert.equal((await byId(voidRoute, "POST", inv.id, "/void", { reason: "Uji pemulihan" })).status, 200);
+    await prisma.student.update({ where: { id: s.student.id }, data: { status: "INACTIVE" } });
+    const blocked = await byId(restoreRoute, "POST", future.id, "/restore");
+    assert.equal(blocked.status, 422, JSON.stringify(blocked.body));
+    assert.equal(codeOf(blocked.body), "STUDENT_NOT_BILLABLE");
+    assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: future.id }, select: { status: true } })).status, "VOID");
+    const allowed = await byId(restoreRoute, "POST", past.id, "/restore");
+    assert.equal(allowed.status, 200, JSON.stringify(allowed.body));
   });
 });

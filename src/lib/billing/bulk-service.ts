@@ -7,7 +7,7 @@ import { notifyStudents } from "@/lib/notifications/notify";
 import { bulkInvoiceIssuedNotification } from "@/lib/notifications/templates/billing";
 import { toDbDate, type LocalDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
-import { chunk, overrideScopeViolation, planBulkInvoices, sortBulkStudents, type BulkRow, type BulkSkip, type BulkStudent } from "./bulk-plan";
+import { chunk, overrideScopeViolation, planBulkInvoices, sortBulkStudents, type BulkRow, type BulkSkip, type BulkStudent, type ExistingSlot } from "./bulk-plan";
 import { BULK_CHUNK_SIZE, BULK_TX_TIMEOUT_MS, MAX_BULK_INVOICE_STUDENTS, MAX_BULK_SKIPPED_LISTED } from "./constants";
 import { billingScopeOf, loadBillingSchool, schoolClock } from "./context";
 import { allocateDocumentNumbers, lockDocumentCounter } from "./counter";
@@ -20,7 +20,7 @@ import type { BulkInvoiceInput, BulkScope } from "./schemas";
 /**
  * Tagihan massal satu periode. Rencana dibuat per chunk 200 siswa di DALAM transaksinya sendiri:
  * Student (bersama, id naik) -> baca ulang status & tarif -> kunci DocumentCounter INVOICE -> cek slot yang
- * sudah ada (VOID termasuk) -> alokasi nomor -> createMany TANPA skipDuplicates (INSERT IGNORE MariaDB juga
+ * sudah ada (VOID termasuk, dilaporkan VOIDED) -> alokasi nomor -> createMany TANPA skipDuplicates (INSERT IGNORE MariaDB juga
  * menelan pelanggaran CHECK/FK) -> notifikasi (createMany per nominal) -> audit. Menjalankan ulang = idempoten.
  */
 interface BulkContext {
@@ -83,12 +83,13 @@ async function assertOverridesInScope(schoolId: string, scope: BulkScope, overri
   assertBilling(overrideScopeViolation(overrideIds, new Set(rows.map((r) => r.id))));
 }
 
-async function existingSlots(db: Tx, bulk: BulkContext, studentIds: readonly string[]): Promise<Set<string>> {
+/** Slot SPP periode ini per siswa (VOID termasuk: slot tetap terpakai -> VOIDED + hint RESTORE). */
+async function existingSlots(db: Tx, bulk: BulkContext, studentIds: readonly string[]): Promise<Map<string, ExistingSlot>> {
   const rows = await db.invoice.findMany({
     where: { schoolId: bulk.schoolId, studentId: { in: [...studentIds] }, type: "SPP", periodYear: bulk.input.periodYear, periodMonth: bulk.input.periodMonth },
-    select: { studentId: true },
+    select: { studentId: true, id: true, status: true },
   });
-  return new Set(rows.map((r) => r.studentId));
+  return new Map(rows.map((r) => [r.studentId, { id: r.id, status: r.status }]));
 }
 
 /** Kunci siswa chunk lalu baca ulang status & tarif (sumber kebenaran di bawah kunci). */

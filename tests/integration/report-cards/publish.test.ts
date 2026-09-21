@@ -4,13 +4,17 @@
  */
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { addDays } from "@/lib/time/zone";
+import { AUTO_ALPHA_JOB } from "@/lib/attendance/auto-alpha-rules";
+import { loadCalendarContext } from "@/lib/calendar/queries";
+import { listSchoolDays } from "@/lib/calendar/rules";
+import { addDays, eachDate, instantAtLocal } from "@/lib/time/zone";
 import { createClass } from "../helpers/factories";
 import { disconnect, prisma, uniq } from "../helpers/db";
 import {
   addAttendance,
   bulkBody,
   cardIdOf,
+  closeAttendanceDays,
   createRcWorld,
   getCard,
   getReadiness,
@@ -90,7 +94,7 @@ test("snapshot terbit: predikat dihitung ulang dari KKM & nama mapel terkini, re
   await addAttendance(w.school.id, sid, addDays(today, -2), "ALPHA");
   await addAttendance(w.school.id, sid, addDays(today, 1), "IZIN");
   const draft = await getCard(w.adminToken, await cardIdOf(w, sid));
-  assert.deepEqual(draft.body?.data.attendanceSummary, { sick: 1, permit: 1, absent: 2, isSnapshot: false });
+  assert.deepEqual(draft.body?.data.attendanceSummary, { sick: 1, permit: 1, absent: 2, isSnapshot: false, unclosedDates: [] });
 
   const res = await publish(w.adminToken, publishBody(w));
   assert.equal(res.status, 200, JSON.stringify(res.body?.error));
@@ -107,7 +111,7 @@ test("snapshot terbit: predikat dihitung ulang dari KKM & nama mapel terkini, re
   const frozen = await getCard(w.adminToken, card.id);
   const frozenMath = frozen.body?.data.grades.find((g) => g.subjectId === w.subjects[1].id);
   assert.deepEqual([frozenMath?.kkm, frozenMath?.predicate, frozenMath?.subjectName], [85, "D", "Matematika Lanjut"]);
-  assert.deepEqual(frozen.body?.data.attendanceSummary, { sick: 1, permit: 1, absent: 2, isSnapshot: true });
+  assert.deepEqual(frozen.body?.data.attendanceSummary, { sick: 1, permit: 1, absent: 2, isSnapshot: true, unclosedDates: [] });
   const own = await ownDetail(s0.token, card.id);
   assert.equal(own.status, 200);
   assert.deepEqual(own.body?.data.attendance, { sick: 1, permit: 1, absent: 2 });
@@ -176,4 +180,45 @@ test("tarik terbit: alasan wajib, siswa 404, bisa diedit lagi, terbit ulang -> '
   const notes = await notificationsOf(s0.user.id);
   assert.deepEqual(notes.map((n) => n.title), ["Rapor terbit", "Rapor diperbarui"]);
   assert.equal((await ownDetail(s0.token, cardId)).status, 200);
+});
+
+test("hari sekolah yang lewat jam tutup tetapi belum ditutup auto-ALPHA: terbit 422 ATTENDANCE_NOT_CLOSED, detail & kesiapan menandai", async () => {
+  const w = await createRcWorld(2);
+  const ids = w.students.map((s) => s.student.id);
+  await gradeAll(w, ids, 88);
+  const today = todayWib();
+  const [gapFrom, gapTo] = [addDays(today, -7), addDays(today, -1)];
+  // Sekolah terdaftar sejak awal semester -> semua hari semester terlacak; tick 7 hari terakhir tidak pernah sukses.
+  await prisma.school.update({ where: { id: w.school.id }, data: { createdAt: instantAtLocal(w.termStart, 0, "WIB") } });
+  await prisma.jobRun.deleteMany({ where: { job: AUTO_ALPHA_JOB, scopeKey: w.school.id, runKey: { in: eachDate(gapFrom, gapTo) } } });
+  const school = await prisma.school.findUniqueOrThrow({ where: { id: w.school.id }, select: { id: true, schoolDaysMask: true } });
+  const expected = listSchoolDays(gapFrom, gapTo, await loadCalendarContext(prisma, school, { from: gapFrom, to: gapTo }));
+  assert.ok(expected.length > 0, "minimal satu hari sekolah dalam 7 hari terakhir");
+
+  const blocked = await publish(w.adminToken, publishBody(w));
+  assert.equal(blocked.status, 422, JSON.stringify(blocked.body));
+  assert.equal(blocked.body?.error?.code, "ATTENDANCE_NOT_CLOSED");
+  assert.deepEqual((blocked.body?.error?.details as { unclosedDates: string[] }).unclosedDates, expected);
+  assert.equal(await prisma.reportCard.count({ where: { classId: w.klass.id, status: "PUBLISHED" } }), 0);
+  const draft = await getCard(w.adminToken, await cardIdOf(w, ids[0]!));
+  assert.deepEqual(draft.body?.data.attendanceSummary.unclosedDates, expected);
+  const readiness = await getReadiness(w.adminToken, termQuery(w));
+  assert.deepEqual(readiness.body?.data.attendanceUnclosedDates, expected);
+
+  await closeAttendanceDays(w.school.id, gapFrom, gapTo);
+  const ok = await publish(w.adminToken, publishBody(w));
+  assert.equal(ok.status, 200, JSON.stringify(ok.body?.error));
+  assert.equal(ok.body?.data.publishedIds.length, 2);
+});
+
+test("terbit menyegarkan snapshot nama kelas (kelas diganti nama setelah nilai terakhir diisi)", async () => {
+  const w = await createRcWorld(1);
+  const sid = w.students[0]!.student.id;
+  await gradeAll(w, [sid], 90);
+  const renamed = uniq("VIII-Baru");
+  await prisma.schoolClass.update({ where: { id: w.klass.id }, data: { name: renamed } });
+  const res = await publish(w.adminToken, publishBody(w));
+  assert.equal(res.status, 200, JSON.stringify(res.body?.error));
+  const card = await prisma.reportCard.findFirstOrThrow({ where: { studentId: sid }, select: { status: true, classNameSnapshot: true } });
+  assert.deepEqual(card, { status: "PUBLISHED", classNameSnapshot: renamed });
 });

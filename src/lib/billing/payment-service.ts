@@ -1,6 +1,7 @@
 import { writeAudit } from "@/lib/audit";
 import { requirePrincipal, type ActionContext } from "@/lib/auth/principal";
 import { prisma, type Tx } from "@/lib/db";
+import { conflict } from "@/lib/http/errors";
 import { notifyStudents } from "@/lib/notifications/notify";
 import { paymentApprovedNotification, paymentVoidedNotification } from "@/lib/notifications/templates/billing";
 import { toDbDate } from "@/lib/time/zone";
@@ -58,9 +59,17 @@ export async function loadPaymentResult(schoolId: string, paymentId: string, inv
   return { payment: toPaymentDto(row), invoice: await loadInvoiceDto(prisma, schoolId, invoiceId, today) };
 }
 
+/**
+ * Token konkurensi tunai: paidAmount yang dilihat admin harus sama dengan paidAmount terkini (di bawah
+ * kunci). Permintaan yang diulang (respons hilang, klik ganda) membawa token lama -> 409, bukan cicilan kedua.
+ */
+const paidAmountChanged = (paidAmount: number) =>
+  conflict("STATE_CONFLICT", "Nominal terbayar tagihan sudah berubah (ada pembayaran lain tercatat). Muat ulang tagihan lalu periksa sebelum mencatat lagi.", { paidAmount });
+
 async function cashInTx(tx: Tx, owner: { id: string; studentId: string }, schoolId: string, input: CashPaymentInput, clock: SchoolClock, ctx: ActionContext) {
   await lockStudentAndInvoice(tx, { id: owner.id, schoolId, studentId: owner.studentId });
   const invoice = await readInvoiceState(tx, schoolId, owner.id);
+  if (invoice.paidAmount !== input.expectedPaidAmount) throw paidAmountChanged(invoice.paidAmount);
   assertBilling(payableViolation({ status: invoice.status, hasPending: invoice.pendingSubmissionId !== null }));
   assertBilling(cashDateViolation(input.paidDate, clock.today));
   assertBilling(paymentAmountViolation(input.amount, remainingOf(invoice)));

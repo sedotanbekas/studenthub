@@ -4,7 +4,8 @@ import { loadBillingSchool, schoolClock } from "./context";
 
 /**
  * Statistik SPP untuk dashboard admin sekolah (dipakai domain dashboard). Hanya siswa ACTIVE, tagihan
- * UNPAID/PARTIAL dengan periode <= bulan ini (tagihan dimuka tidak dihitung); "hari ini" memakai zona
+ * UNPAID/PARTIAL dengan periode <= bulan ini ATAU jatuh tempo sudah lewat (tagihan dimuka yang belum jatuh
+ * tempo tidak dihitung; yang sudah lewat = JATUH_TEMPO seperti di daftar tagihan); "hari ini" memakai zona
  * waktu sekolah. SUM MariaDB (Decimal/BigInt) dinormalisasi dengan Number().
  */
 export interface BillingPeriodStats {
@@ -23,7 +24,7 @@ export interface BillingPeriodStats {
 }
 
 export interface BillingStats {
-  /** Siswa ACTIVE dengan tagihan UNPAID/PARTIAL berperiode <= bulan ini. */
+  /** Siswa ACTIVE dengan tagihan UNPAID/PARTIAL berperiode <= bulan ini atau sudah lewat jatuh tempo. */
   readonly studentsNotFullyPaid: number;
   /** Sebagian dari itu yang punya tagihan lewat jatuh tempo (dueDate < hari ini). */
   readonly studentsOverdue: number;
@@ -57,7 +58,7 @@ async function outstandingTotals(schoolId: string, todayKey: number, today: stri
            COALESCE(SUM(i.\`amount\` - i.\`paidAmount\`), 0) AS outstanding
     FROM \`Invoice\` i JOIN \`Student\` s ON s.\`id\` = i.\`studentId\`
     WHERE i.\`schoolId\` = ${schoolId} AND i.\`status\` IN ('UNPAID', 'PARTIAL') AND s.\`status\` = 'ACTIVE'
-      AND (i.\`periodYear\` * 12 + i.\`periodMonth\` - 1) <= ${todayKey}`;
+      AND ((i.\`periodYear\` * 12 + i.\`periodMonth\` - 1) <= ${todayKey} OR i.\`dueDate\` < ${today})`;
   return rows[0] ?? { notFully: 0, overdue: 0, outstanding: 0 };
 }
 

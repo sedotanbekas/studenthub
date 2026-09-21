@@ -85,7 +85,8 @@ export interface GradeWrite {
   readonly subjectId: string;
   /** null = hapus nilai. */
   readonly score: number | null;
-  readonly description: string | null;
+  /** undefined = pertahankan deskripsi tersimpan (nilai baru: null); null = hapus deskripsi. */
+  readonly description: string | null | undefined;
 }
 
 export interface GradeValues {
@@ -111,13 +112,13 @@ export interface GradePlan {
 
 const gradeKey = (reportCardId: string, subjectId: string): string => `${reportCardId}\u0000${subjectId}`;
 
-function valuesOf(write: GradeWrite & { readonly score: number }, subject: SubjectInfo): GradeValues {
+function valuesOf(score: number, description: string | null, subject: SubjectInfo): GradeValues {
   return {
     subjectNameSnapshot: subject.name,
     kkmSnapshot: subject.kkm,
-    score: write.score,
-    predicate: computePredicate(write.score, subject.kkm),
-    description: write.description,
+    score,
+    predicate: computePredicate(score, subject.kkm),
+    description,
   };
 }
 
@@ -132,7 +133,8 @@ function stepOf(write: GradeWrite, current: ExistingGrade | undefined, subjects:
   if (write.score === null) return current ? { kind: "delete", id: current.id } : { kind: "skip" };
   const subject = subjects.get(write.subjectId);
   if (!subject) throw new Error(`Info mapel ${write.subjectId} tidak dimuat`);
-  const data = valuesOf({ ...write, score: write.score }, subject);
+  const description = write.description === undefined ? (current?.description ?? null) : write.description;
+  const data = valuesOf(write.score, description, subject);
   if (!current) return { kind: "create", row: { reportCardId: write.reportCardId, subjectId: write.subjectId, ...data } };
   return sameValues(current, data) ? { kind: "skip" } : { kind: "update", row: { id: current.id, data } };
 }

@@ -74,6 +74,21 @@ describe("planGradeWrites", () => {
     ]);
   });
 
+  test("deskripsi tidak dikirim (undefined) mempertahankan deskripsi tersimpan; null menghapusnya", () => {
+    const kept = planGradeWrites([{ reportCardId: "r1", subjectId: "mtk", score: 85, description: undefined }], [existing("g1", "r1", 80, "Deskripsi lama")], SUBJECTS);
+    assert.deepEqual(kept.updates, [
+      { id: "g1", data: { subjectNameSnapshot: "Matematika", kkmSnapshot: 75, score: 85, predicate: "B", description: "Deskripsi lama" } },
+    ]);
+    const same = planGradeWrites([{ reportCardId: "r1", subjectId: "mtk", score: 80, description: undefined }], [existing("g1", "r1", 80, "Deskripsi lama")], SUBJECTS);
+    assert.deepEqual([same.updates, same.unchanged], [[], 1], "skor sama tanpa deskripsi = tidak berubah");
+    const cleared = planGradeWrites([{ reportCardId: "r1", subjectId: "mtk", score: 80, description: null }], [existing("g1", "r1", 80, "Deskripsi lama")], SUBJECTS);
+    assert.deepEqual(cleared.updates, [
+      { id: "g1", data: { subjectNameSnapshot: "Matematika", kkmSnapshot: 75, score: 80, predicate: "C", description: null } },
+    ]);
+    const fresh = planGradeWrites([{ reportCardId: "r9", subjectId: "mtk", score: 90, description: undefined }], [], SUBJECTS);
+    assert.equal(fresh.creates[0]?.description, null, "nilai baru tanpa deskripsi -> null");
+  });
+
   test("mapel tanpa info -> Error (bug pemanggil)", () => {
     assert.throws(() => planGradeWrites([{ reportCardId: "r1", subjectId: "x", score: 90, description: null }], [], SUBJECTS));
   });

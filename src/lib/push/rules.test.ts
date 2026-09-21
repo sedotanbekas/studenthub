@@ -7,6 +7,7 @@ import {
   classifyRequestError,
   classifyTicket,
   isExpired,
+  unsentNotificationIds,
   pushLinkOf,
   retryDelayMinutes,
   sanitizeErrorCode,
@@ -106,4 +107,16 @@ test("sanitizeErrorCode: hanya [A-Za-z0-9_:.-], maks 255", () => {
   assert.equal(sanitizeErrorCode("HTTP_400:PUSH_X"), "HTTP_400:PUSH_X");
   assert.equal(sanitizeErrorCode("x".repeat(300)).length, 255);
   assert.equal(sanitizeErrorCode("ada spasi"), "UNKNOWN_ERROR");
+});
+
+test("unsentNotificationIds: anggaran habis -> notifikasi dengan perangkat yang belum dicoba & tanpa ok dilepas", () => {
+  const deliveries = [
+    { notificationId: "a" }, { notificationId: "b" }, // chunk terkirim
+    { notificationId: "b" }, { notificationId: "c" }, { notificationId: "d" }, { notificationId: "d" }, // belum dicoba
+  ];
+  const results = [{ kind: "ok" as const }, { kind: "retry" as const, error: "NETWORK_ERROR" }];
+  assert.deepEqual([...unsentNotificationIds(deliveries, results)].sort(), ["b", "c", "d"]);
+  const partlyOk = [{ kind: "retry" as const, error: "NETWORK_ERROR" }, { kind: "ok" as const }];
+  assert.deepEqual([...unsentNotificationIds(deliveries, partlyOk)].sort(), ["c", "d"], "b sudah sampai di satu perangkat -> tetap SENT");
+  assert.equal(unsentNotificationIds(deliveries, [...results, ...results, ...results]).size, 0, "semua dicoba -> tidak ada yang dilepas");
 });

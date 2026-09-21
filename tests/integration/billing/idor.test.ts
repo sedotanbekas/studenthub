@@ -54,7 +54,7 @@ before(async () => {
   bSubmissionId = (await submitProof(bStudent, bInvoiceId, { amount: 50_000 })).body?.data.id ?? "";
   bPaidInvoiceId = (await issueInvoice(b, bStudent.student.id, 1, 80_000)).id;
   const pay = await callRoute<Envelope<{ payment: { id: string } }>>(cashRoute, {
-    method: "POST", url: schoolUrl(`/invoices/${bPaidInvoiceId}/payments`), params: { id: bPaidInvoiceId }, bearer: b.adminToken, json: { amount: 80_000, paidDate: todayWib() },
+    method: "POST", url: schoolUrl(`/invoices/${bPaidInvoiceId}/payments`), params: { id: bPaidInvoiceId }, bearer: b.adminToken, json: { amount: 80_000, expectedPaidAmount: 0, paidDate: todayWib() },
   });
   bPaymentId = pay.body?.data.payment.id ?? "";
   assert.ok(bSubmissionId && bPaymentId, "fixture sekolah B lengkap");
@@ -78,7 +78,7 @@ const BY_ID: readonly ByIdCall[] = [
   { name: "ubah tagihan", handler: invoicePatch, method: "PATCH", path: (i) => `/invoices/${i.invoice}`, json: { note: "IDOR" } },
   { name: "batalkan tagihan", handler: voidInvoiceRoute, method: "POST", path: (i) => `/invoices/${i.invoice}/void`, json: { reason: "Uji IDOR" } },
   { name: "pulihkan tagihan", handler: restoreRoute, method: "POST", path: (i) => `/invoices/${i.invoice}/restore` },
-  { name: "tunai", handler: cashRoute, method: "POST", path: (i) => `/invoices/${i.invoice}/payments`, json: { amount: 10_000, paidDate: todayWib() } },
+  { name: "tunai", handler: cashRoute, method: "POST", path: (i) => `/invoices/${i.invoice}/payments`, json: { amount: 10_000, expectedPaidAmount: 0, paidDate: todayWib() } },
   { name: "detail bukti", handler: submissionDetail, method: "GET", path: (i) => `/payment-submissions/${i.submission}` },
   { name: "setujui bukti", handler: approveRoute, method: "POST", path: (i) => `/payment-submissions/${i.submission}/approve`, json: {} },
   { name: "tolak bukti", handler: rejectRoute, method: "POST", path: (i) => `/payment-submissions/${i.submission}/reject`, json: { reason: "Uji IDOR" } },

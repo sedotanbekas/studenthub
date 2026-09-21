@@ -50,7 +50,7 @@ export const billingPeriodSummarySchema = z
 
 export const billingSummarySchema = z
   .object({
-    studentsNotFullyPaid: count("Siswa AKTIF dengan tagihan BELUM BAYAR/SEBAGIAN berperiode <= bulan ini."),
+    studentsNotFullyPaid: count("Siswa AKTIF dengan tagihan BELUM BAYAR/SEBAGIAN berperiode <= bulan ini atau sudah lewat jatuh tempo."),
     studentsOverdue: count("Bagian dari itu yang punya tagihan lewat jatuh tempo."),
     outstandingAmount: rupiah("Total sisa tagihan tersebut"),
     pendingVerification: count("Bukti transfer menunggu verifikasi."),

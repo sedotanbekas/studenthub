@@ -11,7 +11,7 @@ export const dashboardSummaryContract = defineContract({
   tag: TAG,
   summary: "Ringkasan dashboard admin sekolah",
   description:
-    "Kartu dashboard dihitung paralel dari query domain: students = jumlah siswa per status; attendanceToday = kartu kehadiran hari ini (sama dengan GET /school/attendance/stats/today); reportCards = corong rapor siswa AKTIF untuk termId (default semester aktif; term null bila tidak ada); billing = siswa AKTIF belum lunas (tagihan berperiode <= bulan ini), bukti menunggu verifikasi, dan rekap tagihan bulan berjalan (waktu lokal sekolah). Admin sekolah: sekolahnya sendiri (schoolId lain -> 403 SCOPE_MISMATCH). Super admin: wajib ?schoolId= (400 SCHOOL_ID_REQUIRED; sekolah tak dikenal -> 404 SCHOOL_NOT_FOUND). termId milik sekolah lain -> 404.",
+    "Kartu dashboard dihitung paralel dari query domain: students = jumlah siswa per status; attendanceToday = kartu kehadiran hari ini (sama dengan GET /school/attendance/stats/today); reportCards = corong rapor siswa AKTIF untuk termId (default semester aktif; term null bila tidak ada); billing = siswa AKTIF belum lunas (tagihan berperiode <= bulan ini atau sudah lewat jatuh tempo), bukti menunggu verifikasi, dan rekap tagihan bulan berjalan (waktu lokal sekolah). Admin sekolah: sekolahnya sendiri (schoolId lain -> 403 SCOPE_MISMATCH). Super admin: wajib ?schoolId= (400 SCHOOL_ID_REQUIRED; sekolah tak dikenal -> 404 SCHOOL_NOT_FOUND). termId milik sekolah lain -> 404.",
   action: "dashboard.read",
   query: dashboardSummaryQuery,
   response: dashboardSummarySchema,

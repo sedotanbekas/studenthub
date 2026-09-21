@@ -72,6 +72,16 @@ export function classifyTicket(ticket: PushTicket | undefined): DeviceResult {
   return { kind: "fail", error: code ? sanitizeErrorCode(code) : PUSH_ERROR.UNKNOWN };
 }
 
+/**
+ * Notifikasi yang dilepas saat anggaran waktu habis di tengah batch: masih punya perangkat yang belum dicoba
+ * (indeks >= results.length, pengiriman berurutan) dan belum ada perangkat yang ok. `results` sejajar dengan
+ * prefiks `deliveries` yang sempat dikirim.
+ */
+export function unsentNotificationIds(deliveries: ReadonlyArray<{ readonly notificationId: string }>, results: readonly DeviceResult[]): Set<string> {
+  const delivered = new Set(deliveries.flatMap((d, i) => (results[i]?.kind === "ok" ? [d.notificationId] : [])));
+  return new Set(deliveries.slice(results.length).map((d) => d.notificationId).filter((id) => !delivered.has(id)));
+}
+
 /** Error level request: 429 / 5xx / jaringan (tanpa statusCode) -> retry; 4xx lain -> fail. */
 export function classifyRequestError(error: unknown): Extract<DeviceResult, { kind: "retry" | "fail" }> {
   const { statusCode, code } = (typeof error === "object" && error !== null ? error : {}) as { statusCode?: unknown; code?: unknown };

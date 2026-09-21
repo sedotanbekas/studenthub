@@ -1,11 +1,11 @@
 /**
- * Satu test per CHECK constraint migrasi init (docs/PLAN.md "Verifikasi"): setiap INSERT/UPDATE
+ * Satu test per CHECK constraint migrasi (docs/PLAN.md "Verifikasi"): setiap INSERT/UPDATE
  * pelanggar DITOLAK MariaDB (errno 4025 + nama constraint) dan, bila murah, baris valid lolos.
  * Tabel kasus WAJIB mencakup persis semua `chk_*` di migration.sql (diperiksa test cakupan).
  * Catatan: log "prisma:error" di stderr berasal dari pelanggaran yang memang diharapkan.
  */
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { isCheckViolation } from "../../../src/lib/http/prisma-errors";
@@ -18,7 +18,7 @@ import { adLedgerCases, attendanceCases, billingCases, type CheckCase } from "./
 after(disconnect);
 
 const MARIADB_CHECK_ERRNO = "4025";
-const INIT_MIGRATION = "prisma/migrations/20260921000000_init/migration.sql";
+const MIGRATIONS_DIR = "prisma/migrations";
 
 let fx: CheckFixture;
 before(async () => {
@@ -293,8 +293,9 @@ describe("platform: CHECK constraint MariaDB", () => {
 });
 
 describe("platform: cakupan test CHECK constraint", () => {
-  test("tabel kasus mencakup persis semua chk_* di migrasi init (tanpa duplikat)", async () => {
-    const sql = await readFile(resolve(process.cwd(), INIT_MIGRATION), "utf8");
+  test("tabel kasus mencakup persis semua chk_* di seluruh migrasi (tanpa duplikat)", async () => {
+    const dirs = (await readdir(resolve(process.cwd(), MIGRATIONS_DIR), { withFileTypes: true })).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+    const sql = (await Promise.all(dirs.map((dir) => readFile(resolve(process.cwd(), MIGRATIONS_DIR, dir, "migration.sql"), "utf8")))).join("\n");
     const declared = [...sql.matchAll(/ADD CONSTRAINT `(chk_[a-z0-9_]+)` CHECK/g)].map((m) => m[1]).sort();
     const tested = ALL_CASES.map((c) => c.constraint).sort();
     assert.equal(new Set(tested).size, tested.length, "ada constraint yang diuji dua kali");

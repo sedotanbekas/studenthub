@@ -27,11 +27,16 @@ import {
 
 const collapse = (value: string): string => value.replace(/\s+/g, " ").trim();
 
+/**
+ * Rapikan lalu cek panjang (semantik tepat pasca-normalisasi). Pipe tidak membawa batas ke JSON Schema masukan,
+ * jadi minLength/maxLength dinyatakan lewat meta agar klien hasil generate memvalidasi sama.
+ */
 const cleanText = (min: number, max: number, label: string) =>
   z
     .string()
     .transform(collapse)
-    .pipe(z.string().min(min, `${label} minimal ${min} karakter.`).max(max, `${label} maksimal ${max} karakter.`));
+    .pipe(z.string().min(min, `${label} minimal ${min} karakter.`).max(max, `${label} maksimal ${max} karakter.`))
+    .meta({ minLength: min, maxLength: max });
 
 const amountSchema = z
   .int("Nominal harus bilangan bulat rupiah.")
@@ -55,6 +60,7 @@ const optionalNote = z
   .transform(collapse)
   .pipe(z.string().max(NOTE_MAX, `Catatan maksimal ${NOTE_MAX} karakter.`))
   .transform((value) => (value === "" ? undefined : value))
+  .meta({ maxLength: NOTE_MAX })
   .optional();
 const reasonSchema = cleanText(REASON_MIN, REASON_MAX, "Alasan");
 const dueDateSchema = localDateSchema.meta({ description: "Jatuh tempo (tanggal lokal). Default tanggal 10 bulan periode; rentang awal (periode-1 bulan) .. akhir (periode+3 bulan)." });
@@ -126,6 +132,7 @@ export const updateInvoiceBody = z
       .transform(collapse)
       .pipe(z.string().max(NOTE_MAX, `Catatan maksimal ${NOTE_MAX} karakter.`))
       .transform((value) => (value === "" ? null : value))
+      .meta({ maxLength: NOTE_MAX })
       .nullable()
       .optional()
       .meta({ description: "null/\"\" menghapus catatan." }),
@@ -144,6 +151,14 @@ export const cashPaymentBody = z
     amount: paymentAmountSchema.meta({ description: "<= sisa dan >= min(sisa, 10.000)." }),
     paidDate: localDateSchema.meta({ description: "Tanggal uang diterima (lokal), hari ini - 31 .. hari ini." }),
     note: optionalNote,
+    expectedPaidAmount: z
+      .int("expectedPaidAmount harus bilangan bulat rupiah.")
+      .min(0, "expectedPaidAmount minimal 0.")
+      .max(MAX_INVOICE_AMOUNT, `expectedPaidAmount maksimal ${MAX_INVOICE_AMOUNT}.`)
+      .meta({
+        description: "paidAmount tagihan yang sedang ditampilkan ke admin (token konkurensi). Berbeda dengan paidAmount terkini -> 409 STATE_CONFLICT {paidAmount}; permintaan yang diulang (klik ganda/timeout) tidak tercatat dua kali.",
+        example: 0,
+      }),
   })
   .meta({ id: "CashPaymentInput" });
 export type CashPaymentInput = z.output<typeof cashPaymentBody>;

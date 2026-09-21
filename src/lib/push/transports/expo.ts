@@ -1,22 +1,39 @@
 import type { ExpoPushMessage, ExpoPushTicket } from "expo-server-sdk";
 import { getEnv } from "@/lib/env";
-import { EXPO_PUSH_CHUNK } from "../constants";
+import { EXPO_HTTP_TIMEOUTS, EXPO_PUSH_CHUNK } from "../constants";
 import { chunk } from "../rules";
 import type { PushMessage, PushTicket, PushTransport } from "../types";
 
 /**
  * Transport `expo` (produksi): expo-server-sdk, maks 100 pesan per request, access token dari
- * EXPO_ACCESS_TOKEN bila Enhanced Push Security aktif. SDK dimuat malas (paket ESM, serverExternalPackages).
+ * EXPO_ACCESS_TOKEN bila Enhanced Push Security aktif, batas waktu per request (EXPO_HTTP_TIMEOUTS). SDK & undici
+ * dimuat malas (paket ESM, serverExternalPackages).
  * Error request (HTTP != 200 / jaringan) diteruskan apa adanya: `statusCode` dipakai classifyRequestError.
  */
 export interface ExpoClientLike {
   sendPushNotificationsAsync(messages: ExpoPushMessage[]): Promise<ExpoPushTicket[]>;
 }
 
-async function loadDefaultClient(): Promise<ExpoClientLike> {
-  const { Expo } = await import("expo-server-sdk");
-  const accessToken = getEnv().EXPO_ACCESS_TOKEN;
-  return new Expo(accessToken ? { accessToken } : {});
+export interface ExpoHttpTimeouts {
+  readonly connectMs: number;
+  readonly headersMs: number;
+  readonly bodyMs: number;
+}
+
+/**
+ * Klien Expo dengan batas waktu per request lewat undici Agent (dispatcher fetch SDK). Tanpa ini SDK memakai
+ * Agent global undici (header & body 300 detik) sehingga Expo yang lambat menahan dispatcher. Timeout
+ * dilempar sebagai error jaringan (tanpa statusCode) -> classifyRequestError: retry.
+ */
+export async function createExpoClient(options: { accessToken?: string; timeouts?: ExpoHttpTimeouts } = {}): Promise<ExpoClientLike> {
+  const [{ Expo }, { Agent }] = await Promise.all([import("expo-server-sdk"), import("undici")]);
+  const timeouts = options.timeouts ?? EXPO_HTTP_TIMEOUTS;
+  const httpAgent = new Agent({ connect: { timeout: timeouts.connectMs }, headersTimeout: timeouts.headersMs, bodyTimeout: timeouts.bodyMs });
+  return new Expo({ ...(options.accessToken ? { accessToken: options.accessToken } : {}), httpAgent });
+}
+
+function loadDefaultClient(): Promise<ExpoClientLike> {
+  return createExpoClient({ accessToken: getEnv().EXPO_ACCESS_TOKEN });
 }
 
 export function toExpoMessage(message: PushMessage): ExpoPushMessage {

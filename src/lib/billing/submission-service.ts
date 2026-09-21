@@ -11,6 +11,7 @@ import { uniqueIndexOf } from "@/lib/students/unique-error";
 import { addDays, instantAtLocal, toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { loadBillingSchool, schoolClock, type BillingSchool } from "./context";
+import { findUploadMatches, recordProofMatches, type ProofMatch } from "./duplicate-queries";
 import { failBilling, violation } from "./errors";
 import { findInvoiceOwner, readInvoiceState } from "./invoice-state";
 import { lockStudentAndInvoice, submissionNotFound } from "./locks";
@@ -22,7 +23,8 @@ import { submissionViolation } from "./submission-rules";
 /**
  * Unggah bukti transfer oleh siswa (multipart atomik) & pembatalan. Foto diproses di luar transaksi
  * (guard disk, re-encode tanpa EXIF, dHash); di transaksi: Student (bersama) -> Invoice FOR UPDATE milik
- * siswa -> aturan -> StoredFile + PaymentSubmission (pendingInvoiceId = invoiceId) -> notifikasi admin.
+ * siswa -> aturan -> StoredFile + PaymentSubmission (pendingInvoiceId = invoiceId) -> notifikasi admin ->
+ * penanda bukti identik/mirip (PaymentProofMatch, dua arah; kecocokan dicari sebelum transaksi).
  * Gagal di mana pun -> berkas di disk dibuang (tanpa yatim).
  */
 const PENDING_INDEX = "PaymentSubmission_pendingInvoiceId_key";
@@ -54,6 +56,8 @@ interface ProofWork {
   readonly invoiceId: string;
   readonly input: SubmitProofInput;
   readonly processed: ProcessedImage;
+  /** Bukti identik/mirip di sekolah ini, dihitung sebelum transaksi (baca saja, tanpa kunci). */
+  readonly matches: readonly ProofMatch[];
 }
 
 async function insertSubmission(tx: Tx, work: ProofWork, written: string[], ctx: ActionContext): Promise<string> {
@@ -74,6 +78,8 @@ async function insertSubmission(tx: Tx, work: ProofWork, written: string[], ctx:
     },
     select: { id: true, invoice: { select: { title: true } }, student: { select: { user: { select: { name: true } }, currentClass: { select: { name: true } } } } },
   });
+  // Urutan kunci: PaymentSubmission (FK tepi penanda) sebelum Notification.
+  await recordProofMatches(tx, submission.id, work.matches, ctx.now);
   const event = paymentSubmittedNotification({
     submissionId: submission.id, studentName: submission.student.user.name, className: submission.student.currentClass?.name ?? null,
     invoiceTitle: submission.invoice.title, amount: input.amount,
@@ -104,7 +110,9 @@ export async function submitPaymentProof(ctx: ActionContext, invoiceId: string, 
   await assessSubmission(prisma, school, invoiceId, input, ctx.now);
   await assertDiskSpace(storageRoot());
   const processed = await processImage(new Uint8Array(await input.file.arrayBuffer()), "PAYMENT_PROOF");
-  const id = await withProofTx({ self, school, invoiceId, input, processed }, ctx);
+  const proof = { schoolId: school.id, studentId: self.studentId, sha256: processed.sha256, phash: processed.phash };
+  const matches = await findUploadMatches(prisma, proof, ctx.now);
+  const id = await withProofTx({ self, school, invoiceId, input, processed, matches }, ctx);
   return loadOwnSubmission(prisma, self, id);
 }
 

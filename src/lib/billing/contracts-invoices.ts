@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
-import { BULK_CHUNK_SIZE, MAX_BULK_INVOICE_STUDENTS, MAX_CASH_BACKDATE_DAYS, MIN_PAYMENT_AMOUNT } from "./constants";
+import { BULK_CHUNK_SIZE, BULK_INVOICE_MAX_BODY_BYTES, MAX_BULK_INVOICE_STUDENTS, MAX_CASH_BACKDATE_DAYS, MIN_PAYMENT_AMOUNT } from "./constants";
 import {
   bulkResultSchema,
   invoiceDetailSchema,
@@ -60,10 +60,11 @@ export const bulkInvoicesContract = defineContract({
   path: "/api/v1/school/invoices/bulk",
   tag: TAG,
   summary: "Tagihan SPP massal satu periode (dry run tersedia)",
-  description: `Hanya siswa ACTIVE (cakupan STUDENTS: siswa lain dilaporkan NOT_ACTIVE). Nominal = override ?? sppAmount siswa ?? amount; 0 = bebas (EXEMPT). Slot yang sudah ada termasuk yang dibatalkan dilewati (ALREADY_BILLED) -> menjalankan ulang aman. Diproses per ${BULK_CHUNK_SIZE} siswa per transaksi, maks ${MAX_BULK_INVOICE_STUDENTS} siswa (422 BULK_TOO_LARGE). dryRun=true hanya menghitung rencana. Kelas/siswa sekolah lain -> 404. ${SCOPE_NOTE}`,
+  description: `Hanya siswa ACTIVE (cakupan STUDENTS: siswa lain dilaporkan NOT_ACTIVE). Nominal = override ?? sppAmount siswa ?? amount; 0 = bebas (EXEMPT). Slot yang sudah ada dilewati: tagihan hidup -> ALREADY_BILLED {invoiceId}; tagihan dibatalkan -> VOIDED {invoiceId, hint: RESTORE} (slot tetap terpakai; pulihkan lewat /restore). Menjalankan ulang aman. Diproses per ${BULK_CHUNK_SIZE} siswa per transaksi, maks ${MAX_BULK_INVOICE_STUDENTS} siswa (422 BULK_TOO_LARGE). dryRun=true hanya menghitung rencana. Kelas/siswa sekolah lain -> 404. ${SCOPE_NOTE}`,
   action: "billing.write",
   query: schoolIdQuery,
   body: bulkInvoiceBody,
+  maxBodyBytes: BULK_INVOICE_MAX_BODY_BYTES,
   response: bulkResultSchema,
   errors: [...PERIOD_ERRORS, "BULK_TOO_LARGE", "BULK_OVERRIDE_OUT_OF_SCOPE", "CLASS_NOT_FOUND", "SCHOOL_NOT_FOUND", "CONFLICT_RETRY"],
 });
@@ -118,7 +119,7 @@ export const restoreInvoiceContract = defineContract({
   path: "/api/v1/school/invoices/{id}/restore",
   tag: TAG,
   summary: "Pulihkan tagihan yang dibatalkan (VOID -> UNPAID)",
-  description: `Tanpa body. Hanya tagihan VOID (409 INVOICE_NOT_VOID); siswa PINDAH -> 422 STUDENT_NOT_BILLABLE. ${SCOPE_NOTE}`,
+  description: `Tanpa body. Hanya tagihan VOID (409 INVOICE_NOT_VOID); siswa PINDAH, atau siswa nonaktif/lulus untuk periode yang belum berjalan -> 422 STUDENT_NOT_BILLABLE. ${SCOPE_NOTE}`,
   action: "billing.write",
   params: billingIdParams,
   query: schoolIdQuery,
@@ -132,7 +133,7 @@ export const cashPaymentContract = defineContract({
   path: "/api/v1/school/invoices/{id}/payments",
   tag: TAG,
   summary: "Catat pembayaran tunai",
-  description: `${AMOUNT_RULE} paidDate hari ini - ${MAX_CASH_BACKDATE_DAYS} .. hari ini. Ditolak bila tagihan lunas/dibatalkan (409 INVOICE_NOT_PAYABLE) atau ada bukti transfer menunggu (409 SUBMISSION_PENDING). Membuat kuitansi KWT-YYYY-NNNNNN; siswa menerima PAYMENT_APPROVED. ${SCOPE_NOTE}`,
+  description: `${AMOUNT_RULE} paidDate hari ini - ${MAX_CASH_BACKDATE_DAYS} .. hari ini. Ditolak bila tagihan lunas/dibatalkan (409 INVOICE_NOT_PAYABLE) atau ada bukti transfer menunggu (409 SUBMISSION_PENDING). expectedPaidAmount wajib = paidAmount yang ditampilkan; berbeda dengan paidAmount terkini (pembayaran lain tercatat, atau permintaan yang sama diulang karena klik ganda/timeout) -> 409 STATE_CONFLICT {paidAmount} tanpa mencatat apa pun. Membuat kuitansi KWT-YYYY-NNNNNN; siswa menerima PAYMENT_APPROVED. ${SCOPE_NOTE}`,
   action: "billing.verify",
   params: billingIdParams,
   query: schoolIdQuery,

@@ -13,7 +13,8 @@ import { GET as sheetRoute } from "@/app/api/v1/school/report-cards/sheet/route"
 import { POST as unpublishRoute } from "@/app/api/v1/school/report-cards/unpublish/route";
 import { GET as ownDetailRoute } from "@/app/api/v1/student/report-cards/[id]/route";
 import { GET as ownListRoute } from "@/app/api/v1/student/report-cards/route";
-import { addDays, localParts, toDbDate, type LocalDate } from "@/lib/time/zone";
+import { AUTO_ALPHA_JOB } from "@/lib/attendance/auto-alpha-rules";
+import { addDays, eachDate, localParts, toDbDate, type LocalDate } from "@/lib/time/zone";
 import { createSessionToken } from "../helpers/auth";
 import { prisma, uniq } from "../helpers/db";
 import {
@@ -68,11 +69,23 @@ export async function addStudent(world: Pick<RcWorld, "school" | "klass">, optio
   return { ...created, token: (await createSessionToken(created.user.id)).token };
 }
 
-/** Sekolah + semester aktif (hari ini -60 .. +60) + kelas + 3 mapel terpetakan + admin + N siswa aktif. */
+/** Tandai hari [from, to] sudah ditutup auto-ALPHA (JobRun SUCCEEDED), seperti tick cron di produksi. */
+export async function closeAttendanceDays(schoolId: string, from: LocalDate, to: LocalDate): Promise<void> {
+  await prisma.jobRun.createMany({
+    data: eachDate(from, to).map((runKey) => ({ job: AUTO_ALPHA_JOB, scopeKey: schoolId, runKey, status: "SUCCEEDED" as const, finishedAt: new Date() })),
+    skipDuplicates: true,
+  });
+}
+
+/**
+ * Sekolah + semester aktif (hari ini -60 .. +60) + kelas + 3 mapel terpetakan + admin + N siswa aktif.
+ * Hari awal semester s.d. hari ini sudah ditutup auto-ALPHA (rekap rapor final).
+ */
 export async function createRcWorld(studentCount = 3): Promise<RcWorld> {
   const school = await createSchool();
   const today = todayWib();
   const [termStart, termEnd] = [addDays(today, -60), addDays(today, 60)];
+  await closeAttendanceDays(school.id, termStart, today);
   const { academicYear, term } = await createAcademicYearWithTerm(school.id, {
     yearStart: addDays(today, -120), yearEnd: addDays(today, 200), termStart, termEnd,
   });
@@ -112,7 +125,7 @@ export interface CardDetail {
   publishedAt: string | null;
   grades: GradeView[];
   missingSubjectIds: string[];
-  attendanceSummary: { sick: number; permit: number; absent: number; isSnapshot: boolean };
+  attendanceSummary: { sick: number; permit: number; absent: number; isSnapshot: boolean; unclosedDates: string[] };
   average: number | null;
 }
 export interface Readiness {
@@ -121,6 +134,7 @@ export interface Readiness {
   incomplete: Array<{ reportCardId: string; studentId: string; missingSubjectIds: string[] }>;
   noReportCard: string[];
   published: Array<{ reportCardId: string; studentId: string }>;
+  attendanceUnclosedDates: string[];
 }
 
 type Entry = { studentId: string; score: number | null; description?: string | null };

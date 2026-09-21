@@ -6,7 +6,7 @@ import { log } from "./log";
  *
  * URUTAN KUNCI GLOBAL (wajib diikuti semua domain untuk mencegah deadlock):
  *   AppLock (kunci aplikasi) -> Student (id naik) -> LeaveRequest -> Attendance -> ReportCard
- *   -> Invoice (id naik) -> PaymentSubmission -> Payment -> DocumentCounter
+ *   -> Invoice (id naik) -> PaymentSubmission (+ PaymentProofMatch) -> Payment -> DocumentCounter
  *   Terpisah: Sponsor -> Ad / TopUpRequest -> AdDailyStat.
  *   Notification & AuditLog selalu ditulis TERAKHIR.
  * JANGAN pernah `FOR UPDATE` baris School/SchoolClass sebagai mutex (baris induk sibuk karena cek FK);
