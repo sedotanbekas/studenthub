@@ -18,7 +18,7 @@ function errorResponses(contract: AnyContract): ZodOpenApiOperationObject["respo
     responses["401"] = { description: "UNAUTHENTICATED / TOKEN_EXPIRED / SESSION_INVALID / ACCOUNT_INACTIVE.", content: errorContent };
     responses["403"] = { description: "FORBIDDEN / PASSWORD_CHANGE_REQUIRED / SCOPE_MISMATCH / status akun.", content: errorContent };
   }
-  if (contract.rateLimit) responses["429"] = { description: "RATE_LIMITED (lihat header Retry-After).", content: errorContent };
+  if (contract.rateLimit || contract.errors?.includes("RATE_LIMITED")) responses["429"] = { description: "RATE_LIMITED (lihat header Retry-After).", content: errorContent };
   return responses;
 }
 

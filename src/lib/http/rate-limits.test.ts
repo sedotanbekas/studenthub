@@ -14,7 +14,7 @@ test("konfigurasi bernama sesuai rencana", () => {
     LOGIN_PAIR: { limit: 8, windowMs: 10 * MIN, lockMs: 15 * MIN },
     LOGIN_IDENTIFIER: { limit: 10, windowMs: 15 * MIN, lockMs: 15 * MIN },
     LOGIN_IP: { limit: 200, windowMs: 10 * MIN, lockMs: 15 * MIN },
-    REFRESH_IP: { limit: 60, windowMs: MIN },
+    REFRESH_IP: { limit: 600, windowMs: MIN },
     CHANGE_PASSWORD: { limit: 5, windowMs: 15 * MIN, lockMs: 15 * MIN },
     ADMIN_RESET: { limit: 30, windowMs: 60 * MIN },
     CHECK_IN: { limit: 10, windowMs: 10 * MIN },

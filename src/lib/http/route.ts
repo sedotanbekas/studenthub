@@ -50,8 +50,16 @@ export function defineRoute<C extends AnyContract>(contract: C, handler: RouteHa
 }
 
 async function authenticate(contract: AnyContract, req: Request, now: Date): Promise<Principal | null> {
+  if (contract.action === "public") {
+    // Route publik (login, refresh) tetap bisa dipakai walau klien mengirim token kedaluwarsa.
+    try {
+      return await getAuth(req, now);
+    } catch (error) {
+      if (error instanceof AppError && error.status === 401) return null;
+      throw error;
+    }
+  }
   const principal = await getAuth(req, now);
-  if (contract.action === "public") return principal;
   if (!principal) throw unauthorized("UNAUTHENTICATED", "Silakan login terlebih dahulu.");
   authorize(principal, contract.action);
   return principal;

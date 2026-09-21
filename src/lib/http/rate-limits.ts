@@ -19,7 +19,8 @@ export const RATE_LIMITS = {
   LOGIN_PAIR: { limit: 8, windowMs: 10 * MINUTE_MS, lockMs: 15 * MINUTE_MS },
   LOGIN_IDENTIFIER: { limit: 10, windowMs: 15 * MINUTE_MS, lockMs: 15 * MINUTE_MS },
   LOGIN_IP: { limit: 200, windowMs: 10 * MINUTE_MS, lockMs: 15 * MINUTE_MS },
-  REFRESH_IP: { limit: 60, windowMs: MINUTE_MS },
+  // Satu sekolah di balik satu IP NAT (~1.000 siswa, token 15 menit) ~70 refresh/menit.
+  REFRESH_IP: { limit: 600, windowMs: MINUTE_MS },
   CHANGE_PASSWORD: { limit: 5, windowMs: 15 * MINUTE_MS, lockMs: 15 * MINUTE_MS },
   ADMIN_RESET: { limit: 30, windowMs: 60 * MINUTE_MS },
   CHECK_IN: { limit: 10, windowMs: 10 * MINUTE_MS },
