@@ -20,11 +20,8 @@ test("placeholderHandler mengembalikan status belum-diimplementasi (objek baru t
   assert.notEqual(a, b);
 });
 
-test("hanya push-dispatch yang masih placeholder; job absensi & berkas sudah diimplementasi", async () => {
-  assert.deepEqual(await JOB_HANDLERS["push-dispatch"](CTX), { status: "belum-diimplementasi" });
-  for (const name of ["attendance-auto-alpha", "files-orphan-cleanup", "maintenance-daily"] as const) {
-    assert.notEqual(JOB_HANDLERS[name], placeholderHandler, name);
-  }
+test("semua job sudah diimplementasi (tidak ada lagi placeholder, termasuk push-dispatch)", () => {
+  for (const name of JOB_NAMES) assert.notEqual(JOB_HANDLERS[name], placeholderHandler, name);
 });
 
 test("isJobName: hanya nama job terdaftar ('tick' bukan job)", () => {

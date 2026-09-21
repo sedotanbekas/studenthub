@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { BILLING_ERROR_STATUS } from "@/lib/billing/errors";
 import { ALL_CONTRACTS } from "@/lib/openapi/registry";
 import { DEFAULT_ERROR_STATUS, ERROR_STATUS, MIXED_STATUS_CODES, statusForCode } from "./error-status";
 
@@ -75,4 +76,9 @@ test("kode bercampur: status utama ada di daftar varian", () => {
     assert.ok(statuses.includes(statusForCode(code)), code);
     assert.ok(statuses.length > 1, code);
   }
+});
+
+test("peta status domain SPP (dilempar lewat billingError, tak terlihat pemindai) konsisten dengan ERROR_STATUS", () => {
+  const mismatched = Object.entries(BILLING_ERROR_STATUS).filter(([code, status]) => statusForCode(code) !== status || !Object.hasOwn(ERROR_STATUS, code));
+  assert.deepEqual(mismatched, []);
 });

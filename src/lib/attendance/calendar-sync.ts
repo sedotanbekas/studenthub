@@ -70,7 +70,12 @@ async function deleteDerivedRows(tx: Tx, schoolId: string | null, dates: readonl
   const where = { date: { in: dates.map(toDbDate) }, source: { in: [...DERIVED_SOURCES] } };
   let deleted = 0;
   for (const part of chunk(schoolIds, SCHOOL_DELETE_CHUNK)) {
-    deleted += (await tx.attendance.deleteMany({ where: { schoolId: { in: part }, ...where } })).count;
+    // Pilih id lewat indeks dulu (baca biasa di READ COMMITTED tanpa kunci), lalu DELETE per primary key:
+    // hanya baris target yang dikunci, apa pun rencana query optimizer (DB kecil bisa memilih full scan).
+    const rows = await tx.attendance.findMany({ where: { schoolId: { in: part }, ...where }, select: { id: true } });
+    if (rows.length === 0) continue;
+    const ids = rows.map((row) => row.id);
+    deleted += (await tx.attendance.deleteMany({ where: { id: { in: ids }, source: { in: [...DERIVED_SOURCES] } } })).count;
   }
   return deleted;
 }

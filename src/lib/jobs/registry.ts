@@ -1,10 +1,10 @@
-import { placeholderHandler } from "./placeholders";
 import type { JobHandler, JobName } from "./types";
 
 /**
  * Handler dimuat malas (dynamic import) agar registry tetap ringan: modul job memuat Prisma/storage,
  * sedangkan registry juga diimpor test unit tanpa database.
  */
+const pushDispatch: JobHandler = async (ctx) => (await import("./push-dispatch")).runPushDispatchJob(ctx);
 const autoAlpha: JobHandler = async (ctx) => (await import("@/lib/attendance/auto-alpha-job")).runAutoAlpha(ctx);
 const orphanFilesCleanup: JobHandler = async (ctx) => (await import("./files-cleanup")).runOrphanFilesCleanup(ctx);
 const maintenanceDaily: JobHandler = async (ctx) => (await import("./maintenance")).runMaintenanceDaily(ctx);
@@ -15,8 +15,8 @@ const maintenanceDaily: JobHandler = async (ctx) => (await import("./maintenance
  * Handler wajib berhenti sebelum ctx.deadline dan menghormati ctx.scope (untuk test).
  */
 export const JOB_HANDLERS: Readonly<Record<JobName, JobHandler>> = {
-  // Fase notifikasi/push: dispatchPendingPushes(ctx).
-  "push-dispatch": placeholderHandler,
+  // Outbox push Expo: dispatchPendingPushes lewat mutex in-process yang sama dengan kick setelah respons.
+  "push-dispatch": pushDispatch,
   // Per sekolah aktif → runKeyedJob("auto-alpha", schoolId, tanggal lokal, tutup hari) + catch-up 7 hari.
   "attendance-auto-alpha": autoAlpha,
   // Banner iklan yatim (> 24 jam, tidak dirujuk iklan): byte lalu baris.

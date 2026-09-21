@@ -1,7 +1,8 @@
 /**
  * Dataset demo `pnpm db:seed:demo` + penjaga murni (tanpa I/O, diuji unit).
  * Semua nilai deterministik agar seed idempoten (upsert berdasarkan kunci alami).
- * Fase berikutnya menambah tagihan, sponsor, dan iklan di sini + fungsi ensureX baru di demo-seed.ts.
+ * P3: tarif SPP per sekolah di sini; tagihan, rapor, dan pengumuman demo di demo-billing.ts,
+ * demo-academic.ts, dan demo-announcements.ts. Fase berikutnya menambah sponsor dan iklan.
  */
 import type { Gender, SchoolTimezone, Semester } from "@prisma/client";
 import { checkPasswordPolicy, PASSWORD_VIOLATION_MESSAGES } from "../../src/lib/auth/password";
@@ -43,6 +44,8 @@ export interface DemoSchoolSpec {
   readonly geofenceRadiusM: number;
   readonly timezone: SchoolTimezone;
   readonly bank: { readonly bankName: string; readonly bankAccountNumber: string; readonly bankAccountHolder: string };
+  /** Tarif SPP bulanan demo (rupiah); dipakai seed tagihan (scripts/lib/demo-billing.ts). */
+  readonly sppAmount: number;
   readonly adminName: string;
   readonly classes: readonly DemoClassSpec[];
   readonly subjects: readonly DemoSubjectSpec[];
@@ -170,6 +173,7 @@ const SMP_SCHOOL: DemoSchoolSpec = {
   geofenceRadiusM: 150,
   timezone: "WIB",
   bank: { bankName: "Bank BJB", bankAccountNumber: "0099001122334", bankAccountHolder: "SMP Negeri 1 Harapan Jaya" },
+  sppAmount: 250_000,
   adminName: "Admin SMPN 1 Harapan Jaya",
   classes: SMP_CLASSES,
   subjects: [
@@ -204,6 +208,7 @@ const SMA_SCHOOL: DemoSchoolSpec = {
   geofenceRadiusM: 150,
   timezone: "WIT",
   bank: { bankName: "Bank Papua", bankAccountNumber: "0099005566778", bankAccountHolder: "SMA Demo Nusantara Timur" },
+  sppAmount: 350_000,
   adminName: "Admin SMA Nusantara Timur",
   classes: SMA_CLASSES,
   subjects: [

@@ -1,13 +1,17 @@
 /**
  * Logika seed demo: fungsi ensureX() kecil yang idempoten (upsert berdasarkan kunci alami:
  * School.npsn, AcademicYear[schoolId,name], Term[academicYearId,semester], SchoolClass[academicYearId,name],
- * Subject[schoolId,code], User.email, Student[schoolId,nisn]). Dipanggil CLI scripts/seed-demo.ts dan
- * integration test. Penjaga nama database ada di CLI (checkSeedDatabaseUrl), BUKAN di sini.
+ * Subject[schoolId,code], User.email, Student[schoolId,nisn]). Data P3 (tagihan SPP, rapor, pengumuman)
+ * dibuat SETELAH transaksi sekolah lewat service domain (demo-billing.ts, demo-academic.ts). Dipanggil CLI
+ * scripts/seed-demo.ts dan integration test. Penjaga nama database ada di CLI (checkSeedDatabaseUrl), BUKAN di sini.
  */
 import type { Tx } from "../../src/lib/db";
 import { toDbDate } from "../../src/lib/time/zone";
 import { withTx } from "../../src/lib/tx";
+import { ensureDemoAnnouncements, ensureDemoReportCards, type DemoReportCardSummary } from "./demo-academic";
 import { ensureDemoAttendance } from "./demo-attendance";
+import { ensureDemoBilling, type DemoBillingSummary } from "./demo-billing";
+import { loadDemoSchoolRef } from "./demo-context";
 import {
   DEMO_ACADEMIC_YEAR,
   DEMO_ACTIVATED_AT,
@@ -24,9 +28,11 @@ import {
 export interface DemoSeedOptions {
   /** Hash bcrypt DEMO_PASSWORD (CLI: cost 10). Dipakai semua akun demo. */
   readonly passwordHash: string;
+  /** Jam acuan seed (default: sekarang). */
+  readonly now?: Date;
 }
 
-export interface DemoSchoolSummary {
+export interface DemoSchoolBaseSummary {
   readonly name: string;
   readonly npsn: string;
   readonly timezone: string;
@@ -36,6 +42,15 @@ export interface DemoSchoolSummary {
   readonly classSubjects: number;
   readonly activeStudents: number;
   readonly nisnRange: string;
+}
+
+export interface DemoSchoolSummary extends DemoSchoolBaseSummary {
+  readonly billing: DemoBillingSummary;
+  readonly reportCards: DemoReportCardSummary;
+  /** Pengumuman demo berstatus terbit. */
+  readonly announcements: number;
+  /** Bagian seed P3 yang dilewati (mis. STORAGE_ROOT tak dapat ditulis, data staging sudah diubah). */
+  readonly warnings: readonly string[];
 }
 
 export interface DemoSeedSummary {
@@ -191,7 +206,7 @@ export async function ensureStudent(tx: Tx, schoolId: string, classIds: NameToId
   return created.student.id;
 }
 
-async function summarizeSchool(tx: Tx, spec: DemoSchoolSpec, schoolId: string, academicYearId: string): Promise<DemoSchoolSummary> {
+async function summarizeSchool(tx: Tx, spec: DemoSchoolSpec, schoolId: string, academicYearId: string): Promise<DemoSchoolBaseSummary> {
   const nisns = spec.students.map((s) => s.nisn);
   return {
     name: spec.name,
@@ -207,7 +222,7 @@ async function summarizeSchool(tx: Tx, spec: DemoSchoolSpec, schoolId: string, a
 }
 
 /** Satu sekolah demo dalam satu transaksi (gagal di tengah = tidak ada data setengah jadi). */
-export async function seedDemoSchool(spec: DemoSchoolSpec, options: DemoSeedOptions): Promise<DemoSchoolSummary> {
+export async function seedDemoSchool(spec: DemoSchoolSpec, options: DemoSeedOptions, now: Date = new Date()): Promise<DemoSchoolBaseSummary> {
   return withTx(async (tx) => {
     const schoolId = await ensureSchool(tx, spec);
     const { academicYearId } = await ensureAcademicYear(tx, schoolId);
@@ -216,15 +231,26 @@ export async function seedDemoSchool(spec: DemoSchoolSpec, options: DemoSeedOpti
     await ensureClassSubjects(tx, [...classIds.values()], subjectIds);
     await ensureSchoolAdmin(tx, schoolId, spec, options);
     for (const student of spec.students) await ensureStudent(tx, schoolId, classIds, student, options);
-    await ensureDemoAttendance(tx, schoolId, spec.students.map((s) => s.nisn), new Date());
+    await ensureDemoAttendance(tx, schoolId, spec.students.map((s) => s.nisn), now);
     return summarizeSchool(tx, spec, schoolId, academicYearId);
   });
 }
 
+/** Data P3 satu sekolah (transaksi service masing-masing, setelah transaksi sekolah selesai). */
+async function seedDemoSchoolP3(spec: DemoSchoolSpec, base: DemoSchoolBaseSummary, now: Date): Promise<DemoSchoolSummary> {
+  const ref = await loadDemoSchoolRef(spec);
+  const warnings: string[] = [];
+  const billing = await ensureDemoBilling(ref, spec, now, warnings);
+  const reportCards = await ensureDemoReportCards(ref, spec, now, warnings);
+  const announcements = await ensureDemoAnnouncements(ref, spec, now, warnings);
+  return { ...base, billing, reportCards, announcements, warnings };
+}
+
 /** Seluruh dataset demo. Aman dijalankan berulang (setiap deploy staging). */
 export async function runDemoSeed(options: DemoSeedOptions): Promise<DemoSeedSummary> {
+  const now = options.now ?? new Date();
   await withTx((tx) => ensureSuperAdmin(tx, options));
   const schools: DemoSchoolSummary[] = [];
-  for (const spec of DEMO_SCHOOLS) schools.push(await seedDemoSchool(spec, options));
+  for (const spec of DEMO_SCHOOLS) schools.push(await seedDemoSchoolP3(spec, await seedDemoSchool(spec, options, now), now));
   return { superAdminEmail: DEMO_SUPER_ADMIN.email, schools };
 }

@@ -4,7 +4,8 @@
  * - MENOLAK (exit 1) kecuali nama database di DATABASE_URL berakhiran _staging, _dev, atau _test.
  * - Kata sandi SEMUA akun demo diambil dari env DEMO_PASSWORD (>= 8 karakter, huruf + angka), tidak
  *   pernah dari kode, dan tidak pernah dicetak.
- * - Idempoten: upsert berdasarkan kunci alami (lihat scripts/lib/demo-seed.ts).
+ * - Idempoten: upsert berdasarkan kunci alami (lihat scripts/lib/demo-seed.ts); data P3 (SPP Juli-September
+ *   2026, rapor Ganjil satu kelas, 3 pengumuman) hanya ditambahkan bila belum ada.
  */
 import "dotenv/config";
 import { BCRYPT_COST, hashPassword } from "../src/lib/auth/password";
@@ -28,6 +29,22 @@ function printSummary(summary: DemoSeedSummary): void {
       "NISN demo": s.nisnRange,
     })),
   );
+  console.table(
+    summary.schools.map((s) => ({
+      Sekolah: s.name,
+      "Tagihan SPP": s.billing.invoices,
+      Lunas: s.billing.paid,
+      Sebagian: s.billing.partial,
+      "Belum bayar": s.billing.unpaid,
+      Kuitansi: s.billing.payments,
+      "Menunggu verifikasi": s.billing.pendingSubmissions,
+      "Rapor terbit": `${s.reportCards.published} (${s.reportCards.className})`,
+      Pengumuman: s.announcements,
+    })),
+  );
+  for (const s of summary.schools) {
+    for (const warning of s.warnings) console.warn(`${TAG} PERINGATAN ${s.name}: ${warning}`);
+  }
   console.log(`${TAG} Semua akun demo memakai kata sandi dari env DEMO_PASSWORD. Siswa login dengan NISN.`);
 }
 
