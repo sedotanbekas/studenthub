@@ -106,7 +106,7 @@ async function recordDemoCashPayments(ref: DemoSchoolRef, invoices: readonly Dem
 }
 
 /** null bila STORAGE_ROOT dapat ditulis; selain itu alasannya. */
-async function storageProblem(): Promise<string | null> {
+export async function storageProblem(): Promise<string | null> {
   try {
     const root = storageRoot();
     await mkdir(root, { recursive: true });

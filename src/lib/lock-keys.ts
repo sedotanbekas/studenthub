@@ -12,7 +12,7 @@
  * 3. Kunci aplikasi selalu mendahului `lockRows()`/FOR UPDATE baris data (urutan kunci global di tx.ts).
  *
  * Urutan (kasar -> halus): superAdmins -> holidays -> subjects -> classYear -> class -> nisnRelease -> user
- * -> attendance.
+ * -> attendance. Terpisah: banner (selalu sebelum baris Sponsor/Ad).
  */
 
 /** Mutasi yang dapat mengubah jumlah super admin aktif (cegah menonaktifkan SA terakhir). */
@@ -53,3 +53,9 @@ export const userLockKey = (userId: string): string => `auth:user:${userId}`;
  * `Student ... FOR UPDATE` (urutan kunci global: AppLock -> Student -> LeaveRequest -> Attendance).
  */
 export const attendanceLockKey = (studentId: string): string => `attendance:${studentId}`;
+
+/**
+ * Per berkas banner iklan: publikasi salinan publik (/media) saat iklan disetujui vs penghapusannya saat iklan
+ * terakhir yang memakai banner itu diturunkan/ditolak/diarsipkan. Diambil PALING AWAL, sebelum Sponsor/Ad.
+ */
+export const bannerLockKey = (fileId: string): string => `banner:${fileId}`;

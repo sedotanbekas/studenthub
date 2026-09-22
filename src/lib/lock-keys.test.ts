@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  bannerLockKey,
   classLockKey,
   classYearLockKey,
   holidaysLockKey,
@@ -33,4 +34,9 @@ test("semua kunci muat di kolom AppLock.key (<= 191) untuk id cuid", () => {
   const id = "c".repeat(30);
   const keys = [userLockKey(id), classLockKey(id), classYearLockKey(id), subjectsLockKey(id), holidaysLockKey(id), nisnReleaseLockKey(id), superAdminsLockKey()];
   for (const key of keys) assert.ok(key.length > 0 && key.length <= 191, key);
+});
+
+test("kunci banner iklan per berkas", () => {
+  assert.equal(bannerLockKey("f1"), "banner:f1");
+  assert.notEqual(bannerLockKey("x"), classLockKey("x"));
 });

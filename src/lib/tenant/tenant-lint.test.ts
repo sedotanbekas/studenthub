@@ -4,13 +4,15 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 /**
- * Guard isolasi tenant: model ber-schoolId tidak boleh dicari dengan findUnique({ where: { id } })
+ * Guard isolasi tenant: model ber-schoolId (dan ber-sponsorId: iklan, top-up, ledger, klik) tidak boleh dicari dengan findUnique({ where: { id } })
  * (lewati SchoolScope). Pakai findFirst({ where: { id, schoolId } }). Pengecualian diberi komentar
  * "tenant-lint-ignore" pada baris yang sama.
  */
 const SCHOOL_SCOPED = [
   "student", "schoolClass", "subject", "academicYear", "term", "holiday", "attendance", "checkInRejection",
   "leaveRequest", "reportCard", "invoice", "paymentSubmission", "payment", "announcement",
+  // Ber-sponsorId: cari lewat findFirst({ id, sponsorId }) agar id sponsor lain -> 404.
+  "ad", "topUpRequest", "sponsorLedgerEntry", "adClick",
 ];
 const PATTERN = new RegExp(String.raw`\.(${SCHOOL_SCOPED.join("|")})\.findUnique\(\s*\{\s*where:\s*\{\s*id\b`);
 
@@ -22,7 +24,7 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-test("tidak ada findUnique by id pada model ber-schoolId", () => {
+test("tidak ada findUnique by id pada model ber-schoolId / ber-sponsorId", () => {
   const offenders: string[] = [];
   for (const file of sourceFiles(path.join(process.cwd(), "src"))) {
     readFileSync(file, "utf8").split("\n").forEach((line, i) => {

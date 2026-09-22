@@ -5,7 +5,8 @@
  * - Kata sandi SEMUA akun demo diambil dari env DEMO_PASSWORD (>= 8 karakter, huruf + angka), tidak
  *   pernah dari kode, dan tidak pernah dicetak.
  * - Idempoten: upsert berdasarkan kunci alami (lihat scripts/lib/demo-seed.ts); data P3 (SPP Juli-September
- *   2026, rapor Ganjil satu kelas, 3 pengumuman) hanya ditambahkan bila belum ada.
+ *   2026, rapor Ganjil satu kelas, 3 pengumuman) dan P4 (sponsor demo, top-up, 2 iklan, trafik 14 hari) hanya
+ *   ditambahkan bila belum ada.
  */
 import "dotenv/config";
 import { BCRYPT_COST, hashPassword } from "../src/lib/auth/password";
@@ -45,6 +46,9 @@ function printSummary(summary: DemoSeedSummary): void {
   for (const s of summary.schools) {
     for (const warning of s.warnings) console.warn(`${TAG} PERINGATAN ${s.name}: ${warning}`);
   }
+  const sp = summary.sponsor;
+  console.log(`${TAG} Sponsor: ${sp.email} (saldo Rp ${sp.balance}, iklan tayang ${sp.liveAds}, klik tercatat ${sp.clicks})`);
+  for (const warning of sp.warnings) console.warn(`${TAG} PERINGATAN sponsor: ${warning}`);
   console.log(`${TAG} Semua akun demo memakai kata sandi dari env DEMO_PASSWORD. Siswa login dengan NISN.`);
 }
 

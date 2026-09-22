@@ -7,7 +7,9 @@ import { log } from "./log";
  * URUTAN KUNCI GLOBAL (wajib diikuti semua domain untuk mencegah deadlock):
  *   AppLock (kunci aplikasi) -> Student (id naik) -> LeaveRequest -> Attendance -> ReportCard
  *   -> Invoice (id naik) -> PaymentSubmission (+ PaymentProofMatch) -> Payment -> DocumentCounter
- *   Terpisah: Sponsor -> Ad / TopUpRequest -> AdDailyStat.
+ *   Terpisah (sponsor & iklan): AppLock banner (bannerLockKey) -> Sponsor -> Ad / TopUpRequest -> StoredFile
+ *   (banner) -> AdTarget -> AdClick -> SponsorLedgerEntry -> AdDailyStat. Setiap perubahan saldo (klik, top-up,
+ *   penyesuaian) mengunci baris Sponsor PALING AWAL (src/lib/sponsors/ledger.ts).
  *   Notification & AuditLog selalu ditulis TERAKHIR.
  * JANGAN pernah `FOR UPDATE` baris School/SchoolClass sebagai mutex (baris induk sibuk karena cek FK);
  * pakai lockKey() dengan kunci bernama. Kunci aplikasi (src/lib/lock-keys.ts) diambil PALING AWAL,
@@ -102,7 +104,7 @@ export async function lockKeyShared(tx: Tx, key: string): Promise<void> {
 }
 
 const LOCKABLE_TABLES = [
-  "Student", "LeaveRequest", "Attendance", "ReportCard", "Invoice", "PaymentSubmission", "Payment", "Sponsor", "Ad", "TopUpRequest", "Announcement",
+  "Student", "LeaveRequest", "Attendance", "ReportCard", "Invoice", "PaymentSubmission", "Payment", "Sponsor", "Ad", "TopUpRequest", "Announcement", "StoredFile",
 ] as const;
 export type LockableTable = (typeof LOCKABLE_TABLES)[number];
 

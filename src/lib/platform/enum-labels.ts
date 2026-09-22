@@ -26,6 +26,15 @@ export const ENUM_LABELS = {
   AdTargetScope: { ALL: "Semua sekolah", PROVINCE: "Provinsi", CITY: "Kabupaten/Kota", SCHOOL: "Sekolah tertentu" },
   DeviceType: { MOBILE: "Mobile", TABLET: "Tablet", DESKTOP: "Desktop" },
   LedgerEntryType: { TOPUP: "Top up", CLICK_CHARGE: "Biaya klik", ADJUSTMENT: "Penyesuaian" },
+  AdDisplayStatus: {
+    DRAFT: "Draf", PENDING_REVIEW: "Menunggu review", REJECTED: "Ditolak", ARCHIVED: "Diarsipkan", ENDED: "Berakhir", PAUSED: "Dijeda",
+    SPONSOR_INACTIVE: "Sponsor nonaktif", SCHEDULED: "Terjadwal", NO_BALANCE: "Saldo habis", LIVE: "Aktif",
+  },
+  AdLinkType: { EXTERNAL_URL: "Tautan web (https)", DEEP_LINK: "Tautan aplikasi" },
+  ClickBilling: {
+    CHARGED: "Ditagih", DUPLICATE: "Duplikat (sudah ditagih hari ini)", INSUFFICIENT_BALANCE: "Saldo tidak cukup",
+    AD_NOT_LIVE: "Iklan tidak tayang", SUSPECT: "Mencurigakan (tidak ditagih)",
+  },
 } as const;
 
 export type EnumLabels = typeof ENUM_LABELS;

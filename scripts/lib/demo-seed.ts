@@ -1,8 +1,9 @@
 /**
  * Logika seed demo: fungsi ensureX() kecil yang idempoten (upsert berdasarkan kunci alami:
  * School.npsn, AcademicYear[schoolId,name], Term[academicYearId,semester], SchoolClass[academicYearId,name],
- * Subject[schoolId,code], User.email, Student[schoolId,nisn]). Data P3 (tagihan SPP, rapor, pengumuman)
- * dibuat SETELAH transaksi sekolah lewat service domain (demo-billing.ts, demo-academic.ts). Dipanggil CLI
+ * Subject[schoolId,code], User.email, Student[schoolId,nisn]). Data P3 (tagihan SPP, rapor, pengumuman) dan P4
+ * (sponsor, top-up, iklan, trafik) dibuat SETELAH transaksi sekolah lewat service domain (demo-billing.ts,
+ * demo-academic.ts, demo-sponsor.ts). Dipanggil CLI
  * scripts/seed-demo.ts dan integration test. Penjaga nama database ada di CLI (checkSeedDatabaseUrl), BUKAN di sini.
  */
 import type { Tx } from "../../src/lib/db";
@@ -12,6 +13,7 @@ import { ensureDemoAnnouncements, ensureDemoReportCards, type DemoReportCardSumm
 import { ensureDemoAttendance } from "./demo-attendance";
 import { ensureDemoBilling, type DemoBillingSummary } from "./demo-billing";
 import { loadDemoSchoolRef } from "./demo-context";
+import { ensureDemoSponsor, type DemoSponsorSummary } from "./demo-sponsor";
 import {
   DEMO_ACADEMIC_YEAR,
   DEMO_ACTIVATED_AT,
@@ -56,6 +58,8 @@ export interface DemoSchoolSummary extends DemoSchoolBaseSummary {
 export interface DemoSeedSummary {
   readonly superAdminEmail: string;
   readonly schools: readonly DemoSchoolSummary[];
+  /** Data P4: sponsor demo, top-up, iklan tayang, trafik 14 hari. */
+  readonly sponsor: DemoSponsorSummary;
 }
 
 type NameToId = ReadonlyMap<string, string>;
@@ -252,5 +256,7 @@ export async function runDemoSeed(options: DemoSeedOptions): Promise<DemoSeedSum
   await withTx((tx) => ensureSuperAdmin(tx, options));
   const schools: DemoSchoolSummary[] = [];
   for (const spec of DEMO_SCHOOLS) schools.push(await seedDemoSchoolP3(spec, await seedDemoSchool(spec, options, now), now));
-  return { superAdminEmail: DEMO_SUPER_ADMIN.email, schools };
+  const refs = await Promise.all(DEMO_SCHOOLS.map((spec) => loadDemoSchoolRef(spec)));
+  const sponsor = await ensureDemoSponsor(refs, options.passwordHash, now);
+  return { superAdminEmail: DEMO_SUPER_ADMIN.email, schools, sponsor };
 }

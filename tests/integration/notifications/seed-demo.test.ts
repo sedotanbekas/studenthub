@@ -1,7 +1,8 @@
 /**
  * Seed demo dijalankan DUA KALI terhadap database test (fungsi diimpor, bukan CLI):
  * jumlah baris & id harus identik (idempoten, upsert berdasarkan kunci alami), termasuk data P3
- * (tagihan/pembayaran/bukti SPP, rapor, pengumuman, notifikasi, penghitung nomor dokumen).
+ * (tagihan/pembayaran/bukti SPP, rapor, pengumuman, notifikasi, penghitung nomor dokumen) dan data P4
+ * (sponsor, top-up, iklan, klik & ledger).
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -9,6 +10,7 @@ import { verifyPassword } from "@/lib/auth/password";
 import { fromDbDate } from "@/lib/time/zone";
 import { DEMO_SCHOOLS, DEMO_SUPER_ADMIN, demoAdminEmail } from "../../../scripts/lib/demo-data";
 import { runDemoSeed } from "../../../scripts/lib/demo-seed";
+import { DEMO_ADS, DEMO_SPONSOR } from "../../../scripts/lib/demo-sponsor-plan";
 import { disconnect, prisma } from "../helpers/db";
 import { hashTestPassword } from "../helpers/factories";
 import { createTempStorage, type TempStorage } from "../helpers/storage";
@@ -166,4 +168,36 @@ test("seed demo P3: SPP Juli-September (lunas/sebagian/belum + 1 menunggu), rapo
       [["ALL", "PUBLISHED", 15], ["CLASSES", "PUBLISHED", 5], ["STUDENTS", "PUBLISHED", 3]],
     );
   }
+});
+
+test("seed demo P4: sponsor APPROVED, top-up disetujui + menunggu, 2 iklan dengan trafik 14 hari, saldo == ledger, idempoten", async () => {
+  const passwordHash = await hashTestPassword(DEMO_TEST_PASSWORD);
+  const first = await runDemoSeed({ passwordHash });
+  const user = await prisma.user.findUniqueOrThrow({ where: { email: DEMO_SPONSOR.email }, select: { sponsorId: true, role: true } });
+  const sponsorId = user.sponsorId ?? "";
+  const count = async () => ({
+    topUps: await prisma.topUpRequest.groupBy({ by: ["status"], where: { sponsorId }, _count: { _all: true }, orderBy: { status: "asc" } }),
+    ads: await prisma.ad.count({ where: { sponsorId } }),
+    clicks: await prisma.adClick.count({ where: { sponsorId } }),
+    ledger: await prisma.sponsorLedgerEntry.count({ where: { sponsorId } }),
+    stats: await prisma.adDailyStat.count({ where: { sponsorId } }),
+  });
+  const before = await count();
+  const second = await runDemoSeed({ passwordHash });
+  assert.deepEqual(await count(), before);
+  assert.deepEqual(second.sponsor, first.sponsor);
+  assert.equal(user.role, "SPONSOR");
+  assert.equal((await prisma.sponsor.findFirstOrThrow({ where: { id: sponsorId } })).status, "APPROVED");
+  assert.deepEqual(before.topUps.map((g) => `${g.status}:${g._count._all}`).sort(), ["APPROVED:1", "PENDING:1"]);
+  assert.equal(before.ads, DEMO_ADS.length);
+  assert.ok(before.clicks > 0 && before.stats >= DEMO_ADS.length);
+  const [sponsor, sum, charged] = await Promise.all([
+    prisma.sponsor.findFirstOrThrow({ where: { id: sponsorId }, select: { balance: true } }),
+    prisma.sponsorLedgerEntry.aggregate({ where: { sponsorId }, _sum: { amount: true } }),
+    prisma.adClick.count({ where: { sponsorId, billing: "CHARGED" } }),
+  ]);
+  assert.equal(sponsor.balance, sum._sum.amount);
+  assert.ok(charged > 0);
+  assert.equal(sponsor.balance, 2_000_000 - charged * 500);
+  assert.deepEqual(first.sponsor.warnings, []);
 });
