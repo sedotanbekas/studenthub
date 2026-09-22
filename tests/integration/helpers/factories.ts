@@ -23,6 +23,8 @@ import type {
   Term,
   User,
 } from "@prisma/client";
+import { encryptTotpSecret, parseTotpKey } from "../../../src/lib/auth/totp-crypto";
+import { getEnv } from "../../../src/lib/env";
 import { toDbDate, type LocalDate } from "../../../src/lib/time/zone";
 import { prisma, uniq } from "./db";
 
@@ -178,9 +180,24 @@ export async function createClass(
 
 // ----------------------------------------------------------------------------- akun staf
 
-export async function createSuperAdmin(options: CreateUserOptions = {}): Promise<TestUser> {
-  return prisma.user.create({
+/** Rahasia TOTP semua super admin hasil factory (kunci uji RFC 6238: ASCII "12345678901234567890"). */
+export const TEST_TOTP_SECRET = Buffer.from("12345678901234567890", "ascii");
+
+export interface CreateSuperAdminOptions extends CreateUserOptions {
+  /** Default true: TOTP sudah aktif dengan TEST_TOTP_SECRET (gerbang TOTP_ENROLLMENT_REQUIRED terbuka). */
+  readonly totp?: boolean;
+}
+
+export async function createSuperAdmin(options: CreateSuperAdminOptions = {}): Promise<TestUser> {
+  const user = await prisma.user.create({
     data: { ...(await userData(options, "Super Admin")), role: "SUPER_ADMIN", email: options.email ?? uniqEmail("sa") },
+  });
+  if (options.totp === false) return user;
+  const key = parseTotpKey(getEnv().TOTP_ENC_KEY);
+  if (!key) throw new Error("TOTP_ENC_KEY .env.test tidak valid");
+  return prisma.user.update({
+    where: { id: user.id },
+    data: { totpSecretEnc: encryptTotpSecret(TEST_TOTP_SECRET, user.id, key), totpEnabledAt: new Date() },
   });
 }
 

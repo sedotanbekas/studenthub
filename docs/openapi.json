@@ -432,7 +432,7 @@
           "Auth"
         ],
         "summary": "Login dengan NISN (siswa) atau email (admin/sponsor/super admin)",
-        "description": "Identifier tepat 10 digit = NISN (hanya akun siswa), selain itu email (hanya non-siswa). Gagal login selalu 401 `INVALID_CREDENTIALS` dengan pesan seragam. Limiter hanya-kegagalan: pasangan IP+identifier (8/10 menit), identifier (10/15 menit), dan IP (200/10 menit) -> 429 `RATE_LIMITED` + header `Retry-After`. Siswa di ANDROID/IOS wajib `deviceId`; login mobile siswa mencabut sesi mobile lamanya (satu HP aktif).\n\nPublik.",
+        "description": "Identifier tepat 10 digit = NISN (hanya akun siswa), selain itu email (hanya non-siswa). Gagal login selalu 401 `INVALID_CREDENTIALS` dengan pesan seragam. Limiter hanya-kegagalan: pasangan IP+identifier (8/10 menit), identifier (10/15 menit), dan IP (200/10 menit) -> 429 `RATE_LIMITED` + header `Retry-After`. Siswa di ANDROID/IOS wajib `deviceId`; login mobile siswa mencabut sesi mobile lamanya (satu HP aktif). Super admin ber-TOTP aktif wajib `totpCode`: tanpa kode -> 401 `TOTP_REQUIRED` (ulangi dengan kode), kode salah/sudah dipakai -> 401 `TOTP_INVALID` (5 kali salah/15 menit per akun -> 429). Super admin yang belum mendaftar TOTP tetap bisa login, tetapi aksi selain /auth/* & /me/* -> 403 `TOTP_ENROLLMENT_REQUIRED`.\n\nPublik.",
         "security": [],
         "parameters": [],
         "requestBody": {
@@ -489,7 +489,7 @@
             }
           },
           "401": {
-            "description": "Tidak terautentikasi. Kode: INVALID_CREDENTIALS, ACCOUNT_INACTIVE.",
+            "description": "Tidak terautentikasi. Kode: INVALID_CREDENTIALS, TOTP_REQUIRED, TOTP_INVALID, ACCOUNT_INACTIVE.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1675,6 +1675,276 @@
           },
           "422": {
             "description": "Pelanggaran aturan bisnis. Kode: PUSH_TOKEN_WEB_SESSION.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/totp/setup": {
+      "post": {
+        "operationId": "setupMyTotp",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Mulai pendaftaran TOTP 2FA (super admin): rahasia + otpauth URI, ditampilkan sekali",
+        "description": "Hanya SUPER_ADMIN (setelah wajib ganti kata sandi selesai). Memanggil ulang sebelum konfirmasi membuat rahasia BARU (yang lama tidak berlaku). TOTP yang sudah aktif -> 409 `TOTP_ALREADY_ENABLED`; reset hanya lewat CLI operator `pnpm db:totp-reset`.\n\nAksi POLICY: `auth.totp`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthTotpSetup"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: TOTP_ALREADY_ENABLED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/totp/confirm": {
+      "post": {
+        "operationId": "confirmMyTotp",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Konfirmasi pendaftaran TOTP dengan kode 6 digit pertama (mengaktifkan 2FA)",
+        "description": "Kode benar -> TOTP aktif, sesi lain milik akun ini dicabut, dan aksi /platform/* langsung terbuka untuk sesi ini. Kode salah -> 422 `TOTP_CODE_INVALID` (5 kali/15 menit -> 429 `RATE_LIMITED`). Belum setup -> 409 `TOTP_SETUP_REQUIRED`.\n\nAksi POLICY: `auth.totp`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthTotpConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthTotpConfirmResult"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: TOTP_SETUP_REQUIRED, TOTP_ALREADY_ENABLED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: TOTP_CODE_INVALID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
             "content": {
               "application/json": {
                 "schema": {
@@ -28532,6 +28802,12 @@
             "type": "string",
             "maxLength": 255,
             "pattern": "^Expo(nent)?PushToken\\[[A-Za-z0-9_-]{10,200}\\]$"
+          },
+          "totpCode": {
+            "description": "Wajib untuk super admin yang sudah mengaktifkan TOTP (6 digit dari aplikasi autentikator).",
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "example": "123456"
           }
         },
         "required": [
@@ -28587,6 +28863,20 @@
         },
         "required": [
           "expoPushToken"
+        ],
+        "additionalProperties": false
+      },
+      "AuthTotpConfirmRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "example": "123456"
+          }
+        },
+        "required": [
+          "code"
         ],
         "additionalProperties": false
       },
@@ -30664,6 +30954,14 @@
               "mustChangePassword": {
                 "type": "boolean"
               },
+              "totpEnabled": {
+                "type": "boolean",
+                "description": "TOTP 2FA aktif (hanya relevan untuk super admin)."
+              },
+              "totpEnrollmentRequired": {
+                "type": "boolean",
+                "description": "true = super admin belum mengaktifkan TOTP; semua aksi selain /auth/* & /me/* -> 403 TOTP_ENROLLMENT_REQUIRED."
+              },
               "lastLoginAt": {
                 "anyOf": [
                   {
@@ -30683,6 +30981,8 @@
               "email",
               "role",
               "mustChangePassword",
+              "totpEnabled",
+              "totpEnrollmentRequired",
               "lastLoginAt"
             ],
             "additionalProperties": false
@@ -30862,6 +31162,73 @@
           "lastUsedAt",
           "createdAt",
           "isCurrent"
+        ],
+        "additionalProperties": false
+      },
+      "AuthTotpSetup": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "description": "Rahasia base32 (160 bit) — ditampilkan SEKALI; masukkan manual bila QR tidak bisa dipindai."
+          },
+          "otpauthUri": {
+            "type": "string",
+            "description": "Key URI `otpauth://totp/...` untuk dijadikan QR code di dashboard."
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "accountName": {
+            "type": "string"
+          },
+          "algorithm": {
+            "type": "string",
+            "const": "SHA1"
+          },
+          "digits": {
+            "type": "number",
+            "const": 6
+          },
+          "period": {
+            "type": "number",
+            "const": 30
+          }
+        },
+        "required": [
+          "secret",
+          "otpauthUri",
+          "issuer",
+          "accountName",
+          "algorithm",
+          "digits",
+          "period"
+        ],
+        "additionalProperties": false
+      },
+      "AuthTotpConfirmResult": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "const": true
+          },
+          "enabledAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "otherSessionsRevoked": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Sesi lain (dibuat sebelum TOTP aktif) yang dicabut."
+          }
+        },
+        "required": [
+          "enabled",
+          "enabledAt",
+          "otherSessionsRevoked"
         ],
         "additionalProperties": false
       },

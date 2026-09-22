@@ -45,9 +45,12 @@ model User {
   tempPasswordExpiresAt DateTime?
   passwordChangedAt     DateTime?
   lastLoginAt           DateTime?
-  /// Rahasia TOTP (terenkripsi) — wajib untuk SUPER_ADMIN.
+  /// Rahasia TOTP (AES-256-GCM, TOTP_ENC_KEY) — wajib untuk SUPER_ADMIN. Terisi tanpa totpEnabledAt =
+  /// pendaftaran belum dikonfirmasi.
   totpSecretEnc         String?   @db.VarChar(255)
   totpEnabledAt         DateTime?
+  /// Langkah TOTP (unix/30) terakhir yang diterima; kode dengan langkah <= ini ditolak (anti-replay).
+  totpLastUsedStep      Int?
 
   school  School?  @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   sponsor Sponsor? @relation("SponsorMembers", fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)

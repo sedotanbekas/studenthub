@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseTotpKey } from "./auth/totp-crypto";
 
 /**
  * Konfigurasi lingkungan tervalidasi. Dibaca malas (getEnv) agar `next build` tidak membutuhkan
@@ -14,6 +15,11 @@ const envSchema = z
     JWT_ACCESS_SECRET: secret("JWT_ACCESS_SECRET"),
     AD_EVENT_SECRET: secret("AD_EVENT_SECRET"),
     JOB_SECRET: secret("JOB_SECRET"),
+    /** Kunci AES-256-GCM rahasia TOTP super admin: 32 byte (hex 64 karakter atau base64). */
+    TOTP_ENC_KEY: z
+      .string({ error: "TOTP_ENC_KEY wajib diisi" })
+      .trim()
+      .refine((v) => parseTotpKey(v) !== null, "TOTP_ENC_KEY harus 32 byte: hex 64 karakter (openssl rand -hex 32) atau base64"),
     APP_ORIGIN: z.url().transform((v) => v.replace(/\/+$/, "")),
     PUBLIC_MEDIA_BASE_URL: z.url().transform((v) => v.replace(/\/+$/, "")),
     STORAGE_ROOT: z.string().min(1),
@@ -29,9 +35,9 @@ const envSchema = z
     DEFER_MODE: z.enum(["after", "inline"]).default("after"),
   })
   .superRefine((env, ctx) => {
-    const secrets = [env.JWT_ACCESS_SECRET, env.AD_EVENT_SECRET, env.JOB_SECRET];
+    const secrets = [env.JWT_ACCESS_SECRET, env.AD_EVENT_SECRET, env.JOB_SECRET, env.TOTP_ENC_KEY];
     if (new Set(secrets).size !== secrets.length) {
-      ctx.addIssue({ code: "custom", message: "JWT_ACCESS_SECRET, AD_EVENT_SECRET, JOB_SECRET harus berbeda" });
+      ctx.addIssue({ code: "custom", message: "JWT_ACCESS_SECRET, AD_EVENT_SECRET, JOB_SECRET, TOTP_ENC_KEY harus berbeda" });
     }
     if (env.NODE_ENV === "production" && !env.DOCS_BASIC_AUTH) {
       ctx.addIssue({ code: "custom", message: "DOCS_BASIC_AUTH wajib di produksi" });

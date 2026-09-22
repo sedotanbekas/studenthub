@@ -1,5 +1,6 @@
 import type { ClientPlatform, SponsorStatus, StudentStatus, UserRole } from "@prisma/client";
 import type { Principal } from "./principal";
+import { requiresTotpEnrollment } from "./totp-rules";
 
 /** Bentuk baris sesi yang dimuat getAuth (satu query per request). */
 export interface SessionRow {
@@ -15,6 +16,7 @@ export interface SessionRow {
     name: string;
     isActive: boolean;
     mustChangePassword: boolean;
+    totpEnabledAt: Date | null;
     schoolId: string | null;
     sponsorId: string | null;
     school: { isActive: boolean } | null;
@@ -74,6 +76,7 @@ export function evaluatePrincipal(
     studentStatus: user.student?.status ?? null,
     sponsorStatus: user.sponsor?.status ?? null,
     mustChangePassword: user.mustChangePassword,
+    totpEnrollmentRequired: requiresTotpEnrollment(user.role, user.totpEnabledAt),
     platform: row.platform,
     deviceId: row.deviceId,
   });

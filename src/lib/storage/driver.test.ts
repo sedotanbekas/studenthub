@@ -20,6 +20,7 @@ function setTestEnv(storageRoot: string): void {
     JWT_ACCESS_SECRET: "j".repeat(32),
     AD_EVENT_SECRET: "a".repeat(32),
     JOB_SECRET: "b".repeat(32),
+    TOTP_ENC_KEY: "cd".repeat(32),
     APP_ORIGIN: "http://localhost:3030",
     PUBLIC_MEDIA_BASE_URL: "http://localhost:3030/media",
     STORAGE_ROOT: storageRoot,

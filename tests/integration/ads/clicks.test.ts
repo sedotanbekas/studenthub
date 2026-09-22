@@ -89,7 +89,7 @@ function studentCtx(student: StudentFx, now: Date): ActionContext {
   return {
     principal: {
       userId: student.user.id, sessionId: "uji", role: "STUDENT", name: student.user.name, schoolId: student.school.id, sponsorId: null,
-      studentId: student.student.id, studentStatus: "ACTIVE", sponsorStatus: null, mustChangePassword: false, platform: "ANDROID", deviceId: null,
+      studentId: student.student.id, studentStatus: "ACTIVE", sponsorStatus: null, mustChangePassword: false, totpEnrollmentRequired: false, platform: "ANDROID", deviceId: null,
     },
     now, requestId: "uji-klik", ip: null, userAgent: null, defer: () => undefined,
   };

@@ -51,6 +51,9 @@ export function authorize(principal: Principal, action: Action): void {
   if (principal.mustChangePassword && !rule.allowDuringPasswordChange) {
     throw forbidden("PASSWORD_CHANGE_REQUIRED", "Ganti kata sandi Anda terlebih dahulu.");
   }
+  if (principal.totpEnrollmentRequired && !rule.allowDuringTotpEnrollment) {
+    throw forbidden("TOTP_ENROLLMENT_REQUIRED", "Aktifkan verifikasi dua langkah (TOTP) terlebih dahulu lewat /me/totp/setup.");
+  }
   if (principal.role === "STUDENT") {
     const allowed = rule.studentStatuses ?? ["ACTIVE"];
     if (!principal.studentStatus || !allowed.includes(principal.studentStatus)) {

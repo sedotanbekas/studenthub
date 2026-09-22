@@ -19,6 +19,7 @@
     "db:validate": "prisma validate",
     "db:seed:demo": "tsx scripts/seed-demo.ts",
     "db:super-admin": "tsx scripts/create-super-admin.ts",
+    "db:totp-reset": "tsx scripts/totp-reset.ts",
     "regions:gen": "tsx scripts/gen-regions-migration.ts",
     "test:unit": "node --import tsx --test \"src/**/*.test.ts\" \"scripts/**/*.test.ts\"",
     "test:int": "tsx scripts/test/prepare-db.ts && node --env-file-if-exists=.env.test --import tsx --import ./tests/integration/setup.ts --test --test-concurrency=1 \"tests/integration/**/*.test.ts\"",

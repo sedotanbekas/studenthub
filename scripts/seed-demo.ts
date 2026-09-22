@@ -7,6 +7,9 @@
  * - Idempoten: upsert berdasarkan kunci alami (lihat scripts/lib/demo-seed.ts); data P3 (SPP Juli-September
  *   2026, rapor Ganjil satu kelas, 3 pengumuman) dan P4 (sponsor demo, top-up, 2 iklan, trafik 14 hari) hanya
  *   ditambahkan bila belum ada.
+ * - Super admin demo TIDAK didaftarkan TOTP oleh seed (rahasia TOTP tidak pernah berasal dari kode/repo). Daftar
+ *   sekali lewat /me/totp/setup -> /me/totp/confirm dengan aplikasi autentikator; seed ulang tidak menyentuh kolom
+ *   TOTP sehingga pendaftaran bertahan antar-deploy. Hilang HP: `pnpm db:totp-reset --email <email>`.
  */
 import "dotenv/config";
 import { BCRYPT_COST, hashPassword } from "../src/lib/auth/password";
@@ -16,7 +19,7 @@ import type { DemoSeedSummary } from "./lib/demo-seed";
 const TAG = "[seed-demo]";
 
 function printSummary(summary: DemoSeedSummary): void {
-  console.log(`${TAG} Super admin: ${summary.superAdminEmail}`);
+  console.log(`${TAG} Super admin: ${summary.superAdminEmail} (wajib daftar TOTP sekali lewat /me/totp/setup bila belum)`);
   console.table(
     summary.schools.map((s) => ({
       Sekolah: s.name,

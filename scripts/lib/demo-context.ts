@@ -73,7 +73,7 @@ export function adminContext(ref: DemoSchoolRef, now: Date): ActionContext {
   return demoContext(
     {
       userId: ref.admin.id, sessionId: DEMO_SESSION_ID, role: "SCHOOL_ADMIN", name: ref.admin.name, schoolId: ref.schoolId, sponsorId: null,
-      studentId: null, studentStatus: null, sponsorStatus: null, mustChangePassword: false, platform: "WEB", deviceId: null,
+      studentId: null, studentStatus: null, sponsorStatus: null, mustChangePassword: false, totpEnrollmentRequired: false, platform: "WEB", deviceId: null,
     },
     now,
   );
@@ -83,7 +83,7 @@ export function studentContext(ref: DemoSchoolRef, student: DemoStudentRef, now:
   return demoContext(
     {
       userId: student.userId, sessionId: DEMO_SESSION_ID, role: "STUDENT", name: student.name, schoolId: ref.schoolId, sponsorId: null,
-      studentId: student.id, studentStatus: "ACTIVE", sponsorStatus: null, mustChangePassword: false, platform: "ANDROID", deviceId: null,
+      studentId: student.id, studentStatus: "ACTIVE", sponsorStatus: null, mustChangePassword: false, totpEnrollmentRequired: false, platform: "ANDROID", deviceId: null,
     },
     now,
   );

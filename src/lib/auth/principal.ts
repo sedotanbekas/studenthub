@@ -15,6 +15,8 @@ export interface Principal {
   readonly studentStatus: StudentStatus | null;
   readonly sponsorStatus: SponsorStatus | null;
   readonly mustChangePassword: boolean;
+  /** SUPER_ADMIN yang belum mengaktifkan TOTP: semua aksi ditolak kecuali allowDuringTotpEnrollment. */
+  readonly totpEnrollmentRequired: boolean;
   readonly platform: ClientPlatform;
   readonly deviceId: string | null;
 }

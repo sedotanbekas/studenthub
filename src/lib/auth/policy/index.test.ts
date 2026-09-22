@@ -36,3 +36,20 @@ test("isAction & listAllowedActions", () => {
   assert.equal(isAction("tidak.ada"), false);
   assert.ok(listAllowedActions(makePrincipal({ role: "SUPER_ADMIN", schoolId: null })).includes("platform.jobs.read"));
 });
+
+test("SUPER_ADMIN tanpa TOTP aktif: hanya auth.self & auth.totp; aksi /platform ditolak TOTP_ENROLLMENT_REQUIRED", () => {
+  const pending = makePrincipal({ role: "SUPER_ADMIN", schoolId: null, totpEnrollmentRequired: true });
+  assert.equal(codeOf(() => authorize(pending, "platform.jobs.read")), "TOTP_ENROLLMENT_REQUIRED");
+  assert.equal(codeOf(() => authorize(pending, "users.manage")), "TOTP_ENROLLMENT_REQUIRED");
+  assert.equal(codeOf(() => authorize(pending, "notification.self")), "TOTP_ENROLLMENT_REQUIRED");
+  assert.equal(codeOf(() => authorize(pending, "auth.self")), null);
+  assert.equal(codeOf(() => authorize(pending, "auth.totp")), null);
+  assert.deepEqual(listAllowedActions(pending).sort(), ["auth.self", "auth.totp"]);
+});
+
+test("auth.totp: hanya SUPER_ADMIN, dan ditolak selama wajib ganti kata sandi", () => {
+  assert.equal(codeOf(() => authorize(makePrincipal(), "auth.totp")), "FORBIDDEN");
+  const mustChange = makePrincipal({ role: "SUPER_ADMIN", schoolId: null, mustChangePassword: true, totpEnrollmentRequired: true });
+  assert.equal(codeOf(() => authorize(mustChange, "auth.totp")), "PASSWORD_CHANGE_REQUIRED");
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SUPER_ADMIN", schoolId: null }), "auth.totp")), null);
+});

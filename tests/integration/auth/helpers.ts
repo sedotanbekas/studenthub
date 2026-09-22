@@ -42,6 +42,7 @@ export interface LoginOptions {
   readonly expoPushToken?: string;
   readonly ip?: string;
   readonly userAgent?: string;
+  readonly totpCode?: string;
 }
 
 export function loginRaw(json: unknown, headers: Record<string, string> = {}): Promise<ApiResult<TokensBody>> {
@@ -61,6 +62,7 @@ export function login(identifier: string, options: LoginOptions = {}): Promise<A
       ...(deviceId ? { deviceId } : {}),
       ...(options.deviceName ? { deviceName: options.deviceName } : {}),
       ...(options.expoPushToken ? { expoPushToken: options.expoPushToken } : {}),
+      ...(options.totpCode ? { totpCode: options.totpCode } : {}),
     },
     headers,
   );

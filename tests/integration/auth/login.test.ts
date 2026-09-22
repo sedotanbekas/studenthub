@@ -201,7 +201,7 @@ test("login di deviceId yang sama oleh user lain mencabut sesi user sebelumnya +
 });
 
 test("batas sesi per peran: super admin login ke-4 mengusir sesi tertua", async () => {
-  const sa = await createSuperAdmin();
+  const sa = await createSuperAdmin({ totp: false });
   const sessions: string[] = [];
   for (let i = 0; i < 4; i += 1) sessions.push((await loginOk(sa.email ?? "")).sessionId);
   const rows = await prisma.authSession.findMany({ where: { userId: sa.id }, select: { id: true, revokedAt: true, revokeReason: true } });

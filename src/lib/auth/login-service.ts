@@ -1,7 +1,7 @@
 import type { StudentStatus, UserRole } from "@prisma/client";
 import { prisma, type Tx } from "@/lib/db";
 import { rateLimitKeyForIp } from "@/lib/http/client-ip";
-import { badRequest, forbidden, unauthorized, unprocessable } from "@/lib/http/errors";
+import { badRequest, forbidden, isAppError, unauthorized, unprocessable } from "@/lib/http/errors";
 import { assertRateLimit, getLimiter } from "@/lib/http/rate-limits";
 import { withTx } from "@/lib/tx";
 import { signAccessToken } from "./access-token";
@@ -14,12 +14,14 @@ import { verifyPassword } from "./password";
 import type { ActionContext } from "./principal";
 import { checkLoginEligibility, type IneligibleReason } from "./principal-rules";
 import { lockUserSessions, openSession, retryOnUniqueConflict, type NewSessionInput } from "./session-service";
+import { checkLoginTotpCode, consumeTotpStep, totpInvalid } from "./totp-service";
 
 /**
  * POST /auth/login. Urutan: validasi input murni -> limiter: cek kunci + pesan slot di 3 limiter (sebelum
  * DB) -> cari akun -> tepat satu bcrypt (dummy bila tidak ada) -> gagal: slot tetap terpakai + padding
- * >= 300 ms + 401 seragam -> benar: slot dikembalikan -> kelayakan akun -> satu transaksi pembuatan sesi
- * (kunci user, baca ulang kredensial & kelayakan, compare-and-set) -> access token.
+ * >= 300 ms + 401 seragam -> faktor kedua (super admin ber-TOTP) -> benar: slot dikembalikan -> kelayakan
+ * akun -> satu transaksi pembuatan sesi (kunci user, baca ulang kredensial & kelayakan, CAS langkah TOTP,
+ * compare-and-set lastLoginAt) -> access token.
  */
 const ACCOUNT_INACTIVE_MESSAGES: Readonly<Record<IneligibleReason, string>> = {
   USER_INACTIVE: "Akun Anda dinonaktifkan. Hubungi admin.",
@@ -39,6 +41,9 @@ interface LoginAccount {
   readonly mustChangePassword: boolean;
   readonly tempPasswordExpiresAt: Date | null;
   readonly passwordHash: string;
+  readonly totpEnabledAt: Date | null;
+  readonly totpSecretEnc: string | null;
+  readonly totpLastUsedStep: number | null;
   readonly schoolActive: boolean | null;
   readonly student: { readonly id: string; readonly schoolId: string; readonly status: StudentStatus; readonly boundDeviceId: string | null } | null;
 }
@@ -59,6 +64,9 @@ const USER_SELECT = {
   mustChangePassword: true,
   tempPasswordExpiresAt: true,
   passwordHash: true,
+  totpEnabledAt: true,
+  totpSecretEnc: true,
+  totpLastUsedStep: true,
   school: { select: { isActive: true } },
 } as const;
 
@@ -72,6 +80,9 @@ type SelectedUser = {
   mustChangePassword: boolean;
   tempPasswordExpiresAt: Date | null;
   passwordHash: string;
+  totpEnabledAt: Date | null;
+  totpSecretEnc: string | null;
+  totpLastUsedStep: number | null;
   school: { isActive: boolean } | null;
 };
 
@@ -86,6 +97,9 @@ function toAccount(user: SelectedUser, student: LoginAccount["student"]): LoginA
     mustChangePassword: user.mustChangePassword,
     tempPasswordExpiresAt: user.tempPasswordExpiresAt,
     passwordHash: user.passwordHash,
+    totpEnabledAt: user.totpEnabledAt,
+    totpSecretEnc: user.totpSecretEnc,
+    totpLastUsedStep: user.totpLastUsedStep,
     schoolActive: user.school ? user.school.isActive : null,
     student,
   };
@@ -140,11 +154,37 @@ function refundAttempt(keys: LimiterKeys): void {
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 const invalidCredentials = () => unauthorized("INVALID_CREDENTIALS", INVALID_CREDENTIALS_MESSAGE);
 
-/** Gagal login (slot limiter sudah dipesan): padding waktu, lalu 401 seragam. */
-async function rejectCredentials(startedAt: number): Promise<never> {
+/** Padding waktu respons gagal ke minimal LOGIN_FAILURE_MIN_MS sejak permintaan dimulai. */
+async function padFailure(startedAt: number): Promise<void> {
   const elapsed = performance.now() - startedAt;
   if (elapsed < LOGIN_FAILURE_MIN_MS) await sleep(LOGIN_FAILURE_MIN_MS - elapsed);
+}
+
+/** Gagal login (slot limiter sudah dipesan): padding waktu, lalu 401 seragam. */
+async function rejectCredentials(startedAt: number): Promise<never> {
+  await padFailure(startedAt);
   throw invalidCredentials();
+}
+
+/**
+ * Faktor kedua super admin ber-TOTP aktif (setelah kata sandi benar). Tanpa kode -> slot login dikembalikan
+ * (belum ada tebakan) lalu 401 TOTP_REQUIRED; kode salah/replay -> slot tetap terpakai + limiter TOTP_VERIFY
+ * lalu 401 TOTP_INVALID. Keduanya dipadatkan waktunya seperti kegagalan kata sandi. Mengembalikan langkah
+ * TOTP yang dikonsumsi di transaksi login (null = akun tanpa TOTP).
+ */
+async function checkSecondFactor(account: LoginAccount, body: LoginBody, keys: LimiterKeys, ctx: ActionContext, startedAt: number): Promise<number | null> {
+  if (account.role !== "SUPER_ADMIN" || account.totpEnabledAt === null) return null;
+  if (!body.totpCode) {
+    refundAttempt(keys);
+    await padFailure(startedAt);
+    throw unauthorized("TOTP_REQUIRED", "Masukkan kode verifikasi (TOTP) dari aplikasi autentikator.");
+  }
+  const step = checkLoginTotpCode(account, body.totpCode, ctx.now);
+  if (step === null) {
+    await padFailure(startedAt);
+    throw totpInvalid();
+  }
+  return step;
 }
 
 /** Aturan input murni yang tidak membutuhkan DB (NISN => pasti STUDENT). */
@@ -247,11 +287,12 @@ interface LoginResult {
  * Satu transaksi: kunci user (PERTAMA) -> baca ulang & periksa ulang akun -> ikat perangkat siswa
  * (Student) -> lastLoginAt CAS (User) -> sesi.
  */
-function createLoginSession(verified: LoginAccount, body: LoginBody, ctx: ActionContext): Promise<LoginResult> {
+function createLoginSession(verified: LoginAccount, body: LoginBody, ctx: ActionContext, totpStep: number | null): Promise<LoginResult> {
   return retryOnUniqueConflict(() =>
     withTx(async (tx) => {
       await lockUserSessions(tx, verified.userId);
       const account = await recheckAccount(tx, verified, ctx.now);
+      if (totpStep !== null) await consumeTotpStep(tx, account.userId, totpStep);
       await bindStudentDevice(tx, account, body, ctx.now);
       await touchLastLogin(tx, account, ctx.now);
       const session = await openSession(tx, sessionInput(account, body, ctx));
@@ -269,9 +310,14 @@ export async function login(body: LoginBody, ctx: ActionContext): Promise<AuthTo
   const found = await findLoginAccount(identifier);
   const passwordOk = await verifyPassword(body.password, found?.passwordHash ?? null);
   if (!found || !passwordOk) return rejectCredentials(startedAt);
+  const totpStep = await checkSecondFactor(found, body, keys, ctx, startedAt);
   refundAttempt(keys);
   assertAccountUsable(found, ctx.now);
-  const { session, account } = await createLoginSession(found, body, ctx);
+  const { session, account } = await createLoginSession(found, body, ctx, totpStep).catch(async (error: unknown) => {
+    // Kode TOTP kalah balapan (dipakai login paralel) -> tetap dipadatkan seperti kegagalan lain.
+    if (isAppError(error) && error.code === "TOTP_INVALID") await padFailure(startedAt);
+    throw error;
+  });
   const access = await signAccessToken({ sub: account.userId, sid: session.sessionId }, ctx.now);
   return toAuthTokens(access, session, { ...account, id: account.userId });
 }

@@ -16,6 +16,7 @@ export async function getMe(ctx: ActionContext): Promise<MeDto> {
       email: true,
       role: true,
       mustChangePassword: true,
+      totpEnabledAt: true,
       lastLoginAt: true,
       school: { select: { id: true, name: true, timezone: true } },
       student: { select: { id: true, nisn: true, nis: true, status: true, currentClass: { select: { name: true } } } },

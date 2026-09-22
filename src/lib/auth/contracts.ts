@@ -13,6 +13,9 @@ import {
   refreshBodySchema,
   sessionIdParams,
   sessionListSchema,
+  totpConfirmBodySchema,
+  totpConfirmResultSchema,
+  totpSetupSchema,
 } from "./auth-schemas";
 
 /** Kontrak route domain auth: /api/v1/auth/* dan /api/v1/me/* (sesi & token push milik sendiri). */
@@ -29,11 +32,13 @@ export const loginContract = defineContract({
     "Gagal login selalu 401 `INVALID_CREDENTIALS` dengan pesan seragam. Limiter hanya-kegagalan: pasangan IP+identifier (8/10 menit),",
     "identifier (10/15 menit), dan IP (200/10 menit) -> 429 `RATE_LIMITED` + header `Retry-After`.",
     "Siswa di ANDROID/IOS wajib `deviceId`; login mobile siswa mencabut sesi mobile lamanya (satu HP aktif).",
+    "Super admin ber-TOTP aktif wajib `totpCode`: tanpa kode -> 401 `TOTP_REQUIRED` (ulangi dengan kode), kode salah/sudah dipakai -> 401 `TOTP_INVALID`",
+    "(5 kali salah/15 menit per akun -> 429). Super admin yang belum mendaftar TOTP tetap bisa login, tetapi aksi selain /auth/* & /me/* -> 403 `TOTP_ENROLLMENT_REQUIRED`.",
   ].join(" "),
   action: "public",
   body: loginBodySchema,
   response: authTokensSchema,
-  errors: ["INVALID_CREDENTIALS", "ACCOUNT_INACTIVE", "TEMP_PASSWORD_EXPIRED", "DEVICE_ID_REQUIRED", "PUSH_TOKEN_WEB_SESSION", "RATE_LIMITED"],
+  errors: ["INVALID_CREDENTIALS", "TOTP_REQUIRED", "TOTP_INVALID", "ACCOUNT_INACTIVE", "TEMP_PASSWORD_EXPIRED", "DEVICE_ID_REQUIRED", "PUSH_TOKEN_WEB_SESSION", "RATE_LIMITED"],
 });
 
 export const refreshContract = defineContract({
@@ -149,6 +154,37 @@ export const removePushTokenContract = defineContract({
   errors: ["PUSH_TOKEN_WEB_SESSION"],
 });
 
+export const totpSetupContract = defineContract({
+  id: "setupMyTotp",
+  method: "POST",
+  path: "/api/v1/me/totp/setup",
+  tag: TAG,
+  summary: "Mulai pendaftaran TOTP 2FA (super admin): rahasia + otpauth URI, ditampilkan sekali",
+  description: [
+    "Hanya SUPER_ADMIN (setelah wajib ganti kata sandi selesai). Memanggil ulang sebelum konfirmasi membuat rahasia BARU",
+    "(yang lama tidak berlaku). TOTP yang sudah aktif -> 409 `TOTP_ALREADY_ENABLED`; reset hanya lewat CLI operator `pnpm db:totp-reset`.",
+  ].join(" "),
+  action: "auth.totp",
+  response: totpSetupSchema,
+  errors: ["TOTP_ALREADY_ENABLED"],
+});
+
+export const totpConfirmContract = defineContract({
+  id: "confirmMyTotp",
+  method: "POST",
+  path: "/api/v1/me/totp/confirm",
+  tag: TAG,
+  summary: "Konfirmasi pendaftaran TOTP dengan kode 6 digit pertama (mengaktifkan 2FA)",
+  description: [
+    "Kode benar -> TOTP aktif, sesi lain milik akun ini dicabut, dan aksi /platform/* langsung terbuka untuk sesi ini.",
+    "Kode salah -> 422 `TOTP_CODE_INVALID` (5 kali/15 menit -> 429 `RATE_LIMITED`). Belum setup -> 409 `TOTP_SETUP_REQUIRED`.",
+  ].join(" "),
+  action: "auth.totp",
+  body: totpConfirmBodySchema,
+  response: totpConfirmResultSchema,
+  errors: ["TOTP_CODE_INVALID", "TOTP_SETUP_REQUIRED", "TOTP_ALREADY_ENABLED", "RATE_LIMITED"],
+});
+
 export const authContracts: readonly AnyContract[] = [
   loginContract,
   refreshContract,
@@ -160,4 +196,6 @@ export const authContracts: readonly AnyContract[] = [
   revokeMySessionContract,
   registerPushTokenContract,
   removePushTokenContract,
+  totpSetupContract,
+  totpConfirmContract,
 ];

@@ -41,6 +41,7 @@ async function loadSession(sessionId: string): Promise<SessionRow | null> {
           name: true,
           isActive: true,
           mustChangePassword: true,
+          totpEnabledAt: true,
           schoolId: true,
           sponsorId: true,
           school: { select: { isActive: true } },

@@ -17,6 +17,7 @@ test("konfigurasi bernama sesuai rencana", () => {
     REFRESH_IP: { limit: 600, windowMs: MIN },
     CHANGE_PASSWORD: { limit: 5, windowMs: 15 * MIN, lockMs: 15 * MIN },
     ADMIN_RESET: { limit: 30, windowMs: 60 * MIN },
+    TOTP_VERIFY: { limit: 5, windowMs: 15 * MIN, lockMs: 15 * MIN },
     CHECK_IN: { limit: 10, windowMs: 10 * MIN },
     UPLOAD: { limit: 30, windowMs: 10 * MIN },
     IMPORT: { limit: 10, windowMs: 60 * MIN },

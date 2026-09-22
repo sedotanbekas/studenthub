@@ -64,7 +64,8 @@ export interface DemoSeedSummary {
 
 type NameToId = ReadonlyMap<string, string>;
 
-/** Kolom akun demo yang di-reset setiap seed: kata sandi = DEMO_PASSWORD, aktif, tanpa wajib ganti. */
+/** Kolom akun demo yang di-reset setiap seed: kata sandi = DEMO_PASSWORD, aktif, tanpa wajib ganti. Kolom TOTP
+ * super admin demo sengaja TIDAK disentuh (pendaftaran TOTP bertahan; seed tidak pernah membuat rahasia TOTP). */
 function accountFields(name: string, options: DemoSeedOptions) {
   return { name, passwordHash: options.passwordHash, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null };
 }

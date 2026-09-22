@@ -7,6 +7,7 @@ export const corePolicy = {
     studentStatuses: ALL_STUDENT_STATUSES,
     sponsorStatuses: ALL_SPONSOR_STATUSES,
     allowDuringPasswordChange: true,
+    allowDuringTotpEnrollment: true,
   },
   "notification.self": {
     roles: ALL_ROLES,

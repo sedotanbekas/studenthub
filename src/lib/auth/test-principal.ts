@@ -13,6 +13,7 @@ export function makePrincipal(overrides: Partial<Principal> = {}): Principal {
     studentStatus: null,
     sponsorStatus: null,
     mustChangePassword: false,
+    totpEnrollmentRequired: false,
     platform: "ANDROID",
     deviceId: null,
     ...overrides,

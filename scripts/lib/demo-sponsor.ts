@@ -49,7 +49,7 @@ const ctxAt = (principal: Principal, now: Date): ActionContext => ({
 function principalOf(user: { id: string; name: string }, role: "SPONSOR" | "SUPER_ADMIN", sponsorId: string | null): Principal {
   return {
     userId: user.id, sessionId: DEMO_SESSION_ID, role, name: user.name, schoolId: null, sponsorId, studentId: null, studentStatus: null,
-    sponsorStatus: role === "SPONSOR" ? "APPROVED" : null, mustChangePassword: false, platform: "WEB", deviceId: null,
+    sponsorStatus: role === "SPONSOR" ? "APPROVED" : null, mustChangePassword: false, totpEnrollmentRequired: false, platform: "WEB", deviceId: null,
   };
 }
 
@@ -124,7 +124,7 @@ type TrafficStudent = { readonly userId: string; readonly schoolId: string };
 function studentPrincipal(ref: DemoSchoolRef, student: DemoSchoolRef["students"][number]): Principal {
   return {
     userId: student.userId, sessionId: DEMO_SESSION_ID, role: "STUDENT", name: student.name, schoolId: ref.schoolId, sponsorId: null,
-    studentId: student.id, studentStatus: "ACTIVE", sponsorStatus: null, mustChangePassword: false, platform: "ANDROID", deviceId: null,
+    studentId: student.id, studentStatus: "ACTIVE", sponsorStatus: null, mustChangePassword: false, totpEnrollmentRequired: false, platform: "ANDROID", deviceId: null,
   };
 }
 

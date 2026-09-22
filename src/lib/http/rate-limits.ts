@@ -10,6 +10,7 @@ import { createRateLimiter, type RateLimitConfig, type RateLimiter } from "./rat
  * - REFRESH_IP       "refresh:<ipKey>"
  * - CHANGE_PASSWORD  "chpw:<userId>"                    (hanya password lama salah)
  * - ADMIN_RESET      "reset:<actorId>"
+ * - TOTP_VERIFY      "totp:<userId>"                   (hanya kode TOTP salah/replay: login & konfirmasi)
  * - CHECK_IN / UPLOAD / IMPORT / AD_CLICK / AD_IMPRESSION  "<nama>:<userId>"
  * `ipKey` = `rateLimitKeyForIp(clientIp(req))` (IPv6 dinormalisasi ke /64).
  */
@@ -23,6 +24,7 @@ export const RATE_LIMITS = {
   REFRESH_IP: { limit: 600, windowMs: MINUTE_MS },
   CHANGE_PASSWORD: { limit: 5, windowMs: 15 * MINUTE_MS, lockMs: 15 * MINUTE_MS },
   ADMIN_RESET: { limit: 30, windowMs: 60 * MINUTE_MS },
+  TOTP_VERIFY: { limit: 5, windowMs: 15 * MINUTE_MS, lockMs: 15 * MINUTE_MS },
   CHECK_IN: { limit: 10, windowMs: 10 * MINUTE_MS },
   UPLOAD: { limit: 30, windowMs: 10 * MINUTE_MS },
   IMPORT: { limit: 10, windowMs: 60 * MINUTE_MS },

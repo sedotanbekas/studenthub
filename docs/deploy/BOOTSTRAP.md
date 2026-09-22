@@ -137,6 +137,7 @@ Semua variabel `.env.example`:
 | `DATABASE_URL` | `mysql://studenthub:<hex48>@127.0.0.1:3306/studenthub` | `mysql://studenthub_staging:<hex48>@127.0.0.1:3306/studenthub_staging` |
 | `SHADOW_DATABASE_URL` | tidak dipakai (hanya `prisma migrate dev` lokal) | tidak dipakai |
 | `JWT_ACCESS_SECRET` / `AD_EVENT_SECRET` / `JOB_SECRET` | masing-masing `openssl rand -hex 32`, saling berbeda | idem (berbeda dari produksi) |
+| `TOTP_ENC_KEY` | `openssl rand -hex 32` (tepat 32 byte; hex 64 karakter atau base64), berbeda dari rahasia lain — kunci AES-256-GCM rahasia TOTP super admin | idem (berbeda dari produksi) |
 | `APP_ORIGIN` | `https://studenthub.medialab.co.id` | `https://staging.studenthub.medialab.co.id` |
 | `PUBLIC_MEDIA_BASE_URL` | `https://studenthub.medialab.co.id/media` | `https://staging.studenthub.medialab.co.id/media` |
 | `STORAGE_ROOT` | `/www/wwwroot/studenthub-storage` | `/www/wwwroot/studenthub-storage-staging` |
@@ -157,6 +158,14 @@ sudo -u studenthub grep '^DOCS_BASIC_AUTH=' /www/wwwroot/studenthub/.env
 
 Setelah mengubah `.env`: `sudo -iu studenthub pm2 restart studenthub` (atau `studenthub-staging`).
 Bila `JOB_SECRET` diubah, jalankan juga `bash /root/bootstrap-vps.sh jobconf`.
+
+**`TOTP_ENC_KEY` (sejak P5).** `.env` yang dibuat sebelum P5 belum memuatnya, dan app gagal start
+tanpa kunci ini (`remote-deploy.sh` menolak deploy lebih awal). Sebelum merge P5 ke `master`, jalankan
+sebagai root `bash /root/bootstrap-vps.sh env` — fase ini hanya **menambahkan** `TOTP_ENC_KEY` acak di
+ujung `.env` yang belum memilikinya (baris lain tidak disentuh, nilai tidak dicetak) — lalu
+`sudo -iu studenthub pm2 restart studenthub` dan `studenthub-staging`. **Jangan mengganti kunci ini**
+setelah ada super admin yang mendaftarkan TOTP: rahasia lama tak bisa didekripsi sehingga super admin
+tidak bisa login; pulihkan dengan `sudo -iu studenthub bash -c 'cd /www/wwwroot/studenthub && pnpm db:totp-reset --email <email>'`.
 
 **Membuat database manual** (bila tidak memakai fase `db`), sebagai root MariaDB:
 
@@ -194,6 +203,20 @@ sha yang dipasang.
 sudo -iu studenthub
 cd /www/wwwroot/studenthub && pnpm db:super-admin
 ```
+
+**TOTP 2FA super admin (sejak P5).** Setelah login pertama dan ganti kata sandi, setiap super admin
+wajib mendaftarkan TOTP: `POST /api/v1/me/totp/setup` (rahasia + `otpauthUri`, tampil sekali; pindai
+dengan Google Authenticator/Aegis/1Password) lalu `POST /api/v1/me/totp/confirm {"code":"123456"}`.
+Sebelum itu semua aksi `/platform/*` ditolak `403 TOTP_ENROLLMENT_REQUIRED`; setelahnya login wajib
+`totpCode`. HP autentikator hilang → reset oleh operator (diaudit, semua sesi akun dicabut):
+
+```bash
+sudo -iu studenthub
+cd /www/wwwroot/studenthub && pnpm db:totp-reset --email admin@medialab.co.id
+```
+
+Super admin demo staging (`superadmin@…` dari seed demo) juga didaftarkan manual sekali; seed tidak
+pernah membuat atau menimpa rahasia TOTP.
 
 ## Langkah 5 — nginx & SSL (aaPanel)
 

@@ -248,6 +248,8 @@ render_env() {
   printf 'JWT_ACCESS_SECRET="%s"\n' "$(rand_hex 32)"
   printf 'AD_EVENT_SECRET="%s"\n' "$(rand_hex 32)"
   printf 'JOB_SECRET="%s"\n' "$(rand_hex 32)"
+  printf '# Kunci AES-256-GCM rahasia TOTP super admin (32 byte hex). Jangan diganti setelah ada TOTP terdaftar.\n'
+  printf 'TOTP_ENC_KEY="%s"\n' "$(rand_hex 32)"
   printf 'APP_ORIGIN="https://%s"\n' "$domain"
   printf 'PUBLIC_MEDIA_BASE_URL="https://%s/media"\n' "$domain"
   printf 'STORAGE_ROOT="%s"\n' "${STORAGE_DIR[$env]}"
@@ -262,6 +264,17 @@ render_env() {
   fi
 }
 
+# .env lama (dibuat sebelum P5) belum memuat TOTP_ENC_KEY: tambahkan kunci acak di ujung berkas
+# tanpa mengubah baris lain dan tanpa mencetak nilainya. Kunci yang sudah ada tidak pernah diganti.
+append_missing_env_keys() {
+  local file="$1"
+  if ! grep -qE '^TOTP_ENC_KEY=' "$file"; then
+    printf '\n# Kunci AES-256-GCM rahasia TOTP super admin (ditambahkan bootstrap-vps.sh %s).\nTOTP_ENC_KEY="%s"\n' \
+      "$(date -u +%F)" "$(rand_hex 32)" >> "$file"
+    log "$file: TOTP_ENC_KEY ditambahkan (nilai tidak ditampilkan) — restart PM2 lingkungan ini"
+  fi
+}
+
 phase_env() {
   local env dir file tmp
   for env in "${ENVS[@]}"; do
@@ -271,6 +284,7 @@ phase_env() {
     if [ -f "$file" ]; then
       chown "$APP_USER:$APP_USER" "$file"
       chmod 600 "$file"
+      append_missing_env_keys "$file"
       log "$file sudah ada — tidak ditimpa (mode dipastikan 0600)"
       continue
     fi

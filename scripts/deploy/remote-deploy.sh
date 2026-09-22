@@ -106,6 +106,9 @@ preflight() {
   [ -f .env ] || sh_die ".env tidak ada di $APP_DIR (lihat docs/deploy/BOOTSTRAP.md)"
   [ -O .env ] || sh_die ".env harus dimiliki user $(id -un)"
   chmod 600 .env
+  # Sejak P5 app gagal start tanpa kunci ini: hentikan deploy SEBELUM migrasi/restart.
+  grep -qE '^TOTP_ENC_KEY=.+' .env \
+    || sh_die ".env $TARGET belum memuat TOTP_ENC_KEY — jalankan 'bash /root/bootstrap-vps.sh env' sebagai root (lihat docs/deploy/BOOTSTRAP.md)"
   sh_require_cmds node pnpm pm2 git curl flock nice
   sh_require_node_major
   check_free_space

@@ -52,6 +52,8 @@ jobs:
       JWT_ACCESS_SECRET: ci-only-jwt-access-secret-not-for-production-0001
       AD_EVENT_SECRET: ci-only-ad-event-secret-not-for-production-000002
       JOB_SECRET: ci-only-job-secret-not-for-production-0000000003
+      # Kunci AES-256-GCM TOTP tiruan khusus CI (32 byte hex).
+      TOTP_ENC_KEY: c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1
       APP_ORIGIN: http://127.0.0.1:3030
       PUBLIC_MEDIA_BASE_URL: http://127.0.0.1:3030/media
       STORAGE_ROOT: /tmp/studenthub-storage

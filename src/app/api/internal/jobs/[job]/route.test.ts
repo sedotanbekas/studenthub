@@ -17,6 +17,7 @@ before(async () => {
     JWT_ACCESS_SECRET: "jwt-secret-unit-test-0123456789abcdef",
     AD_EVENT_SECRET: "ad-event-secret-unit-test-0123456789ab",
     JOB_SECRET: SECRET,
+    TOTP_ENC_KEY: "ab".repeat(32),
     APP_ORIGIN: "http://localhost:3030",
     PUBLIC_MEDIA_BASE_URL: "http://localhost:3030/media",
     STORAGE_ROOT: tmpdir(),
