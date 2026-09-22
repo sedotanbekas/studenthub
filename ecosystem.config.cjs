@@ -31,6 +31,7 @@ function nextApp(name, cwd, port) {
     env: {
       NODE_ENV: "production",
       TZ: "UTC",
+      PORT: String(port),
       APP_VERSION,
     },
   };

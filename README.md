@@ -1,12 +1,13 @@
-# Student Hub — API
+# Student Hub
 
-Backend inti aplikasi **Student Hub**: platform manajemen sekolah multi-sekolah untuk 4 peran —
-Siswa (app mobile Expo), Admin Sekolah, Sponsor, dan Super Admin (dashboard web).
+Platform manajemen sekolah multi-sekolah dengan API dan frontend web responsif untuk Siswa,
+Admin Sekolah, Sponsor, dan Super Admin. Buka `/` untuk login atau menjelajahi tampilan demo.
 
 - Rencana induk & keputusan klien: [`docs/PLAN.md`](docs/PLAN.md)
 - Desain rinci per domain: [`docs/design/`](docs/design/)
 - Kontrak API (OpenAPI 3.1): [`docs/openapi.json`](docs/openapi.json) — interaktif di `/docs`
 - Aturan kerja repo (commit, migrasi, konvensi): [`CLAUDE.md`](CLAUDE.md)
+- Panduan frontend, halaman, dan screenshot: [`docs/FRONTEND.md`](docs/FRONTEND.md)
 
 ## Stack
 Next.js 16 (route handler) · Prisma 7 + MariaDB 10.11 · zod v4 · jose (JWT) · sharp · Node 24 · pnpm 10.
@@ -26,6 +27,7 @@ pnpm dev                                       # http://localhost:3030 — dokum
 | `pnpm test:unit` | aturan murni (`src/**/*.test.ts`, node:test) |
 | `pnpm test:int` | integrasi ke MariaDB `studenthub_test` (dibuat ulang otomatis) |
 | `pnpm test:e2e` | E2E tingkat API (Playwright `request`) terhadap server berjalan |
+| `pnpm test:frontend` | Browser tests desktop/mobile, formulir, dan alur frontend |
 | `pnpm coverage` | cakupan unit + integrasi (ambang 80%) |
 | `pnpm typecheck` / `pnpm lint` | TypeScript & ESLint |
 

@@ -24,6 +24,8 @@
     "test:unit": "node --import tsx --test \"src/**/*.test.ts\" \"scripts/**/*.test.ts\"",
     "test:int": "tsx scripts/test/prepare-db.ts && node --env-file-if-exists=.env.test --import tsx --import ./tests/integration/setup.ts --test --test-concurrency=1 \"tests/integration/**/*.test.ts\"",
     "test:e2e": "playwright test",
+    "test:frontend": "playwright test -c playwright.frontend.config.ts",
+    "frontend:sync": "tsx scripts/frontend-catalog.ts",
     "coverage": "c8 --check-coverage=false --reporter=none pnpm test:unit && c8 --clean=false --check-coverage=false --reporter=none pnpm test:int && c8 report --check-coverage",
     "openapi:export": "tsx scripts/openapi-export.ts",
     "openapi:check": "tsx scripts/openapi-export.ts --check",
