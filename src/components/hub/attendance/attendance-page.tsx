@@ -10,6 +10,7 @@ import { display, label } from "@/lib/frontend/format";
 import { useHub } from "../context";
 import { Status } from "../data-view";
 import { Icon } from "../icon";
+import { afterPageSlide } from "../page-slide";
 import { CheckInFlow } from "./check-in-flow";
 
 /** Halaman "Absensi" siswa: status hari ini + tombol absen (alur layar penuh) + riwayat bulanan. */
@@ -36,7 +37,8 @@ export function AttendancePage() {
   useEffect(() => {
     if (!canCheckIn || new URLSearchParams(window.location.search).get("absen") !== "1") return;
     window.history.replaceState(null, "", window.location.pathname);
-    Promise.resolve().then(() => setOpen(true));
+    // Alur absen dibuka setelah halaman selesai bergeser masuk, agar dialog tidak ikut tercampur transisi.
+    return afterPageSlide(() => setOpen(true));
   }, [canCheckIn]);
   return <div className="workspace-page attendance-page">
     <div className="page-heading"><div><h1>Absensi</h1><p>Absen masuk dengan lokasi dan foto wajah dari HP.</p></div></div>

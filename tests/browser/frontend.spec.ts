@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { operations } from "../../src/lib/frontend/catalog";
 import { demoStudents, demoSummary } from "../../src/lib/frontend/demo";
+import { verifyPageSlides } from "./page-slide-scenario";
 
 const identity = { user: { id: "user1", name: "Admin Sekolah", email: "admin@example.test", role: "SCHOOL_ADMIN", mustChangePassword: false, totpEnrollmentRequired: false }, school: { id: "school1", name: "Sekolah Pengujian", timezone: "WIB" }, sponsor: null, permissions: [...new Set(operations.map(o => o.action))] };
 const envelope = (data: unknown, meta: unknown = null) => ({ success: true, data, error: null, meta });
@@ -181,28 +182,10 @@ test("privasi demo: siswa hanya melihat rapor dan tagihan miliknya", async ({ pa
   await expect(page.getByRole("button", { name: "Cetak rapor" })).toBeVisible();
 });
 
-test("HP: tab bar kaca, geser maju saat masuk halaman dan geser kembali saat back", async ({ browser }) => {
+test("HP: tab bar kaca, geser maju saat masuk halaman dan geser kembali saat back, tanpa lapisan tumpang tindih", async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
-  await page.addInitScript(() => {
-    const w = window as unknown as { __vt: (string[] | null)[] };
-    w.__vt = [];
-    const original = document.startViewTransition?.bind(document);
-    if (original) document.startViewTransition = ((arg: { types?: string[] }) => { w.__vt.push(arg?.types ? [...arg.types] : null); return original(arg as never); }) as typeof document.startViewTransition;
-  });
-  await page.goto("/hub");
-  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Alya" }).click();
-  const tabs = page.getByRole("navigation", { name: "Navigasi cepat" });
-  await expect(tabs.getByRole("link")).toHaveCount(4);
-  await tabs.getByRole("link", { name: "Rapor" }).click();
-  await expect(page).toHaveURL(/\/hub\/my-reports$/);
-  // Tekan kembali setelah animasi masuk selesai (seperti pengguna sungguhan).
-  await page.waitForFunction(() => !document.documentElement.matches(":active-view-transition"));
-  await page.goBack();
-  await expect(page).toHaveURL(/\/hub$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __vt: unknown[] }).__vt)).toEqual([["nav-forward"], ["nav-back"]]);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await verifyPageSlides(page);
   await context.close();
 });
 

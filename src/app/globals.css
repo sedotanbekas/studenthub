@@ -41,6 +41,8 @@
   --blob-1: color-mix(in srgb, var(--banner) 15%, transparent);
   --blob-2: color-mix(in srgb, var(--secondary) 14%, transparent);
   --blob-3: color-mix(in srgb, var(--animation) 15%, transparent);
+  /* Kanvas bergradasi warna sekolah (latar aplikasi & latar pekat halaman yang sedang bergeser). */
+  --canvas: radial-gradient(70vmax 55vmax at 100% 0%, var(--blob-1), transparent 62%), radial-gradient(60vmax 50vmax at 0% 100%, var(--blob-2), transparent 60%), radial-gradient(40vmax 36vmax at 60% 40%, var(--blob-3), transparent 65%);
   /* Material kaca. */
   --glass-filter: blur(24px) saturate(180%);
   --glass-bar: rgb(255 255 255 / 0.72);

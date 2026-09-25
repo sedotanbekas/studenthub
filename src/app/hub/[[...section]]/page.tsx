@@ -1,6 +1,6 @@
 import { HubSection } from "@/components/hub/hub-section";
-import { PageTransition } from "@/components/hub/page-transition";
+/** `.hub-page` = elemen yang digeser saat pindah halaman (src/components/hub/page-slide.ts). */
 export default async function Page({ params }: { params: Promise<{ section?: string[] }> }) {
-  const { section } = await params;
-  return <PageTransition><HubSection section={section?.[0] ?? "dashboard"} /></PageTransition>;
+  const section = (await params).section?.[0] ?? "dashboard";
+  return <div className="hub-page" data-section={section}><HubSection section={section} /></div>;
 }

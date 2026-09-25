@@ -10,10 +10,7 @@
 /* Kanvas: satu lapisan fixed berisi gradien warna sekolah (tanpa filter blur, tanpa animasi). */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(70vmax 55vmax at 100% 0%, var(--blob-1), transparent 62%),
-    radial-gradient(60vmax 50vmax at 0% 100%, var(--blob-2), transparent 60%),
-    radial-gradient(40vmax 36vmax at 60% 40%, var(--blob-3), transparent 65%);
+  background: var(--canvas);
 }
 .login-page { background: transparent; }
 

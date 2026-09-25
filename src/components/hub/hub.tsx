@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/frontend/api";
 import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionFromPath } from "@/lib/frontend/modules";
@@ -10,7 +10,7 @@ import { HubContext } from "./context";
 import { DemoBanner, Sidebar, TabBar, Topbar, deviceMemory } from "./frame";
 import { Brand } from "./icon";
 import { Login } from "./login";
-import { TraverseTransitions } from "./traverse-transitions";
+import { cancelPageSlide, playPageSlide } from "./page-slide";
 import { useHubSession } from "./use-session";
 
 /**
@@ -45,7 +45,7 @@ function useAppearance(me: Identity | null) {
 function useSectionGuard(me: Identity | null, section: string) {
   const router = useRouter();
   const forbidden = Boolean(me && !isRestricted(me) && isKnownSection(section) && !sectionAllowed(me.user.role, section));
-  useEffect(() => { if (forbidden) router.replace("/hub", { transitionTypes: ["nav-back"] }); }, [forbidden, router]);
+  useEffect(() => { if (forbidden) { cancelPageSlide(); router.replace("/hub"); } }, [forbidden, router]);
 }
 
 /** Laci navigasi HP: fokus pindah ke laci, Escape menutup, fokus kembali ke tombol pembuka. */
@@ -66,7 +66,10 @@ function useDrawer() {
 export function HubShell({ children }: { children: ReactNode }) {
   const session = useHubSession();
   const { me, demo, schoolId, notice } = session;
-  const section = sectionFromPath(usePathname());
+  const pathname = usePathname();
+  const section = sectionFromPath(pathname);
+  // Halaman baru sudah di DOM tetapi belum dilukis: jalankan geser dari tangkapan halaman lama.
+  useLayoutEffect(() => { playPageSlide(pathname); }, [pathname]);
   const drawer = useDrawer();
   const { schools, unread } = useNavigationData(me, demo);
   useAppearance(me);
@@ -87,7 +90,6 @@ export function HubShell({ children }: { children: ReactNode }) {
         {children}
       </main></div>
     <TabBar me={me} section={restricted ? "security" : section} menuOpen={drawer.open} inert={drawer.open} onMenu={drawer.show} />
-    <TraverseTransitions />
     {toast}
   </div></HubContext.Provider>;
 }

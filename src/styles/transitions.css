@@ -1,44 +1,34 @@
 /*
- * Transisi halaman hub (React <ViewTransition> + View Transitions API), lihat page-transition.tsx.
- * HP/tablet (<= 960px): "push" ala iOS — masuk halaman: halaman baru geser dari kanan ke kiri, halaman
- * lama bergeser sedikit ke kiri & meredup; kembali: kebalikannya. Kurva ease-in-out (awal & akhir
- * melambat). Desktop: pudar halus. Kerangka (topbar, tab bar) tetap diam di atas halaman yang bergeser.
+ * Transisi halaman hub — dijalankan src/components/hub/page-slide.ts lewat atribut data-page-slide.
+ * HP/tablet (<= 960px), ala iOS dengan kurva ease-in-out:
+ *   - masuk halaman ("forward"): halaman baru bergeser dari kanan ke kiri MENUTUPI halaman lama
+ *     (salinan statis .page-ghost) yang bergeser sedikit ke kiri & sedikit meredup;
+ *   - kembali ("back"): halaman lama bergeser ke kanan MEMBUKA halaman sebelumnya di bawahnya.
+ * Desktop ("fade"): halaman baru memudar masuk. Kedua halaman memakai latar kanvas PEKAT selama animasi
+ * sehingga isinya tidak pernah saling menembus. Lapisan: hantu 15 / halaman baru 16 / hantu saat kembali
+ * 17 — tetap di bawah topbar (20), tab bar (40), laci (60), dan dialog (top layer).
  */
 :root { --page-parallax: -28%; }
-::view-transition { pointer-events: none; } /* ketukan selama animasi tidak hilang */
-
-.topbar { view-transition-name: hub-topbar; }
-.tab-bar { view-transition-name: hub-tabbar; }
-.toast { view-transition-name: hub-toast; }
-::view-transition-group(hub-topbar), ::view-transition-group(hub-tabbar), ::view-transition-group(hub-toast) { animation: none; z-index: 100; }
-::view-transition-old(hub-topbar), ::view-transition-old(hub-tabbar), ::view-transition-old(hub-toast) { display: none; }
-::view-transition-new(hub-topbar), ::view-transition-new(hub-tabbar), ::view-transition-new(hub-toast) { animation: none; }
 
 .hub-page { display: flex; flex-direction: column; gap: inherit; min-width: 0; }
+.page-ghost { position: fixed; z-index: 15; display: flex; flex-direction: column; gap: inherit; min-width: 0; margin: 0; overflow: hidden; pointer-events: none; }
+.page-ghost, :root[data-page-slide="forward"] .hub-page, :root[data-page-slide="back"] .hub-page { background: var(--canvas), var(--bg); background-attachment: fixed; }
+:root[data-page-slide="forward"] .hub-page, :root[data-page-slide="back"] .hub-page { position: relative; z-index: 16; min-height: 100dvh; }
+:root[data-page-slide="back"] .page-ghost { z-index: 17; }
 
-@media (max-width: 960px) {
-  ::view-transition-new(.hub-push-in) { animation: var(--page-duration) var(--ease-page) both page-in-from-right; }
-  ::view-transition-old(.hub-push-out) { animation: var(--page-duration) var(--ease-page) both page-out-to-left; }
-  ::view-transition-new(.hub-pop-in) { animation: var(--page-duration) var(--ease-page) both page-in-from-left; }
-  ::view-transition-old(.hub-pop-out) { animation: var(--page-duration) var(--ease-page) both page-out-to-right; }
-  ::view-transition-group(.hub-pop-out) { z-index: 2; } /* saat kembali, halaman yang pergi di atas */
-  ::view-transition-new(.hub-push-in) { box-shadow: -12px 0 32px -12px rgb(11 18 32 / 22%); }
-  ::view-transition-old(.hub-pop-out) { box-shadow: -12px 0 32px -12px rgb(11 18 32 / 22%); }
-}
-@media (min-width: 961px) {
-  ::view-transition-old(.hub-push-out), ::view-transition-old(.hub-pop-out) { animation: 140ms ease-in both page-fade-out; }
-  ::view-transition-new(.hub-push-in), ::view-transition-new(.hub-pop-in) { animation: 240ms var(--ease-out) 60ms both page-fade-in; }
-}
-@keyframes page-in-from-right { from { transform: translateX(100%); } }
-@keyframes page-out-to-left { to { transform: translateX(var(--page-parallax)); opacity: 0.6; } }
-@keyframes page-in-from-left { from { transform: translateX(var(--page-parallax)); opacity: 0.6; } }
-@keyframes page-out-to-right { to { transform: translateX(100%); } }
-@keyframes page-fade-out { to { opacity: 0; } }
-@keyframes page-fade-in { from { opacity: 0; transform: translateY(6px); } }
+:root[data-page-slide="forward"] .hub-page { animation: page-in-from-right var(--page-duration) var(--ease-page) both; box-shadow: -14px 0 32px -14px rgb(11 18 32 / 25%); }
+:root[data-page-slide="forward"] .page-ghost { animation: page-out-to-left var(--page-duration) var(--ease-page) both; }
+:root[data-page-slide="back"] .hub-page { animation: page-in-from-left var(--page-duration) var(--ease-page) both; }
+:root[data-page-slide="back"] .page-ghost { animation: page-out-to-right var(--page-duration) var(--ease-page) both; box-shadow: -14px 0 32px -14px rgb(11 18 32 / 25%); }
+:root[data-page-slide="fade"] .hub-page { animation: page-fade-in 240ms var(--ease-out) both; }
 
-/* Aturan reduced-motion global (*, *::before, *::after) tidak mengenai pseudo view-transition. */
+/* Hanya transform/filter/opacity (murah untuk GPU); halaman tetap pekat — tanpa tembus pandang. */
+@keyframes page-in-from-right { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes page-out-to-left { from { transform: none; filter: none; } to { transform: translateX(var(--page-parallax)); filter: brightness(0.94); } }
+@keyframes page-in-from-left { from { transform: translateX(var(--page-parallax)); filter: brightness(0.94); } to { transform: none; filter: none; } }
+@keyframes page-out-to-right { from { transform: none; } to { transform: translateX(100%); } }
+@keyframes page-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 0s !important; animation-delay: 0s !important; }
+  :root[data-page-slide] .hub-page, .page-ghost { animation: none !important; }
 }
-/* Snapshot kehilangan blur hidup selama animasi: buat bar kaca lebih pekat sementara. */
-:root:active-view-transition :is(.topbar, .tab-bar) { background-color: var(--surface-strong); }

@@ -7,6 +7,7 @@ import { roleLabels, tabItems } from "@/lib/frontend/modules";
 import { applyGlassMode, glassModeFor, readGlassPreference, writeGlassPreference, type GlassPreference } from "@/lib/frontend/theme";
 import type { Identity, Module } from "@/lib/frontend/types";
 import { HubLink } from "./hub-link";
+import { capturePage } from "./page-slide";
 import { Brand, BrandMark, Icon } from "./icon";
 
 /** Kerangka hub: sidebar (laci di HP), topbar kaca, tab bar HP, banner demo, dan pilihan tampilan. */
@@ -57,7 +58,8 @@ function useBack(): () => void {
     if (stack.at(-2) === pathname) stack.pop();
     else if (stack.at(-1) !== pathname) stack.push(pathname);
   }, [pathname]);
-  return () => { if (visited.current.length > 1) router.back(); else router.replace("/hub", { transitionTypes: ["nav-back"] }); };
+  // router.back() memicu popstate yang ditangkap page-slide; jalur cadangan menangkap sendiri.
+  return () => { if (visited.current.length > 1) router.back(); else { capturePage("back"); router.replace("/hub"); } };
 }
 
 export function TabBar({ me, section, menuOpen, inert, onMenu }: { me: Identity; section: string; menuOpen: boolean; inert: boolean; onMenu: () => void }) {
