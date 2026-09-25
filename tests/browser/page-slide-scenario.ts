@@ -1,7 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
- * Skenario transisi geser halaman HP (dipakai uji Chromium & WebKit/Safari): urutan lapisan, arah,
+ * Skenario transisi geser halaman HP (dipakai uji Chromium & WebKit/Safari): tab bottom nav bergeser
+ * bersebelahan searah posisi tab, halaman di dalamnya ala iOS; urutan lapisan, arah,
  * halaman yang bergeser selalu pekat, dan dialog absen baru terbuka setelah geser selesai.
  */
 interface SlideSample {
@@ -24,6 +25,7 @@ function sample(page: Page): Promise<SlideSample> {
   });
 }
 
+const tab = (page: Page, name: string) => page.getByRole("navigation", { name: "Navigasi cepat" }).getByRole("link", { name });
 const waitMode = (page: Page, mode: string) => page.waitForFunction(m => document.documentElement.dataset.pageSlide === m, mode);
 const waitIdle = (page: Page) => page.waitForFunction(() => !document.documentElement.dataset.pageSlide && !document.querySelector(".page-ghost"));
 
@@ -33,25 +35,51 @@ export async function verifyPageSlides(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
   await page.evaluate(() => document.documentElement.style.setProperty("--page-duration", "1200ms"));
 
-  // Masuk halaman: halaman baru (lapisan atas, pekat) dari kanan menutupi halaman lama yang ke kiri.
-  await page.getByRole("navigation", { name: "Navigasi cepat" }).getByRole("link", { name: "Rapor" }).click();
-  await waitMode(page, "forward");
-  const forward = await sample(page);
-  expect([forward.ghostZ, forward.pageZ]).toEqual(["15", "16"]);
-  expect(forward.pageX).toBeGreaterThan(0);
-  expect(forward.ghostX).toBeLessThanOrEqual(0);
-  expect(forward.pageBg).not.toBe("none");
+  // Bottom nav, tab tujuan di kanan (Beranda -> Rapor): isi lama & baru bergeser bersebelahan ke kiri.
+  await tab(page, "Rapor").click();
+  await waitMode(page, "tab-forward");
+  const right = await sample(page);
+  expect([right.ghostZ, right.pageZ]).toEqual(["15", "16"]);
+  expect(right.pageX).toBeGreaterThan(0);
+  expect(right.ghostX).toBeLessThanOrEqual(0);
+  expect(right.pageBg).not.toBe("none");
   // Bagian atas (banner demo, judul topbar) tidak muncul seketika: banner ikut bergeser, banner lama
   // ada di hantu, judul masuk beranimasi; isi di luar layar tidak melebarkan dokumen.
-  expect(forward.bannerLeft).toBeGreaterThan(40);
-  expect(forward.ghostHasBanner).toBe(true);
-  expect(forward.titleAnimation).toBe("title-in-from-right");
-  expect(forward.overflowX).toBe(false);
+  expect(right.bannerLeft).toBeGreaterThan(40);
+  expect(right.ghostHasBanner).toBe(true);
+  expect(right.titleAnimation).toBe("title-in-from-right");
+  expect(right.overflowX).toBe(false);
   await waitIdle(page);
   await expect(page).toHaveURL(/\/hub\/my-reports$/);
 
-  // Kembali: halaman lama (lapisan atas) ke kanan, membuka halaman sebelumnya dari kiri.
+  // Tab tujuan di kiri (Rapor -> Absensi): isi baru masuk dari kiri, isi lama keluar ke kanan.
+  await tab(page, "Absensi").click();
+  await waitMode(page, "tab-back");
+  const left = await sample(page);
+  expect(left.pageX).toBeLessThan(0);
+  expect(left.ghostX).toBeGreaterThanOrEqual(0);
+  expect(left.titleAnimation).toBe("title-in-from-left");
+  expect(left.overflowX).toBe(false);
+  await waitIdle(page);
+
+  // Tombol kembali membalik langkah tab sebagai tab (Absensi -> Rapor: Rapor di kanan).
   await page.goBack();
+  await waitMode(page, "tab-forward");
+  await waitIdle(page);
+  await expect(page).toHaveURL(/\/hub\/my-reports$/);
+
+  // Halaman di dalam halaman utama (lonceng notifikasi): ala iOS, menutupi dari kanan.
+  await page.locator(".topbar .notification-button").click();
+  await waitMode(page, "forward");
+  const push = await sample(page);
+  expect([push.ghostZ, push.pageZ]).toEqual(["15", "16"]);
+  expect(push.pageX).toBeGreaterThan(0);
+  expect(push.ghostX).toBeLessThanOrEqual(0);
+  expect(push.titleAnimation).toBe("title-in-from-right");
+  await waitIdle(page);
+
+  // Kembali dari halaman dalam: isi lama (lapisan atas) ke kanan, membuka halaman sebelumnya dari kiri.
+  await page.getByRole("button", { name: "Kembali" }).click();
   await waitMode(page, "back");
   const back = await sample(page);
   expect([back.ghostZ, back.pageZ]).toEqual(["17", "16"]);
@@ -61,9 +89,14 @@ export async function verifyPageSlides(page: Page): Promise<void> {
   expect(back.titleAnimation).toBe("title-in-from-left");
   expect(back.overflowX).toBe(false);
   await waitIdle(page);
-  await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
+  await expect(page).toHaveURL(/\/hub\/my-reports$/);
 
-  // Tile Absen: alur absen (dialog) baru terbuka setelah halaman selesai bergeser.
+  // Ke Beranda lewat tab (di kiri), lalu ubin Absen = halaman di dalam beranda (ala iOS); alur absen
+  // (dialog) baru terbuka setelah halaman selesai bergeser.
+  await tab(page, "Beranda").click();
+  await waitMode(page, "tab-back");
+  await waitIdle(page);
+  await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
   await page.locator(".tile", { hasText: "Absen" }).click();
   await waitMode(page, "forward");
   expect((await sample(page)).dialog).toBe(false);

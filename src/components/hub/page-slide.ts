@@ -1,6 +1,6 @@
 "use client";
 import { sectionFromPath } from "@/lib/frontend/modules";
-import { slideMode, traverseDirection, type SlideCapture, type SlideDirection } from "@/lib/frontend/page-slide-rules";
+import { rememberStep, slideMode, tabDirection, traverseDirection, traverseKind, type SlideCapture, type SlideDirection, type SlideKind, type SlideSteps } from "@/lib/frontend/page-slide-rules";
 
 /**
  * Transisi geser halaman hub TANPA View Transitions API. Di Safari/WebKit, lapisan view transition
@@ -9,7 +9,8 @@ import { slideMode, traverseDirection, type SlideCapture, type SlideDirection } 
  * disalin menjadi "hantu" statis; setelah halaman baru dirender (layout effect, sebelum dilukis) hantu &
  * isi baru dianimasikan dengan CSS biasa (src/styles/transitions.css) — urutan lapisan memakai z-index
  * biasa, sama di semua browser. Listener popstate dipasang saat modul dievaluasi (sebelum listener Next)
- * agar isi lama masih utuh saat disalin ketika tombol kembali ditekan.
+ * agar isi lama masih utuh saat disalin ketika tombol kembali ditekan. Jenis & arah geser (tab bottom nav
+ * vs halaman di dalamnya): src/lib/frontend/page-slide-rules.ts.
  */
 const MOBILE = "(max-width: 960px)";
 const REDUCED = "(prefers-reduced-motion: reduce)";
@@ -21,6 +22,9 @@ interface SlideState {
   pending: Pending | null;
   rendered: string;
   direction: SlideDirection | null;
+  /** Href tab bottom nav berurutan (dari kiri) untuk peran yang sedang masuk. */
+  tabs: readonly string[];
+  steps: SlideSteps;
   cleanup: (() => void) | null;
   waiting: (() => void)[];
   installed: boolean;
@@ -33,7 +37,7 @@ const STATE_KEY = "__studenthubPageSlide";
 /** Disimpan di window agar tetap satu salinan walau modul dimuat ulang (HMR). */
 function state(): SlideState {
   const holder = window as unknown as Record<string, SlideState | undefined>;
-  holder[STATE_KEY] ??= { pending: null, rendered: location.pathname, direction: null, cleanup: null, waiting: [], installed: false };
+  holder[STATE_KEY] ??= { pending: null, rendered: location.pathname, direction: null, tabs: [], steps: {}, cleanup: null, waiting: [], installed: false };
   return holder[STATE_KEY];
 }
 
@@ -55,7 +59,7 @@ function ghostOf(view: HTMLElement): HTMLElement {
 }
 
 /** Dipanggil saat navigasi dimulai (klik tautan hub, tombol kembali). */
-export function capturePage(dir: SlideDirection): void {
+export function capturePage(dir: SlideDirection, kind: SlideKind = "push"): void {
   if (typeof window === "undefined") return;
   const s = state();
   if (matchMedia(REDUCED).matches) { s.pending = null; return; }
@@ -63,7 +67,19 @@ export function capturePage(dir: SlideDirection): void {
   const view = liveView();
   // Halaman yang tampil harus halaman terakhir yang dirender (bukan yang sudah diganti).
   const intact = view?.querySelector<HTMLElement>(".hub-page")?.dataset.section === sectionFromPath(s.rendered);
-  s.pending = { dir, from: s.rendered, at: performance.now(), mobile, ghost: mobile && view && intact ? ghostOf(view) : null };
+  s.pending = { dir, kind, from: s.rendered, at: performance.now(), mobile, ghost: mobile && view && intact ? ghostOf(view) : null };
+}
+
+/** Pindah antarhalaman utama (bottom nav / laci Menu): arah mengikuti posisi tab tujuan. */
+export function captureTabSwitch(href: string): void {
+  if (typeof window === "undefined") return;
+  const s = state();
+  capturePage(tabDirection(s.rendered, href, s.tabs), "tab");
+}
+
+/** Urutan tab bottom nav peran yang sedang masuk (href dari kiri ke kanan; tombol Menu di paling kanan). */
+export function setSlideTabs(tabs: readonly string[]): void {
+  state().tabs = tabs;
 }
 
 /** Navigasi terprogram tanpa animasi (mis. pengalihan ke beranda). */
@@ -92,6 +108,8 @@ export function playPageSlide(pathname: string): void {
   const pending = s.pending;
   s.pending = null;
   s.rendered = pathname;
+  // Diingat agar tombol kembali/maju membalik langkah ini dengan jenis geser yang sama (tab/push).
+  if (pending && pending.from !== pathname) s.steps = rememberStep(s.steps, pending.from, pathname, pending.kind);
   const mode = slideMode(pending, pathname, performance.now());
   const view = liveView();
   if (!mode || !view || (mode !== "fade" && !pending?.ghost)) return;
@@ -136,7 +154,10 @@ function onPopState(event: PopStateEvent): void {
   s.direction = null;
   // Usap-kembali bawaan iOS/Android sudah beranimasi sendiri: jangan ditambah geser kedua.
   if (event.hasUAVisualTransition) { s.pending = null; return; }
-  capturePage(dir);
+  // Saat popstate, URL sudah milik halaman tujuan; halaman lama masih tampil.
+  const to = location.pathname;
+  const kind = traverseKind(s.steps, s.rendered, to, s.tabs);
+  capturePage(kind === "tab" ? tabDirection(s.rendered, to, s.tabs) : dir, kind);
 }
 
 function install(): void {

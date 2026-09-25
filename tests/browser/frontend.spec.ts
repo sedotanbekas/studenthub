@@ -183,7 +183,7 @@ test("privasi demo: siswa hanya melihat rapor dan tagihan miliknya", async ({ pa
   await expect(page.getByRole("button", { name: "Cetak rapor" })).toBeVisible();
 });
 
-test("HP: tab bar kaca, geser maju saat masuk halaman dan geser kembali saat back, tanpa lapisan tumpang tindih", async ({ browser }) => {
+test("HP: tab bottom nav bergeser searah posisi tab, halaman di dalamnya ala iOS, tanpa lapisan tumpang tindih", async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   await verifyPageSlides(page);

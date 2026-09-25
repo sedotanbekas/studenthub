@@ -6,7 +6,7 @@ import { verifyScrollMemory } from "./scroll-memory-scenario";
 // `pnpm exec playwright install webkit`.
 test.use({ ...devices["iPhone 13"], browserName: "webkit", launchOptions: {} });
 
-test("Safari/WebKit (iPhone): transisi geser halaman tanpa lapisan tumpang tindih", async ({ page }) => {
+test("Safari/WebKit (iPhone): geser tab searah posisi tab & halaman dalam ala iOS, tanpa lapisan tumpang tindih", async ({ page }) => {
   await verifyPageSlides(page);
 });
 
