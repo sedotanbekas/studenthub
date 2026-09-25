@@ -57,12 +57,13 @@ export const studentUrl = (path: string, schoolId?: string): string =>
 /** Panggil route multipart dengan Content-Length yang benar (pipeline mewajibkannya). */
 export async function callMultipart<T = Envelope>(
   handler: AnyRouteHandler,
-  options: { url: string; form: FormData; bearer?: string },
+  options: { url: string; form: FormData; bearer?: string; headers?: Readonly<Record<string, string>> },
 ): Promise<RouteResult<T>> {
   const encoded = new Request("http://localhost/encode", { method: "POST", body: options.form });
   const body = new Uint8Array(await encoded.arrayBuffer());
   const headers = new Headers({ "content-type": encoded.headers.get("content-type") ?? "", "content-length": String(body.byteLength) });
   if (options.bearer) headers.set("authorization", `Bearer ${options.bearer}`);
+  for (const [key, value] of Object.entries(options.headers ?? {})) headers.set(key, value);
   const request = new NextRequest(new URL(options.url, "http://localhost"), { method: "POST", headers, body });
   const response = await handler(request, { params: Promise.resolve({}) as Promise<never> });
   const text = response.headers.get("content-type")?.includes("json") ? await response.text() : "";

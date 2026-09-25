@@ -16,6 +16,9 @@ coverage/
 playwright-report/
 test-results/
 
+# runtime WASM MediaPipe (disalin scripts/vendor-mediapipe.mjs)
+public/vendor/
+
 # penyimpanan berkas lokal (dev/test)
 .storage/
 

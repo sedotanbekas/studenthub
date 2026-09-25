@@ -25,6 +25,7 @@ export const ANOMALY_CODES = [
   "SHARED_DEVICE",
   "STALE_FIX",
   "TIME_INCONSISTENT",
+  "WEB_CHECKIN",
 ] as const;
 export type AnomalyCode = (typeof ANOMALY_CODES)[number];
 export type AnomalySeverity = "LOW" | "MEDIUM" | "HIGH";
@@ -40,6 +41,7 @@ export const ANOMALY_SEVERITY: Readonly<Record<AnomalyCode, AnomalySeverity>> = 
   SHARED_DEVICE: "HIGH",
   STALE_FIX: "LOW",
   TIME_INCONSISTENT: "MEDIUM",
+  WEB_CHECKIN: "LOW",
 });
 
 export const ANOMALY_LABELS: Readonly<Record<AnomalyCode, string>> = Object.freeze({
@@ -53,6 +55,7 @@ export const ANOMALY_LABELS: Readonly<Record<AnomalyCode, string>> = Object.free
   SHARED_DEVICE: "Perangkat yang sama dipakai siswa lain hari ini",
   STALE_FIX: "Data lokasi agak lama",
   TIME_INCONSISTENT: "Waktu lokasi lebih baru dari waktu kirim",
+  WEB_CHECKIN: "Absen dari browser HP (deteksi lokasi palsu terbatas)",
 });
 
 export interface AnomalyInput {
@@ -75,6 +78,8 @@ export interface AnomalyInput {
   readonly recentSelfiePhashes: readonly string[];
   /** Siswa lain di sekolah yang sama sudah check-in hari ini dengan deviceId yang sama. */
   readonly sharedDevice: boolean;
+  /** Sesi WEB (browser HP): browser tidak melaporkan lokasi palsu seperti aplikasi mobile. */
+  readonly webSession: boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -131,6 +136,7 @@ function identityFlags(input: AnomalyInput): AnomalyCode[] {
     ["NEW_DEVICE", isNewDevice(input)],
     ["DUPLICATE_SELFIE", isDuplicateSelfie(input.selfiePhash, input.recentSelfiePhashes)],
     ["SHARED_DEVICE", input.sharedDevice],
+    ["WEB_CHECKIN", input.webSession],
   ];
   return checks.filter(([, hit]) => hit).map(([code]) => code);
 }

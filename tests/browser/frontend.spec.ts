@@ -111,3 +111,22 @@ test("gerbang kata sandi wajib membatasi ruang kerja ke keamanan", async ({ page
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Keamanan akun");
   await expect(page.getByText("Sebelum melanjutkan, ganti kata sandi awal", { exact: false })).toBeVisible();
 });
+test("siswa (HP): beranda ringkas, alur absen wajib izin lokasi & kamera sebelum lanjut", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36" });
+  const page = await context.newPage();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Jelajahi tampilan demo" }).click();
+  await page.getByRole("combobox", { name: "Peran demo" }).selectOption("STUDENT");
+  await page.goto("/hub");
+  await expect(page.getByRole("navigation", { name: "Menu siswa" }).getByRole("link")).toHaveCount(6);
+  await expect(page.getByText("Kamu belum absen")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole("navigation", { name: "Menu siswa" }).getByRole("link", { name: "Absen" }).click();
+  const flow = page.getByRole("dialog", { name: "Izinkan perangkat" });
+  await expect(flow).toBeVisible();
+  await expect(flow.getByRole("button", { name: "Izinkan lokasi & kamera" })).toBeVisible();
+  await expect(flow.getByRole("button", { name: "Lanjut ke foto wajah" })).toHaveCount(0);
+  await flow.getByRole("button", { name: "Tutup absensi" }).click();
+  await expect(page.getByRole("heading", { name: "Riwayat", exact: false })).toBeVisible();
+  await context.close();
+});

@@ -52,3 +52,10 @@ test("BFF menolak upload yang melampaui batas sebelum fetch", async t => {
   assert.equal((await POST(req, params("sponsor/banners"))).status, 413);
   assert.equal(fetch.mock.callCount(), 0);
 });
+test("BFF meneruskan User-Agent browser agar server mengenali browser HP untuk absensi", async t => {
+  let upstream: RequestInit | undefined;
+  t.mock.method(globalThis, "fetch", async (_url: unknown, init: RequestInit) => { upstream = init; return Response.json({ success: true, data: {} }); });
+  const phone = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36";
+  await GET(request("student/attendance/today", "GET", { cookie: "studenthub_access=token", "user-agent": phone }), params("student/attendance/today"));
+  assert.equal(new Headers(upstream?.headers).get("User-Agent"), phone);
+});

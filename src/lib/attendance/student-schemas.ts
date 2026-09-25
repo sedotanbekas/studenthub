@@ -130,7 +130,14 @@ export const todaySchema = z
       closesAt: TIME_LOCAL,
       state: z.enum(WINDOW_STATES),
     }),
-    geofence: z.object({ radiusM: z.int(), maxAccuracyM: z.int() }).meta({ description: "Titik pusat geofence sengaja TIDAK dikirim." }),
+    geofence: z
+      .object({
+        radiusM: z.int(),
+        maxAccuracyM: z.int(),
+        latitude: z.number().meta({ description: "Lintang titik pusat sekolah (untuk peta absensi).", example: -6.9147 }),
+        longitude: z.number().meta({ description: "Bujur titik pusat sekolah (untuk peta absensi).", example: 107.6098 }),
+      })
+      .meta({ description: "Area absensi sekolah. Titik pusat dikirim untuk peta (keputusan klien 2026-09-25: lokasi sekolah sendiri bukan rahasia)." }),
     record: z
       .object({ id: z.string(), status: statusSchema, source: sourceSchema, checkInTimeLocal: TIME_LOCAL.nullable(), lateMinutes: z.int().nullable() })
       .nullable(),

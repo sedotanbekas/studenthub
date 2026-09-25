@@ -17,7 +17,7 @@ import { createSchoolAdmin, createSuperAdmin, type TestStudent } from "../../hel
 import { callRoute, type Envelope } from "../../helpers/request";
 import { createTempStorage, type TempStorage } from "../../helpers/storage";
 import { callMultipart } from "../../students/helpers";
-import { addStudent, checkInForm, createWorld, localInstant, precheckBodyAt, solidSelfie, type World } from "./fixtures";
+import { addStudent, checkInForm, createWorld, localInstant, precheckBodyAt, SCHOOL_POINT, solidSelfie, type World } from "./fixtures";
 
 interface Today {
   date: string;
@@ -80,11 +80,15 @@ async function studentWithToken(target: World = world, options: Parameters<typeo
   return { ...st, token: (await createSessionToken(st.user.id)).token };
 }
 
-const getToday = (token: string) => callRoute<Envelope<Today>>(todayRoute, { method: "GET", url: "/api/v1/student/attendance/today", bearer: token });
-const postPrecheck = (token: string, json: unknown) =>
-  callRoute<Envelope<Precheck>>(precheckRoute, { method: "POST", url: "/api/v1/student/attendance/precheck", bearer: token, json });
-const postCheckIn = (token: string, form: FormData) =>
-  callMultipart<Envelope<CheckInResult>>(checkInRoute, { url: "/api/v1/student/attendance/check-in", form, bearer: token });
+const ANDROID_CHROME = "Mozilla/5.0 (Linux; Android 14; SM-A146P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36";
+const DESKTOP_CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+const agent = (userAgent?: string) => (userAgent ? { "user-agent": userAgent } : undefined);
+const getToday = (token: string, userAgent?: string) =>
+  callRoute<Envelope<Today>>(todayRoute, { method: "GET", url: "/api/v1/student/attendance/today", bearer: token, headers: agent(userAgent) });
+const postPrecheck = (token: string, json: unknown, userAgent?: string) =>
+  callRoute<Envelope<Precheck>>(precheckRoute, { method: "POST", url: "/api/v1/student/attendance/precheck", bearer: token, json, headers: agent(userAgent) });
+const postCheckIn = (token: string, form: FormData, userAgent?: string) =>
+  callMultipart<Envelope<CheckInResult>>(checkInRoute, { url: "/api/v1/student/attendance/check-in", form, bearer: token, headers: agent(userAgent) });
 
 test("today -> check-in HADIR (201) -> today tercatat -> replay 200", async () => {
   const now = setLocalTime(430);
@@ -98,13 +102,12 @@ test("today -> check-in HADIR (201) -> today tercatat -> replay 200", async () =
     ianaTimezone: "Asia/Jakarta",
     schoolDay: { isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null },
     window: { opensAt: "06:00", lateAfter: "07:15", closesAt: "10:00", state: "OPEN" },
-    geofence: { radiusM: 150, maxAccuracyM: 100 },
+    geofence: { radiusM: 150, maxAccuracyM: 100, latitude: SCHOOL_POINT.latitude, longitude: SCHOOL_POINT.longitude },
     record: null,
     pendingLeave: null,
     canCheckIn: true,
     blockReason: null,
   });
-  assert.equal(JSON.stringify(initial.body).includes("latitude"), false, "titik pusat geofence tidak boleh dikirim");
 
   const created = await postCheckIn(st.token, checkInForm(now, await solidSelfie()));
   assert.equal(created.status, 201, JSON.stringify(created.body?.error));
@@ -276,6 +279,22 @@ test("sesi WEB / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY (today, precheck
   assert.equal(await prisma.storedFile.count({ where: { uploadedById: st.user.id } }), 0);
   const mobile = await createSessionToken(st.user.id);
   assert.equal((await postCheckIn(mobile.token, checkInForm(now, await solidSelfie()))).status, 201, "sesi mobile ber-deviceId tetap boleh");
+});
+
+test("sesi WEB ber-deviceId: browser desktop 403 CHECKIN_MOBILE_ONLY; browser HP boleh absen + flag WEB_CHECKIN", async () => {
+  const now = setLocalTime(430);
+  const st = await addStudent(world);
+  const web = await createSessionToken(st.user.id, { platform: "WEB", deviceId: "web-browser-0001" });
+  const desktop = await getToday(web.token, DESKTOP_CHROME);
+  assert.equal(desktop.body?.error?.code, "CHECKIN_MOBILE_ONLY");
+  const phone = await getToday(web.token, ANDROID_CHROME);
+  assert.equal(phone.status, 200, JSON.stringify(phone.body?.error));
+  assert.equal((await postPrecheck(web.token, precheckBodyAt(now), ANDROID_CHROME)).body?.data?.ok, true);
+  const form = checkInForm(now, await solidSelfie(), { deviceId: "web-browser-0001" });
+  const created = await postCheckIn(web.token, form, ANDROID_CHROME);
+  assert.equal(created.status, 201, JSON.stringify(created.body?.error));
+  const row = await prisma.attendance.findFirstOrThrow({ where: { studentId: st.student.id }, select: { anomalyFlags: true } });
+  assert.deepEqual(row.anomalyFlags, ["WEB_CHECKIN"]);
 });
 
 test("siswa wajib ganti password / siswa LULUS ditolak check-in (403)", async () => {

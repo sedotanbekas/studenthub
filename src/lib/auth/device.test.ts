@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decideDeviceBinding, isMobilePlatform, planLoginRevocations, requiresDeviceId, type LiveSessionView } from "./device";
+import { canCheckInFromSession, decideDeviceBinding, isMobileBrowserAgent, isMobilePlatform, planLoginRevocations, requiresDeviceId, sessionDeviceId, type LiveSessionView } from "./device";
 
 const T0 = new Date("2026-09-01T00:00:00.000Z").getTime();
 const session = (id: string, over: Partial<LiveSessionView> = {}): LiveSessionView => ({
@@ -85,4 +85,54 @@ test("decideDeviceBinding: ikat bila berbeda dari perangkat terikat, selain itu 
   assert.deepEqual(decideDeviceBinding({ boundDeviceId: "dev-same-001" }, "ANDROID", "dev-same-001"), { bind: false });
   assert.deepEqual(decideDeviceBinding({ boundDeviceId: null }, "WEB", "dev-new-0001"), { bind: false });
   assert.deepEqual(decideDeviceBinding({ boundDeviceId: null }, "ANDROID", null), { bind: false });
+});
+
+const ANDROID_CHROME = "Mozilla/5.0 (Linux; Android 14; SM-A146P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36";
+const IPHONE_SAFARI = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
+const DESKTOP_CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+
+test("isMobileBrowserAgent: browser HP ya, desktop / kosong tidak", () => {
+  assert.equal(isMobileBrowserAgent(ANDROID_CHROME), true);
+  assert.equal(isMobileBrowserAgent(IPHONE_SAFARI), true);
+  assert.equal(isMobileBrowserAgent(DESKTOP_CHROME), false);
+  assert.equal(isMobileBrowserAgent(""), false);
+  assert.equal(isMobileBrowserAgent(null), false);
+});
+
+test("canCheckInFromSession: app ber-deviceId atau browser HP ber-deviceId", () => {
+  assert.equal(canCheckInFromSession({ platform: "ANDROID", deviceId: "dev-hp-0001", userAgent: null }), true);
+  assert.equal(canCheckInFromSession({ platform: "ANDROID", deviceId: null, userAgent: ANDROID_CHROME }), false);
+  assert.equal(canCheckInFromSession({ platform: "WEB", deviceId: "web-0001-abcd", userAgent: ANDROID_CHROME }), true);
+  assert.equal(canCheckInFromSession({ platform: "WEB", deviceId: "web-0001-abcd", userAgent: DESKTOP_CHROME }), false);
+  assert.equal(canCheckInFromSession({ platform: "WEB", deviceId: null, userAgent: IPHONE_SAFARI }), false);
+});
+
+test("siswa login dari browser HP dengan deviceId = perangkat absen: mencabut sesi app & web-HP lain", () => {
+  const live = [
+    session("hp", { platform: "ANDROID", deviceId: "dev-hp-0001" }),
+    session("webhp", { platform: "WEB", deviceId: "web-old-0001" }),
+    session("laptop", { platform: "WEB", deviceId: null }),
+  ];
+  const plan = planLoginRevocations({ role: "STUDENT", platform: "WEB", deviceId: "web-new-0001", userAgent: ANDROID_CHROME, liveSessions: live });
+  assert.deepEqual([...plan].sort(), ["hp", "webhp"]);
+});
+
+test("siswa login web desktop dengan deviceId bukan perangkat absen: tidak mencabut berdasarkan perangkat", () => {
+  const live = [session("hp", { platform: "ANDROID", deviceId: "dev-hp-0001" })];
+  const plan = planLoginRevocations({ role: "STUDENT", platform: "WEB", deviceId: "web-new-0001", userAgent: DESKTOP_CHROME, liveSessions: live });
+  assert.deepEqual(plan, []);
+});
+
+test("decideDeviceBinding: browser HP ber-deviceId diikat; browser desktop tidak", () => {
+  assert.deepEqual(decideDeviceBinding({ boundDeviceId: "dev-hp-0001" }, "WEB", "web-new-0001", ANDROID_CHROME), { bind: true, deviceId: "web-new-0001" });
+  assert.deepEqual(decideDeviceBinding({ boundDeviceId: null }, "WEB", "web-new-0001", DESKTOP_CHROME), { bind: false });
+  assert.deepEqual(decideDeviceBinding({ boundDeviceId: "web-new-0001" }, "WEB", "web-new-0001", IPHONE_SAFARI), { bind: false });
+});
+
+test("sessionDeviceId: deviceId login WEB hanya disimpan dari browser HP; app mobile apa adanya", () => {
+  assert.equal(sessionDeviceId("WEB", "web-0001-abcd", ANDROID_CHROME), "web-0001-abcd");
+  assert.equal(sessionDeviceId("WEB", "web-0001-abcd", DESKTOP_CHROME), null);
+  assert.equal(sessionDeviceId("WEB", "web-0001-abcd", null), null);
+  assert.equal(sessionDeviceId("ANDROID", "dev-hp-0001", null), "dev-hp-0001");
+  assert.equal(sessionDeviceId("IOS", null, IPHONE_SAFARI), null);
 });

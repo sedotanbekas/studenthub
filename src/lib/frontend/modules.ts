@@ -28,7 +28,8 @@ const sponsor: Module[] = [
   moduleOf("company", "Profil perusahaan", "Lengkapi informasi dan kontak perusahaan.", "school", "LAINNYA", ["/sponsor/profile"], "getOwnSponsorProfile"),
 ];
 const student: Module[] = [
-  moduleOf("my-attendance", "Kehadiran saya", "Mulai harimu dengan satu langkah kecil.", "check", "RUANG SISWA", ["/student/attendance", "/student/leave-requests"], "getOwnAttendanceToday"),
+  moduleOf("my-attendance", "Absensi", "Absen masuk dengan lokasi dan foto wajah dari HP.", "location", "RUANG SISWA", ["/student/attendance"], "getOwnAttendanceToday"),
+  moduleOf("my-leave", "Izin & sakit", "Ajukan izin atau sakit beserta lampirannya.", "calendar", "RUANG SISWA", ["/student/leave-requests"], "listOwnLeaveRequests"),
   moduleOf("my-reports", "Rapor saya", "Lihat hasil belajar dan perkembanganmu.", "report", "RUANG SISWA", ["/student/report-cards"], "listOwnReportCards"),
   moduleOf("my-billing", "Tagihan saya", "Lihat tagihan, kirim bukti bayar, dan unduh kuitansi.", "wallet", "RUANG SISWA", ["/student/invoices", "/student/payment-submissions", "/student/payments", "/student/payment-info"], "listOwnInvoices"),
   moduleOf("my-calendar", "Kalender belajar", "Lihat hari belajar dan libur sekolahmu.", "calendar", "RUANG SISWA", ["/student/calendar"], "getStudentCalendar"),

@@ -7,7 +7,7 @@ import { withTx } from "@/lib/tx";
 import { signAccessToken } from "./access-token";
 import type { AuthTokens, LoginBody } from "./auth-schemas";
 import { INVALID_CREDENTIALS_MESSAGE, LOGIN_FAILURE_MIN_MS } from "./constants";
-import { decideDeviceBinding, isMobilePlatform } from "./device";
+import { decideDeviceBinding, isMobilePlatform, sessionDeviceId } from "./device";
 import { toAuthTokens, type IssuedSession } from "./dto";
 import { classifyIdentifier, limiterIdentifier, type IdentifierKind } from "./identifier";
 import { verifyPassword } from "./password";
@@ -218,9 +218,9 @@ function assertAccountUsable(account: LoginAccount, now: Date): void {
   }
 }
 
-async function bindStudentDevice(tx: Tx, account: LoginAccount, body: LoginBody, now: Date): Promise<void> {
+async function bindStudentDevice(tx: Tx, account: LoginAccount, body: LoginBody, ctx: ActionContext): Promise<void> {
   if (!account.student) return;
-  const decision = decideDeviceBinding(account.student, body.platform, body.deviceId ?? null);
+  const decision = decideDeviceBinding(account.student, body.platform, body.deviceId ?? null, ctx.userAgent);
   if (!decision.bind) return;
   await tx.student.updateMany({
     where: {
@@ -228,7 +228,7 @@ async function bindStudentDevice(tx: Tx, account: LoginAccount, body: LoginBody,
       schoolId: account.student.schoolId,
       OR: [{ boundDeviceId: null }, { boundDeviceId: { not: decision.deviceId } }],
     },
-    data: { boundDeviceId: decision.deviceId, deviceBoundAt: now },
+    data: { boundDeviceId: decision.deviceId, deviceBoundAt: ctx.now },
   });
 }
 
@@ -268,7 +268,7 @@ function sessionInput(account: LoginAccount, body: LoginBody, ctx: ActionContext
     userId: account.userId,
     role: account.role,
     platform: body.platform,
-    deviceId: body.deviceId ?? null,
+    deviceId: sessionDeviceId(body.platform, body.deviceId ?? null, ctx.userAgent),
     deviceName: body.deviceName ?? null,
     expoPushToken: body.expoPushToken ?? null,
     ip: ctx.ip,
@@ -293,7 +293,7 @@ function createLoginSession(verified: LoginAccount, body: LoginBody, ctx: Action
       await lockUserSessions(tx, verified.userId);
       const account = await recheckAccount(tx, verified, ctx.now);
       if (totpStep !== null) await consumeTotpStep(tx, account.userId, totpStep);
-      await bindStudentDevice(tx, account, body, ctx.now);
+      await bindStudentDevice(tx, account, body, ctx);
       await touchLastLogin(tx, account, ctx.now);
       const session = await openSession(tx, sessionInput(account, body, ctx));
       return { session, account };

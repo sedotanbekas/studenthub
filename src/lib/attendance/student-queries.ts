@@ -60,7 +60,7 @@ export async function getTodayAttendance(ctx: ActionContext): Promise<TodayDto> 
     ianaTimezone: TZ_IANA[school.timezone],
     schoolDay: { isSchoolDay: day.isSchoolDay, reason: day.reason, holidayName: day.holidayName },
     window,
-    geofence: { radiusM: school.geofence.radiusM, maxAccuracyM: MAX_ACCEPTED_ACCURACY_M },
+    geofence: { radiusM: school.geofence.radiusM, maxAccuracyM: MAX_ACCEPTED_ACCURACY_M, latitude: school.geofence.latitude, longitude: school.geofence.longitude },
     record: toTodayRecord(existing, school.timezone),
     pendingLeave: await pendingLeaveCovering(context.student, local.ymd),
     canCheckIn: blockReason === null,

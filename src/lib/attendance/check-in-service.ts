@@ -179,6 +179,7 @@ function anomalyBase(
     deviceBeforeBinding: evidence.deviceBeforeBinding,
     selfiePhash: processed.phash,
     recentSelfiePhashes: evidence.recentSelfiePhashes,
+    webSession: context.principal.platform === "WEB",
   };
 }
 

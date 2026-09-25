@@ -16,7 +16,7 @@ import {
 /** Kontrak route absensi bagian "student": /student/attendance/* (siswa atas dirinya sendiri). */
 const TAG = "Absensi Siswa";
 const SELF_NOTE = "Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.";
-const MOBILE_NOTE = "Hanya sesi aplikasi mobile (ANDROID/IOS) yang terikat deviceId; sesi WEB atau tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY.";
+const MOBILE_NOTE = "Hanya sesi perangkat absen: aplikasi mobile (ANDROID/IOS) ber-deviceId, atau sesi WEB ber-deviceId dari browser HP (User-Agent HP; flag WEB_CHECKIN). Browser desktop / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY.";
 const LOCATION_ERRORS = ["INVALID_LOCATION", "MOCK_LOCATION", "LOCATION_STALE", "GPS_ACCURACY_TOO_LOW", "OUTSIDE_GEOFENCE"] as const;
 const CALENDAR_ERRORS = ["NOT_SCHOOL_DAY", "CHECKIN_NOT_OPEN", "CHECKIN_CLOSED"] as const;
 const CHECK_IN_RULES =
@@ -32,7 +32,7 @@ export const todayAttendanceContract = defineContract({
   path: "/api/v1/student/attendance/today",
   tag: TAG,
   summary: "Status absensi hari ini (layar Absensi)",
-  description: `Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), radius geofence (TANPA titik pusat), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. ${MOBILE_NOTE} ${SELF_NOTE}`,
+  description: `Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), area absensi (radius + titik pusat sekolah untuk peta), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. ${MOBILE_NOTE} ${SELF_NOTE}`,
   action: "attendance.self",
   response: todaySchema,
   errors: ["STUDENT_NOT_ACTIVE", "CHECKIN_MOBILE_ONLY"],

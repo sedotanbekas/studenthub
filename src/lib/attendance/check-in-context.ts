@@ -1,5 +1,5 @@
 import type { SchoolTimezone, StudentStatus } from "@prisma/client";
-import { isMobilePlatform } from "@/lib/auth/device";
+import { canCheckInFromSession } from "@/lib/auth/device";
 import { requirePrincipal, type ActionContext, type Principal } from "@/lib/auth/principal";
 import { loadCalendarContext } from "@/lib/calendar/queries";
 import { checkSchoolDay, type DayCheck } from "@/lib/calendar/rules";
@@ -95,18 +95,19 @@ export async function findAttendance(db: Tx, student: Pick<CheckInStudent, "id" 
 }
 
 /**
- * Absensi hanya dari aplikasi mobile: sesi ANDROID/IOS yang terikat deviceId. Sesi WEB (atau sesi tanpa
- * deviceId) tidak pernah mengikat ulang perangkat dan membuat flag DEVICE_SESSION_MISMATCH/NEW_DEVICE
- * mustahil menyala -> jalur "titip absen" tak terlihat; karena itu ditolak 403 sebelum membaca apa pun.
+ * Absensi hanya dari perangkat absen: sesi ANDROID/IOS ber-deviceId, atau sesi WEB ber-deviceId yang
+ * permintaannya datang dari browser HP (keputusan klien 2026-09-25). Sesi tanpa deviceId / browser desktop
+ * tidak mengikat perangkat sehingga flag DEVICE_SESSION_MISMATCH/NEW_DEVICE mustahil menyala -> jalur
+ * "titip absen" tak terlihat; karena itu ditolak 403 sebelum membaca apa pun.
  */
-export function assertMobileCheckInSession(principal: Principal): void {
-  if (isMobilePlatform(principal.platform) && principal.deviceId !== null) return;
-  throw forbidden("CHECKIN_MOBILE_ONLY", "Absensi hanya dapat dilakukan dari aplikasi mobile.");
+export function assertCheckInSession(principal: Principal, userAgent: string | null): void {
+  if (canCheckInFromSession({ platform: principal.platform, deviceId: principal.deviceId, userAgent })) return;
+  throw forbidden("CHECKIN_MOBILE_ONLY", "Absensi hanya dapat dilakukan dari HP: aplikasi Student Hub atau browser HP.");
 }
 
 /** Konteks lengkap untuk today/precheck/check-in. Sesi mobile ber-deviceId; siswa harus ACTIVE (dicek ulang dari DB). */
 export async function loadCheckInContext(ctx: ActionContext): Promise<CheckInContext> {
-  assertMobileCheckInSession(requirePrincipal(ctx));
+  assertCheckInSession(requirePrincipal(ctx), ctx.userAgent);
   const base = await loadStudentSchool(ctx);
   if (base.student.status !== "ACTIVE") throw forbidden("STUDENT_NOT_ACTIVE", "Akun siswa tidak aktif untuk absensi.");
   const local = localParts(ctx.now, base.school.timezone);

@@ -1,0 +1,73 @@
+/* Kerangka: identitas, login, sidebar, topbar, banner demo, toast. */
+.brand { display: inline-flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; color: var(--ink); }
+.brand-mark { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: var(--primary); color: #fff; }
+.avatar { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--primary-ink); color: #fff; font-size: 15px; font-weight: 800; flex-shrink: 0; }
+.avatar.small { width: 40px; height: 40px; font-size: 14px; }
+.avatar.light { background: #fff; color: var(--primary-ink); }
+.standalone { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
+
+/* Login */
+.login-page { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: var(--paper); }
+.login-story { display: flex; flex-direction: column; justify-content: space-between; padding: 40px 48px; background: var(--primary-ink); color: #fff; }
+.login-story .brand { color: #fff; }
+.login-story .brand-mark { background: #fff; color: var(--primary-ink); }
+.login-story h1 { max-width: 14ch; font-size: clamp(34px, 4vw, 52px); color: #fff; }
+.login-story p { margin-top: 16px; font-size: 18px; color: #dbeafe; }
+.login-form-side { display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
+.login-box { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 14px; }
+.login-box form { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+.login-box h2 { font-size: 30px; font-weight: 800; }
+.login-box > p { color: var(--muted); }
+.login-brand { display: none; margin-bottom: 8px; }
+.login-help { font-size: 15px; color: var(--muted); text-align: center; }
+
+/* Kerangka aplikasi */
+.app-shell { min-height: 100dvh; display: grid; grid-template-columns: 272px minmax(0, 1fr); }
+.sidebar { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; gap: 16px; padding: 20px 14px; overflow-y: auto; background: var(--paper); border-right: 2px solid var(--line-soft); }
+.brand-link { padding: 4px 8px; }
+.school-switch { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); background: var(--bg); }
+.school-switch strong { display: block; font-size: 15px; line-height: 1.3; }
+.school-switch small { color: var(--muted); font-weight: 600; }
+.school-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: var(--paper); color: var(--primary); border: 2px solid var(--line-soft); }
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.nav-group { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.nav-label { padding: 0 12px 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: var(--muted); }
+.nav-item { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 16px; font-weight: 600; color: var(--ink-2); }
+.nav-item:hover { background: var(--bg); color: var(--ink); }
+.nav-item.active { background: var(--primary); color: #fff; }
+.nav-item.active .count-badge { background: #fff; color: var(--danger); }
+.account-button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 2px solid var(--line-soft); text-align: left; }
+.account-button:hover { border-color: var(--line); }
+.account-button > span:nth-child(2) { flex: 1; min-width: 0; }
+.account-button strong { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-button small { color: var(--muted); font-weight: 600; }
+.sidebar-overlay { display: none; }
+.main-shell { min-width: 0; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 28px; background: var(--paper); border-bottom: 2px solid var(--line-soft); }
+.topbar-title { font-size: 18px; font-weight: 800; }
+.topbar-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.notification-button { position: relative; }
+.notification-button i { position: absolute; top: 9px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); border: 2px solid var(--paper); }
+.mobile-menu { display: none; }
+.page-content { flex: 1; width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px 28px 48px; display: flex; flex-direction: column; gap: 20px; }
+.demo-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 16px; border-radius: var(--radius-sm); background: var(--warning-soft); border: 2px solid #fcd34d; color: var(--warning-ink); font-weight: 700; }
+.demo-banner span { display: inline-flex; align-items: center; gap: 8px; }
+.demo-banner select { width: auto; min-height: 42px; margin-left: auto; }
+.demo-banner .text-button { color: var(--warning-ink); }
+.scope-select { display: flex; flex-direction: column; gap: 8px; max-width: 420px; font-weight: 700; }
+.toast { position: fixed; left: 50%; bottom: 24px; z-index: 100; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 14px 20px; border-radius: var(--radius-sm); background: var(--ink); color: #fff; font-weight: 600; box-shadow: var(--shadow); }
+
+@media (max-width: 960px) {
+  .app-shell { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { position: fixed; left: 0; top: 0; z-index: 60; width: min(300px, 86vw); transform: translateX(-102%); visibility: hidden; transition: transform 0.2s, visibility 0.2s; box-shadow: var(--shadow); }
+  .sidebar.open { transform: none; visibility: visible; }
+  .sidebar-overlay { display: block; position: fixed; inset: 0; z-index: 50; background: rgb(11 18 32 / 55%); }
+  .mobile-menu { display: inline-flex; }
+  .topbar { padding: 8px 12px; min-height: 60px; }
+  .page-content { padding: 16px 16px 40px; gap: 16px; }
+}
+@media (max-width: 760px) {
+  .login-page { grid-template-columns: minmax(0, 1fr); }
+  .login-story { display: none; }
+  .login-brand { display: block; }
+}

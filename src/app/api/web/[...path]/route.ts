@@ -29,6 +29,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   if (!isPublic && !access) return failure("Sesi berakhir. Silakan masuk kembali.", 401);
   if (request.headers.has("content-type")) headers.set("Content-Type", request.headers.get("content-type")!);
   if (request.headers.has("x-real-ip")) headers.set("X-Real-IP", request.headers.get("x-real-ip")!);
+  // Absensi dari browser HP diputuskan server berdasarkan user-agent perangkat asli.
+  if (request.headers.has("user-agent")) headers.set("User-Agent", request.headers.get("user-agent")!);
   let body: BodyInit | undefined;
   try { body = request.method === "GET" ? undefined : await boundedBody(request); }
   catch { return failure("Berkas terlalu besar atau tidak dapat dibaca. Maksimal 10 MB.", 413); }

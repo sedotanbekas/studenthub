@@ -31,6 +31,7 @@ function input(overrides: Partial<AnomalyInput> = {}): AnomalyInput {
     selfiePhash: PHASH,
     recentSelfiePhashes: [],
     sharedDevice: false,
+    webSession: false,
     ...overrides,
   };
 }
@@ -129,4 +130,12 @@ test("setiap kode punya severity dan label Bahasa Indonesia", () => {
   assert.equal(ANOMALY_SEVERITY.NEW_DEVICE, "MEDIUM");
   assert.equal(ANOMALY_SEVERITY.TIME_INCONSISTENT, "MEDIUM");
   assert.equal(ANOMALY_SEVERITY.GEOFENCE_TOLERANCE, "LOW");
+});
+
+test("check-in dari browser HP ditandai WEB_CHECKIN (LOW, tidak menjadi anomali terlapor)", () => {
+  const flags = flagsOf({ webSession: true });
+  assert.deepEqual(flags, ["WEB_CHECKIN"]);
+  assert.equal(ANOMALY_SEVERITY.WEB_CHECKIN, "LOW");
+  assert.equal(hasReportableAnomaly(flags), false);
+  assert.deepEqual(flagsOf({ webSession: false }), []);
 });

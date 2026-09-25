@@ -73,7 +73,7 @@ async function revokeReplacedSessions(tx: Tx, input: NewSessionInput): Promise<v
     where: { userId: input.userId, revokedAt: null, expiresAt: { gt: input.now } },
     select: { id: true, platform: true, deviceId: true, lastUsedAt: true, createdAt: true },
   });
-  const ids = planLoginRevocations({ role: input.role, platform: input.platform, deviceId: input.deviceId, liveSessions });
+  const ids = planLoginRevocations({ role: input.role, platform: input.platform, deviceId: input.deviceId, userAgent: input.userAgent, liveSessions });
   if (ids.length > 0) await tx.authSession.updateMany({ where: { id: { in: ids }, revokedAt: null }, data: replaced });
 }
 
