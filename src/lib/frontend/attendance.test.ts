@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  DEMO_ACCURACY_M,
+  FIX_KEEP_MS,
+  accuracyAdvice,
   cameraErrorMessage,
+  preferFix,
+  simulateDemoFix,
   faceVerdict,
   fixAgeOk,
   geolocationErrorMessage,
@@ -94,4 +99,40 @@ test("todayHeadline merangkum status absen hari ini dengan nada tindakan", () =>
   assert.equal(todayHeadline(closed).title, "Absensi sudah ditutup");
   const early = { ...baseToday, canCheckIn: false, blockReason: "CHECKIN_NOT_OPEN", window: { ...baseToday.window, state: "BEFORE_OPEN" } };
   assert.equal(todayHeadline(early).note, "Absen dibuka pukul 06:00.");
+});
+
+const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1";
+const sample = (accuracy: number, timestamp: number) => ({ accuracy, timestamp });
+
+test("preferFix: fix lebih akurat menang; fix akurat yang sudah lama digantikan fix terbaru", () => {
+  assert.deepEqual(preferFix(null, sample(40, 1000)), sample(40, 1000));
+  assert.deepEqual(preferFix(sample(40, 1000), sample(12, 2000)), sample(12, 2000));
+  assert.deepEqual(preferFix(sample(12, 1000), sample(40, 3000)), sample(12, 1000), "fix akurat 2 detik lalu tetap dipakai");
+  assert.deepEqual(preferFix(sample(12, 1000), sample(40, 1000 + FIX_KEEP_MS + 1)), sample(40, 1000 + FIX_KEEP_MS + 1), "fix lama tidak dipertahankan");
+});
+
+test("accuracyAdvice: baik, lemah, atau masih perkiraan jaringan dengan langkah per perangkat", () => {
+  assert.deepEqual(accuracyAdvice(18, 100, ANDROID), { level: "good", message: "" });
+  const weak = accuracyAdvice(240, 100, ANDROID);
+  assert.equal(weak.level, "weak");
+  assert.match(weak.message, /±240 m/);
+  assert.match(weak.message, /area terbuka/);
+  const android = accuracyAdvice(100000, 100, ANDROID);
+  assert.equal(android.level, "coarse");
+  assert.match(android.message, /±100 km/);
+  assert.match(android.message, /Akurasi Lokasi Google/);
+  assert.match(accuracyAdvice(3500, 100, IPHONE).message, /Lokasi Akurat/);
+  assert.match(accuracyAdvice(3500, 100, IPHONE).message, /±3,5 km/);
+  assert.match(accuracyAdvice(100000, 100, DESKTOP).message, /tidak memiliki GPS/);
+});
+
+test("simulateDemoFix: mode demo memakai posisi asli dengan akurasi disimulasikan", () => {
+  assert.deepEqual(simulateDemoFix({ latitude: -6.2, longitude: 106.8, accuracy: 100000 }), { latitude: -6.2, longitude: 106.8, accuracy: DEMO_ACCURACY_M });
+  assert.deepEqual(simulateDemoFix({ latitude: -6.2, longitude: 106.8, accuracy: 5 }), { latitude: -6.2, longitude: 106.8, accuracy: 5 });
+});
+
+test("simulateDemoFix membaca koordinat browser asli (getter di prototype, bukan properti sendiri)", () => {
+  const coords = Object.create({ get latitude() { return -6.2; }, get longitude() { return 106.8; }, get accuracy() { return 100000; } }) as { latitude: number; longitude: number; accuracy: number };
+  assert.deepEqual(Object.keys(coords), [], "seperti GeolocationCoordinates");
+  assert.deepEqual(simulateDemoFix(coords), { latitude: -6.2, longitude: 106.8, accuracy: DEMO_ACCURACY_M });
 });

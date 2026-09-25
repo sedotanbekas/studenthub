@@ -1,2 +1,2 @@
-import { Hub } from "@/components/hub/hub";
-export default function Page() { return <Hub section="dashboard" />; }
+import { redirect } from "next/navigation";
+export default function Page(): never { redirect("/hub"); }

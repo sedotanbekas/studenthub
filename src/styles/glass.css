@@ -1,0 +1,194 @@
+/*
+ * Material "liquid glass". Dimuat setelah shell/content/student.css.
+ * Aturan kinerja: blur nyata (backdrop-filter) hanya pada permukaan yang dilewati konten bergulir —
+ * topbar, tab bar HP, laci navigasi HP, dialog, dan toast. Kartu di atas kanvas statis memakai
+ * "kaca semu" (tembus pandang + kilau tepi, tanpa blur). Tabel, formulir, dan isi dialog tetap padat.
+ * Jangan pasang backdrop-filter pada .app-shell/.main-shell/.page-content/.panel: elemen fixed di
+ * dalamnya (alur absen layar penuh, toast) akan terkurung.
+ */
+
+/* Kanvas: satu lapisan fixed berisi gradien warna sekolah (tanpa filter blur, tanpa animasi). */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(70vmax 55vmax at 100% 0%, var(--blob-1), transparent 62%),
+    radial-gradient(60vmax 50vmax at 0% 100%, var(--blob-2), transparent 60%),
+    radial-gradient(40vmax 36vmax at 60% 40%, var(--blob-3), transparent 65%);
+}
+.login-page { background: transparent; }
+
+/* Tombol kapsul dengan umpan balik tekan. */
+.button { border-radius: 999px; transition: background-color 0.18s var(--ease-out), border-color 0.18s var(--ease-out), transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out); }
+.button:active:not(:disabled) { transform: scale(0.97); }
+.secondary { background: rgb(255 255 255 / 80%); border-color: color-mix(in srgb, var(--line) 80%, transparent); box-shadow: var(--glass-rim); }
+.icon-button { border-radius: 14px; transition: background-color 0.15s var(--ease-out), transform 0.15s var(--ease-out); }
+.icon-button:active:not(:disabled) { transform: scale(0.94); }
+input, textarea, select { border-radius: 14px; }
+
+/* Kaca semu: kartu di atas kanvas statis. */
+.login-box, .stat-card, .role-card, .tile, .today-card, .security-intro, .access-row {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-sheen), var(--glass-card);
+  box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-1);
+}
+.today-card { border-left-width: 6px; }
+.today-card.tone-action, .today-card.tone-warning { border-left-color: var(--warning); }
+.today-card.tone-success { border-left-color: var(--success); }
+.today-card.tone-neutral { border-left-color: var(--muted); }
+.access-row.granted { border-color: #86efac; }
+.access-row.blocked { border-color: #fca5a5; }
+.panel { background: var(--surface-strong); border: 1px solid var(--glass-border); box-shadow: 0 0 0 1px var(--glass-edge), var(--elev-1); }
+.data-panel { background: var(--paper); }
+.login-box { padding: 28px; border-radius: 28px; background: var(--glass-sheen), var(--glass-thick); box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-2); }
+
+/* Kartu interaktif: naik sedikit + pendar warna animasi sekolah. */
+.tile, .role-card, .feed-card, .stat-card { transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out), border-color 0.22s var(--ease-out); }
+.tile { border-radius: 22px; }
+.tile:hover, .role-card:hover { transform: translateY(-2px); box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), 0 14px 30px -14px var(--animation-glow); }
+.tile:active, .role-card:active, .feed-card:active { transform: scale(0.97); }
+.feed-card:hover { transform: translateY(-2px); }
+.tile-icon { background: linear-gradient(160deg, color-mix(in srgb, var(--tile, var(--primary)) 78%, #fff), var(--tile, var(--primary))); box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%), 0 6px 14px -6px color-mix(in srgb, var(--tile, var(--primary)) 70%, transparent); }
+
+/* Ikon lembut: primer & sekunder bergantian. */
+.stat-icon, .module-icon, .demo-icon { border-radius: 12px; }
+.quick-icon.tone-0 { background: var(--primary-soft); color: var(--primary-ink); }
+.quick-icon.tone-1, .stat-card:nth-child(even) .stat-icon { background: var(--secondary-soft); color: var(--secondary-ink); }
+.quick-icon.tone-2 { background: var(--animation-soft); color: var(--ink); }
+.quick-icon.tone-3 { background: var(--logo); color: var(--on-logo); }
+
+/* Topbar kaca mengambang. */
+.topbar {
+  top: 12px; margin: 12px 16px 0; border-radius: var(--radius-bar);
+  background: var(--glass-bar); border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-1);
+  -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+}
+body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Sidebar desktop: panel melayang (kanvas statis di belakang -> tanpa blur). */
+@media (min-width: 961px) {
+  .app-shell { grid-template-columns: 284px minmax(0, 1fr); }
+  .sidebar {
+    top: 12px; height: calc(100dvh - 24px); margin: 12px 0 12px 12px; border-radius: 26px;
+    border: 1px solid var(--glass-border); background: var(--glass-sheen), var(--glass-card);
+    box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-2);
+  }
+}
+.school-switch, .account-button { background: rgb(255 255 255 / 60%); border: 1px solid var(--glass-border); border-radius: 16px; }
+.nav-item { border-radius: 14px; transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out); }
+.nav-item:hover { background: rgb(255 255 255 / 65%); }
+@media (forced-colors: active) { .nav-item.active { outline: 2px solid Highlight; } }
+
+/* Dialog kaca tebal; kepala & kaki sticky padat (tanpa blur bertingkat). */
+.action-dialog {
+  border: 1px solid var(--glass-border); border-radius: 26px; background: var(--glass-thick);
+  -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-3);
+}
+.action-dialog::backdrop { background: rgb(11 18 32 / 45%); }
+@media (hover: hover) and (pointer: fine) { .action-dialog::backdrop { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); } }
+.dialog-heading, .dialog-footer { background: rgb(255 255 255 / 96%); }
+.dialog-body .table-scroll { background: var(--paper); border-radius: var(--radius-sm); }
+
+.toast {
+  border-radius: 999px; background: rgb(11 18 32 / 78%); color: #fff; border: 1px solid rgb(255 255 255 / 14%);
+  -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%), var(--elev-2);
+  bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.demo-banner { border-radius: 18px; border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent); background: color-mix(in srgb, var(--warning-soft) 88%, transparent); box-shadow: var(--glass-rim), var(--elev-1); }
+.checkin-header { background: var(--surface-strong); border-bottom: 1px solid var(--glass-edge); }
+
+/* Permukaan bermerek sekolah. */
+.login-story::before {
+  content: ""; position: absolute; inset: -20%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(35% 35% at 80% 20%, var(--animation-glow), transparent 70%),
+    radial-gradient(30% 30% at 60% 55%, color-mix(in srgb, var(--secondary) 35%, transparent), transparent 70%);
+  animation: aurora 24s var(--ease-in-out) infinite alternate;
+}
+@keyframes aurora { to { transform: translate3d(-6%, 4%, 0) rotate(8deg) scale(1.08); } }
+.id-card::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(50% 60% at 100% 100%, color-mix(in srgb, var(--animation) 30%, transparent), transparent 70%); }
+
+/* Pemuat & kerangka memakai warna animasi sekolah. */
+.loader { border: 0; background: conic-gradient(from 0deg, transparent 0 20%, var(--animation), var(--primary)); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px)); }
+.skeleton { background: linear-gradient(90deg, var(--line-soft), color-mix(in srgb, var(--animation-soft) 70%, #fff), var(--line-soft)); background-size: 200% 100%; }
+
+/* ---- Cadangan aksesibilitas & perangkat lemah ---- */
+@media (pointer: coarse) { :root { --glass-filter: blur(16px) saturate(160%); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass-bar: rgb(255 255 255 / 97%); --glass-thick: #fff; --glass-drawer: var(--paper); }
+  .toast { background: var(--ink); }
+}
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  :root { --blob-1: rgb(30 58 138 / 15%); --blob-2: rgb(15 118 110 / 14%); --blob-3: rgb(56 189 248 / 15%); --primary-glow: rgb(29 78 216 / 45%); --animation-glow: rgb(56 189 248 / 40%); --focus-glow: rgb(56 189 248 / 40%); }
+}
+:root[data-glass="lite"] { --glass-filter: none; --glass-bar: rgb(255 255 255 / 95%); --glass-thick: rgb(255 255 255 / 97%); --glass-drawer: rgb(255 255 255 / 97%); }
+/* Mode padat (kontras tinggi): duplikasi disengaja — media query tidak bisa di-OR dengan selektor. */
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-filter: none; --glass-bar: var(--paper); --glass-thick: var(--paper); --glass-card: var(--paper); --glass-drawer: var(--paper); --surface-strong: var(--paper); --glass-sheen: none; --glass-rim: 0 0 #0000; --glass-border: var(--line); --glass-edge: transparent; --blob-1: transparent; --blob-2: transparent; --blob-3: transparent; }
+  .toast { background: var(--ink); }
+  .action-dialog::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+:root[data-glass="off"] { --glass-filter: none; --glass-bar: var(--paper); --glass-thick: var(--paper); --glass-card: var(--paper); --glass-drawer: var(--paper); --surface-strong: var(--paper); --glass-sheen: none; --glass-rim: 0 0 #0000; --glass-border: var(--line); --glass-edge: transparent; --blob-1: transparent; --blob-2: transparent; --blob-3: transparent; --muted: var(--ink-2); }
+:root[data-glass="off"] .toast { background: var(--ink); }
+:root[data-glass="off"] .action-dialog::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root[data-glass="off"] :is(.login-story, .id-card)::before { display: none; }
+@media (prefers-contrast: more) {
+  :root { --glass-filter: none; --glass-bar: var(--paper); --glass-thick: var(--paper); --glass-card: var(--paper); --glass-drawer: var(--paper); --surface-strong: var(--paper); --glass-sheen: none; --glass-rim: 0 0 #0000; --glass-border: var(--ink-2); --glass-edge: transparent; --line-soft: var(--line); --muted: var(--ink-2); --focus: var(--ink); --blob-1: transparent; --blob-2: transparent; --blob-3: transparent; }
+  :focus-visible { outline-width: 4px; }
+  .login-story::before, .id-card::before { display: none; }
+}
+
+/* ---- Kerangka HP: topbar mengambang, laci kaca, tombol kembali, tab bar ---- */
+.back-button, .topbar-mark { display: none; }
+.topbar-mark .brand-mark { width: 34px; height: 34px; border-radius: 10px; }
+.tab-bar { display: none; }
+@media (max-width: 960px) {
+  .topbar { top: 8px; margin: 8px 8px 0; min-height: 56px; padding: 6px 10px; box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-2); }
+  .back-button, .topbar-mark { display: inline-flex; align-items: center; }
+  .sidebar {
+    top: 8px; left: 8px; height: calc(100dvh - 16px); border-radius: 26px; border: 1px solid var(--glass-border);
+    background: var(--glass-drawer); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+    transform: translateX(calc(-100% - 16px)); transition: transform 0.34s var(--ease-page), visibility 0.34s;
+    box-shadow: var(--glass-rim), var(--elev-3);
+  }
+  .sidebar-overlay { background: rgb(11 18 32 / 40%); }
+}
+@media (max-width: 760px) {
+  .mobile-menu { display: none; }
+  .tab-bar {
+    position: fixed; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 40;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 6px; border-radius: 30px;
+    background: var(--glass-bar); border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-2);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  }
+  .tab-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 54px; padding: 6px 2px; border-radius: 24px; font-size: 12px; font-weight: 700; line-height: 1.2; color: var(--ink-2); transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), transform 0.15s var(--ease-out); }
+  .tab-item.active { background: color-mix(in srgb, var(--primary) 14%, rgb(255 255 255 / 72%)); color: var(--primary-ink); box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%); }
+  .tab-item:active { transform: scale(0.94); }
+  .page-content { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(92px + env(safe-area-inset-bottom)); }
+  body:has(.action-dialog[open]) .tab-bar { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* Sakelar tampilan kontras tinggi di sidebar. */
+.glass-toggle { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; font-size: 14px; font-weight: 700; color: var(--ink-2); cursor: pointer; }
+.glass-toggle span { flex: 1; }
+.glass-toggle input { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 46px; height: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 999px; background: var(--line); cursor: pointer; transition: background-color 0.2s var(--ease-out); }
+.glass-toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 30%); transition: transform 0.2s var(--ease-out); }
+.glass-toggle input:checked { background: var(--primary-line); }
+.glass-toggle input:checked::after { transform: translateX(18px); }
+.glass-toggle input:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
+.gps-wait { display: block; width: 100%; font-weight: 600; opacity: 0.85; }
+
+/* Fokus tidak tertutup bar mengambang (WCAG 2.4.11): gulir menyisakan ruang topbar & tab bar. */
+@media (max-width: 960px) { html { scroll-padding-top: 84px; } }
+@media (max-width: 760px) { html { scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom)); } }
+/* Mode warna paksa (Windows High Contrast): tab aktif & sakelar tetap terlihat. */
+@media (forced-colors: active) {
+  .tab-item.active { outline: 2px solid Highlight; outline-offset: -2px; }
+  .glass-toggle input { border: 1px solid CanvasText; }
+  .glass-toggle input::after { background: CanvasText; }
+  .glass-toggle input:checked { background: Highlight; }
+}

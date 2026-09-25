@@ -7,6 +7,9 @@
  * scripts/seed-demo.ts dan integration test. Penjaga nama database ada di CLI (checkSeedDatabaseUrl), BUKAN di sini.
  */
 import type { Tx } from "../../src/lib/db";
+import { toThemeColumns } from "../../src/lib/schools/theme-dto";
+import { THEME_PRESETS } from "../../src/lib/schools/theme-rules";
+import type { ThemePresetKey } from "../../src/lib/schools/theme-store-rules";
 import { toDbDate } from "../../src/lib/time/zone";
 import { withTx } from "../../src/lib/tx";
 import { ensureDemoAnnouncements, ensureDemoReportCards, type DemoReportCardSummary } from "./demo-academic";
@@ -95,7 +98,21 @@ export async function ensureSchool(tx: Tx, spec: DemoSchoolSpec): Promise<string
     isActive: true,
   };
   const school = await tx.school.upsert({ where: { npsn: spec.npsn }, create: { ...data, npsn: spec.npsn }, update: data, select: { id: true } });
+  if (spec.themePreset) await ensureDemoTheme(tx, school.id, spec.themePreset);
   return school.id;
+}
+
+/**
+ * Tema preset demo, SET-IF-NULL: hanya bila palet kosong DAN belum pernah diubah/di-reset admin
+ * (themeUpdatedAt NULL). Seed berjalan tiap deploy staging, jadi pilihan admin tidak boleh ditimpa.
+ */
+async function ensureDemoTheme(tx: Tx, schoolId: string, presetKey: ThemePresetKey): Promise<void> {
+  const preset = THEME_PRESETS.find((p) => p.key === presetKey);
+  if (!preset) return;
+  await tx.school.updateMany({
+    where: { id: schoolId, themePrimaryColor: null, themeUpdatedAt: null },
+    data: toThemeColumns({ preset: preset.key, colors: preset.colors }),
+  });
 }
 
 /** Tahun ajaran + semester Ganjil/Genap; mengembalikan id tahun ajaran dan id semester aktif. */

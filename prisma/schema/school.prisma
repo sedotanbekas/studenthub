@@ -60,6 +60,15 @@ model School {
   bankAccountNumber    String?        @db.VarChar(30)
   bankAccountHolder    String?        @db.VarChar(100)
   bankChangedAt        DateTime?
+  /// Tema warna sekolah (`#rrggbb` huruf kecil). NULL semua = tema bawaan aplikasi; palet diisi semua
+  /// atau kosong semua (chk_school_theme). Preset hanya label asal palet (VARCHAR, bukan enum DB).
+  themePreset          String?        @db.VarChar(32)
+  themePrimaryColor    String?        @db.Char(7)
+  themeSecondaryColor  String?        @db.Char(7)
+  themeBannerColor     String?        @db.Char(7)
+  themeAnimationColor  String?        @db.Char(7)
+  themeLogoColor       String?        @db.Char(7)
+  themeUpdatedAt       DateTime?
   /// Penunjuk semester aktif; @unique => paling banyak satu semester aktif per sekolah.
   activeTermId         String?        @unique
   isActive             Boolean        @default(true)

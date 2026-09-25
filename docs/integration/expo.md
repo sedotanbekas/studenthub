@@ -114,10 +114,20 @@ kata sandi umum (422 `PASSWORD_POLICY`), tidak sama dengan yang lama (422 `PASSW
 sandi lama salah 400 `CURRENT_PASSWORD_INVALID` (5×/15 menit → 429). Sesi saat ini tetap berlaku,
 sesi lain dicabut; tidak perlu login ulang. 409 `PASSWORD_CHANGED_CONCURRENTLY` → muat ulang & coba lagi.
 
-`GET /auth/me` → `user` (termasuk `mustChangePassword`), `school {id, name, timezone}`,
+`GET /auth/me` → `user` (termasuk `mustChangePassword`), `school {id, name, timezone, theme}`,
 `student {id, nisn, nis, status, className}`, `permissions` (aksi yang diizinkan saat ini — pakai untuk
 menyembunyikan menu). Profil lengkap: `GET /student/profile`. Kalender bulanan:
 `GET /student/calendar?month=YYYY-MM`.
+
+**Tema sekolah** (`school.theme`, komponen `SchoolTheme`): `{preset, primaryColor, secondaryColor,
+bannerColor, animationColor, logoColor, isCustom, updatedAt}`. Kelima warna SELALU terisi `#rrggbb`
+huruf kecil (tema bawaan bila admin belum mengatur: `isCustom=false`, `preset="nusantara"`). Warna
+dipilih bebas oleh admin sekolah (tanpa aturan kontras), jadi app wajib menurunkan warna teks yang
+terbaca sendiri — samakan dengan web: `themeVariables()` di `src/lib/schools/theme-rules.ts` (primer =
+tombol/tautan, sekunder = aksen/chip, banner = kartu identitas & header beranda, animasi = loader/transisi,
+logo = latar lambang). Admin mengubah tema lewat `PUT /school/theme` (reset: `DELETE /school/theme`);
+siswa menerimanya pada `GET /auth/me` berikutnya — muat ulang saat app kembali ke foreground.
+`school` bernilai `null` untuk super admin & sponsor → pakai tema bawaan.
 
 ## 5. Absensi: today → precheck → check-in
 

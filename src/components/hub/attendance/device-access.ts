@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cameraErrorMessage, geolocationErrorMessage } from "@/lib/frontend/attendance";
+import { cameraErrorMessage, geolocationErrorMessage, preferFix } from "@/lib/frontend/attendance";
 
 /**
  * Akses WAJIB untuk absensi: lokasi (GPS akurasi tinggi) dan kamera depan. Alur absensi tidak dapat
@@ -91,14 +91,35 @@ export function useDeviceAccess(): DeviceAccess {
   return { location, camera, locationMessage, cameraMessage, stream, fix, ready: location === "granted" && camera === "granted", request, blockLocation };
 }
 
-/** Pantau posisi selama alur absensi. GPS dimatikan / izin dicabut di tengah jalan -> onBlocked. */
+/** Fix terbaik: lebih akurat menang; fix akurat yang sudah lama digantikan fix terbaru (lihat preferFix). */
+export function betterPosition(current: GeolocationPosition | null, next: GeolocationPosition): GeolocationPosition {
+  const wrap = (p: GeolocationPosition) => ({ accuracy: p.coords.accuracy, timestamp: p.timestamp, position: p });
+  return preferFix(current ? wrap(current) : null, wrap(next)).position;
+}
+
+/**
+ * Posisi terbaik dalam `timeoutMs`: berhenti lebih awal begitu akurasi <= `targetM`. Dipakai tepat
+ * sebelum mengirim absensi agar server menerima fix paling akurat yang bisa dicapai perangkat.
+ */
+export function bestPosition(targetM: number, timeoutMs = 15_000): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    let best: GeolocationPosition | null = null;
+    let watch = 0;
+    const stop = () => { navigator.geolocation.clearWatch(watch); clearTimeout(timer); };
+    const finish = () => { stop(); if (best) resolve(best); else reject(new Error("Lokasi tidak dapat diperbarui.")); };
+    const timer = setTimeout(finish, timeoutMs);
+    watch = navigator.geolocation.watchPosition(p => { best = betterPosition(best, p); if (best.coords.accuracy <= targetM) finish(); }, e => { if (e.code !== e.TIMEOUT) { stop(); reject(e); } }, GPS_OPTIONS);
+  });
+}
+
+/** Pantau posisi selama alur absensi (menyimpan fix terbaik). GPS dimatikan / izin dicabut -> onBlocked. */
 export function useLivePosition(active: boolean, initial: GeolocationPosition | null, onBlocked: (message: string) => void): GeolocationPosition | null {
   const [position, setPosition] = useState<GeolocationPosition | null>(initial);
   const blocked = useRef(onBlocked);
   useEffect(() => { blocked.current = onBlocked; }, [onBlocked]);
   useEffect(() => {
     if (!active || !("geolocation" in navigator)) return;
-    const id = navigator.geolocation.watchPosition(setPosition, e => { if (e.code !== e.TIMEOUT) blocked.current(geolocationErrorMessage(e.code)); }, GPS_OPTIONS);
+    const id = navigator.geolocation.watchPosition(next => setPosition(current => betterPosition(current, next)), e => { if (e.code !== e.TIMEOUT) blocked.current(geolocationErrorMessage(e.code)); }, GPS_OPTIONS);
     return () => navigator.geolocation.clearWatch(id);
   }, [active]);
   return position ?? initial;

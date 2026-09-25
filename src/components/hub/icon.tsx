@@ -17,7 +17,9 @@ const paths: Record<string, string> = {
   bell: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4",
   shield: "M12 2l9 4v6c0 6-9 10-9 10S3 18 3 12V6z M8 12l3 3 5-6",
   search: "M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
-  arrow: "M4 12h16 M14 6l6 6-6 6", chevron: "M9 5l7 7-7 7", down: "M6 9l6 6 6-6", plus: "M12 5v14 M5 12h14", close: "M6 6l12 12 M6 18L18 6",
+  arrow: "M4 12h16 M14 6l6 6-6 6", chevron: "M9 5l7 7-7 7", back: "M15 5l-7 7 7 7",
+  palette: "M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.1-4-7.4-9-7.4 M7.5 11.5h.01 M9.5 7.5h.01 M14.5 7.5h.01 M17 11h.01",
+  contrast: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M12 3v18", print: "M7 8V3h10v5 M7 17H4v-7h16v7h-3 M7 14h10v7H7z", down: "M6 9l6 6 6-6", plus: "M12 5v14 M5 12h14", close: "M6 6l12 12 M6 18L18 6",
   logout: "M9 3H3v18h6 M9 12h12 M16 7l5 5-5 5", menu: "M3 6h18 M3 12h18 M3 18h18", sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l1 1 M18 18l1 1 M5 19l1-1 M18 6l1-1",
   download: "M12 3v12 M7 10l5 5 5-5 M4 15v6h16v-6", upload: "M12 16V4 M7 9l5-5 5 5 M4 16v5h16v-5", refresh: "M20 7a9 9 0 1 0 1 9 M20 2v6h-6", eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12 M15 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0", help: "M9 9a3 3 0 0 1 6 0c0 2-3 2-3 5 M12 18h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0", spark: "M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z", leaf: "M20 3C6 1 1 10 6 16s15 2 14-13 M4 21L16 8", camera: "M3 7h4l2-4h6l2 4h4v14H3z M16 13a4 4 0 1 0-8 0 4 4 0 0 0 8 0", location: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0 M15 10a3 3 0 1 0-6 0 3 3 0 0 0 6 0",
 };
@@ -25,3 +27,4 @@ export function Icon({ name, size = 20, style }: { name: string; size?: number; 
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" style={style}><path d={paths[name] ?? paths.report} /></svg>;
 }
 export function Brand() { return <span className="brand"><span className="brand-mark"><Icon name="book" size={22} /></span>Student Hub</span>; }
+export function BrandMark() { return <span className="brand-mark" aria-hidden="true"><Icon name="book" size={20} /></span>; }

@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { HubLink as Link } from "./hub-link";
 import { useEffect, useState } from "react";
 import type { DashboardSummaryDto } from "@/lib/dashboard/schemas";
 import { api } from "@/lib/frontend/api";

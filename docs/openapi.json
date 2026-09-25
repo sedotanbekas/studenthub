@@ -3458,6 +3458,368 @@
         }
       }
     },
+    "/api/v1/school/theme": {
+      "get": {
+        "operationId": "getSchoolTheme",
+        "tags": [
+          "Sekolah - Profil & Pengaturan"
+        ],
+        "summary": "Tema warna sekolah (primer, sekunder, banner, animasi, logo)",
+        "description": "Warna selalu terisi `#rrggbb` huruf kecil: sekolah yang belum mengatur tema mendapat tema bawaan (`isCustom=false`, `preset=nusantara`). Siswa & admin menerima tema yang sama di `GET /auth/me` (`school.theme`). SUPER_ADMIN wajib `?schoolId=` (sekolah tak dikenal -> 404); admin sekolah memakai sekolahnya sendiri (schoolId lain -> 403 `SCOPE_MISMATCH`).\n\nAksi POLICY: `schools.theme.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SchoolTheme"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSchoolTheme",
+        "tags": [
+          "Sekolah - Profil & Pengaturan"
+        ],
+        "summary": "Ganti tema warna sekolah (utuh)",
+        "description": "Kelima warna wajib, format `#RRGGBB` (huruf besar/kecil bebas, disimpan huruf kecil); `preset` opsional, hanya label asal palet. Warna apa pun diterima: aplikasi menurunkan sendiri warna teks yang terbaca. Kunci lain / hex tidak valid -> 400 `VALIDATION_FAILED`. Isi sama dengan yang tersimpan -> 200 tanpa audit. Diaudit sebagai `school.theme_update`; berlaku bagi siswa pada `GET /auth/me` berikutnya. SUPER_ADMIN wajib `?schoolId=` (sekolah tak dikenal -> 404); admin sekolah memakai sekolahnya sendiri (schoolId lain -> 403 `SCOPE_MISMATCH`).\n\nAksi POLICY: `schools.theme.update`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSchoolThemeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SchoolTheme"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "resetSchoolTheme",
+        "tags": [
+          "Sekolah - Profil & Pengaturan"
+        ],
+        "summary": "Kembalikan tema warna sekolah ke tema bawaan",
+        "description": "Mengosongkan palet & preset (respons = tema bawaan, `isCustom=false`, `updatedAt` = waktu reset). Diaudit sebagai `school.theme_reset`; sekolah yang sudah memakai tema bawaan -> 200 tanpa audit. SUPER_ADMIN wajib `?schoolId=` (sekolah tak dikenal -> 404); admin sekolah memakai sekolahnya sendiri (schoolId lain -> 403 `SCOPE_MISMATCH`).\n\nAksi POLICY: `schools.theme.update`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SchoolTheme"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/users": {
       "get": {
         "operationId": "listPlatformUsers",
@@ -28880,6 +29242,70 @@
         ],
         "additionalProperties": false
       },
+      "UpdateSchoolThemeInput": {
+        "type": "object",
+        "properties": {
+          "preset": {
+            "description": "Preset asal palet (hanya label). Kosong/null = palet kustom.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "nusantara",
+                  "madani",
+                  "merah-putih",
+                  "cendekia",
+                  "mentari",
+                  "samudra",
+                  "pertiwi",
+                  "grafit"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "primaryColor": {
+            "description": "Warna primer: tombol, tautan, penanda aktif. Disimpan sebagai #rrggbb huruf kecil.",
+            "example": "#1d4ed8",
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "secondaryColor": {
+            "description": "Warna sekunder: aksen pendamping, chip, badge. Disimpan sebagai #rrggbb huruf kecil.",
+            "example": "#1d4ed8",
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "bannerColor": {
+            "description": "Warna banner: kartu identitas & header beranda. Disimpan sebagai #rrggbb huruf kecil.",
+            "example": "#1d4ed8",
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "animationColor": {
+            "description": "Warna animasi: loader, transisi, sorotan gerak. Disimpan sebagai #rrggbb huruf kecil.",
+            "example": "#1d4ed8",
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "logoColor": {
+            "description": "Warna logo: latar lambang sekolah/aplikasi. Disimpan sebagai #rrggbb huruf kecil.",
+            "example": "#1d4ed8",
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          }
+        },
+        "required": [
+          "primaryColor",
+          "secondaryColor",
+          "bannerColor",
+          "animationColor",
+          "logoColor"
+        ],
+        "additionalProperties": false
+      },
       "CreateStudentInput": {
         "type": "object",
         "properties": {
@@ -31005,12 +31431,16 @@
                       "WITA",
                       "WIT"
                     ]
+                  },
+                  "theme": {
+                    "$ref": "#/components/schemas/SchoolTheme"
                   }
                 },
                 "required": [
                   "id",
                   "name",
-                  "timezone"
+                  "timezone",
+                  "theme"
                 ],
                 "additionalProperties": false
               },
@@ -31110,6 +31540,90 @@
           "student",
           "sponsor",
           "permissions"
+        ],
+        "additionalProperties": false
+      },
+      "SchoolTheme": {
+        "type": "object",
+        "properties": {
+          "preset": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "nusantara",
+                  "madani",
+                  "merah-putih",
+                  "cendekia",
+                  "mentari",
+                  "samudra",
+                  "pertiwi",
+                  "grafit"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`nusantara` bila tema bawaan; null = palet kustom tanpa preset."
+          },
+          "primaryColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "#rrggbb; selalu terisi (bawaan bila belum diatur).",
+            "example": "#1d4ed8"
+          },
+          "secondaryColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "#rrggbb.",
+            "example": "#1d4ed8"
+          },
+          "bannerColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "#rrggbb.",
+            "example": "#1d4ed8"
+          },
+          "animationColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "#rrggbb.",
+            "example": "#1d4ed8"
+          },
+          "logoColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "#rrggbb.",
+            "example": "#1d4ed8"
+          },
+          "isCustom": {
+            "type": "boolean",
+            "description": "false = sekolah memakai tema bawaan aplikasi."
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Terakhir diubah/di-reset; null = belum pernah."
+          }
+        },
+        "required": [
+          "preset",
+          "primaryColor",
+          "secondaryColor",
+          "bannerColor",
+          "animationColor",
+          "logoColor",
+          "isCustom",
+          "updatedAt"
         ],
         "additionalProperties": false
       },

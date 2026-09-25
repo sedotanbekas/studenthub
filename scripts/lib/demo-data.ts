@@ -6,6 +6,7 @@
  */
 import type { Gender, SchoolTimezone, Semester } from "@prisma/client";
 import { checkPasswordPolicy, PASSWORD_VIOLATION_MESSAGES } from "../../src/lib/auth/password";
+import type { ThemePresetKey } from "../../src/lib/schools/theme-store-rules";
 import type { LocalDate } from "../../src/lib/time/zone";
 import { parseDatabaseUrl } from "../deploy/db-url";
 
@@ -46,6 +47,8 @@ export interface DemoSchoolSpec {
   readonly bank: { readonly bankName: string; readonly bankAccountNumber: string; readonly bankAccountHolder: string };
   /** Tarif SPP bulanan demo (rupiah); dipakai seed tagihan (scripts/lib/demo-billing.ts). */
   readonly sppAmount: number;
+  /** Preset tema awal; diisi seed HANYA bila tema sekolah belum pernah diatur (tanpa = tema bawaan). */
+  readonly themePreset?: ThemePresetKey;
   readonly adminName: string;
   readonly classes: readonly DemoClassSpec[];
   readonly subjects: readonly DemoSubjectSpec[];
@@ -209,6 +212,7 @@ const SMA_SCHOOL: DemoSchoolSpec = {
   timezone: "WIT",
   bank: { bankName: "Bank Papua", bankAccountNumber: "0099005566778", bankAccountHolder: "SMA Demo Nusantara Timur" },
   sppAmount: 350_000,
+  themePreset: "madani",
   adminName: "Admin SMA Nusantara Timur",
   classes: SMA_CLASSES,
   subjects: [

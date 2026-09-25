@@ -1,4 +1,5 @@
 import type { ClientPlatform, SchoolTimezone, SponsorStatus, StudentStatus, UserRole } from "@prisma/client";
+import { toSchoolThemeDto, type SchoolThemeRow } from "@/lib/schools/theme-dto";
 import type { AuthTokens, MeDto, SessionItem } from "./auth-schemas";
 import { requiresTotpEnrollment } from "./totp-rules";
 
@@ -61,7 +62,7 @@ export interface MeRow {
   readonly mustChangePassword: boolean;
   readonly lastLoginAt: Date | null;
   readonly totpEnabledAt: Date | null;
-  readonly school: { readonly id: string; readonly name: string; readonly timezone: SchoolTimezone } | null;
+  readonly school: ({ readonly id: string; readonly name: string; readonly timezone: SchoolTimezone } & SchoolThemeRow) | null;
   readonly student: {
     readonly id: string;
     readonly nisn: string;
@@ -84,7 +85,9 @@ export function toMe(row: MeRow, permissions: readonly string[]): MeDto {
       totpEnrollmentRequired: requiresTotpEnrollment(row.role, row.totpEnabledAt),
       lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
     },
-    school: row.school ? { id: row.school.id, name: row.school.name, timezone: row.school.timezone } : null,
+    school: row.school
+      ? { id: row.school.id, name: row.school.name, timezone: row.school.timezone, theme: toSchoolThemeDto(row.school) }
+      : null,
     student: row.student
       ? {
           id: row.student.id,

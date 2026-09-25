@@ -1,8 +1,12 @@
+import type { SchoolThemeDto } from "@/lib/schools/theme-schemas";
+/** Tema sekolah seperti dikirim API (SchoolTheme) — tipe dari kontrak backend. */
+export type { SchoolThemeDto };
 export type Row = Record<string, unknown>;
 export type Role = "SCHOOL_ADMIN" | "SUPER_ADMIN" | "SPONSOR" | "STUDENT";
 export interface Identity {
   user: { id: string; name: string; email: string | null; role: Role; mustChangePassword: boolean; totpEnrollmentRequired: boolean };
-  school: { id: string; name: string; timezone: string } | null;
+  /** `theme` dari GET /auth/me (tema warna sekolah); opsional agar mock/persona lama tetap valid. */
+  school: { id: string; name: string; timezone: string; theme?: SchoolThemeDto } | null;
   sponsor: { id: string; companyName: string } | null;
   permissions: string[];
 }

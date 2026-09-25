@@ -12,6 +12,7 @@ import {
   USER_ROLES,
 } from "./constants";
 import { classifyIdentifier } from "./identifier";
+import { schoolThemeSchema } from "@/lib/schools/theme-schemas";
 
 /** Skema zod domain auth: body request (strictObject) dan respons (dipakai kontrak + OpenAPI). */
 const STUDENT_STATUSES = ["DRAFT", "ACTIVE", "INACTIVE", "GRADUATED", "MOVED"] as const satisfies readonly StudentStatus[];
@@ -115,7 +116,15 @@ export const meSchema = z
         .meta({ description: "true = super admin belum mengaktifkan TOTP; semua aksi selain /auth/* & /me/* -> 403 TOTP_ENROLLMENT_REQUIRED." }),
       lastLoginAt: instant.nullable(),
     }),
-    school: z.object({ id: z.string(), name: z.string(), timezone: z.enum(TIMEZONES) }).nullable(),
+    school: z
+      .object({
+        id: z.string(),
+        name: z.string(),
+        timezone: z.enum(TIMEZONES),
+        /** Komponen SchoolTheme (selalu terisi; tema bawaan bila belum diatur admin). */
+        theme: schoolThemeSchema,
+      })
+      .nullable(),
     student: z
       .object({ id: z.string(), nisn: z.string(), nis: z.string(), status: z.enum(STUDENT_STATUSES), className: z.string().nullable() })
       .nullable(),

@@ -1,6 +1,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { resetAllLimiters } from "@/lib/http/rate-limits";
+import { DEFAULT_THEME } from "@/lib/schools/theme-rules";
 import { createSessionToken } from "../helpers/auth";
 import { disconnect } from "../helpers/db";
 import {
@@ -47,7 +48,12 @@ test("siswa: data sekolah, siswa (kelas), izin; tanpa sponsor", async () => {
   assert.equal(data.user.email, null);
   assert.equal(data.user.role, "STUDENT");
   assert.ok(data.user.lastLoginAt);
-  assert.deepEqual(data.school, { id: schoolId, name: schoolName, timezone: "WITA" });
+  assert.deepEqual(data.school, {
+    id: schoolId,
+    name: schoolName,
+    timezone: "WITA",
+    theme: { preset: "nusantara", ...DEFAULT_THEME, isCustom: false, updatedAt: null },
+  });
   assert.deepEqual(data.student, { id: student.id, nisn: student.nisn, nis: student.nis, status: "ACTIVE", className });
   assert.equal(data.sponsor, null);
   assert.ok(data.permissions.includes("auth.self"));
@@ -67,6 +73,7 @@ test("admin sekolah, sponsor, dan super admin", async () => {
   const admin = await createSchoolAdmin(schoolId);
   const adminMe = await me((await createSessionToken(admin.id, { platform: "WEB", deviceId: null })).token);
   assert.equal(adminMe.body?.data.school?.id, schoolId);
+  assert.equal(adminMe.body?.data.school?.theme.isCustom, false);
   assert.equal(adminMe.body?.data.student, null);
   assert.ok(adminMe.body?.data.permissions.includes("region.read"));
 

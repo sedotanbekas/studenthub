@@ -47,6 +47,15 @@ const updateSchool = (data: Parameters<typeof prisma.school.update>[0]["data"]) 
 const updateStudent = (data: Parameters<typeof prisma.student.update>[0]["data"]) =>
   prisma.student.update({ where: { id: fx.student.id }, data });
 
+/** Palet tema lengkap yang valid (`#rrggbb` huruf kecil); chk_school_theme: semua atau tidak sama sekali. */
+const SCHOOL_THEME_COLUMNS = {
+  themePrimaryColor: "#15803d",
+  themeSecondaryColor: "#a16207",
+  themeBannerColor: "#14532d",
+  themeAnimationColor: "#4ade80",
+  themeLogoColor: "#15803d",
+} as const;
+
 const SCHOOL_CASES: readonly CheckCase[] = [
   {
     constraint: "chk_user_scope",
@@ -92,6 +101,17 @@ const SCHOOL_CASES: readonly CheckCase[] = [
       () => updateSchool({ bankName: "BRI", bankAccountNumber: "0123456789" }),
     ],
     valid: () => createSchool({ data: { bankName: "BRI", bankAccountNumber: "0123456789", bankAccountHolder: "Sekolah Test" } }),
+  },
+  {
+    constraint: "chk_school_theme",
+    violations: [
+      () => updateSchool({ themePrimaryColor: "#1d4ed8" }),
+      () => updateSchool({ themePreset: "madani" }),
+      () => updateSchool({ ...SCHOOL_THEME_COLUMNS, themeLogoColor: null }),
+      () => updateSchool({ ...SCHOOL_THEME_COLUMNS, themeBannerColor: "#1D4ED8" }),
+      () => updateSchool({ ...SCHOOL_THEME_COLUMNS, themeAnimationColor: "zzzzzzz" }),
+    ],
+    valid: () => createSchool({ data: { ...SCHOOL_THEME_COLUMNS, themePreset: "madani" } }),
   },
   {
     constraint: "chk_holiday_range",

@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { HubLink as Link } from "./hub-link";
 import { useEffect, useState } from "react";
 import type { TodayDto } from "@/lib/attendance/student-schemas";
 import { api } from "@/lib/frontend/api";

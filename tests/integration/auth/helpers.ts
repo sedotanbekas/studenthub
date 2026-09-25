@@ -86,9 +86,21 @@ export function refresh(refreshToken: string, ip: string = uniqIp()): Promise<Ap
   });
 }
 
+/** Tema sekolah di /auth/me (skema SchoolTheme). */
+export interface MeSchoolTheme {
+  readonly preset: string | null;
+  readonly primaryColor: string;
+  readonly secondaryColor: string;
+  readonly bannerColor: string;
+  readonly animationColor: string;
+  readonly logoColor: string;
+  readonly isCustom: boolean;
+  readonly updatedAt: string | null;
+}
+
 export interface MeBody {
   readonly user: { id: string; name: string; email: string | null; role: string; mustChangePassword: boolean; lastLoginAt: string | null };
-  readonly school: { id: string; name: string; timezone: string } | null;
+  readonly school: { id: string; name: string; timezone: string; theme: MeSchoolTheme } | null;
   readonly student: { id: string; nisn: string; nis: string; status: string; className: string | null } | null;
   readonly sponsor: { id: string; companyName: string; status: string } | null;
   readonly permissions: string[];

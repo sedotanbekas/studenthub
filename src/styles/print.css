@@ -1,0 +1,31 @@
+/*
+ * Cetak: bila dialog detail terbuka, hanya isinya yang dicetak (tanpa kerangka aplikasi & tombol).
+ * Dialog modal berada di top layer sehingga tidak terpotong overflow leluhurnya; leluhur dilipat
+ * dengan visibility/height (display:none pada leluhur akan ikut menyembunyikan dialog).
+ * Rapor dicetak sebagai dokumen A4 dengan kop sekolah (judul dialog disembunyikan).
+ */
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+  html, body { background: #fff !important; color: #000; }
+  body::before, .sidebar, .sidebar-overlay, .topbar, .tab-bar, .demo-banner, .toast, .scope-select { display: none !important; }
+  .app-shell { display: block; min-height: 0; }
+  .page-content { max-width: none; padding: 0; }
+  *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; }
+  body:has(.action-dialog[open]) .app-shell { visibility: hidden; height: 0; min-height: 0; overflow: hidden; }
+  .action-dialog[open] { visibility: visible; position: absolute; inset: 0 auto auto 0; margin: 0; width: 100%; max-width: none; height: auto; max-height: none; overflow: visible; border: 0; border-radius: 0; background: #fff; color: #000; }
+  .action-dialog::backdrop { background: none; }
+  .action-dialog .dialog-footer, .action-dialog .dialog-heading .icon-button, .action-dialog .danger-confirm, .action-dialog .table-detail { display: none !important; }
+  .dialog-heading { position: static; padding: 0 0 8pt; background: none; border-bottom: 1.5pt solid #000; }
+  .dialog-body { padding: 10pt 0 0; }
+  .action-dialog:has(.report-doc) .dialog-heading { display: none; }
+  .action-dialog:has(.report-doc) .dialog-body { padding: 0; }
+  .table-scroll { overflow: visible; }
+  table { font-size: 10pt; }
+  th { color: #000; border-bottom: 1pt solid #000; }
+  .report-grades th, .report-grades td { padding: 4pt 6pt; border: 0.75pt solid #555; }
+  .report-grades td:nth-child(6) { min-width: 0; }
+  .report-grades tfoot { display: table-row-group; } /* baris rata-rata hanya sekali di akhir tabel, tidak diulang per halaman */
+  tr, .detail-field, .success-message, .info-message, .report-bottom, .report-identity { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  .status, .report-kop, .brand-mark, .report-grades tfoot { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -144,3 +144,60 @@ export function todayHeadline(today: TodayView): Headline {
   if (today.blockReason === "CHECKIN_CLOSED") return { tone: "neutral", title: "Absensi sudah ditutup", note: `Absensi ditutup pukul ${window.closesAt}.` };
   return { tone: "action", title: "Kamu belum absen", note: `Absen dibuka ${window.opensAt}–${window.closesAt}. Tepat waktu sampai ${window.lateAfter}.` };
 }
+
+/**
+ * GPS tidak bisa "dipaksa" akurat dari browser: akurasi ditentukan perangkat (GPS, Wi-Fi, BTS). Yang bisa
+ * dilakukan: minta akurasi tinggi, pantau terus, pakai fix terbaik, dan beri langkah yang tepat bila
+ * lokasi masih perkiraan jaringan. Server tetap menolak fix yang kurang akurat.
+ */
+/** Fix akurat dipertahankan paling lama sekian ms sebelum digantikan fix yang lebih baru. */
+export const FIX_KEEP_MS = 10_000;
+/** Di atas angka ini lokasi hampir pasti berasal dari jaringan/IP, bukan GPS. */
+export const COARSE_ACCURACY_M = 1000;
+/** Akurasi yang disimulasikan pada mode demo (sekolah juga disimulasikan di dekat pengguna). */
+export const DEMO_ACCURACY_M = 8;
+
+export interface FixSample {
+  readonly accuracy: number;
+  readonly timestamp: number;
+}
+
+export function preferFix<T extends FixSample>(current: T | null, next: T): T {
+  if (!current || next.accuracy <= current.accuracy) return next;
+  return next.timestamp - current.timestamp > FIX_KEEP_MS ? next : current;
+}
+
+export type AccuracyLevel = "good" | "weak" | "coarse";
+export interface AccuracyAdvice {
+  readonly level: AccuracyLevel;
+  readonly message: string;
+}
+
+function radiusLabel(meters: number): string {
+  return meters >= 1000 ? `±${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(meters / 1000)} km` : `±${Math.round(meters)} m`;
+}
+
+function coarseMessage(radius: string, userAgent: string): string {
+  if (!isMobileBrowserAgent(userAgent)) return `Lokasi ${radius} hanya perkiraan jaringan karena perangkat ini tidak memiliki GPS. Absensi harus dilakukan dari HP dengan GPS aktif.`;
+  if (/iPhone|iPad|iPod/.test(userAgent)) return `Lokasi masih perkiraan kasar (${radius}). Nyalakan Lokasi Akurat: Pengaturan → Privasi & Keamanan → Layanan Lokasi → Situs Web Safari (atau Chrome) → aktifkan "Lokasi Akurat", lalu periksa ulang.`;
+  return `Lokasi masih perkiraan jaringan (${radius}), belum dari GPS. Nyalakan GPS dan aktifkan "Akurasi Lokasi Google": Setelan → Lokasi → Layanan lokasi → Akurasi Lokasi Google, lalu tunggu sebentar di area terbuka.`;
+}
+
+export function accuracyAdvice(accuracyM: number, maxAccuracyM: number, userAgent: string): AccuracyAdvice {
+  if (accuracyM <= maxAccuracyM) return { level: "good", message: "" };
+  const radius = radiusLabel(accuracyM);
+  if (accuracyM > COARSE_ACCURACY_M) return { level: "coarse", message: coarseMessage(radius, userAgent) };
+  return { level: "weak", message: `Sinyal GPS masih lemah (${radius}; batas ±${maxAccuracyM} m). Pindah ke area terbuka, jauhi gedung atau atap, lalu tunggu 10–30 detik — akurasi diperbarui otomatis.` };
+}
+
+export interface PlainFix {
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly accuracy: number;
+}
+
+/** Mode demo: posisi asli dipakai, akurasinya disimulasikan agar alur demo bisa dicoba dari laptop. */
+export function simulateDemoFix(fix: PlainFix): PlainFix {
+  // Salin eksplisit: pada GeolocationCoordinates asli, field adalah getter di prototype (spread = kosong).
+  return { latitude: fix.latitude, longitude: fix.longitude, accuracy: Math.min(fix.accuracy, DEMO_ACCURACY_M) };
+}

@@ -15,8 +15,9 @@ import {
   updateSchoolBody,
   updateSchoolSettingsBody,
 } from "./schemas";
+import { schoolThemeSchema, updateSchoolThemeBody } from "./theme-schemas";
 
-/** Kontrak route domain sekolah: /platform/schools* (SUPER_ADMIN) dan /school/profile|settings. */
+/** Kontrak route domain sekolah: /platform/schools* (SUPER_ADMIN) dan /school/profile|settings|theme. */
 const PLATFORM_TAG = "Super Admin - Sekolah";
 const SCHOOL_TAG = "Sekolah - Profil & Pengaturan";
 const CONFIG_ERRORS = ["SCHOOL_CONFIG_INVALID", "CITY_NOT_IN_PROVINCE", "NPSN_TAKEN"];
@@ -141,6 +142,62 @@ export const updateSchoolSettingsContract = defineContract({
   errors: ["SCHOOL_CONFIG_INVALID"],
 });
 
+const THEME_SCOPE_NOTE = [
+  "SUPER_ADMIN wajib `?schoolId=` (sekolah tak dikenal -> 404); admin sekolah memakai sekolahnya sendiri",
+  "(schoolId lain -> 403 `SCOPE_MISMATCH`).",
+].join(" ");
+
+export const getSchoolThemeContract = defineContract({
+  id: "getSchoolTheme",
+  method: "GET",
+  path: "/api/v1/school/theme",
+  tag: SCHOOL_TAG,
+  summary: "Tema warna sekolah (primer, sekunder, banner, animasi, logo)",
+  description: [
+    "Warna selalu terisi `#rrggbb` huruf kecil: sekolah yang belum mengatur tema mendapat tema bawaan (`isCustom=false`,",
+    "`preset=nusantara`). Siswa & admin menerima tema yang sama di `GET /auth/me` (`school.theme`).",
+    THEME_SCOPE_NOTE,
+  ].join(" "),
+  action: "schools.theme.read",
+  query: schoolScopeQuery,
+  response: schoolThemeSchema,
+});
+
+export const updateSchoolThemeContract = defineContract({
+  id: "updateSchoolTheme",
+  method: "PUT",
+  path: "/api/v1/school/theme",
+  tag: SCHOOL_TAG,
+  summary: "Ganti tema warna sekolah (utuh)",
+  description: [
+    "Kelima warna wajib, format `#RRGGBB` (huruf besar/kecil bebas, disimpan huruf kecil); `preset` opsional, hanya label asal",
+    "palet. Warna apa pun diterima: aplikasi menurunkan sendiri warna teks yang terbaca. Kunci lain / hex tidak valid -> 400",
+    "`VALIDATION_FAILED`. Isi sama dengan yang tersimpan -> 200 tanpa audit. Diaudit sebagai `school.theme_update`;",
+    "berlaku bagi siswa pada `GET /auth/me` berikutnya.",
+    THEME_SCOPE_NOTE,
+  ].join(" "),
+  action: "schools.theme.update",
+  query: schoolScopeQuery,
+  body: updateSchoolThemeBody,
+  response: schoolThemeSchema,
+});
+
+export const resetSchoolThemeContract = defineContract({
+  id: "resetSchoolTheme",
+  method: "DELETE",
+  path: "/api/v1/school/theme",
+  tag: SCHOOL_TAG,
+  summary: "Kembalikan tema warna sekolah ke tema bawaan",
+  description: [
+    "Mengosongkan palet & preset (respons = tema bawaan, `isCustom=false`, `updatedAt` = waktu reset). Diaudit sebagai",
+    "`school.theme_reset`; sekolah yang sudah memakai tema bawaan -> 200 tanpa audit.",
+    THEME_SCOPE_NOTE,
+  ].join(" "),
+  action: "schools.theme.update",
+  query: schoolScopeQuery,
+  response: schoolThemeSchema,
+});
+
 export const schoolsContracts: readonly AnyContract[] = [
   listPlatformSchoolsContract,
   createPlatformSchoolContract,
@@ -150,4 +207,7 @@ export const schoolsContracts: readonly AnyContract[] = [
   reactivatePlatformSchoolContract,
   getSchoolProfileContract,
   updateSchoolSettingsContract,
+  getSchoolThemeContract,
+  updateSchoolThemeContract,
+  resetSchoolThemeContract,
 ];

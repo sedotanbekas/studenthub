@@ -9,7 +9,9 @@ import assert from "node:assert/strict";
 import { verifyPassword } from "@/lib/auth/password";
 import { fromDbDate } from "@/lib/time/zone";
 import { DEMO_SCHOOLS, DEMO_SUPER_ADMIN, demoAdminEmail } from "../../../scripts/lib/demo-data";
-import { runDemoSeed } from "../../../scripts/lib/demo-seed";
+import { ensureSchool, runDemoSeed } from "../../../scripts/lib/demo-seed";
+import { THEME_PRESETS } from "@/lib/schools/theme-rules";
+import { withTx } from "@/lib/tx";
 import { DEMO_ADS, DEMO_SPONSOR } from "../../../scripts/lib/demo-sponsor-plan";
 import { disconnect, prisma } from "../helpers/db";
 import { hashTestPassword } from "../helpers/factories";
@@ -25,6 +27,14 @@ after(async () => {
 });
 
 const DEMO_TEST_PASSWORD = "DemoSeed123";
+const NULL_THEME_COLUMNS = {
+  themePreset: null,
+  themePrimaryColor: null,
+  themeSecondaryColor: null,
+  themeBannerColor: null,
+  themeAnimationColor: null,
+  themeLogoColor: null,
+} as const;
 const NPSNS = DEMO_SCHOOLS.map((s) => s.npsn);
 const STAFF_EMAILS = [DEMO_SUPER_ADMIN.email, ...DEMO_SCHOOLS.map((s) => demoAdminEmail(s))];
 
@@ -100,6 +110,35 @@ test("seed demo: semester Ganjil aktif, sekolah WIB & WIT lengkap dengan rekenin
     const subjects = await prisma.subject.findMany({ where: { schoolId: school.id } });
     assert.ok(subjects.every((s) => s.kkm === 75 && s.isActive));
   }
+});
+
+test("seed demo: tema preset hanya diisi bila belum pernah diatur (tidak menimpa pilihan/reset admin)", async () => {
+  const [smp, sma] = DEMO_SCHOOLS;
+  assert.ok(smp && sma?.themePreset);
+  const preset = THEME_PRESETS.find((p) => p.key === sma.themePreset);
+  assert.ok(preset);
+  const colorsOf = (npsn: string) =>
+    prisma.school.findUniqueOrThrow({
+      where: { npsn },
+      select: { themePreset: true, themePrimaryColor: true, themeLogoColor: true, themeUpdatedAt: true },
+    });
+  const seedSchools = () => withTx(async (tx) => { for (const spec of DEMO_SCHOOLS) await ensureSchool(tx, spec); });
+  await seedSchools();
+  // Keadaan awal "belum pernah diatur" (database test tidak di-reset antar-run).
+  await prisma.school.update({ where: { npsn: sma.npsn }, data: { ...NULL_THEME_COLUMNS, themeUpdatedAt: null } });
+
+  await seedSchools();
+  assert.deepEqual(await colorsOf(sma.npsn), { themePreset: sma.themePreset, themePrimaryColor: preset.colors.primaryColor, themeLogoColor: preset.colors.logoColor, themeUpdatedAt: null });
+  assert.deepEqual(await colorsOf(smp.npsn), { themePreset: null, themePrimaryColor: null, themeLogoColor: null, themeUpdatedAt: null });
+
+  const adminChoice = { themePreset: null, themePrimaryColor: "#111827", themeSecondaryColor: "#4b5563", themeBannerColor: "#1f2937", themeAnimationColor: "#94a3b8", themeLogoColor: "#111827" };
+  await prisma.school.update({ where: { npsn: sma.npsn }, data: { ...adminChoice, themeUpdatedAt: new Date() } });
+  await seedSchools();
+  assert.equal((await colorsOf(sma.npsn)).themePrimaryColor, "#111827", "pilihan admin tidak ditimpa");
+
+  await prisma.school.update({ where: { npsn: sma.npsn }, data: { ...NULL_THEME_COLUMNS, themeUpdatedAt: new Date() } });
+  await seedSchools();
+  assert.equal((await colorsOf(sma.npsn)).themePrimaryColor, null, "reset admin (tema bawaan) tidak ditimpa");
 });
 
 test("seed demo: akun siswa aktif siap login (activeNisn, kelas tahun aktif) dan akun staf memakai DEMO_PASSWORD", async () => {

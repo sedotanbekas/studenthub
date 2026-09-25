@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "@/lib/http/errors";
+import { SCHOOL_THEME_SELECT } from "@/lib/schools/theme-dto";
 import type { MeDto } from "./auth-schemas";
 import { toMe } from "./dto";
 import { listAllowedActions } from "./policy";
@@ -18,7 +19,7 @@ export async function getMe(ctx: ActionContext): Promise<MeDto> {
       mustChangePassword: true,
       totpEnabledAt: true,
       lastLoginAt: true,
-      school: { select: { id: true, name: true, timezone: true } },
+      school: { select: { id: true, name: true, timezone: true, ...SCHOOL_THEME_SELECT } },
       student: { select: { id: true, nisn: true, nis: true, status: true, currentClass: { select: { name: true } } } },
       sponsor: { select: { id: true, companyName: true, status: true } },
     },

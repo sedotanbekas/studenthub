@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { isThemePresetKey } from "../../src/lib/schools/theme-store-rules";
 import {
   checkDemoPassword,
   checkSeedDatabaseUrl,
@@ -68,6 +69,13 @@ test("dataset: dua sekolah WIB & WIT dengan kode wilayah valid dan email admin d
   assert.equal(DEMO_SUPER_ADMIN.email, "superadmin@demo.studenthub.id");
   assert.equal(DEMO_SCHOOLS[0]?.latitude, "-6.9175");
   assert.equal(DEMO_SCHOOLS[0]?.longitude, "107.6191");
+});
+
+test("dataset: sekolah demo pertama tema bawaan, sekolah kedua preset tema madani (kunci preset valid)", () => {
+  assert.deepEqual(DEMO_SCHOOLS.map((s) => s.themePreset ?? null), [null, "madani"]);
+  for (const school of DEMO_SCHOOLS) {
+    if (school.themePreset) assert.ok(isThemePresetKey(school.themePreset), school.themePreset);
+  }
 });
 
 test("dataset: tahun ajaran 2026/2027 dengan Ganjil aktif dan Genap", () => {

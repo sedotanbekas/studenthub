@@ -142,3 +142,97 @@ test("login: tombol demo per persona (admin, 3 siswa, sponsor, super admin) lang
   await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Bima" }).click();
   await expect(page.getByText("Sudah absen pukul 06:42")).toBeVisible();
 });
+
+test("sesi demo: keluar dari halaman admin lalu masuk sebagai siswa mendarat di beranda siswa", async ({ page }) => {
+  await page.goto("/hub");
+  await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
+  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Kehadiran" }).click();
+  await expect(page).toHaveURL(/\/hub\/attendance$/);
+  await page.getByRole("button", { name: "Keluar demo" }).click();
+  await expect(page).toHaveURL(/\/hub$/);
+  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Alya" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
+  await expect(page.getByText("Halaman tidak ditemukan")).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Peran demo" }).selectOption("SCHOOL_ADMIN");
+  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Kehadiran" }).click();
+  await expect(page).toHaveURL(/\/hub\/attendance$/);
+  await page.getByRole("combobox", { name: "Peran demo" }).selectOption("STUDENT_BIMA");
+  await expect(page).toHaveURL(/\/hub$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Bima Aditya Pratama" })).toBeVisible();
+});
+
+test("privasi demo: siswa hanya melihat rapor dan tagihan miliknya", async ({ page }) => {
+  await page.goto("/hub");
+  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Citra" }).click();
+  const others = ["Alya Putri Ramadhani", "Bima Aditya Pratama", "Daffa Rizky Saputra", "Elena Safira", "Farhan Maulana"];
+  const menus: [string, RegExp][] = [["Rapor saya", /\/hub\/my-reports$/], ["Tagihan saya", /\/hub\/my-billing$/]];
+  for (const [menu, url] of menus) {
+    await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: menu }).click();
+    await expect(page).toHaveURL(url);
+    await expect(page.getByRole("heading", { level: 1, name: menu })).toBeVisible();
+    await expect(page.locator("tbody tr").first()).toBeVisible();
+    for (const name of others) await expect(page.locator(".data-panel")).not.toContainText(name);
+  }
+  await expect(page.locator("tbody tr")).toHaveCount(3);
+  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Rapor saya" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Rapor saya" })).toBeVisible();
+  await page.getByRole("button", { name: /Lihat detail Semester/ }).first().click();
+  await expect(page.getByRole("dialog").getByRole("article", { name: "Rapor Citra Ayu Lestari" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cetak rapor" })).toBeVisible();
+});
+
+test("HP: tab bar kaca, geser maju saat masuk halaman dan geser kembali saat back", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    const w = window as unknown as { __vt: (string[] | null)[] };
+    w.__vt = [];
+    const original = document.startViewTransition?.bind(document);
+    if (original) document.startViewTransition = ((arg: { types?: string[] }) => { w.__vt.push(arg?.types ? [...arg.types] : null); return original(arg as never); }) as typeof document.startViewTransition;
+  });
+  await page.goto("/hub");
+  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Alya" }).click();
+  const tabs = page.getByRole("navigation", { name: "Navigasi cepat" });
+  await expect(tabs.getByRole("link")).toHaveCount(4);
+  await tabs.getByRole("link", { name: "Rapor" }).click();
+  await expect(page).toHaveURL(/\/hub\/my-reports$/);
+  // Tekan kembali setelah animasi masuk selesai (seperti pengguna sungguhan).
+  await page.waitForFunction(() => !document.documentElement.matches(":active-view-transition"));
+  await page.goBack();
+  await expect(page).toHaveURL(/\/hub$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __vt: unknown[] }).__vt)).toEqual([["nav-forward"], ["nav-back"]]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await context.close();
+});
+
+test("tema sekolah (demo): preset dipratinjau, disimpan, berlaku untuk siswa, dan hilang saat keluar", async ({ page }) => {
+  const primary = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim());
+  await page.goto("/hub");
+  await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
+  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Tema sekolah" }).click();
+  await page.getByRole("button", { name: "Hijau Madani" }).click();
+  expect(await primary()).toBe("#15803d");
+  await page.getByRole("button", { name: "Simpan tema" }).click();
+  await expect(page.getByRole("status")).toContainText("Tema demo diterapkan");
+  await page.getByRole("combobox", { name: "Peran demo" }).selectOption("STUDENT");
+  await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
+  expect(await primary()).toBe("#15803d");
+  await page.getByRole("button", { name: "Keluar demo" }).click();
+  await expect(page.getByRole("heading", { name: "Senang bertemu lagi." })).toBeVisible();
+  expect(await primary()).toBe("#1d4ed8");
+});
+
+test("sesi demo: tombol kembali browser setelah ganti akun tidak membuka halaman peran sebelumnya", async ({ page }) => {
+  await page.goto("/hub");
+  await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
+  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Data siswa" }).click();
+  await expect(page).toHaveURL(/\/hub\/students$/);
+  await page.getByRole("button", { name: "Keluar demo" }).click();
+  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Alya" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/hub$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
+  await expect(page.getByText("Halaman tidak ditemukan")).toHaveCount(0);
+});
