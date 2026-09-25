@@ -109,7 +109,7 @@ export function useHubSession(): HubSession {
     if (!demo) await api("/auth/logout", { method: "POST" }).catch(() => endServerSession());
     clearDemoStorage();
     setDemo(false); setSchoolIdState(""); setMe(null);
-    router.replace("/hub");
+    router.replace("/hub", { scroll: false }); // posisi gulir diatur scroll-memory.ts
   }, [demo, router, setDemo, setMe, setSchoolIdState]);
 
   const setSchoolId = useCallback((id: string) => { setSchoolIdState(id); sessionStorage.setItem(SCHOOL_KEY, id); }, [setSchoolIdState]);

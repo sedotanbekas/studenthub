@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { operations } from "../../src/lib/frontend/catalog";
 import { demoStudents, demoSummary } from "../../src/lib/frontend/demo";
 import { verifyPageSlides } from "./page-slide-scenario";
+import { verifyScrollMemory } from "./scroll-memory-scenario";
 
 const identity = { user: { id: "user1", name: "Admin Sekolah", email: "admin@example.test", role: "SCHOOL_ADMIN", mustChangePassword: false, totpEnrollmentRequired: false }, school: { id: "school1", name: "Sekolah Pengujian", timezone: "WIB" }, sponsor: null, permissions: [...new Set(operations.map(o => o.action))] };
 const envelope = (data: unknown, meta: unknown = null) => ({ success: true, data, error: null, meta });
@@ -186,6 +187,13 @@ test("HP: tab bar kaca, geser maju saat masuk halaman dan geser kembali saat bac
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   await verifyPageSlides(page);
+  await context.close();
+});
+
+test("HP: pindah tab lalu kembali mendarat di posisi gulir terakhir; tab aktif ditekan lagi = ke atas", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await verifyScrollMemory(page);
   await context.close();
 });
 

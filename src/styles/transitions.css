@@ -1,26 +1,37 @@
 /*
  * Transisi halaman hub — dijalankan src/components/hub/page-slide.ts lewat atribut data-page-slide.
+ * Yang digeser adalah .hub-view: SELURUH isi yang ikut tergulir (banner demo, pemilih sekolah, dan
+ * halaman), sehingga tidak ada bagian atas yang muncul seketika di atas halaman yang masih bergeser.
  * HP/tablet (<= 960px), ala iOS dengan kurva ease-in-out:
- *   - masuk halaman ("forward"): halaman baru bergeser dari kanan ke kiri MENUTUPI halaman lama
+ *   - masuk halaman ("forward"): isi baru bergeser dari kanan ke kiri MENUTUPI isi lama
  *     (salinan statis .page-ghost) yang bergeser sedikit ke kiri & sedikit meredup;
- *   - kembali ("back"): halaman lama bergeser ke kanan MEMBUKA halaman sebelumnya di bawahnya.
- * Desktop ("fade"): halaman baru memudar masuk. Kedua halaman memakai latar kanvas PEKAT selama animasi
- * sehingga isinya tidak pernah saling menembus. Lapisan: hantu 15 / halaman baru 16 / hantu saat kembali
- * 17 — tetap di bawah topbar (20), tab bar (40), laci (60), dan dialog (top layer).
+ *   - kembali ("back"): isi lama bergeser ke kanan MEMBUKA isi sebelumnya di bawahnya.
+ * Judul topbar ikut masuk dari arah yang sama sambil memudar. Desktop ("fade"): isi baru memudar masuk.
+ * Kedua isi memakai latar kanvas PEKAT selama animasi sehingga tidak pernah saling menembus. Lapisan:
+ * hantu 15 / isi baru 16 / hantu saat kembali 17 — tetap di bawah topbar (20), tab bar (40), laci (60),
+ * dan dialog (top layer).
  */
-:root { --page-parallax: -28%; }
+:root { --page-parallax: -28%; --title-shift: 28px; }
 
-.hub-page { display: flex; flex-direction: column; gap: inherit; min-width: 0; }
+.hub-view, .hub-page { display: flex; flex-direction: column; gap: inherit; min-width: 0; }
 .page-ghost { position: fixed; z-index: 15; display: flex; flex-direction: column; gap: inherit; min-width: 0; margin: 0; overflow: hidden; pointer-events: none; }
-.page-ghost, :root[data-page-slide="forward"] .hub-page, :root[data-page-slide="back"] .hub-page { background: var(--canvas), var(--bg); background-attachment: fixed; }
-:root[data-page-slide="forward"] .hub-page, :root[data-page-slide="back"] .hub-page { position: relative; z-index: 16; min-height: 100dvh; }
+.page-ghost, :root[data-page-slide="forward"] .hub-view, :root[data-page-slide="back"] .hub-view { background: var(--canvas), var(--bg); background-attachment: fixed; }
+:root[data-page-slide="forward"] .hub-view, :root[data-page-slide="back"] .hub-view { position: relative; z-index: 16; min-height: 100dvh; }
 :root[data-page-slide="back"] .page-ghost { z-index: 17; }
+/* Isi yang sedang di luar layar tidak boleh melebarkan dokumen: di HP viewport akan diperbesar dan
+   dokumen sementara tidak bisa digulir (posisi gulir halaman tujuan gagal dipulihkan). `clip` tidak
+   membuat wadah gulir, jadi topbar sticky tetap menempel. */
+:root[data-page-slide] .main-shell { overflow-x: clip; }
 
-:root[data-page-slide="forward"] .hub-page { animation: page-in-from-right var(--page-duration) var(--ease-page) both; box-shadow: -14px 0 32px -14px rgb(11 18 32 / 25%); }
+:root[data-page-slide="forward"] .hub-view { animation: page-in-from-right var(--page-duration) var(--ease-page) both; box-shadow: -14px 0 32px -14px rgb(11 18 32 / 25%); }
 :root[data-page-slide="forward"] .page-ghost { animation: page-out-to-left var(--page-duration) var(--ease-page) both; }
-:root[data-page-slide="back"] .hub-page { animation: page-in-from-left var(--page-duration) var(--ease-page) both; }
+:root[data-page-slide="back"] .hub-view { animation: page-in-from-left var(--page-duration) var(--ease-page) both; }
 :root[data-page-slide="back"] .page-ghost { animation: page-out-to-right var(--page-duration) var(--ease-page) both; box-shadow: -14px 0 32px -14px rgb(11 18 32 / 25%); }
-:root[data-page-slide="fade"] .hub-page { animation: page-fade-in 240ms var(--ease-out) both; }
+:root[data-page-slide="fade"] .hub-view { animation: page-fade-in 240ms var(--ease-out) both; }
+
+:root[data-page-slide="forward"] .topbar-title { animation: title-in-from-right var(--page-duration) var(--ease-page) both; }
+:root[data-page-slide="back"] .topbar-title { animation: title-in-from-left var(--page-duration) var(--ease-page) both; }
+:root[data-page-slide="fade"] .topbar-title { animation: title-fade-in 240ms var(--ease-out) both; }
 
 /* Hanya transform/filter/opacity (murah untuk GPU); halaman tetap pekat — tanpa tembus pandang. */
 @keyframes page-in-from-right { from { transform: translateX(100%); } to { transform: none; } }
@@ -28,7 +39,10 @@
 @keyframes page-in-from-left { from { transform: translateX(var(--page-parallax)); filter: brightness(0.94); } to { transform: none; filter: none; } }
 @keyframes page-out-to-right { from { transform: none; } to { transform: translateX(100%); } }
 @keyframes page-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes title-in-from-right { from { opacity: 0; transform: translateX(var(--title-shift)); } to { opacity: 1; transform: none; } }
+@keyframes title-in-from-left { from { opacity: 0; transform: translateX(calc(-1 * var(--title-shift))); } to { opacity: 1; transform: none; } }
+@keyframes title-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-page-slide] .hub-page, .page-ghost { animation: none !important; }
+  :root[data-page-slide] .hub-view, :root[data-page-slide] .topbar-title, .page-ghost { animation: none !important; }
 }

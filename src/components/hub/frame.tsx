@@ -44,7 +44,8 @@ export function Topbar({ title, home, unread, me, onMenu }: TopbarProps) {
   const back = useBack();
   return <header className="topbar"><button className="icon-button mobile-menu" aria-label="Buka navigasi" onClick={onMenu}><Icon name="menu" /></button>
     {home ? <span className="topbar-mark"><BrandMark /></span> : <button className="icon-button back-button" aria-label="Kembali" onClick={back}><Icon name="back" size={22} /></button>}
-    <strong className="topbar-title">{title}</strong>
+    {/* key: judul baru = elemen baru, sehingga animasi masuknya (transitions.css) selalu berjalan. */}
+    <strong key={title} className="topbar-title">{title}</strong>
     <div className="topbar-tools"><HubLink className="icon-button notification-button" href="/hub/notifications" aria-label={unread > 0 ? `Notifikasi, ${unread} belum dibaca` : "Notifikasi"}><Icon name="bell" />{unread > 0 && <i />}</HubLink><HubLink className="avatar small" href="/hub/security" aria-label="Keamanan akun">{initials(me.user.name)}</HubLink></div></header>;
 }
 
@@ -59,7 +60,7 @@ function useBack(): () => void {
     else if (stack.at(-1) !== pathname) stack.push(pathname);
   }, [pathname]);
   // router.back() memicu popstate yang ditangkap page-slide; jalur cadangan menangkap sendiri.
-  return () => { if (visited.current.length > 1) router.back(); else { capturePage("back"); router.replace("/hub"); } };
+  return () => { if (visited.current.length > 1) router.back(); else { capturePage("back"); router.replace("/hub", { scroll: false }); } };
 }
 
 export function TabBar({ me, section, menuOpen, inert, onMenu }: { me: Identity; section: string; menuOpen: boolean; inert: boolean; onMenu: () => void }) {

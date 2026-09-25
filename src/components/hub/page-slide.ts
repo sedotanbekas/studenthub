@@ -5,11 +5,11 @@ import { slideMode, traverseDirection, type SlideCapture, type SlideDirection } 
 /**
  * Transisi geser halaman hub TANPA View Transitions API. Di Safari/WebKit, lapisan view transition
  * mengabaikan z-index dan halaman baru sempat tampil di tempat sebelum animasi mulai, sehingga dua
- * halaman tumpang tindih. Di sini: saat navigasi dimulai, halaman lama disalin menjadi "hantu" statis;
- * setelah halaman baru dirender (layout effect, sebelum dilukis) hantu & halaman baru dianimasikan
- * dengan CSS biasa (src/styles/transitions.css) — urutan lapisan memakai z-index biasa, sama di semua
- * browser. Listener popstate dipasang saat modul dievaluasi (sebelum listener Next) agar halaman lama
- * masih utuh saat disalin ketika tombol kembali ditekan.
+ * halaman tumpang tindih. Di sini: saat navigasi dimulai, isi lama (.hub-view: banner demo + halaman)
+ * disalin menjadi "hantu" statis; setelah halaman baru dirender (layout effect, sebelum dilukis) hantu &
+ * isi baru dianimasikan dengan CSS biasa (src/styles/transitions.css) — urutan lapisan memakai z-index
+ * biasa, sama di semua browser. Listener popstate dipasang saat modul dievaluasi (sebelum listener Next)
+ * agar isi lama masih utuh saat disalin ketika tombol kembali ditekan.
  */
 const MOBILE = "(max-width: 960px)";
 const REDUCED = "(prefers-reduced-motion: reduce)";
@@ -37,12 +37,15 @@ function state(): SlideState {
   return holder[STATE_KEY];
 }
 
-/** Salinan visual halaman lama, dipaku di posisi layarnya (tanpa id, tidak bisa difokus/diklik). */
-function ghostOf(page: HTMLElement): HTMLElement {
-  const rect = page.getBoundingClientRect();
-  const ghost = page.cloneNode(true) as HTMLElement;
-  ghost.classList.replace("hub-page", "page-ghost");
-  const fields = page.querySelectorAll<HTMLInputElement>("input, select, textarea");
+/** Isi yang digeser: banner demo, pemilih sekolah, dan halaman (bukan salinan hantunya). */
+const liveView = () => document.querySelector<HTMLElement>(".hub-view");
+
+/** Salinan visual isi lama, dipaku di posisi layarnya (tanpa id, tidak bisa difokus/diklik). */
+function ghostOf(view: HTMLElement): HTMLElement {
+  const rect = view.getBoundingClientRect();
+  const ghost = view.cloneNode(true) as HTMLElement;
+  ghost.classList.replace("hub-view", "page-ghost");
+  const fields = view.querySelectorAll<HTMLInputElement>("input, select, textarea");
   ghost.querySelectorAll<HTMLInputElement>("input, select, textarea").forEach((el, i) => { el.value = fields[i]?.value ?? el.value; });
   ghost.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
   ghost.setAttribute("aria-hidden", "true");
@@ -57,10 +60,10 @@ export function capturePage(dir: SlideDirection): void {
   const s = state();
   if (matchMedia(REDUCED).matches) { s.pending = null; return; }
   const mobile = matchMedia(MOBILE).matches;
-  const page = document.querySelector<HTMLElement>(".hub-page");
+  const view = liveView();
   // Halaman yang tampil harus halaman terakhir yang dirender (bukan yang sudah diganti).
-  const intact = page?.dataset.section === sectionFromPath(s.rendered);
-  s.pending = { dir, from: s.rendered, at: performance.now(), mobile, ghost: mobile && page && intact ? ghostOf(page) : null };
+  const intact = view?.querySelector<HTMLElement>(".hub-page")?.dataset.section === sectionFromPath(s.rendered);
+  s.pending = { dir, from: s.rendered, at: performance.now(), mobile, ghost: mobile && view && intact ? ghostOf(view) : null };
 }
 
 /** Navigasi terprogram tanpa animasi (mis. pengalihan ke beranda). */
@@ -90,22 +93,23 @@ export function playPageSlide(pathname: string): void {
   s.pending = null;
   s.rendered = pathname;
   const mode = slideMode(pending, pathname, performance.now());
-  const page = document.querySelector<HTMLElement>(".hub-page");
-  if (!mode || !page || (mode !== "fade" && !pending?.ghost)) return;
+  const view = liveView();
+  if (!mode || !view || (mode !== "fade" && !pending?.ghost)) return;
   finishSlide(); // animasi sebelumnya yang masih berjalan diselesaikan dulu
   const ghost = mode === "fade" ? null : pending!.ghost;
-  if (ghost) {
-    page.parentElement?.append(ghost);
-    // Halaman lama yang tadinya tergulir tidak boleh menutupi area di atas halaman baru (mis. banner demo
-    // yang kini terlihat): potong hantu tepat di tepi atas halaman baru.
-    const hidden = page.getBoundingClientRect().top - ghost.getBoundingClientRect().top;
-    if (hidden > 0) ghost.style.clipPath = `inset(${Math.round(hidden)}px 0 0 0)`;
-  }
+  if (ghost) view.parentElement?.append(ghost);
+  // .hub-view bertahan antarhalaman: membaca tata letak di sini (atribut animasi sudah dilepas) membuat
+  // animasi berikutnya mulai dari awal walau arahnya sama dengan animasi yang baru diselesaikan.
+  const top = view.getBoundingClientRect().top;
+  // Isi lama yang tadinya tergulir tidak boleh menutupi area di atas isi baru (di balik topbar kaca):
+  // potong hantu tepat di tepi atas isi baru.
+  const hidden = ghost ? top - ghost.getBoundingClientRect().top : 0;
+  if (ghost && hidden > 0) ghost.style.clipPath = `inset(${Math.round(hidden)}px 0 0 0)`;
   document.documentElement.dataset.pageSlide = mode;
-  const onEnd = (event: AnimationEvent) => { if (event.target === page) finishSlide(); };
-  page.addEventListener("animationend", onEnd);
+  const onEnd = (event: AnimationEvent) => { if (event.target === view) finishSlide(); };
+  view.addEventListener("animationend", onEnd);
   const timer = window.setTimeout(finishSlide, slideDurationMs() + FALLBACK_EXTRA_MS);
-  s.cleanup = () => { page.removeEventListener("animationend", onEnd); window.clearTimeout(timer); ghost?.remove(); };
+  s.cleanup = () => { view.removeEventListener("animationend", onEnd); window.clearTimeout(timer); ghost?.remove(); };
 }
 
 /** Jalankan setelah transisi halaman selesai (mis. membuka dialog absen); segera bila tidak ada transisi. */

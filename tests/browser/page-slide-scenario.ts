@@ -4,14 +4,23 @@ import { expect, type Page } from "@playwright/test";
  * Skenario transisi geser halaman HP (dipakai uji Chromium & WebKit/Safari): urutan lapisan, arah,
  * halaman yang bergeser selalu pekat, dan dialog absen baru terbuka setelah geser selesai.
  */
-interface SlideSample { mode: string | null; ghostZ: string | null; pageZ: string | null; ghostX: number | null; pageX: number | null; pageBg: string; dialog: boolean }
+interface SlideSample {
+  mode: string | null; ghostZ: string | null; pageZ: string | null; ghostX: number | null; pageX: number | null; pageBg: string; dialog: boolean;
+  /** Tepi kiri banner demo yang hidup (ikut bergeser bersama halaman, bukan diam di atas). */
+  bannerLeft: number | null; ghostHasBanner: boolean; overflowX: boolean; titleAnimation: string;
+}
 
 function sample(page: Page): Promise<SlideSample> {
   return page.evaluate(() => {
     const ghost = document.querySelector<HTMLElement>(".page-ghost");
-    const live = document.querySelector<HTMLElement>(".hub-page");
+    const live = document.querySelector<HTMLElement>(".hub-view");
+    const banner = live?.querySelector<HTMLElement>(".demo-banner");
+    const title = document.querySelector<HTMLElement>(".topbar-title");
     const x = (el: HTMLElement | null) => el ? new DOMMatrixReadOnly(getComputedStyle(el).transform === "none" ? undefined : getComputedStyle(el).transform).m41 : null;
-    return { mode: document.documentElement.dataset.pageSlide ?? null, ghostZ: ghost ? getComputedStyle(ghost).zIndex : null, pageZ: live ? getComputedStyle(live).zIndex : null, ghostX: x(ghost), pageX: x(live), pageBg: live ? getComputedStyle(live).backgroundImage : "", dialog: Boolean(document.querySelector("dialog[open]")) };
+    return {
+      mode: document.documentElement.dataset.pageSlide ?? null, ghostZ: ghost ? getComputedStyle(ghost).zIndex : null, pageZ: live ? getComputedStyle(live).zIndex : null, ghostX: x(ghost), pageX: x(live), pageBg: live ? getComputedStyle(live).backgroundImage : "", dialog: Boolean(document.querySelector("dialog[open]")),
+      bannerLeft: banner ? banner.getBoundingClientRect().left : null, ghostHasBanner: Boolean(ghost?.querySelector(".demo-banner")), overflowX: document.documentElement.scrollWidth > innerWidth, titleAnimation: title ? getComputedStyle(title).animationName : "",
+    };
   });
 }
 
@@ -32,6 +41,12 @@ export async function verifyPageSlides(page: Page): Promise<void> {
   expect(forward.pageX).toBeGreaterThan(0);
   expect(forward.ghostX).toBeLessThanOrEqual(0);
   expect(forward.pageBg).not.toBe("none");
+  // Bagian atas (banner demo, judul topbar) tidak muncul seketika: banner ikut bergeser, banner lama
+  // ada di hantu, judul masuk beranimasi; isi di luar layar tidak melebarkan dokumen.
+  expect(forward.bannerLeft).toBeGreaterThan(40);
+  expect(forward.ghostHasBanner).toBe(true);
+  expect(forward.titleAnimation).toBe("title-in-from-right");
+  expect(forward.overflowX).toBe(false);
   await waitIdle(page);
   await expect(page).toHaveURL(/\/hub\/my-reports$/);
 
@@ -42,6 +57,9 @@ export async function verifyPageSlides(page: Page): Promise<void> {
   expect([back.ghostZ, back.pageZ]).toEqual(["17", "16"]);
   expect(back.ghostX).toBeGreaterThanOrEqual(0);
   expect(back.pageX).toBeLessThanOrEqual(0);
+  expect(back.ghostHasBanner).toBe(true);
+  expect(back.titleAnimation).toBe("title-in-from-left");
+  expect(back.overflowX).toBe(false);
   await waitIdle(page);
   await expect(page.getByRole("heading", { level: 1, name: "Alya Putri Ramadhani" })).toBeVisible();
 

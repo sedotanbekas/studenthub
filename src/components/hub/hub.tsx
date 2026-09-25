@@ -11,6 +11,7 @@ import { DemoBanner, Sidebar, TabBar, Topbar, deviceMemory } from "./frame";
 import { Brand } from "./icon";
 import { Login } from "./login";
 import { cancelPageSlide, playPageSlide } from "./page-slide";
+import { forgetScrollPositions, restoreScroll } from "./scroll-memory";
 import { useHubSession } from "./use-session";
 
 /**
@@ -45,7 +46,7 @@ function useAppearance(me: Identity | null) {
 function useSectionGuard(me: Identity | null, section: string) {
   const router = useRouter();
   const forbidden = Boolean(me && !isRestricted(me) && isKnownSection(section) && !sectionAllowed(me.user.role, section));
-  useEffect(() => { if (forbidden) { cancelPageSlide(); router.replace("/hub"); } }, [forbidden, router]);
+  useEffect(() => { if (forbidden) { cancelPageSlide(); router.replace("/hub", { scroll: false }); } }, [forbidden, router]);
 }
 
 /** Laci navigasi HP: fokus pindah ke laci, Escape menutup, fokus kembali ke tombol pembuka. */
@@ -68,8 +69,12 @@ export function HubShell({ children }: { children: ReactNode }) {
   const { me, demo, schoolId, notice } = session;
   const pathname = usePathname();
   const section = sectionFromPath(pathname);
-  // Halaman baru sudah di DOM tetapi belum dilukis: jalankan geser dari tangkapan halaman lama.
-  useLayoutEffect(() => { playPageSlide(pathname); }, [pathname]);
+  // Akun/peran berganti: lupakan posisi gulir akun sebelumnya (sebelum halaman berikutnya dipulihkan).
+  const userId = me?.user.id;
+  useLayoutEffect(() => { forgetScrollPositions(); }, [userId]);
+  // Halaman baru sudah di DOM tetapi belum dilukis: pulihkan posisi gulir terakhirnya, lalu jalankan
+  // geser dari tangkapan halaman lama (potongan hantu dihitung dari posisi yang sudah dipulihkan).
+  useLayoutEffect(() => { restoreScroll(pathname); playPageSlide(pathname); }, [pathname]);
   const drawer = useDrawer();
   const { schools, unread } = useNavigationData(me, demo);
   useAppearance(me);
@@ -84,11 +89,12 @@ export function HubShell({ children }: { children: ReactNode }) {
     {drawer.open && <button className="sidebar-overlay" aria-label="Tutup navigasi" onClick={() => drawer.hide()} />}
     <Sidebar me={me} modules={modulesFor(me.user.role)} current={current} home={home} unread={unread} open={drawer.open} onNavigate={() => drawer.hide(false)} onLogout={session.logout} />
     <div className="main-shell" inert={drawer.open}><Topbar key={me.user.id} title={current?.title ?? "Beranda"} home={home || restricted} unread={unread} me={me} onMenu={drawer.show} />
-      <main id="main-content" className="page-content">{demo && <DemoBanner me={me} onPersona={session.switchPersona} onExit={session.logout} />}
+      {/* .hub-view = seluruh isi yang ikut tergulir, digeser utuh saat pindah halaman (page-slide.ts). */}
+      <main id="main-content" className="page-content"><div className="hub-view">{demo && <DemoBanner me={me} onPersona={session.switchPersona} onExit={session.logout} />}
         {me.user.role === "SUPER_ADMIN" && current?.paths.some(p => p.startsWith("/school/")) && <label className="scope-select">Sekolah yang dikelola<select value={schoolId} onChange={e => session.setSchoolId(e.target.value)}><option value="">Pilih sekolah terlebih dahulu</option>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
         {restricted && <div className="info-message">{me.user.mustChangePassword ? "Sebelum melanjutkan, ganti kata sandi awal untuk mengamankan akunmu." : "Aktifkan autentikasi dua langkah terlebih dahulu untuk mengamankan akun super admin."}</div>}
         {children}
-      </main></div>
+      </div></main></div>
     <TabBar me={me} section={restricted ? "security" : section} menuOpen={drawer.open} inert={drawer.open} onMenu={drawer.show} />
     {toast}
   </div></HubContext.Provider>;
