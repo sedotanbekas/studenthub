@@ -2,9 +2,10 @@
 import { useState, type FormEvent } from "react";
 import { api, ApiError } from "@/lib/frontend/api";
 import { loginDeviceId } from "@/lib/frontend/attendance";
+import { DEMO_PERSONAS } from "@/lib/frontend/demo-personas";
 import { Brand, Icon } from "./icon";
 
-export function Login({ onLogin, onDemo }: { onLogin: () => Promise<void>; onDemo: () => void }) {
+export function Login({ onLogin, onDemo }: { onLogin: () => Promise<void>; onDemo: (personaKey: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [totp, setTotp] = useState(false);
@@ -28,6 +29,15 @@ export function Login({ onLogin, onDemo }: { onLogin: () => Promise<void>; onDem
       <label className="field">Kata sandi<span className="password-input"><input name="password" type={visible ? "text" : "password"} autoComplete="current-password" placeholder="Masukkan kata sandi" required /><button type="button" aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} onClick={() => setVisible(!visible)}><Icon name="eye" size={20} /></button></span></label>
       {totp && <label className="field">Kode autentikator<input name="totpCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 digit kode verifikasi" autoComplete="one-time-code" required /></label>}
       {error && <div className="error-message" role="alert">{error}</div>}<button className="button primary block large" disabled={busy}>{busy ? "Sedang masuk…" : "Masuk"}<Icon name="arrow" size={20} /></button>
-    </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p><button className="button secondary block" onClick={onDemo}><Icon name="grid" size={18} />Jelajahi tampilan demo</button></div></section>
+    </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p><DemoPicker onDemo={onDemo} /></div></section>
   </main>;
+}
+
+const PERSONA_ICONS: Record<string, string> = { SCHOOL_ADMIN: "school", STUDENT: "users", SPONSOR: "heart", SUPER_ADMIN: "shield" };
+
+/** Masuk demo sekali klik (tanpa kata sandi, data contoh di browser). */
+function DemoPicker({ onDemo }: { onDemo: (personaKey: string) => void }) {
+  return <section className="demo-picker" aria-labelledby="demo-title"><h3 id="demo-title">Coba tanpa login <small>mode demo · data contoh</small></h3>
+    <div className="demo-grid">{DEMO_PERSONAS.map(p => <button key={p.key} type="button" className="demo-persona" aria-label={`Masuk demo sebagai ${p.label}`} onClick={() => onDemo(p.key)}><span className="demo-icon"><Icon name={PERSONA_ICONS[p.identity.user.role] ?? "users"} size={20} /></span><span><strong>{p.label}</strong><small>{p.caption}</small></span></button>)}</div>
+  </section>;
 }

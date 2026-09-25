@@ -71,3 +71,14 @@
   .login-story { display: none; }
   .login-brand { display: block; }
 }
+
+/* Pilihan persona demo di bawah form login */
+.demo-picker { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; padding-top: 18px; border-top: 2px solid var(--line-soft); }
+.demo-picker h3 { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 16px; }
+.demo-picker h3 small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.demo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.demo-persona { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 10px 12px; border: 2px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); text-align: left; }
+.demo-persona:hover { border-color: var(--primary); background: #f8fbff; }
+.demo-persona strong { display: block; font-size: 15px; line-height: 1.25; }
+.demo-persona small { display: block; font-size: 13px; line-height: 1.3; color: var(--muted); font-weight: 600; }
+.demo-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: var(--primary-soft); color: var(--primary-ink); flex-shrink: 0; }

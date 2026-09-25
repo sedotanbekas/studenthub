@@ -8,7 +8,7 @@ Frontend web responsif untuk admin sekolah, super admin, sponsor, dan siswa. Dib
 pnpm dev
 ```
 
-Buka `http://localhost:3030`. Masuk menggunakan akun yang tersedia, atau pilih **Jelajahi tampilan demo** untuk melihat data contoh tanpa mengubah database. Pemilih peran di banner demo dapat digunakan untuk mengeksplorasi navigasi setiap peran. Mode demo tidak menyimpan perubahan.
+Buka `http://localhost:3030`. Masuk menggunakan akun yang tersedia, atau pilih salah satu tombol **Coba tanpa login** di bawah form: Admin sekolah, tiga siswa (Alya belum absen, Bima sudah hadir, Citra terlambat), Sponsor, atau Super admin. Mode demo memakai data contoh di browser, tidak menyentuh database, dan tidak menyimpan perubahan; persona dapat diganti dari banner demo.
 
 ## Halaman
 

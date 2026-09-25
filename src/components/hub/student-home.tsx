@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import type { TodayDto } from "@/lib/attendance/student-schemas";
 import { api } from "@/lib/frontend/api";
 import { schoolClock, todayHeadline, type Headline } from "@/lib/frontend/attendance";
-import { demoProfile, demoRows, demoToday } from "@/lib/frontend/demo";
+import { demoRows } from "@/lib/frontend/demo";
+import { demoPersonaForUser, demoTodayFor } from "@/lib/frontend/demo-personas";
 import { display, initials } from "@/lib/frontend/format";
 import type { Row } from "@/lib/frontend/types";
 import { useHub } from "./context";
@@ -24,14 +25,14 @@ const TILES = [
 ] as const;
 
 function useStudentHome() {
-  const { demo } = useHub();
+  const { demo, me } = useHub();
   const [className, setClassName] = useState<string | null>(null);
   const [headline, setHeadline] = useState<Headline | null>(null);
   const [news, setNews] = useState<Row[] | null>(null);
   useEffect(() => {
     let active = true;
     if (demo) {
-      Promise.resolve().then(() => { if (!active) return; setClassName(demoProfile.className); setHeadline(todayHeadline(demoToday)); setNews((demoRows("/notifications") as Row[]).slice(0, 3)); });
+      Promise.resolve().then(() => { if (!active) return; const persona = demoPersonaForUser(me.user.id); setClassName(persona?.className ?? null); setHeadline(todayHeadline(demoTodayFor(persona?.key ?? "STUDENT"))); setNews((demoRows("/notifications") as Row[]).slice(0, 3)); });
       return () => { active = false; };
     }
     api("/student/profile").then(r => { if (active) setClassName((r.data as { className: string | null }).className); }).catch(() => {});
@@ -39,7 +40,7 @@ function useStudentHome() {
       .catch(() => { if (active) setHeadline({ tone: "neutral", title: "Absen lewat HP", note: "Buka Student Hub dari HP untuk absen." }); });
     api("/notifications?limit=3").then(r => { if (active) setNews(r.data as Row[]); }).catch(() => { if (active) setNews([]); });
     return () => { active = false; };
-  }, [demo]);
+  }, [demo, me.user.id]);
   return { className, headline, news };
 }
 

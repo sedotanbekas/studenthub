@@ -4,7 +4,8 @@ import type { HistoryDto, TodayDto } from "@/lib/attendance/student-schemas";
 import { isMobileBrowserAgent } from "@/lib/auth/device";
 import { api, ApiError } from "@/lib/frontend/api";
 import { todayHeadline } from "@/lib/frontend/attendance";
-import { demoHistory, demoToday } from "@/lib/frontend/demo";
+import { demoHistory } from "@/lib/frontend/demo";
+import { demoPersonaForUser, demoTodayFor } from "@/lib/frontend/demo-personas";
 import { display, label } from "@/lib/frontend/format";
 import { useHub } from "../context";
 import { Status } from "../data-view";
@@ -15,15 +16,15 @@ import { CheckInFlow } from "./check-in-flow";
 type TodayState = { kind: "loading" } | { kind: "ready"; today: TodayDto } | { kind: "error"; code: string; message: string };
 
 function useToday(version: number): TodayState {
-  const { demo } = useHub();
+  const { demo, me } = useHub();
   const [state, setState] = useState<TodayState>({ kind: "loading" });
   useEffect(() => {
     let active = true;
-    const load = demo ? Promise.resolve(demoToday as unknown as TodayDto) : api("/student/attendance/today").then(r => r.data as TodayDto);
+    const load = demo ? Promise.resolve(demoTodayFor(demoPersonaForUser(me.user.id)?.key ?? "STUDENT")) : api("/student/attendance/today").then(r => r.data as TodayDto);
     load.then(today => { if (active) setState({ kind: "ready", today }); })
       .catch(e => { if (active) setState({ kind: "error", code: e instanceof ApiError ? e.code : "", message: e instanceof Error ? e.message : "Status absensi belum dapat dimuat." }); });
     return () => { active = false; };
-  }, [demo, version]);
+  }, [demo, me.user.id, version]);
   return state;
 }
 

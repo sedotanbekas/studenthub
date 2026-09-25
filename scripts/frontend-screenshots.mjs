@@ -21,7 +21,7 @@ try {
   await page.goto(base);
   await page.getByRole("heading", { name: "Senang bertemu lagi." }).waitFor();
   await capture("01-login-desktop");
-  await page.getByRole("button", { name: "Jelajahi tampilan demo" }).click();
+  await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
   await page.getByRole("heading", { name: /Selamat datang/ }).waitFor();
   await capture("02-dashboard-desktop");
   for (const [route, title, name] of [["students", "Data siswa", "03-siswa-desktop"], ["announcements", "Pengumuman", "05-pengumuman-desktop"], ["calendar", "Kalender sekolah", "06-kalender-desktop"]]) {

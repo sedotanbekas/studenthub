@@ -14,7 +14,7 @@ async function mockSession(page: Page) {
 test("demo: navigasi, pencarian, detail, formulir, dan penolakan simpan", async ({ page }) => {
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
   await page.goto("/");
-  await page.getByRole("button", { name: "Jelajahi tampilan demo" }).click();
+  await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
   await expect(page.getByRole("heading", { name: /Selamat datang/ })).toBeVisible();
   await page.getByRole("navigation").getByRole("link", { name: "Data siswa" }).click();
   await expect(page.getByText("Alya Putri Ramadhani", { exact: true })).toBeVisible();
@@ -34,7 +34,7 @@ test("mobile: login, dasbor, menu, dan formulir tanpa luapan horizontal", async 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Senang bertemu lagi." })).toBeVisible();
-  await page.getByRole("button", { name: "Jelajahi tampilan demo" }).click();
+  await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
   await expect(page.getByRole("heading", { name: /Selamat datang/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Buka navigasi" }).click();
@@ -46,7 +46,7 @@ test("mobile: login, dasbor, menu, dan formulir tanpa luapan horizontal", async 
   await page.screenshot({ path: "test-results/frontend-mobile-form.png", fullPage: true });
 });
 test("peran demo dipertahankan ketika pindah halaman", async ({ page }) => {
-  await page.goto("/"); await page.getByRole("button", { name: "Jelajahi tampilan demo" }).click();
+  await page.goto("/"); await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
   for (const [role, menu, heading] of [["SPONSOR", "Kampanye saya", "Kampanye saya"], ["STUDENT", "Rapor saya", "Rapor saya"], ["SUPER_ADMIN", "Sekolah", "Sekolah"]]) {
     await page.getByRole("combobox", { name: "Peran demo" }).selectOption(role!);
     await page.getByRole("navigation").getByRole("link", { name: menu!, exact: true }).click();
@@ -115,7 +115,7 @@ test("siswa (HP): beranda ringkas, alur absen wajib izin lokasi & kamera sebelum
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36" });
   const page = await context.newPage();
   await page.goto("/");
-  await page.getByRole("button", { name: "Jelajahi tampilan demo" }).click();
+  await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
   await page.getByRole("combobox", { name: "Peran demo" }).selectOption("STUDENT");
   await page.goto("/hub");
   await expect(page.getByRole("navigation", { name: "Menu siswa" }).getByRole("link")).toHaveCount(6);
@@ -129,4 +129,16 @@ test("siswa (HP): beranda ringkas, alur absen wajib izin lokasi & kamera sebelum
   await flow.getByRole("button", { name: "Tutup absensi" }).click();
   await expect(page.getByRole("heading", { name: "Riwayat", exact: false })).toBeVisible();
   await context.close();
+});
+test("login: tombol demo per persona (admin, 3 siswa, sponsor, super admin) langsung masuk ke peran itu", async ({ page }) => {
+  const cases: [string, RegExp | string][] = [["Admin sekolah", /Selamat datang, Adinda/], ["Siswa · Alya", "Alya Putri Ramadhani"], ["Siswa · Bima", "Bima Aditya Pratama"], ["Siswa · Citra", "Citra Ayu Lestari"], ["Sponsor", /Selamat datang, Rizky/], ["Super admin", /Selamat datang, Dimas/]];
+  for (const [label, heading] of cases) {
+    await page.goto("/");
+    await page.getByRole("button", { name: `Masuk demo sebagai ${label}` }).click();
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await page.getByRole("button", { name: "Keluar demo" }).click();
+  }
+  await page.goto("/");
+  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Bima" }).click();
+  await expect(page.getByText("Sudah absen pukul 06:42")).toBeVisible();
 });

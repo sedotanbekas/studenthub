@@ -2,9 +2,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/frontend/api";
+import { DEMO_PERSONAS, demoPersona, demoPersonaForUser } from "@/lib/frontend/demo-personas";
 import { modulesFor, roleLabels } from "@/lib/frontend/modules";
 import { initials } from "@/lib/frontend/format";
-import type { Identity, Module, Role } from "@/lib/frontend/types";
+import type { Identity, Module } from "@/lib/frontend/types";
 import { HubContext } from "./context";
 import { Brand, Icon } from "./icon";
 import { Login } from "./login";
@@ -13,7 +14,6 @@ import { StudentHome } from "./student-home";
 import { AttendancePage } from "./attendance/attendance-page";
 import { Workspace } from "./workspace";
 
-const demoIdentity: Identity = { user: { id: "demo", name: "Adinda Putri", email: "adinda@sekolah.sch.id", role: "SCHOOL_ADMIN", mustChangePassword: false, totpEnrollmentRequired: false }, school: { id: "demo", name: "SMA Cendekia Nusantara", timezone: "WIB" }, sponsor: null, permissions: [] };
 function useNavigationData(me: Identity | null, demo: boolean) {
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
   const [unread, setUnread] = useState(0);
@@ -37,8 +37,8 @@ export function Hub({ section }: { section: string }) {
   async function reloadMe() { const result = await api("/auth/me"); setMe(result.data as Identity); setReady(true); }
   useEffect(() => {
     let active = true;
-    const storedRole = sessionStorage.getItem("studenthub_demo_role") as Role | null;
-    if (sessionStorage.getItem("studenthub_demo") === "true") { Promise.resolve().then(() => { if (active) { setDemo(true); setMe({ ...demoIdentity, user: { ...demoIdentity.user, role: storedRole && storedRole in roleLabels ? storedRole : "SCHOOL_ADMIN" } }); setReady(true); } }); }
+    const storedPersona = sessionStorage.getItem("studenthub_demo_role");
+    if (sessionStorage.getItem("studenthub_demo") === "true") { Promise.resolve().then(() => { if (active) { setDemo(true); setMe(demoPersona(storedPersona).identity); setReady(true); } }); }
     else api("/auth/me").then(r => { if (active) setMe(r.data as Identity); }).catch(() => {}).finally(() => { if (active) setReady(true); });
     return () => { active = false; };
   }, []);
@@ -49,7 +49,7 @@ export function Hub({ section }: { section: string }) {
     return () => window.removeEventListener("studenthub:expired", expired);
   }, []);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(""), 4500); return () => clearTimeout(timer); }, [notice]);
-  function startDemo() { sessionStorage.setItem("studenthub_demo", "true"); setDemo(true); setMe(demoIdentity); }
+  function startDemo(key: string) { sessionStorage.setItem("studenthub_demo", "true"); sessionStorage.setItem("studenthub_demo_role", key); setDemo(true); setMe(demoPersona(key).identity); }
   async function logout() {
     try { if (!demo) await api("/auth/logout", { method: "POST" }); sessionStorage.removeItem("studenthub_demo"); sessionStorage.removeItem("studenthub_demo_role"); sessionStorage.removeItem("studenthub_school"); setDemo(false); setMe(null); setSchoolId(""); }
     catch (e) { setNotice(e instanceof Error ? e.message : "Gagal keluar."); }
@@ -64,10 +64,10 @@ export function Hub({ section }: { section: string }) {
     {menu && <button className="sidebar-overlay" aria-label="Tutup navigasi" onClick={() => setMenu(false)} />}
     <Sidebar me={me} modules={modules} current={current} home={home} unread={unread} open={menu} onNavigate={() => setMenu(false)} onLogout={logout} />
     <div className="main-shell"><header className="topbar"><button className="icon-button mobile-menu" aria-label="Buka navigasi" onClick={() => setMenu(true)}><Icon name="menu" /></button><strong className="topbar-title">{current?.title ?? "Beranda"}</strong><div className="topbar-tools"><Link className="icon-button notification-button" href="/hub/notifications" aria-label={unread > 0 ? `Notifikasi, ${unread} belum dibaca` : "Notifikasi"}><Icon name="bell" />{unread > 0 && <i />}</Link><Link className="avatar small" href="/hub/security" aria-label="Keamanan akun">{initials(me.user.name)}</Link></div></header>
-      <main id="main-content" className="page-content">{demo && <DemoBanner me={me} onRole={role => { sessionStorage.setItem("studenthub_demo_role", role); setMe({ ...demoIdentity, user: { ...demoIdentity.user, role } }); }} onExit={logout} />}
+      <main id="main-content" className="page-content">{demo && <DemoBanner me={me} onPersona={key => { sessionStorage.setItem("studenthub_demo_role", key); setMe(demoPersona(key).identity); }} onExit={logout} />}
       {me.user.role === "SUPER_ADMIN" && current?.paths.some(p => p.startsWith("/school/")) && <label className="scope-select">Sekolah yang dikelola<select value={schoolId} onChange={e => { setSchoolId(e.target.value); sessionStorage.setItem("studenthub_school", e.target.value); }}><option value="">Pilih sekolah terlebih dahulu</option>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
       {restricted && <div className="info-message">{me.user.mustChangePassword ? "Sebelum melanjutkan, ganti kata sandi awal untuk mengamankan akunmu." : "Aktifkan autentikasi dua langkah terlebih dahulu untuk mengamankan akun super admin."}</div>}
-      {current?.key === "my-attendance" ? <AttendancePage /> : current ? <Workspace key={`${current.key}-${schoolId}-${demo}-${me.user.role}`} module={current} /> : home ? me.user.role === "STUDENT" ? <StudentHome /> : <Dashboard /> : <div className="empty-state"><Icon name="search" size={35} /><h2>Halaman tidak ditemukan</h2><Link className="button primary" href="/hub">Kembali ke beranda</Link></div>}
+      {current?.key === "my-attendance" ? <AttendancePage key={me.user.id} /> : current ? <Workspace key={`${current.key}-${schoolId}-${demo}-${me.user.id}`} module={current} /> : home ? me.user.role === "STUDENT" ? <StudentHome key={me.user.id} /> : <Dashboard key={me.user.id} /> : <div className="empty-state"><Icon name="search" size={35} /><h2>Halaman tidak ditemukan</h2><Link className="button primary" href="/hub">Kembali ke beranda</Link></div>}
       </main></div>
     {notice && <div className="toast" role="status">{notice}</div>}
   </div></HubContext.Provider>;
@@ -79,6 +79,6 @@ function Sidebar({ me, modules, current, home, unread, open, onNavigate, onLogou
     <nav aria-label="Navigasi utama"><Link onClick={onNavigate} className={`nav-item ${home ? "active" : ""}`} href="/hub" aria-current={home ? "page" : undefined}><Icon name="grid" />Beranda</Link>{groups.map(group => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{modules.filter(m => m.group === group).map(m => <Link key={m.key} onClick={onNavigate} className={`nav-item ${current?.key === m.key ? "active" : ""}`} aria-current={current?.key === m.key ? "page" : undefined} href={`/hub/${m.key}`}><Icon name={m.icon} /><span>{m.title}</span>{m.key === "notifications" && unread > 0 && <b className="count-badge">{unread}</b>}</Link>)}</div>)}</nav>
     <button className="account-button" onClick={() => void onLogout()}><span className="avatar">{initials(me.user.name)}</span><span><strong>{me.user.name}</strong><small>Keluar dari akun</small></span><Icon name="logout" size={18} /></button></aside>;
 }
-function DemoBanner({ me, onRole, onExit }: { me: Identity; onRole: (role: Role) => void; onExit: () => Promise<void> }) {
-  return <div className="demo-banner"><span><Icon name="spark" size={16} /> Mode demo · data contoh</span><select aria-label="Peran demo" value={me.user.role} onChange={e => onRole(e.target.value as Role)}>{Object.entries(roleLabels).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select><button className="text-button" onClick={() => void onExit()}>Keluar demo <Icon name="arrow" size={15} /></button></div>;
+function DemoBanner({ me, onPersona, onExit }: { me: Identity; onPersona: (key: string) => void; onExit: () => Promise<void> }) {
+  return <div className="demo-banner"><span><Icon name="spark" size={16} /> Mode demo · data contoh</span><select aria-label="Peran demo" value={demoPersonaForUser(me.user.id)?.key ?? "SCHOOL_ADMIN"} onChange={e => onPersona(e.target.value)}>{DEMO_PERSONAS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}</select><button className="text-button" onClick={() => void onExit()}>Keluar demo <Icon name="arrow" size={15} /></button></div>;
 }

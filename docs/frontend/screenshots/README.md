@@ -15,8 +15,9 @@ Semua screenshot menggunakan **mode demo**. Gambar diambil langsung dari browser
 | Formulir mobile | [Buka](09-formulir-mobile.png) |
 | Beranda siswa (HP) | [Buka](10-beranda-siswa-mobile.png) |
 | Izin lokasi & kamera sebelum absen (HP) | [Buka](11-izin-absensi-mobile.png) |
+| Login + tombol demo per peran (HP) | [Buka](12-login-demo-mobile.png) |
 
-Screenshot 10–11 diambil manual dengan emulasi HP (Pixel 7). Untuk mengambil ulang 01–09, jalankan server dengan `pnpm dev`, lalu:
+Screenshot 10–12 diambil manual dengan emulasi HP (Pixel 7). Untuk mengambil ulang 01–09, jalankan server dengan `pnpm dev`, lalu:
 
 ```bash
 node scripts/frontend-screenshots.mjs
