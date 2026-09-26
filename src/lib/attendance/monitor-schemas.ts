@@ -93,6 +93,8 @@ export const classParams = z.object({ classId: idString.meta({ description: "Id 
 export const studentParams = z.object({ studentId: idString.meta({ description: "Id siswa." }) });
 
 export const classTrendQuery = monitorScopeQuery.extend(rangeShape).superRefine(refineRange);
+/** Tren harian satu sekolah memakai query rentang yang sama dengan tren kelas. */
+export const schoolTrendQuery = classTrendQuery;
 
 export const studentTrendQuery = monitorScopeQuery.extend({
   months: z.coerce
@@ -111,6 +113,7 @@ export type AnomaliesQuery = z.infer<typeof anomaliesQuery>;
 export type RejectionsQuery = z.infer<typeof rejectionsQuery>;
 export type MonthScopeQuery = z.infer<typeof monthScopeQuery>;
 export type ClassTrendQuery = z.infer<typeof classTrendQuery>;
+export type SchoolTrendQuery = z.infer<typeof schoolTrendQuery>;
 export type StudentTrendQuery = z.infer<typeof studentTrendQuery>;
 
 // ----------------------------------------------------------------------------- respons
@@ -338,6 +341,15 @@ export const classTrendSchema = z
   })
   .meta({ id: "MonitorClassTrend" });
 
+export const schoolTrendSchema = z
+  .object({
+    from: dateOut,
+    to: dateOut,
+    closedThrough: dateOut,
+    days: z.array(rateSchema.extend({ date: dateOut, isSchoolDay: z.boolean() })),
+  })
+  .meta({ id: "MonitorSchoolTrend" });
+
 export const studentTrendSchema = z
   .object({ student: studentBriefSchema, closedThrough: dateOut, months: z.array(rateSchema.extend({ month: monthOut })) })
   .meta({ id: "MonitorStudentTrend" });
@@ -391,5 +403,6 @@ export type RecordDetailDto = z.infer<typeof recordDetailSchema>;
 export type ClassAnalyticsDto = z.infer<typeof classAnalyticsSchema>;
 export type SummaryAnalyticsDto = z.infer<typeof summaryAnalyticsSchema>;
 export type ClassTrendDto = z.infer<typeof classTrendSchema>;
+export type SchoolTrendDto = z.infer<typeof schoolTrendSchema>;
 export type StudentTrendDto = z.infer<typeof studentTrendSchema>;
 export type StudentMonthDto = z.infer<typeof studentMonthSchema>;

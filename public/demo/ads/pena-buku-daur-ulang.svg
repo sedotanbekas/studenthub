@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" font-family="'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecfdf5"/><stop offset="1" stop-color="#d1fae5"/></linearGradient>
+<radialGradient id="glow" cx="0.82" cy="0.3" r="0.55"><stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs>
+<rect width="1200" height="600" fill="url(#bg)"/><rect width="1200" height="600" fill="url(#glow)"/>
+<g transform="translate(0 0)"><g transform="translate(950 310)"><rect x="-130" y="-160" width="220" height="290" rx="18" fill="#a7f3d0"/><rect x="-100" y="-175" width="220" height="290" rx="18" fill="#ffffff" stroke="#6ee7b7" stroke-width="4"/>
+<rect x="-70" y="-120" width="160" height="10" rx="5" fill="#d1fae5"/><rect x="-70" y="-80" width="120" height="10" rx="5" fill="#d1fae5"/><rect x="-70" y="-40" width="160" height="10" rx="5" fill="#d1fae5"/><rect x="-70" y="0" width="120" height="10" rx="5" fill="#d1fae5"/><rect x="-70" y="40" width="160" height="10" rx="5" fill="#d1fae5"/>
+<path d="M90 120 C 170 60, 190 -10, 150 -80 C 110 -20, 70 40, 90 120 Z" fill="#10b981"/><path d="M90 120 C 110 40, 130 -10, 150 -80" stroke="#065f46" stroke-width="5" fill="none"/></g></g>
+<g><rect x="80" y="72" width="321" height="48" rx="24" fill="#064e3b"/><g transform="translate(112 96) rotate(-35)"><rect x="-4" y="-16" width="8" height="26" rx="2" fill="#6ee7b7"/><polygon points="-4,10 4,10 0,18" fill="#ecfdf5"/></g><text x="138" y="104" font-size="24" font-weight="800" fill="#ecfdf5" letter-spacing="1.5">PENA NUSANTARA</text></g>
+<text x="80" y="228" font-size="66" font-weight="800" fill="#064e3b" letter-spacing="-1.5">Buku catatan dari</text><text x="80" y="304" font-size="66" font-weight="800" fill="#064e3b" letter-spacing="-1.5">kertas daur ulang</text>
+<text x="80" y="388" font-size="30" font-weight="600" fill="#047857">Ringan, tebal 80 lembar, mulai Rp8.000</text>
+<g><rect x="80" y="440" width="300" height="64" rx="32" fill="#059669"/><text x="230" y="482" font-size="28" font-weight="800" fill="#ffffff" text-anchor="middle">Lihat pilihannya</text></g>
+</svg>

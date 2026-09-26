@@ -1,4 +1,7 @@
 import type { Row } from "./types";
+import { demoAdsDetail, demoAdsRows } from "./demo-ads";
+import { demoAnalyticsRows } from "./demo-analytics";
+import { demoMonitorRows } from "./demo-monitor";
 import { studentDemoDetail, studentDemoRows } from "./demo-student";
 export const demoStudents: Row[] = [
   { id: "s1", name: "Alya Putri Ramadhani", nisn: "0098765432", nis: "2026001", gender: "FEMALE", status: "ACTIVE", class: { name: "X IPA 1" }, sppAmount: 350000 },
@@ -23,6 +26,9 @@ function studentOf(viewer?: DemoViewer): Row | undefined {
  * dilihat; tanpa persona siswa -> kosong (gagal tertutup, tidak pernah data siswa lain).
  */
 export function demoRows(path: string, viewer?: DemoViewer): unknown {
+  // Jalur persis milik domain iklan/sponsor & monitoring absensi dicek sebelum pencocokan longgar di bawah.
+  const exact = demoAdsRows(path) ?? demoMonitorRows(path) ?? demoAnalyticsRows(path);
+  if (exact !== undefined) return exact;
   if (path.startsWith("/student/") && !SHARED_STUDENT_PATHS.test(path)) {
     const student = studentOf(viewer);
     return student ? studentDemoRows(path, student) : [];
@@ -32,6 +38,8 @@ export function demoRows(path: string, viewer?: DemoViewer): unknown {
 
 /** Detail rekaman pada mode demo; untuk jalur siswa hanya bila rekaman itu milik persona. */
 export function demoDetail(path: string, id: string, viewer?: DemoViewer): Row | null {
+  const ad = demoAdsDetail(path, id);
+  if (ad !== undefined) return ad as Row | null;
   if (!path.startsWith("/student/")) return null;
   const student = studentOf(viewer);
   return student ? studentDemoDetail(path, id, student) : null;
@@ -50,8 +58,6 @@ function sharedRows(path: string): unknown {
   if (path.includes("holidays") || path.includes("calendar")) return [{ id: "h1", name: "Libur semester", startDate: "2026-12-21", endDate: "2027-01-02" }];
   if (path.includes("schools")) return [{ id: "sc1", name: "SMA Cendekia Nusantara", npsn: "20123456", timezone: "WIB", isActive: true }, { id: "sc2", name: "SMP Harapan Bangsa", npsn: "20123457", timezone: "WIB", isActive: true }];
   if (path.includes("sessions")) return [{ id: "session1", deviceName: "Chrome · Windows", platform: "WEB", isCurrent: true, lastUsedAt: "2026-09-22T06:00:00Z" }];
-  if (path.includes("balance")) return { balance: 2450000, totalTopUp: 5000000 };
-  if (path.includes("ads")) return [{ id: "ad1", title: "Buka pintu masa depanmu", status: "APPROVED", impressions: 12480, clicks: 326 }, { id: "ad2", title: "Belajar lebih menyenangkan", status: "DRAFT", impressions: 0, clicks: 0 }];
   return [];
 }
 /** Status absen hari ini untuk mode demo (titik sekolah disimulasikan di sekitar pengguna saat alur berjalan). */

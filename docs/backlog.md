@@ -11,6 +11,8 @@ dengan alasan penundaan dan pemicu untuk mengerjakannya. Urutan tidak menunjukka
 | Penjadwalan / edit pengumuman yang sudah terbit | Terbit langsung; batal = tarik (`cancelledAt`) | Sekolah meminta pengumuman terjadwal |
 | Kenaikan kelas massal | Pindah kelas per siswa | **Sebelum Juli 2027** (tahun ajaran berikutnya) |
 | Unggahan PDF | Hanya foto JPEG/PNG/WebP (di-encode ulang, tanpa EXIF) | Sekolah wajib menerima surat dokter PDF |
+| Tile peta sendiri (proxy/cache tile) | Peta absensi admin & siswa memuat tile langsung dari `tile.openstreetmap.org` (pihak ketiga melihat IP admin + area koordinat check-in; kebijakan OSM membatasi pemakaian berat) | Sebelum trafik produksi besar, atau kebijakan privasi sekolah mensyaratkan tanpa pihak ketiga |
+| Pencarian di riwayat top-up super admin | Tab riwayat top-up hanya berpaginasi (`GET /platform/topups` belum menerima `q`) | Super admin kesulitan menemukan top-up lama |
 | Push receipts Expo & penggabungan notifikasi admin | Push satu arah; status gagal dari tiket saja; inbox tetap sumber kebenaran | Volume push besar / keluhan push tidak sampai |
 | Anomali `IMPOSSIBLE_TRAVEL` / `IDENTICAL_COORDINATES` + workflow review anomali | Flag lain tersimpan; koreksi manual admin dipakai | Pola kecurangan check-in terbukti di lapangan |
 | REFUND ledger sponsor | Hanya TOPUP / CLICK_CHARGE / ADJUSTMENT | Ada permintaan pengembalian dana sponsor (butuh aturan batas refundable + persetujuan SA kedua, lihat review-security) |

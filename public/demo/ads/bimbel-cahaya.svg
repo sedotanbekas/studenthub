@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" font-family="'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e2a78"/><stop offset="1" stop-color="#2f6fe0"/></linearGradient>
+<radialGradient id="glow" cx="0.82" cy="0.3" r="0.55"><stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs>
+<rect width="1200" height="600" fill="url(#bg)"/><rect width="1200" height="600" fill="url(#glow)"/>
+<g transform="translate(60 0)"><g transform="translate(930 330)"><circle r="190" fill="#ffffff" opacity="0.08"/><circle cx="60" cy="-120" r="62" fill="#ffd166"/>
+<rect x="-130" y="60" width="250" height="44" rx="10" fill="#ff8a65"/><rect x="-110" y="12" width="230" height="44" rx="10" fill="#80deea"/><rect x="-140" y="-36" width="240" height="44" rx="10" fill="#ffffff"/>
+<rect x="-120" y="-24" width="150" height="8" rx="4" fill="#c5cae9"/><rect x="-90" y="24" width="120" height="8" rx="4" fill="#ffffff" opacity="0.7"/></g></g>
+<g><rect x="80" y="72" width="304" height="48" rx="24" fill="#ffffff"/><g transform="translate(112 96)" fill="#f5a623"><circle r="9"/><g stroke="#f5a623" stroke-width="3" stroke-linecap="round"><line x1="0" y1="-14" x2="0" y2="-18" transform="rotate(0)"/><line x1="0" y1="-14" x2="0" y2="-18" transform="rotate(45)"/><line x1="0" y1="-14" x2="0" y2="-18" transform="rotate(90)"/><line x1="0" y1="-14" x2="0" y2="-18" transform="rotate(135)"/><line x1="0" y1="-14" x2="0" y2="-18" transform="rotate(180)"/><line x1="0" y1="-14" x2="0" y2="-18" transform="rotate(225)"/><line x1="0" y1="-14" x2="0" y2="-18" transform="rotate(270)"/><line x1="0" y1="-14" x2="0" y2="-18" transform="rotate(315)"/></g></g><text x="138" y="104" font-size="24" font-weight="800" fill="#1e2a78" letter-spacing="1.5">BIMBEL CAHAYA</text></g>
+<text x="80" y="228" font-size="66" font-weight="800" fill="#ffffff" letter-spacing="-1.5">Belajar 20 menit sehari,</text><text x="80" y="304" font-size="66" font-weight="800" fill="#ffffff" letter-spacing="-1.5">nilai naik pelan-pelan.</text>
+<text x="80" y="388" font-size="30" font-weight="600" fill="#dbe6ff">Latihan soal harian + pembahasan video singkat</text>
+<g><rect x="80" y="440" width="300" height="64" rx="32" fill="#ffd166"/><text x="230" y="482" font-size="28" font-weight="800" fill="#1e2a78" text-anchor="middle">Coba gratis 7 hari</text></g>
+</svg>

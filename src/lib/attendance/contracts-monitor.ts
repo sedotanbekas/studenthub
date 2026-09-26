@@ -22,6 +22,8 @@ import {
   recordParams,
   rejectionRowSchema,
   rejectionsQuery,
+  schoolTrendQuery,
+  schoolTrendSchema,
   studentMonthSchema,
   studentParams,
   studentTrendQuery,
@@ -160,6 +162,19 @@ export const classTrendContract = defineContract({
   errors: ["SCHOOL_NOT_FOUND", "CLASS_NOT_FOUND"],
 });
 
+export const schoolTrendContract = defineContract({
+  id: "monitorAttendanceSchoolTrend",
+  method: "GET",
+  path: "/api/v1/school/attendance/analytics/trend",
+  tag: TAG,
+  summary: "Tren harian sekolah",
+  description: `Gabungan semua kelas (termasuk baris tanpa kelas). Rentang default 30 hari terakhir, maksimal 92 hari. Setiap hari sekolah muncul (tanpa data -> persen null); hari non-sekolah hanya muncul bila ada catatan (isSchoolDay=false). ${CLOSED_NOTE} ${SCOPE_NOTE}`,
+  action: ACTION,
+  query: schoolTrendQuery,
+  response: schoolTrendSchema,
+  errors: ["SCHOOL_NOT_FOUND"],
+});
+
 export const studentTrendContract = defineContract({
   id: "monitorAttendanceStudentTrend",
   method: "GET",
@@ -213,6 +228,7 @@ export const attendanceMonitorContracts: readonly AnyContract[] = [
   classAnalyticsContract,
   summaryAnalyticsContract,
   classTrendContract,
+  schoolTrendContract,
   studentTrendContract,
   studentMonthContract,
   recordDetailContract,

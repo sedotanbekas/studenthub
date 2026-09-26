@@ -39,6 +39,16 @@ test("BFF meneruskan cookie sebagai bearer serta mempertahankan data multipart",
   assert.ok(new Headers(upstream?.headers).get("Content-Type")?.includes("multipart/form-data; boundary="));
   assert.ok(new TextDecoder().decode(upstream?.body as ArrayBuffer).includes("binary-test"));
 });
+test("BFF meneruskan berkas biner tanpa cache dengan nosniff & CSP sandbox (aman dibuka sebagai tab)", async t => {
+  t.mock.method(globalThis, "fetch", async () => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/webp", "content-disposition": "inline; filename=\"bukti.webp\"" } }));
+  const req = new NextRequest(`${origin}/api/web/files/f1`, { method: "GET", headers: { origin, cookie: "studenthub_access=private-token" } });
+  const response = await GET(req, params("files/f1"));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "image/webp");
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.match(response.headers.get("content-security-policy") ?? "", /sandbox/);
+});
 test("BFF menerima origin HTTPS di belakang nginx dan tetap menuju loopback", async t => {
   let target = "";
   t.mock.method(globalThis, "fetch", async (url: string) => { target = url; return Response.json({ success: false, error: { message: "Gagal masuk." } }, { status: 401 }); });

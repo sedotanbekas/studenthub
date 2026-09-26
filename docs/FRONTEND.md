@@ -48,6 +48,17 @@ Keputusan klien 2026-09-25: siswa boleh absen dari **browser HP** (bukan desktop
 - **Akurasi GPS.** Browser tidak bisa memaksa GPS menjadi akurat; akurasi ditentukan perangkat. Alur absen meminta akurasi tinggi, memantau terus dan memakai fix terbaik (`preferFix`), menunggu hingga 15 detik untuk fix yang memenuhi batas sebelum mengirim (`bestPosition`), dan menampilkan langkah sesuai perangkat bila lokasi masih perkiraan jaringan (Android: Akurasi Lokasi Google; iPhone: Lokasi Akurat; laptop: tidak ada GPS). Server tetap menolak fix yang kurang akurat.
 - **Demo.** Di mode demo, area sekolah **dan akurasi GPS** disimulasikan di sekitar posisi pengguna dan pengiriman absen ditolak, sehingga seluruh alur bisa didemokan dari HP maupun laptop.
 
+## Iklan sponsor
+
+Permintaan pemilik 2026-09-26: iklan **halus tapi tetap terlihat** — aplikasi tidak boleh terkesan "butuh uang".
+
+- **Satu slot saja**, di beranda siswa di bawah menu utama dan di atas pengumuman (`src/components/hub/ads/sponsor-slot.tsx`). Tidak pernah tampil di alur absen, rapor, tagihan, atau halaman lain; tanpa pop-up, tanpa suara/video, tanpa iklan layar penuh.
+- **Bentuk:** kartu native — banner 2:1 (1200×600) dengan label kecil "Sponsor", nama mitra, judul dua baris, ajakan "Lihat". Lebih dari satu mitra → carousel geser (kartu berikutnya mengintip, titik navigasi); putar otomatis 7 detik berhenti selamanya begitu siswa menyentuh slot dan dimatikan untuk `prefers-reduced-motion`. Judul bagian "Dari mitra Student Hub" + tombol "Kenapa ada ini?" (iklan dipilih menurut wilayah sekolah, bukan data pribadi, dan ditinjau tim sebelum tayang). Slot hilang sepenuhnya bila tidak ada iklan atau permintaan gagal.
+- **Impresi** dihitung setelah ≥ 50% kartu terlihat selama 1 detik, dikirim batch (≤ 20 token, tiap 4 detik, saat tab disembunyikan, dan sebelum klik). **Klik:** tab baru dibuka sinkron di dalam ketukan (Safari iPhone memblokir `window.open` setelah `await`), impresi dikirim dulu agar klik sah, lalu tab diarahkan ke `targetUrl` dari server yang diperiksa ulang (`https` untuk tautan luar; skema berbahaya ditolak). Aturan murni di `src/lib/frontend/ad-slot-rules.ts`.
+- **Gambar:** banner yang disetujui disalin ke `/media/…`. Klien membaca path `/media/…` dari domain yang sedang dibuka (domain di `PUBLIC_MEDIA_BASE_URL` bisa berbeda); nginx melayaninya dari disk, dan route cadangan `src/app/media/[...key]/route.ts` melayani salinan publik banner saja bila vhost belum punya alias. Banner yang gagal dimuat diganti inisial mitra.
+- **Pratinjau penempatan** (`ads/placement-preview.tsx`) memakai kartu yang sama persis di tiruan layar HP; dipakai di halaman sponsor dan moderasi super admin agar yang ditinjau = yang dilihat siswa.
+- **Demo:** banner fiktif di `public/demo/ads/*.svg` dan satu cerita data (`src/lib/frontend/demo-ads.ts`) dipakai bersama oleh siswa, sponsor (PT Cahaya Ilmu Nusantara), dan super admin; klik di demo hanya menampilkan pemberitahuan.
+
 ## Struktur dan pemeliharaan
 
 - `src/components/hub/`: shell, dashboard, beranda siswa, formulir, detail, kalender, lembar nilai.

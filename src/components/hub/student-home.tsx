@@ -8,6 +8,7 @@ import { demoRows } from "@/lib/frontend/demo";
 import { demoPersonaForUser, demoTodayFor } from "@/lib/frontend/demo-personas";
 import { display, initials } from "@/lib/frontend/format";
 import type { Row } from "@/lib/frontend/types";
+import { SponsorSlot } from "./ads/sponsor-slot";
 import { useHub } from "./context";
 import { Icon } from "./icon";
 
@@ -62,6 +63,7 @@ export function StudentHome() {
       <p className={`id-status tone-${headline?.tone ?? "neutral"}`} role="status"><Icon name={headline?.tone === "success" || headline?.tone === "warning" ? "check" : "location"} size={18} /><span><strong>{headline?.title ?? "Memuat status absen…"}</strong>{headline && <small>{headline.note}</small>}</span></p>
     </section>
     <nav className="tile-grid" aria-label="Menu siswa">{TILES.map(t => <Link key={t.href} href={t.href} className={`tile tone-${t.tone}`}><span className="tile-icon"><Icon name={t.icon} size={26} /></span><strong>{t.title}</strong></Link>)}</nav>
+    <SponsorSlot />
     <section aria-labelledby="news-title"><div className="section-label"><h2 id="news-title">Pengumuman</h2><Link className="text-link" href="/hub/notifications">Lihat semua</Link></div>
       <div className="panel news-panel">{news === null ? <div className="skeleton" /> : news.length === 0 ? <p className="empty-line"><Icon name="megaphone" size={22} />Tidak ada pengumuman baru.</p>
         : <ul className="news-list">{news.map(n => <li key={String(n.id)}><Link href="/hub/notifications"><strong>{String(n.title ?? "Pengumuman")}</strong><small>{display(n.createdAt)}{n.readAt ? "" : " · Baru"}</small></Link></li>)}</ul>}</div>

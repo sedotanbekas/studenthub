@@ -1,0 +1,77 @@
+/*
+ * Grafik beranda admin sekolah (src/components/hub/school-charts/*). Desktop: donat hari ini | (kartu
+ * bulan ini + tren), lalu per kelas selebar penuh. <= 1180px: satu kolom dengan urutan DOM yang sama.
+ */
+.school-charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.75fr); grid-template-areas: "today main" "classes classes"; gap: 16px; }
+.sc-today { grid-area: today; }
+.sc-col-main { grid-area: main; display: flex; flex-direction: column; gap: 16px; min-width: 0; container-type: inline-size; }
+.sc-classes { grid-area: classes; }
+.sc-panel .panel-heading { align-items: flex-start; flex-wrap: wrap; }
+.sc-panel .panel-heading > div:first-child { flex: 1 1 220px; min-width: 0; }
+
+/* Hari ini: panel mengisi tinggi baris; tautan menempel di bawah. */
+.sc-today .donut { flex: 1 0 auto; justify-content: center; align-content: center; }
+.sc-today .donut-legend { max-width: 440px; }
+.sc-link { align-self: flex-start; min-height: 44px; margin-top: auto; }
+
+/* Bulan ini: StatTile di dalam kartu pembungkus (satu kartu kaca) + rincian status. */
+.sc-month > .stat-card.stat-tile { align-items: stretch; justify-content: flex-start; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.sc-month-mix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin: 4px 0 0; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+/* Kolom lebar: kartu bulan ini menjadi strip (angka | rincian) agar tidak memanjang. */
+@container (min-width: 560px) {
+  .sc-month { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; column-gap: 24px; }
+  .sc-month-mix { margin: 0; padding: 4px 0 4px 22px; border-top: 0; border-left: 1px solid var(--line-soft); grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+.sc-month-mix > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.sc-month-mix dt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.sc-month-mix dd { margin: 0; font-size: 14px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Tren */
+.sc-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.sc-chart { min-width: 0; }
+.sc-highlights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.sc-highlights > div { min-width: 0; padding: 10px 12px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.sc-highlights dt { font-size: 13px; font-weight: 700; color: var(--muted); }
+.sc-highlights dd { margin: 2px 0 0; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.sc-highlights dd small { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-hint { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.sc-hint b { color: var(--ink-2); }
+
+/* Per kelas */
+.sc-group { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
+.sc-group-title { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; padding: 0 8px; font-size: 13px; font-weight: 800; color: var(--muted); }
+.sc-group-attention { padding: 10px 4px 4px; border-radius: 14px; background: var(--warning-soft); }
+.sc-group-attention .sc-group-title { color: var(--warning-ink); }
+.sc-all-good { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--success-ink); font-weight: 700; }
+/* Garis batas perhatian (90%) di setiap lintasan; max = 100 sehingga 90% lebar = 90%. */
+.sc-classes .bar-track { position: relative; }
+.sc-classes .bar-track::after { content: ""; position: absolute; top: 0; bottom: 0; left: calc(90% - 1px); width: 2px; background: var(--ink); opacity: 0.4; }
+.sc-classes-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.sc-threshold-key { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.sc-threshold-key i { width: 2px; height: 14px; background: var(--ink); opacity: 0.4; }
+.sc-more { min-height: 44px; }
+
+/* Keadaan memuat / kosong / galat */
+.sc-skeleton { display: flex; flex-direction: column; }
+.sc-skeleton .skeleton { margin: 8px 0; }
+.skeleton.sc-skeleton-block { height: 184px; border-radius: var(--radius-sm); }
+.sc-month .skeleton.sc-skeleton-value { width: 45%; height: 30px; margin: 4px 0; }
+.sc-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 12px; text-align: center; }
+.sc-empty p { margin: 0; max-width: 40ch; color: var(--muted); }
+.sc-error { align-items: center; }
+
+@media (min-width: 1181px) {
+  /* Per kelas selebar penuh: kolom nama kelas dibatasi agar batang tidak terlalu jauh dari labelnya. */
+  .sc-classes .bar-row { grid-template-columns: minmax(96px, 180px) minmax(0, 1fr) 64px; }
+}
+@media (max-width: 1180px) {
+  .school-charts { grid-template-columns: minmax(0, 1fr); grid-template-areas: "today" "main" "classes"; }
+}
+@media (max-width: 640px) {
+  .sc-highlights { gap: 6px; }
+  .sc-highlights > div { padding: 8px 10px; }
+  .sc-highlights dd { font-size: 16px; }
+  .sc-controls { width: 100%; }
+  .sc-controls .segmented { flex: 1 1 100%; }
+  .sc-controls .segmented button { flex: 1; }
+}

@@ -30,6 +30,8 @@ import type {
   ClassTrendDto,
   ClassTrendQuery,
   MonthScopeQuery,
+  SchoolTrendDto,
+  SchoolTrendQuery,
   StudentMonthDto,
   StudentTrendDto,
   StudentTrendQuery,
@@ -129,18 +131,23 @@ export async function getSummaryAnalytics(ctx: ActionContext, query: MonthScopeQ
   };
 }
 
-/** Tren harian satu kelas (kelas snapshot) dalam rentang <= 92 hari, dipotong di closedThrough. */
-export async function getClassTrend(ctx: ActionContext, classId: string, query: ClassTrendQuery): Promise<ClassTrendDto> {
-  const scope = monitorScope(ctx, query.schoolId);
-  const school = await loadMonitorSchool(scope);
-  const klass = await assertClassInSchool(scope, classId);
-  const range = resolveRange(query.from, query.to, schoolToday(school, ctx.now), DEFAULT_TREND_RANGE_DAYS);
+/** Filter tambahan tren harian: kelas snapshot (tren kelas) atau kosong (seluruh sekolah). */
+interface TrendFilter {
+  readonly classId?: string;
+}
+
+/**
+ * Tren harian bersama (kelas / sekolah) dalam rentang <= 92 hari, dipotong di closedThrough: setiap
+ * hari sekolah muncul (tanpa data -> persen null), hari non-sekolah hanya bila ada catatan.
+ */
+async function dailyTrendFor(school: MonitorSchool, filter: TrendFilter, query: { from?: LocalDate; to?: LocalDate }, now: Date): Promise<SchoolTrendDto> {
+  const range = resolveRange(query.from, query.to, schoolToday(school, now), DEFAULT_TREND_RANGE_DAYS);
   if (!range) throw badRequest("VALIDATION_FAILED", "Rentang tanggal tidak valid (from <= to, maksimal 92 hari).");
-  const closed = closedThrough(ctx.now, school.timezone, school.dayEndMinute);
+  const closed = closedThrough(now, school.timezone, school.dayEndMinute);
   const cut = cutPeriod(range.from, range.to, closed);
   const [groups, calendar] = cut
     ? await Promise.all([
-        prisma.attendance.groupBy({ by: ["date", "status"], where: { schoolId: school.id, classId, date: dateFilter(cut) }, _count: { _all: true } }),
+        prisma.attendance.groupBy({ by: ["date", "status"], where: { schoolId: school.id, ...filter, date: dateFilter(cut) }, _count: { _all: true } }),
         loadCalendarContext(prisma, school, cut),
       ])
     : [[], null];
@@ -148,7 +155,22 @@ export async function getClassTrend(ctx: ActionContext, classId: string, query: 
     groups.map((g) => ({ date: fromDbDate(g.date), status: g.status, count: g._count._all })),
     cut && calendar ? listSchoolDays(cut.from, cut.to, calendar) : [],
   );
-  return { classId: klass.id, className: klass.name, from: range.from, to: range.to, closedThrough: closed, days };
+  return { from: range.from, to: range.to, closedThrough: closed, days };
+}
+
+/** Tren harian satu kelas (kelas snapshot) dalam rentang <= 92 hari, dipotong di closedThrough. */
+export async function getClassTrend(ctx: ActionContext, classId: string, query: ClassTrendQuery): Promise<ClassTrendDto> {
+  const scope = monitorScope(ctx, query.schoolId);
+  const school = await loadMonitorSchool(scope);
+  const klass = await assertClassInSchool(scope, classId);
+  const trend = await dailyTrendFor(school, { classId }, query, ctx.now);
+  return { classId: klass.id, className: klass.name, ...trend };
+}
+
+/** Tren harian seluruh sekolah (semua kelas + baris tanpa kelas) untuk grafik beranda admin sekolah. */
+export async function getSchoolTrend(ctx: ActionContext, query: SchoolTrendQuery): Promise<SchoolTrendDto> {
+  const school = await loadMonitorSchool(monitorScope(ctx, query.schoolId));
+  return dailyTrendFor(school, {}, query, ctx.now);
 }
 
 /** Tren bulanan satu siswa (n bulan terakhir termasuk bulan berjalan). */

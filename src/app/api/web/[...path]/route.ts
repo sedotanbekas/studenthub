@@ -84,6 +84,9 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       const result = new NextResponse(upstream.body, { status: upstream.status });
       for (const key of ["content-type", "content-disposition"]) if (upstream.headers.has(key)) result.headers.set(key, upstream.headers.get(key)!);
       result.headers.set("Cache-Control", "private, no-store");
+      // Berkas privat bisa dibuka sebagai dokumen di tab baru: jangan pernah di-sniff/dijalankan di origin aplikasi.
+      result.headers.set("X-Content-Type-Options", "nosniff");
+      result.headers.set("Content-Security-Policy", "default-src none; sandbox");
       return result;
     }
     const payload = await upstream.json();

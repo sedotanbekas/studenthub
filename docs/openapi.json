@@ -16162,6 +16162,139 @@
         }
       }
     },
+    "/api/v1/school/attendance/analytics/trend": {
+      "get": {
+        "operationId": "monitorAttendanceSchoolTrend",
+        "tags": [
+          "Absensi — Monitoring"
+        ],
+        "summary": "Tren harian sekolah",
+        "description": "Gabungan semua kelas (termasuk baris tanpa kelas). Rentang default 30 hari terakhir, maksimal 92 hari. Setiap hari sekolah muncul (tanpa data -> persen null); hari non-sekolah hanya muncul bila ada catatan (isSchoolDay=false). Persentase dihitung atas baris tercatat pada hari yang sudah ditutup (tanggal <= closedThrough: hari ini setelah dayEndMinute lokal, selain itu kemarin); hadir = HADIR + TERLAMBAT; kelas = kelas snapshot saat dicatat. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "description": "Awal rentang (inklusif).",
+              "type": "string",
+              "format": "date",
+              "example": "2026-09-21"
+            },
+            "description": "Awal rentang (inklusif)."
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "description": "Akhir rentang (inklusif), maks. 92 hari dari from.",
+              "type": "string",
+              "format": "date",
+              "example": "2026-09-21"
+            },
+            "description": "Akhir rentang (inklusif), maks. 92 hari dari from."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MonitorSchoolTrend"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, SCHOOL_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/school/attendance/analytics/students/{studentId}": {
       "get": {
         "operationId": "monitorAttendanceStudentTrend",
@@ -36946,6 +37079,105 @@
         "required": [
           "classId",
           "className",
+          "from",
+          "to",
+          "closedThrough",
+          "days"
+        ],
+        "additionalProperties": false
+      },
+      "MonitorSchoolTrend": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-21"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-21"
+          },
+          "closedThrough": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-21"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "recorded": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Jumlah baris absensi (student-day) tercatat pada hari yang sudah ditutup."
+                },
+                "presentPct": {
+                  "description": "Persen satu desimal; null bila penyebut 0 / hari non-sekolah.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "latePct": {
+                  "description": "Persen satu desimal; null bila penyebut 0 / hari non-sekolah.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "izinPct": {
+                  "description": "Persen satu desimal; null bila penyebut 0 / hari non-sekolah.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "sakitPct": {
+                  "description": "Persen satu desimal; null bila penyebut 0 / hari non-sekolah.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "alphaPct": {
+                  "description": "Persen satu desimal; null bila penyebut 0 / hari non-sekolah.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "counts": {
+                  "$ref": "#/components/schemas/MonitorAttendanceCounts"
+                },
+                "date": {
+                  "type": "string",
+                  "format": "date",
+                  "example": "2026-09-21"
+                },
+                "isSchoolDay": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "recorded",
+                "presentPct",
+                "latePct",
+                "izinPct",
+                "sakitPct",
+                "alphaPct",
+                "counts",
+                "date",
+                "isSchoolDay"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
           "from",
           "to",
           "closedThrough",

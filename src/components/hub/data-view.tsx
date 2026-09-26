@@ -5,7 +5,8 @@ import { Icon } from "./icon";
 
 export function Status({ value }: { value: unknown }) {
   const text = String(value ?? "");
-  const tone = /^(ACTIVE|APPROVED|PAID|PUBLISHED|HADIR|LUNAS)$/.test(text) ? "green" : /^(REJECTED|ALPHA|VOID|SUSPENDED|JATUH_TEMPO|DIBATALKAN)$/.test(text) ? "red" : /PENDING|PARTIAL|UNPAID|TERLAMBAT|DRAFT|BELUM_BAYAR|SEBAGIAN|MENUNGGU/.test(text) ? "amber" : "neutral";
+  // Status tayang iklan: LIVE = tayang (hijau); SCHEDULED/PAUSED menunggu (kuning); saldo habis/sponsor nonaktif = berhenti tayang (merah).
+  const tone = /^(ACTIVE|APPROVED|PAID|PUBLISHED|HADIR|LUNAS|LIVE)$/.test(text) ? "green" : /^(REJECTED|ALPHA|VOID|SUSPENDED|JATUH_TEMPO|DIBATALKAN|NO_BALANCE|SPONSOR_INACTIVE)$/.test(text) ? "red" : /PENDING|PARTIAL|UNPAID|TERLAMBAT|DRAFT|BELUM_BAYAR|SEBAGIAN|MENUNGGU|SCHEDULED|PAUSED/.test(text) ? "amber" : "neutral";
   return <span className={`status ${tone}`}><i />{display(value)}</span>;
 }
 function Cell({ value, name }: { value: unknown; name: string }) {

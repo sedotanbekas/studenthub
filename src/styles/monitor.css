@@ -1,0 +1,237 @@
+/*
+ * Kehadiran admin sekolah: tab, filter, peta check-in berkelompok (Leaflet), legenda, daftar, detail.
+ * Dimuat sebelum glass.css. Warna status dipakai konsisten oleh pin, chip, pill, avatar, dan legenda:
+ * kelas `.s-<status>` memetakan --att / --att-soft / --att-ink ke token --att-<status> (didefinisikan
+ * sekali di charts.css — palet yang sama untuk pin peta, chip, donat, dan grafik tren).
+ */
+:root {
+  --monitor-map-height: clamp(420px, 62vh, 620px);
+}
+.s-hadir { --att: var(--att-hadir); --att-soft: var(--att-hadir-soft); --att-ink: var(--att-hadir-ink); }
+.s-terlambat { --att: var(--att-terlambat); --att-soft: var(--att-terlambat-soft); --att-ink: var(--att-terlambat-ink); }
+.s-izin { --att: var(--att-izin); --att-soft: var(--att-izin-soft); --att-ink: var(--att-izin-ink); }
+.s-sakit { --att: var(--att-sakit); --att-soft: var(--att-sakit-soft); --att-ink: var(--att-sakit-ink); }
+.s-alpha { --att: var(--att-alpha); --att-soft: var(--att-alpha-soft); --att-ink: var(--att-alpha-ink); }
+.s-belum { --att: var(--att-belum); --att-soft: var(--att-belum-soft); --att-ink: var(--att-belum-ink); }
+
+/* ---- Tab tersegmentasi ---- */
+.monitor-page { gap: 16px; }
+.monitor-tabs {
+  display: inline-flex; align-self: flex-start; gap: 4px; max-width: 100%; padding: 4px; border-radius: 999px;
+  border: 1px solid var(--glass-border); background: var(--glass-sheen), var(--glass-card);
+  box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-1);
+}
+.monitor-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 18px; border-radius: 999px; font-size: 15px; font-weight: 700; color: var(--ink-2); white-space: nowrap; transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out); }
+.monitor-tab:hover:not([aria-selected="true"]) { background: rgb(255 255 255 / 60%); }
+.monitor-tab[aria-selected="true"] { background: var(--paper); color: var(--primary-ink); box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%), 0 1px 2px rgb(15 23 42 / 10%), 0 6px 14px -8px var(--primary-glow); }
+.monitor-tabpanel, .monitor-view { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ---- Filter ---- */
+.monitor-toolbar {
+  display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px; border-radius: var(--radius);
+  border: 1px solid var(--glass-border); background: var(--glass-sheen), var(--glass-card);
+  box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-1);
+}
+.monitor-filter-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.monitor-control { position: relative; display: flex; align-items: center; flex: 0 1 210px; min-width: 0; }
+.monitor-control > svg { position: absolute; left: 14px; color: var(--muted); pointer-events: none; }
+.monitor-control :is(input, select) { min-height: 46px; padding-left: 42px; background: var(--paper); font-weight: 600; }
+.monitor-control.is-search { flex: 1 1 260px; }
+.monitor-chips { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.att-chip {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 7px 6px 7px; border-radius: 999px;
+  border: 1.5px solid var(--line); background: var(--paper); color: var(--ink-2); font-size: 15px; font-weight: 700; white-space: nowrap;
+  transition: background-color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), color 0.15s var(--ease-out), transform 0.15s var(--ease-out);
+}
+.att-chip:hover { border-color: var(--att, var(--ink-2)); }
+.att-chip:active { transform: scale(0.97); }
+.att-chip.is-all { padding-left: 16px; }
+.att-chip i { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--att); color: #fff; font-size: 12px; font-style: normal; font-weight: 800; }
+.att-chip b { min-width: 30px; padding: 2px 9px; border-radius: 999px; background: var(--line-soft); color: var(--ink); font-size: 13px; font-variant-numeric: tabular-nums; text-align: center; }
+.att-chip[aria-pressed="true"] { border-color: var(--att, var(--primary-line)); background: var(--att-soft, var(--primary-soft)); color: var(--att-ink, var(--primary-ink)); box-shadow: inset 0 0 0 1px var(--att, var(--primary-line)); }
+.att-chip[aria-pressed="true"] b { background: var(--att, var(--primary)); color: #fff; }
+
+/* ---- Tata letak peta + daftar ---- */
+.monitor-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 16px; align-items: stretch; }
+.monitor-map-panel, .monitor-list-panel { padding: 16px; gap: 12px; }
+.monitor-panel-head { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.monitor-panel-head > div { flex: 1; min-width: 0; }
+.monitor-panel-head small { display: block; color: var(--muted); font-weight: 600; }
+.monitor-loading { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.monitor-loading .loader { width: 16px; height: 16px; }
+.monitor-map-box { position: relative; isolation: isolate; overflow: hidden; border-radius: 16px; border: 1px solid var(--line-soft); background: var(--line-soft); scroll-margin-top: 84px; container: monitor-map / inline-size; }
+.monitor-canvas { height: var(--monitor-map-height); }
+.monitor-map-empty {
+  position: absolute; left: 50%; bottom: 14px; z-index: 800; transform: translateX(-50%); max-width: calc(100% - 32px); margin: 0;
+  padding: 8px 16px; border-radius: 999px; background: var(--glass-thick); box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-1);
+  font-size: 14px; font-weight: 700; color: var(--ink-2); text-align: center; pointer-events: none;
+}
+/* Modul Leaflet gagal dimuat: pesan + tombol coba lagi di tengah kotak peta. */
+.monitor-map-error { position: absolute; inset: 0; z-index: 900; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
+.monitor-map-error p { max-width: 34ch; margin: 0; color: var(--ink-2); font-weight: 700; }
+.monitor-skeleton-map { height: var(--monitor-map-height); margin: 0; border-radius: 16px; }
+.monitor-skeleton-row { height: 52px; margin: 6px 0; border-radius: 14px; }
+
+/* ---- Leaflet: kontrol & kanvas bergaya kaca ----
+ * leaflet.css ikut chunk komponen (urutan muat tidak pasti) -> penimpaan memakai spesifisitas lebih tinggi. */
+.monitor-map-box .leaflet-container { font-family: var(--font); background: #e6ecf3; }
+.monitor-map-box .leaflet-container .leaflet-bar { overflow: hidden; border: 1px solid var(--glass-border); border-radius: 14px; box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-1); }
+.monitor-map-box .leaflet-container .leaflet-bar a { width: 40px; height: 40px; line-height: 40px; font-size: 20px; background: var(--glass-thick); color: var(--ink); }
+.monitor-map-box .leaflet-container .leaflet-bar a:hover { background: var(--paper); }
+.monitor-map-box .leaflet-container .leaflet-bar a.leaflet-disabled { color: var(--line); background: var(--glass-thick); }
+.monitor-map-box .leaflet-control-attribution { border-radius: 8px 0 0 0; background: rgb(255 255 255 / 80%); font-size: 11px; }
+.monitor-geofence { stroke: var(--primary); stroke-width: 2; stroke-dasharray: 7 6; fill: var(--primary); fill-opacity: 0.07; }
+.monitor-map-box .leaflet-marker-icon:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 50%; }
+.att-pin-icon, .att-cluster-icon, .att-school-icon { background: none; border: 0; border-radius: 50%; }
+.att-school { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 12px; border: 2.5px solid #fff; background: var(--primary); color: var(--on-primary); box-shadow: 0 3px 10px rgb(15 23 42 / 35%); }
+.leaflet-tooltip.att-tooltip { padding: 4px 10px; border: 1px solid var(--glass-border); border-radius: 10px; background: var(--glass-thick); color: var(--ink); box-shadow: var(--elev-1); font: 700 13px/1.35 var(--font); }
+
+/* Pin siswa: bulat berwarna status + huruf; anomali = lencana "!"; di luar radius = cincin putus-putus. */
+.att-pin {
+  position: relative; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  border: 2.5px solid #fff; background: var(--att); color: #fff; font-size: 13px; font-weight: 800; line-height: 1;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 35%), 0 0 0 1px rgb(15 23 42 / 12%); transition: transform 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
+}
+.att-pin.is-outside { outline: 2px dashed var(--danger); outline-offset: 2px; }
+.att-pin-flag { position: absolute; top: -7px; right: -7px; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid #fff; background: var(--danger); color: #fff; font-size: 11px; font-style: normal; font-weight: 900; }
+.att-pin-icon:hover .att-pin, .att-pin-icon:focus-visible .att-pin { transform: scale(1.12); }
+.att-pin-icon.is-selected { z-index: 3000 !important; }
+.att-pin-icon.is-selected .att-pin { transform: scale(1.2); box-shadow: 0 0 0 4px color-mix(in srgb, var(--att) 40%, transparent), 0 0 0 7px rgb(255 255 255 / 85%), 0 6px 14px rgb(15 23 42 / 35%); }
+
+/* Kelompok: gelembung jumlah + cincin komposisi status. */
+.att-cluster { display: grid; width: 100%; height: 100%; padding: 5px; border-radius: 50%; background: var(--ring); box-shadow: 0 0 0 2px #fff, 0 6px 16px -4px rgb(15 23 42 / 45%); transition: transform 0.18s var(--ease-out), opacity 0.2s var(--ease-out); }
+.att-cluster b { display: grid; place-items: center; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px rgb(15 23 42 / 8%); }
+.att-cluster-icon:hover .att-cluster, .att-cluster-icon:focus-visible .att-cluster { transform: scale(1.08); }
+.att-cluster-icon.is-spidered .att-cluster { transform: scale(0.8); opacity: 0.92; }
+
+/* Sebaran (spiderfy): pin keluar dari pusat kelompok, kaki tipis ke pusat. */
+.spider-leg { stroke: rgb(15 23 42 / 55%); stroke-width: 1.5; fill: none; animation: monitor-leg-in 0.28s var(--ease-out) both; }
+.is-spider-anim .spider-pin { transition: transform 0.28s var(--ease-out), opacity 0.28s var(--ease-out); }
+.spider-pin.is-leaving { opacity: 0; }
+/* Saat tersebar: penanda lain diredupkan agar pin sebaran terbaca (sekolah tetap jelas). */
+.has-spider .leaflet-marker-icon:not(.spider-pin, .is-spidered, .att-school-icon) { opacity: 0.28; }
+@keyframes monitor-leg-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Popup pin: kartu kaca ringkas. */
+.monitor-popup .leaflet-popup-content-wrapper { padding: 0; border-radius: 20px; background: var(--glass-thick); box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-2); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); }
+.monitor-popup .leaflet-popup-tip { background: var(--glass-thick); }
+.monitor-popup .leaflet-popup-content { margin: 14px 16px 16px; color: var(--ink); font: 15px/1.45 var(--font); }
+.monitor-popup.leaflet-popup a.leaflet-popup-close-button { top: 6px; right: 6px; width: 40px; height: 40px; border-radius: 12px; font: 400 24px/38px var(--font); color: var(--muted); }
+.monitor-popup.leaflet-popup a.leaflet-popup-close-button:hover { background: var(--line-soft); color: var(--ink); }
+.pin-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.pin-card-head { display: flex; align-items: center; gap: 10px; padding-right: 30px; }
+.pin-card-head strong { display: block; font-size: 16px; line-height: 1.3; }
+.pin-card-head small { display: block; color: var(--muted); font-size: 13px; font-weight: 600; }
+.pin-card-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; width: 100%; margin: 0; font-size: 14px; }
+.pin-card-facts > div { display: contents; }
+.pin-card-facts dt { color: var(--muted); font-weight: 600; }
+.pin-card-facts dd { margin: 0; font-weight: 700; text-align: right; }
+.pin-card-facts .is-warning dd { color: var(--danger-ink); }
+.pin-card-flags { width: 100%; margin: 0; padding: 8px 10px 8px 26px; border-radius: 12px; background: var(--line-soft); color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.pin-card-flags.is-anomaly { background: var(--danger-soft); color: var(--danger-ink); }
+.pin-card-detail { width: 100%; }
+/* Isi popup lebih tinggi dari peta (HP): isi digulir, tombol detail tetap menempel di bawah. */
+.monitor-popup .leaflet-popup-scrolled .pin-card-detail { position: sticky; bottom: 0; box-shadow: 0 -10px 12px -2px var(--glass-thick); }
+/* Peta sempit (HP 320–400px): kartu ringkas — avatar disembunyikan (pin sudah menunjukkan status), jarak dirapatkan. */
+@container monitor-map (max-width: 419px) {
+  .monitor-popup .leaflet-popup-content { margin: 12px 14px 14px; }
+  .pin-card { gap: 8px; }
+  .pin-card-head .att-avatar { display: none; }
+  .pin-card-facts { font-size: 13px; }
+}
+
+/* ---- Pill, avatar, swatch status ---- */
+.att-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1.5px solid color-mix(in srgb, var(--att) 45%, transparent); background: var(--att-soft); color: var(--att-ink); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.att-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--att); }
+.att-avatar { display: inline-grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: var(--att-soft); color: var(--att-ink); box-shadow: inset 0 0 0 2px var(--att); font-size: 14px; font-weight: 800; }
+.att-swatch { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: var(--att); color: #fff; box-shadow: 0 0 0 1px rgb(15 23 42 / 18%); font-size: 11px; font-weight: 800; }
+.att-swatch.is-outside { background: var(--paper); border: 2px dashed var(--danger); box-shadow: none; }
+.att-swatch.is-flag { width: 18px; height: 18px; border-width: 1.5px; background: var(--danger); font-size: 11px; font-weight: 900; }
+
+/* ---- Legenda ---- */
+.monitor-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0; padding: 4px 2px 0; list-style: none; color: var(--ink-2); font-size: 14px; font-weight: 600; }
+.monitor-legend li { display: inline-flex; align-items: center; gap: 7px; }
+.monitor-legend b { color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+.monitor-legend .is-extra { color: var(--ink); font-weight: 700; }
+
+/* ---- Daftar siswa ---- */
+.monitor-list-panel { display: flex; flex-direction: column; min-height: 0; contain: size; }
+.monitor-list-scroll { flex: 1; min-height: 0; margin: 0 -8px; padding: 0 8px 8px; overflow-y: auto; overscroll-behavior: contain; }
+.monitor-list-label { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 4px 6px; background: var(--paper); color: var(--muted); font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.monitor-list-label b { padding: 0 8px; border-radius: 999px; background: var(--line-soft); color: var(--ink-2); font-size: 12px; letter-spacing: 0; }
+.monitor-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+/* Daftar panjang: baris di luar layar tidak di-layout/dilukis (ukuran diingat); cincin fokus di dalam baris
+ * karena content-visibility memotong lukisan di tepi <li>. */
+.monitor-list > li { content-visibility: auto; contain-intrinsic-size: auto 60px; }
+.monitor-list .monitor-row:focus-visible { outline-offset: -3px; }
+.monitor-list-empty { padding: 8px 4px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.monitor-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 10px; border-radius: 14px; text-align: left; transition: background-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out); }
+/* Gulir otomatis ke baris terpilih berhenti DI BAWAH label sticky (tinggi label + 6px), bukan di belakangnya. */
+.monitor-list-scroll .monitor-row { scroll-margin: 44px 0 8px; }
+button.monitor-row:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.monitor-row.is-selected { background: var(--primary-soft); box-shadow: inset 3px 0 0 var(--primary-line); }
+.monitor-row-main { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.monitor-row-main strong { overflow: hidden; font-size: 15px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.monitor-row-main small { overflow: hidden; color: var(--muted); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.monitor-row-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.row-tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.row-tag.is-warning { background: var(--warning-soft); color: var(--warning-ink); }
+.row-tag.is-danger { background: var(--danger-soft); color: var(--danger-ink); }
+.monitor-row-side { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; gap: 4px; }
+.monitor-row-side time { color: var(--ink-2); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---- Dialog detail ---- */
+.monitor-detail-grid { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; align-items: start; }
+.monitor-selfie { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 0; }
+.monitor-selfie img, .monitor-selfie-initials { width: 100%; aspect-ratio: 3 / 4; border-radius: 16px; background: var(--line-soft); object-fit: cover; }
+.monitor-selfie-initials { display: grid; place-items: center; background: linear-gradient(160deg, var(--primary-soft), var(--animation-soft)); color: var(--primary-ink); font-size: 44px; font-weight: 800; }
+.monitor-selfie.is-empty { justify-content: center; width: 100%; aspect-ratio: 3 / 4; border: 2px dashed var(--line); border-radius: 16px; color: var(--muted); }
+.monitor-selfie figcaption { color: var(--muted); font-size: 13px; font-weight: 600; text-align: center; }
+.monitor-detail-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.monitor-detail-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-weight: 600; }
+.monitor-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; }
+.monitor-facts dt { color: var(--muted); font-size: 13px; font-weight: 700; }
+.monitor-facts dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.monitor-subhead { margin-bottom: 8px; color: var(--muted); font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.monitor-flags, .monitor-rejects { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.monitor-flags li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--line-soft); font-size: 14px; font-weight: 600; }
+.monitor-flags .sev { flex-shrink: 0; padding: 1px 8px; border-radius: 999px; background: var(--paper); font-size: 12px; font-weight: 800; }
+.monitor-flags .sev-high .sev { background: var(--danger-soft); color: var(--danger-ink); }
+.monitor-flags .sev-medium .sev { background: var(--warning-soft); color: var(--warning-ink); }
+.monitor-rejects li { font-size: 14px; }
+
+@media (max-width: 1080px) {
+  .monitor-layout { grid-template-columns: minmax(0, 1fr); }
+  .monitor-list-panel { contain: none; }
+  .monitor-list-scroll { overflow: visible; }
+  .monitor-list-label { position: static; }
+}
+@media (max-width: 759px) {
+  :root { --monitor-map-height: 46vh; }
+  .monitor-canvas, .monitor-skeleton-map { min-height: 280px; }
+  .monitor-tabs { align-self: stretch; }
+  .monitor-tab { flex: 1; padding: 8px 12px; }
+  .monitor-toolbar { padding: 12px; }
+  .monitor-control { flex: 1 1 calc(50% - 5px); }
+  .monitor-control.is-search { flex-basis: 100%; }
+  /* Tanggal & kelas setengah lebar: ikon hias disembunyikan (kontrol native sudah punya ikon sendiri). */
+  .monitor-control:not(.is-search) > svg { display: none; }
+  .monitor-control:not(.is-search) :is(input, select) { padding-left: 12px; padding-right: 8px; }
+  /* Chip status: satu baris geser (hemat tinggi di HP) tanpa meluapkan dokumen. */
+  .monitor-chips { flex-wrap: nowrap; margin: 0 -12px; padding: 2px 12px 4px; overflow-x: auto; scroll-padding-inline: 12px; scrollbar-width: none; }
+  .monitor-chips::-webkit-scrollbar { display: none; }
+  .att-chip { flex-shrink: 0; font-size: 14px; }
+  .monitor-map-panel, .monitor-list-panel { padding: 12px; }
+  .monitor-legend { gap: 8px 12px; font-size: 13px; }
+}
+@media (max-width: 640px) {
+  .monitor-detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .monitor-selfie { width: min(220px, 70%); margin: 0 auto; }
+}
+@media (forced-colors: active) {
+  .att-pin, .att-swatch, .att-chip i, .att-cluster { forced-color-adjust: none; }
+  .monitor-tab[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+}
+
+/* Selama pin menyebar, ringkasan kelompok tidak boleh menutupi pin (penunjuk masih di atas gelembung). */
+.has-spider .leaflet-tooltip.cluster-tip { display: none; }
