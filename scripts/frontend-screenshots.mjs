@@ -11,6 +11,7 @@ const errors = [];
 page.on("pageerror", error => errors.push(error.message));
 async function capture(name) {
   await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => !document.documentElement.dataset.splash); // splash screen selesai
   await page.locator(".skeleton").first().waitFor({ state: "hidden" });
   await page.screenshot({ path: `${output}/${name}.png`, fullPage: true, animations: "disabled" });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);

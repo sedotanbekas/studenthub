@@ -27,13 +27,24 @@ Impor siswa menyediakan pratinjau sebelum penyimpanan. Kata sandi sementara hasi
 ## Sesi web
 
 - Browser berkomunikasi melalui `/api/web/*`. Proxy meneruskan permintaan ke `/api/v1/*` tanpa mengubah service domain.
-- Access token dan refresh token disimpan di cookie `HttpOnly`, `SameSite=Lax`, dengan `Secure` di produksi. Token tidak dikembalikan ke JavaScript browser.
+- Access token dan refresh token disimpan di cookie `HttpOnly`, `SameSite=Lax`, dengan `Secure` di produksi. Token tidak dikembalikan ke JavaScript browser. Login web tersimpan 30 hari (cookie refresh token persisten, bertahan walau browser ditutup); access token 15 menit diperbarui otomatis.
 - Mutasi memerlukan origin yang sesuai. `Host` dan `X-Forwarded-Proto` mengikuti konfigurasi nginx.
 - Proxy hanya meneruskan path/metode yang ada dalam kontrak, menuju loopback. `PORT` di konfigurasi PM2 membedakan produksi dan staging.
 - API tetap menjadi sumber otorisasi, scope sekolah, validasi, dan audit.
 - Proxy meneruskan `User-Agent` browser agar server dapat mengenali browser HP (syarat absensi web).
 - `POST /auth/logout` selalu menghapus kedua cookie sesi, termasuk bila access token sudah tidak ada atau backend gagal.
 - Kerangka hub (`app/hub/layout.tsx` → `HubShell`) bertahan antarhalaman; isi per bagian ada di `app/hub/[[...section]]/page.tsx`. Setiap pergantian identitas (masuk, keluar, masuk demo, ganti persona) mereset state dan tema, lalu membawa pengguna ke beranda bila halaman saat itu bukan milik perannya (`src/components/hub/use-session.ts`, `sectionAllowed`).
+
+## Splash screen & sesi kerja
+
+Permintaan klien 2026-09-28. Login web tersimpan **30 hari** (sesi & refresh token WEB 30 hari, cookie ikut kedaluwarsa refresh token).
+
+- **Kapan tampil.** Saat situs dibuka dalam keadaan belum login, atau sudah login tetapi terakhir dipakai **lebih dari 5 menit** lalu (walau hanya lebih 1 detik); dan saat kembali ke tab/aplikasi setelah pergi lebih dari 5 menit (juga bila perangkat tidur dengan tab terbuka). Kembali ≤ 5 menit: tanpa splash. "Terakhir terlihat" (`studenthub_presence`) dicatat di `localStorage` setiap 15 detik selama tab terlihat, saat tab disembunyikan, dan saat halaman ditutup — bersama semua tab.
+- **Animasi (≤ 1 detik).** Intro 540 ms: logo buku terbuka mekar (halaman kiri–kanan membuka dari punggung buku), cincin & kilau, wordmark naik huruf demi huruf. Reveal 460 ms: logo **menjadi masker** — lubang berbentuk buku menyusut sedikit lalu membesar sampai menutup layar ("masuk ke dalam logo") dan menyingkap halaman. Warna mengikuti tema sekolah terakhir (dibekukan saat splash mulai). Bila data belum siap setelah intro, logo menunggu (bernapas pelan), paling lama 8 detik.
+- **Yang disingkap = halaman terakhir.** Halaman & posisi gulir terakhir akun (`studenthub_resume`: id user, path `/hub/...`, posisi, waktu) disimpan saat pindah halaman, tiap detak, dan saat tab disembunyikan/ditutup. Saat identitas akun diketahui (situs dibuka lagi / login ulang setelah sesi habis) dan pintu masuknya `/hub`, halaman itu dilanjutkan sebelum masker dibuka; tautan langsung ke halaman lain dihormati. Hanya akun yang sama, bagian yang boleh untuk perannya, maksimal 30 hari; bukan untuk mode demo dan akun wajib ganti sandi/TOTP. **Keluar** menghapus catatan ini.
+- **Setelah login.** Tirai warna sekolah melingkar dari tombol yang ditekan (Masuk atau tombol demo) 420 ms sambil logo mekar, identitas baru dipasang setelah tirai menutup layar, lalu masker yang sama menyingkap beranda (total ≤ 1 detik). Login gagal setelah tirai mulai → splash memudar.
+- **Tanpa kedip.** Keputusan saat halaman dimuat dijalankan skrip boot sebaris di `app/hub/layout.tsx` sebelum isi hub dilukis (`splashBoot` di `src/lib/frontend/splash-rules.ts`, diserialisasi `toString()` sehingga wajib mandiri). Splash kembali-ke-tab dan login dipasang di top layer (Popover API) agar menutupi dialog modal yang sedang terbuka. Pengaman: splash tersembunyi sendiri setelah 10 detik bila skrip aplikasi gagal. `prefers-reduced-motion`: logo statis tanpa zoom; splash kembali-ke-tab dan tirai login dilewati.
+- **Berkas.** Aturan murni + test: `src/lib/frontend/splash-rules.ts`; pelaksana DOM: `src/components/hub/splash.ts`; markup: `splash-screen.tsx`; sambungan kerangka hub: `use-splash.ts`; gaya: `src/styles/splash.css`; uji browser: `tests/browser/splash.spec.ts`.
 
 ## Absensi dari browser HP
 

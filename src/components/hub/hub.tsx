@@ -13,6 +13,7 @@ import { Login } from "./login";
 import { cancelPageSlide, playPageSlide } from "./page-slide";
 import { forgetScrollPositions, restoreScroll } from "./scroll-memory";
 import { useHubSession } from "./use-session";
+import { useSplash } from "./use-splash";
 
 /**
  * Kerangka hub yang BERTAHAN antarhalaman (dipasang di app/hub/layout.tsx): sesi, tema sekolah,
@@ -75,12 +76,14 @@ export function HubShell({ children }: { children: ReactNode }) {
   // Halaman baru sudah di DOM tetapi belum dilukis: pulihkan posisi gulir terakhirnya, lalu jalankan
   // geser dari tangkapan halaman lama (potongan hantu dihitung dari posisi yang sudah dipulihkan).
   useLayoutEffect(() => { restoreScroll(pathname); playPageSlide(pathname); }, [pathname]);
+  // Splash + halaman terakhir yang dilanjutkan (setelah forgetScrollPositions di atas).
+  const resuming = useSplash(me, demo, session.ready, pathname);
   const drawer = useDrawer();
   const { schools, unread } = useNavigationData(me, demo);
   useAppearance(me);
   useSectionGuard(me, section);
   const toast = notice ? <div className="toast" role="status">{notice}</div> : null;
-  if (!session.ready) return <main className="standalone"><Brand /><div className="loader" /><p>Memuat…</p></main>;
+  if (!session.ready || resuming) return <main className="standalone"><Brand /><div className="loader" /><p>Memuat…</p></main>;
   if (!me) return <><Login onLogin={session.login} onDemo={session.startDemo} />{toast}</>;
   const restricted = isRestricted(me);
   const { home, module: current } = resolveSection(me.user.role, restricted, section);

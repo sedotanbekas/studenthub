@@ -14,6 +14,7 @@ import "../styles/school-charts.css";
 import "../styles/glass.css";
 import "../styles/transitions.css";
 import "../styles/print.css";
+import "../styles/splash.css";
 
 const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 export const metadata: Metadata = {
@@ -25,5 +26,6 @@ export const metadata: Metadata = {
 /** theme-color dikelola saat runtime oleh applyTheme (warna banner tema sekolah), bukan di sini. */
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="id" className={sans.variable}><body>{children}</body></html>;
+  // Skrip boot splash (app/hub/layout.tsx) memasang data-splash & warna splash di <html> sebelum hidrasi.
+  return <html lang="id" className={sans.variable} suppressHydrationWarning><body>{children}</body></html>;
 }

@@ -1,0 +1,111 @@
+/*
+ * Splash screen hub (src/components/hub/splash.ts + splash-screen.tsx). Fase di <html data-splash>:
+ * - intro  (540 ms): logo buku terbuka mekar, cincin & kilau, wordmark naik huruf demi huruf;
+ * - wipe   (420 ms, setelah login): tirai warna sekolah melingkar dari tombol yang ditekan, logo mekar;
+ * - reveal (460 ms): logo MENJADI MASKER — lubang berbentuk buku menyusut sedikit lalu membesar
+ *   ("masuk ke dalam logo") dan menyingkap halaman terakhir yang dilihat;
+ * - leave  (180 ms): dibatalkan (login gagal), memudar.
+ * intro/wipe + reveal <= 1 detik. Warna dibekukan saat mulai (--splash-a/b/ink/glow), bawaan = tema aktif.
+ */
+.splash { display: none; }
+:root[data-splash] .splash {
+  --splash-size: clamp(96px, 26vmin, 144px);
+  --splash-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: block; position: fixed; inset: 0; z-index: 4000;
+  width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
+  overflow: hidden; background: transparent; color: var(--splash-ink, var(--on-banner));
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+  /* Pengaman: bila skrip aplikasi gagal dimuat, splash tidak pernah menutupi halaman selamanya. */
+  animation: splash-failsafe 1ms linear 10s forwards;
+}
+:root:is([data-splash="reveal"], [data-splash="leave"]) .splash { pointer-events: none; }
+
+/* Lebih besar dari layar: saat antisipasi (menyusut 14%) tepinya tetap menutupi layar. */
+.splash-curtain {
+  position: absolute; inset: -12%; transform-origin: 50% 50%;
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--splash-glow, var(--animation)) 34%, transparent), transparent calc(var(--splash-size) * 1.8)),
+    linear-gradient(150deg, var(--splash-a, var(--banner)), var(--splash-b, var(--banner-2)));
+}
+.splash-art {
+  position: absolute; left: 50%; top: 50%; width: var(--splash-size); height: var(--splash-size);
+  margin: calc(var(--splash-size) / -2) 0 0 calc(var(--splash-size) / -2); transform-origin: 50% 50%;
+}
+.splash-book { position: relative; display: block; width: 100%; height: 100%; overflow: visible; }
+/* Goresan tipis sewarna menutup tepi antialias lubang masker di bawahnya. */
+.splash-page { fill: currentColor; stroke: currentColor; stroke-width: 0.5; stroke-linejoin: round; transform-box: view-box; transform-origin: 12px 13px; }
+.splash-spine { fill: none; stroke: var(--splash-a, var(--banner)); stroke-width: 1.1; stroke-linecap: round; opacity: 0.5; }
+.splash-ring { position: absolute; inset: -14%; border-radius: 50%; border: 2px solid color-mix(in srgb, currentColor 60%, transparent); opacity: 0; }
+.splash-spark { --d: 200ms; --dw: 170ms; position: absolute; width: 20%; height: 20%; fill: var(--splash-glow, var(--animation)); transform-origin: 50% 50%; }
+.splash-spark-1 { right: -20%; top: -16%; }
+.splash-spark-2 { --d: 240ms; --dw: 195ms; left: -26%; top: 36%; width: 13%; height: 13%; }
+.splash-spark-3 { --d: 280ms; --dw: 220ms; right: -11%; bottom: -9%; width: 15%; height: 15%; }
+.splash-word {
+  position: absolute; left: 0; right: 0; top: calc(50% + var(--splash-size) / 2 + 22px); margin: 0;
+  color: inherit; font-size: clamp(24px, 5.4vmin, 32px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; text-align: center; white-space: nowrap;
+}
+.splash-word span { display: inline-block; }
+.splash-word .splash-tld { color: var(--splash-glow, var(--animation)); }
+
+/* intro: membuka situs / kembali setelah > 5 menit */
+:root[data-splash="intro"] .splash-art { animation: splash-pop 440ms var(--splash-spring) both; }
+:root[data-splash="intro"] .splash-book { animation: splash-breathe 1.4s ease-in-out 1s infinite; }
+:root[data-splash="intro"] .splash-page-left { animation: splash-open 380ms var(--splash-spring) 70ms both; }
+:root[data-splash="intro"] .splash-page-right { animation: splash-open 380ms var(--splash-spring) 120ms both; }
+:root[data-splash="intro"] .splash-spine { animation: splash-fade-in 200ms ease-out 160ms both; }
+:root[data-splash="intro"] .splash-ring { animation: splash-ring 520ms var(--ease-out) 20ms both; }
+:root[data-splash="intro"] .splash-spark { animation: splash-spark 240ms var(--splash-spring) var(--d) both; }
+:root[data-splash="intro"] .splash-word span { animation: splash-letter 240ms var(--ease-out) calc(130ms + var(--i) * 14ms) both; }
+
+/* wipe: login berhasil — seluruh splash terpotong lingkaran yang tumbuh dari tombol */
+:root[data-splash="wipe"] .splash { animation: splash-wipe 420ms var(--ease-in-out) both, splash-failsafe 1ms linear 10s forwards; }
+:root[data-splash="wipe"] .splash-art { animation: splash-pop 300ms var(--splash-spring) 120ms both; }
+:root[data-splash="wipe"] .splash-book { animation: splash-breathe 1.4s ease-in-out 800ms infinite; }
+:root[data-splash="wipe"] .splash-page-left { animation: splash-open 270ms var(--splash-spring) 140ms both; }
+:root[data-splash="wipe"] .splash-page-right { animation: splash-open 270ms var(--splash-spring) 150ms both; }
+:root[data-splash="wipe"] .splash-spine { animation: splash-fade-in 160ms ease-out 220ms both; }
+:root[data-splash="wipe"] .splash-spark { animation: splash-spark 200ms var(--splash-spring) var(--dw) both; }
+/* Splash login tanpa wordmark (juga saat reveal sesudahnya). */
+:root[data-splash-kind="login"] .splash-word { visibility: hidden; }
+
+/* reveal: logo menjadi masker yang membesar */
+:root[data-splash="reveal"] .splash-curtain {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 5C8 2 4 3 2 4v15c4-2 7-1 10 2 3-3 6-4 10-2V4c-2-1-6-2-10 1z'/%3E%3C/svg%3E") center / var(--splash-size) var(--splash-size) no-repeat, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  will-change: transform;
+  animation: splash-zoom 460ms linear both, splash-curtain-out 460ms linear both;
+}
+:root[data-splash="reveal"] .splash-art { will-change: transform, opacity; animation: splash-zoom 460ms linear both, splash-art-out 460ms linear both; }
+:root[data-splash="reveal"] .splash-word { animation: splash-word-out 140ms ease-in both; }
+
+:root[data-splash="leave"] .splash { animation: splash-leave 180ms ease-out both; }
+
+@keyframes splash-pop { from { opacity: 0; transform: translateY(12px) scale(0.7); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes splash-open { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes splash-fade-in { from { opacity: 0; } }
+@keyframes splash-ring { from { opacity: 0.8; transform: scale(0.55); } to { opacity: 0; transform: scale(1.6); } }
+@keyframes splash-spark { from { opacity: 0; transform: scale(0) rotate(-60deg); } to { opacity: 1; transform: none; } }
+@keyframes splash-letter { from { opacity: 0; transform: translateY(0.5em); } to { opacity: 1; transform: none; } }
+@keyframes splash-breathe { 0%, 100% { transform: none; } 50% { transform: scale(1.05); } }
+@keyframes splash-wipe {
+  from { clip-path: circle(0 at var(--splash-x, 50%) var(--splash-y, 50%)); }
+  to { clip-path: circle(150vmax at var(--splash-x, 50%) var(--splash-y, 50%)); }
+}
+/* Antisipasi (menyusut 14%) lalu melaju masuk ke dalam logo sampai lubangnya menutup layar. */
+@keyframes splash-zoom {
+  0% { transform: scale(1); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 1); }
+  22% { transform: scale(0.86); animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0); }
+  100% { transform: scale(var(--splash-zoom, 40)); }
+}
+/* Logo putih memudar tepat setelah antisipasi: yang tersisa lubang berbentuk logo berisi halaman. */
+@keyframes splash-art-out { 0%, 20% { opacity: 1; } 34%, 100% { opacity: 0; visibility: hidden; } }
+@keyframes splash-curtain-out { 0%, 86% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes splash-word-out { to { opacity: 0; transform: translateY(8px); } }
+@keyframes splash-leave { to { opacity: 0; } }
+@keyframes splash-failsafe { to { visibility: hidden; opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-ring, .splash-spark { display: none; }
+  :root[data-splash] .splash-book { animation: none; }
+}

@@ -6,6 +6,7 @@ import { DEMO_PERSONAS, demoPersona } from "@/lib/frontend/demo-personas";
 import { readDemoTheme, writeDemoTheme } from "@/lib/frontend/theme";
 import type { SchoolThemeColors } from "@/lib/schools/theme-rules";
 import type { Identity } from "@/lib/frontend/types";
+import { forgetResume } from "./splash";
 
 /**
  * Sesi web: akun sungguhan (cookie HttpOnly lewat /api/web) atau persona demo (sessionStorage).
@@ -50,10 +51,11 @@ export interface HubSession {
   readonly notice: string;
   setNotice: (text: string) => void;
   setSchoolId: (id: string) => void;
-  login: () => Promise<void>;
+  /** `covered`: identitas baru dipasang setelah tirai splash login menutup layar. */
+  login: (covered?: Promise<void>) => Promise<void>;
   logout: () => Promise<void>;
   reloadMe: () => Promise<void>;
-  startDemo: (key: string) => void;
+  startDemo: (key: string, covered?: Promise<void>) => void;
   switchPersona: (key: string) => void;
   saveDemoTheme: (theme: SchoolThemeColors | null) => void;
 }
@@ -88,16 +90,17 @@ export function useHubSession(): HubSession {
 
   const reloadMe = useCallback(async () => { const result = await api("/auth/me"); setMe(result.data as Identity); setReady(true); }, [setMe, setReady]);
 
-  const login = useCallback(async () => {
+  const login = useCallback(async (covered: Promise<void> = Promise.resolve()) => {
     clearDemoStorage();
     const identity = (await api("/auth/me")).data as Identity;
+    await covered;
     setDemo(false); setSchoolIdState(""); setMe(identity); setReady(true);
   }, [setDemo, setMe, setReady, setSchoolIdState]);
 
-  const startDemo = useCallback((key: string) => {
+  const startDemo = useCallback((key: string, covered: Promise<void> = Promise.resolve()) => {
     void endServerSession(); // pastikan tidak ada sesi akun sungguhan yang tersisa di balik mode demo
     sessionStorage.setItem(DEMO_FLAG, "true"); sessionStorage.setItem(DEMO_ROLE, key);
-    setDemo(true); setSchoolIdState(""); setMe(demoIdentity(key));
+    void covered.then(() => { setDemo(true); setSchoolIdState(""); setMe(demoIdentity(key)); });
   }, [setDemo, setMe, setSchoolIdState]);
 
   const switchPersona = useCallback((key: string) => {
@@ -108,6 +111,7 @@ export function useHubSession(): HubSession {
   const logout = useCallback(async () => {
     if (!demo) await api("/auth/logout", { method: "POST" }).catch(() => endServerSession());
     clearDemoStorage();
+    forgetResume(); // keluar = sesi kerja selesai: halaman terakhir tidak dilanjutkan
     setDemo(false); setSchoolIdState(""); setMe(null);
     router.replace("/hub", { scroll: false }); // posisi gulir diatur scroll-memory.ts
   }, [demo, router, setDemo, setMe, setSchoolIdState]);

@@ -4,8 +4,9 @@ import { api, ApiError } from "@/lib/frontend/api";
 import { loginDeviceId } from "@/lib/frontend/attendance";
 import { DEMO_PERSONAS } from "@/lib/frontend/demo-personas";
 import { Brand, Icon } from "./icon";
+import { cancelSplash, centerOf, playLoginSplash } from "./splash";
 
-export function Login({ onLogin, onDemo }: { onLogin: () => Promise<void>; onDemo: (personaKey: string) => void }) {
+export function Login({ onLogin, onDemo }: { onLogin: (covered: Promise<void>) => Promise<void>; onDemo: (personaKey: string, covered: Promise<void>) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [totp, setTotp] = useState(false);
@@ -18,8 +19,9 @@ export function Login({ onLogin, onDemo }: { onLogin: () => Promise<void>; onDem
     const deviceId = loginDeviceId(identifier, navigator.userAgent, localStorage, () => crypto.randomUUID());
     try {
       await api("/auth/login", { method: "POST", body: JSON.stringify({ identifier, password: values.get("password"), platform: "WEB", deviceName: "studenthub.id Web", ...(deviceId ? { deviceId } : {}), ...(totp ? { totpCode: values.get("totpCode") } : {}) }) });
-      await onLogin();
-    } catch (e) { if (e instanceof ApiError && ["TOTP_REQUIRED", "TOTP_INVALID"].includes(e.code)) setTotp(true); setError(e instanceof Error ? e.message : "Gagal masuk."); }
+      // Tirai splash melingkar dari tombol Masuk; beranda disingkap masker logo setelah identitas dimuat.
+      await onLogin(playLoginSplash(centerOf((event.nativeEvent as SubmitEvent).submitter)));
+    } catch (e) { cancelSplash(); if (e instanceof ApiError && ["TOTP_REQUIRED", "TOTP_INVALID"].includes(e.code)) setTotp(true); setError(e instanceof Error ? e.message : "Gagal masuk."); }
     finally { setBusy(false); }
   }
   return <main className="login-page">
@@ -36,8 +38,8 @@ export function Login({ onLogin, onDemo }: { onLogin: () => Promise<void>; onDem
 const PERSONA_ICONS: Record<string, string> = { SCHOOL_ADMIN: "school", STUDENT: "users", SPONSOR: "heart", SUPER_ADMIN: "shield" };
 
 /** Masuk demo sekali klik (tanpa kata sandi, data contoh di browser). */
-function DemoPicker({ onDemo }: { onDemo: (personaKey: string) => void }) {
+function DemoPicker({ onDemo }: { onDemo: (personaKey: string, covered: Promise<void>) => void }) {
   return <section className="demo-picker" aria-labelledby="demo-title"><h3 id="demo-title">Coba tanpa login <small>mode demo · data contoh</small></h3>
-    <div className="demo-grid">{DEMO_PERSONAS.map(p => <button key={p.key} type="button" className="demo-persona" aria-label={`Masuk demo sebagai ${p.label}`} onClick={() => onDemo(p.key)}><span className="demo-icon"><Icon name={PERSONA_ICONS[p.identity.user.role] ?? "users"} size={20} /></span><span><strong>{p.label}</strong><small>{p.caption}</small></span></button>)}</div>
+    <div className="demo-grid">{DEMO_PERSONAS.map(p => <button key={p.key} type="button" className="demo-persona" aria-label={`Masuk demo sebagai ${p.label}`} onClick={e => onDemo(p.key, playLoginSplash(centerOf(e.currentTarget)))}><span className="demo-icon"><Icon name={PERSONA_ICONS[p.identity.user.role] ?? "users"} size={20} /></span><span><strong>{p.label}</strong><small>{p.caption}</small></span></button>)}</div>
   </section>;
 }

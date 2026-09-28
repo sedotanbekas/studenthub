@@ -66,6 +66,12 @@ export function restoreScroll(pathname: string): void {
   if (target > 0) holdPosition(target);
 }
 
+/** Posisi tersimpan dari kunjungan sebelumnya (situs dibuka lagi): dipakai restoreScroll berikutnya. */
+export function seedScrollPosition(pathname: string, y: number): void {
+  const s = state();
+  s.positions = rememberPosition(s.positions, scrollKey(pathname), y);
+}
+
 /** Tautan ke halaman yang sedang dibuka (mis. tab aktif ditekan lagi): gulir ke atas, ala iOS. */
 export function scrollPageToTop(): void {
   state().stopHold?.();
