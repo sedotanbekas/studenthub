@@ -37,7 +37,7 @@ test("demo sponsor: daftar kampanye, filter, detail dengan pratinjau & aksi jeda
   await list.getByRole("button", { name: "Tryout UTBK gratis setiap Sabtu" }).click();
   const dialog = page.getByRole("dialog", { name: "Tryout UTBK gratis setiap Sabtu" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator(".placement-preview .ad-title")).toHaveText("Tryout UTBK gratis setiap Sabtu");
+  await expect(dialog.locator(".placement-preview .partner-headline")).toHaveText("Tryout UTBK gratis setiap Sabtu");
   await expect(dialog.getByRole("heading", { name: "7 hari terakhir" })).toBeVisible();
   await expect(dialog.getByRole("figure", { name: /Klik per hari/ })).toBeVisible();
   await dialog.getByRole("button", { name: "Jeda penayangan" }).click();
@@ -55,7 +55,7 @@ test("demo sponsor: editor lewat tombol — pratinjau langsung mengikuti judul, 
   await page.getByRole("button", { name: "Buat kampanye" }).click();
   const editor = page.getByRole("dialog", { name: "Buat kampanye" });
   await expect(editor).toBeVisible();
-  const previewTitle = editor.locator(".placement-preview .ad-title");
+  const previewTitle = editor.locator(".placement-preview .partner-headline");
   await expect(previewTitle).toHaveText("Judul kampanye Anda");
   await editor.getByRole("button", { name: "Simpan & ajukan tinjauan" }).click();
   await expect(editor.getByText("Pilih banner kampanye.")).toBeVisible();
@@ -91,7 +91,7 @@ test("demo sponsor: ?baru=1 membuka editor dan alamat dibersihkan; banner dicek 
   await expect(editor.getByText(/HEIC/).first()).toBeVisible();
   await editor.locator("#campaign-banner").setInputFiles({ name: "banner.png", mimeType: "image/png", buffer: await pngOf(page, 1200, 600) });
   await expect(editor.getByText("Mode demo: banner tidak diunggah, hanya dipratinjau di perangkat ini.")).toBeVisible();
-  await expect(editor.locator(".placement-preview .ad-media img")).toHaveAttribute("src", /^blob:/);
+  await expect(editor.locator(".placement-preview .partner-media img")).toHaveAttribute("src", /^blob:/);
 });
 
 test("demo sponsor: saldo — rekening tampil, kirim top-up menambah baris Menunggu", async ({ page }) => {

@@ -27,17 +27,17 @@ export function SponsorSlot() {
       <button type="button" className="partner-info" aria-expanded={about} aria-controls="partner-about" onClick={() => setAbout(v => !v)}><Icon name="help" size={16} />Kenapa ada ini?</button>
     </div>
     {about && <p id="partner-about" className="partner-about">Mitra pendidikan membantu Student Hub tetap bisa dipakai sekolah. Info dipilih berdasarkan wilayah sekolahmu, bukan dari data pribadimu, dan setiap iklan ditinjau tim Student Hub sebelum tayang.</p>}
-    <div className={`ad-track${many ? " many" : ""}`} ref={track} onScroll={onScroll} onPointerDown={stop} onWheel={stop} onFocus={stop} role="region" aria-roledescription="carousel" aria-label="Info dari mitra">
+    <div className={`partner-track${many ? " many" : ""}`} ref={track} onScroll={onScroll} onPointerDown={stop} onWheel={stop} onFocus={stop} role="region" aria-roledescription="carousel" aria-label="Info dari mitra">
       {ads.map((ad, i) => <AdSlide key={ad.token} ad={ad} label={`${i + 1} dari ${ads.length}`} onSeen={seen} busy={busy === ad.adId} onOpen={() => open(ad)} />)}
     </div>
-    {many && <div className="ad-dots">{ads.map((ad, i) => <button key={ad.token} type="button" aria-label={`Tampilkan info mitra ${i + 1}`} aria-current={index === i} className={index === i ? "on" : undefined} onClick={() => { stop(); goTo(i); }} />)}</div>}
+    {many && <div className="partner-dots">{ads.map((ad, i) => <button key={ad.token} type="button" aria-label={`Tampilkan info mitra ${i + 1}`} aria-current={index === i} className={index === i ? "on" : undefined} onClick={() => { stop(); goTo(i); }} />)}</div>}
   </section>;
 }
 
 function AdSlide({ ad, label, onSeen, busy, onOpen }: { ad: ServedAd; label: string; onSeen: (token: string) => void; busy: boolean; onOpen: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useSeenOnScreen(ref, ad.token, onSeen);
-  return <div ref={ref} className="ad-slide" role="group" aria-roledescription="slide" aria-label={label}>
+  return <div ref={ref} className="partner-slide" role="group" aria-roledescription="slide" aria-label={label}>
     <AdCard ad={{ title: ad.title, imageSrc: sameOriginMedia(ad.imageUrl), sponsorName: ad.sponsorName }} busy={busy} onOpen={onOpen} />
   </div>;
 }

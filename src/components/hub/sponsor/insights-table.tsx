@@ -9,7 +9,7 @@ import { Icon } from "../icon";
 /** Gambar mini banner 2:1; tanpa gambar / gagal dimuat -> ikon gambar. */
 export function AdThumb({ src }: { src: string | null }) {
   const [broken, setBroken] = useState(false);
-  return <span className="ad-thumb" aria-hidden="true">
+  return <span className="campaign-thumb" aria-hidden="true">
     {src && !broken
       // eslint-disable-next-line @next/next/no-img-element -- banner dari /media atau proxy berkas privat; next/image tidak melayani keduanya
       ? <img src={src} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} />

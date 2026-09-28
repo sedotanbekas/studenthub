@@ -32,7 +32,7 @@ test("demo siswa: slot mitra tenang di bawah menu, berlabel Sponsor, bisa digese
   // Urutan: menu -> slot mitra -> pengumuman.
   const order = await page.evaluate(() => ["nav.tile-grid", ".partner-slot", "#news-title"].map(sel => document.querySelector(sel)!.getBoundingClientRect().top));
   expect(order[0]! < order[1]! && order[1]! < order[2]!).toBe(true);
-  await expect(slot.locator(".ad-badge").first()).toHaveText(/sponsor/i);
+  await expect(slot.locator(".partner-badge").first()).toHaveText(/sponsor/i);
   await expect(slot.getByRole("group")).toHaveCount(4);
   await page.getByRole("button", { name: "Kenapa ada ini?" }).click();
   await expect(page.getByText("bukan dari data pribadimu", { exact: false })).toBeVisible();

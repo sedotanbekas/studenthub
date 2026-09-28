@@ -46,7 +46,7 @@ test("API: akun masih ditinjau, saldo menipis, dan query periode beranda", async
   await page.goto("/hub");
   await expect(page.getByRole("heading", { level: 1, name: /Selamat datang, Rizky/ })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "Akun sedang ditinjau" })).toContainText("pengajuan iklan & top-up aktif setelah akun disetujui");
-  await expect(page.locator(".sponsor-hero .hero-note.alert")).toContainText("Saldo mulai menipis");
+  await expect(page.locator(".brand-hero .hero-note.alert")).toContainText("Saldo mulai menipis");
   await expect(page.locator(".insight-block .stat-tile")).toHaveCount(4);
   expect(requested).toEqual(expect.arrayContaining(["/sponsor/analytics/summary?preset=7d", "/sponsor/analytics/timeseries?preset=30d", "/sponsor/analytics/ads?preset=7d&sort=clicks&limit=50"]));
 });
@@ -73,7 +73,7 @@ test("beranda sponsor: sapaan, saldo, KPI 7 hari, grafik tren, kampanye aktif, d
   await demoSponsor(page);
   await page.goto("/hub");
   await expect(page.getByRole("heading", { level: 1, name: /Selamat datang, Rizky/ })).toBeVisible();
-  const hero = page.locator(".sponsor-hero");
+  const hero = page.locator(".brand-hero");
   await expect(hero.getByRole("heading", { name: "Saldo iklan" })).toBeVisible();
   await expect(hero.locator(".hero-value")).toContainText("Rp");
   await expect(hero).toContainText("klik lagi");
@@ -92,7 +92,7 @@ test("beranda sponsor: sapaan, saldo, KPI 7 hari, grafik tren, kampanye aktif, d
   await expect(page.getByRole("heading", { name: "Kampanye aktif" })).toBeVisible();
   await expect(page.locator(".live-item")).toHaveCount(2);
   await expect(page.getByRole("heading", { name: "Di mana iklan Anda tampil?" })).toBeVisible();
-  await expect(page.locator(".placement-panel .phone .ad-card")).toBeVisible();
+  await expect(page.locator(".placement-panel .phone .partner-card")).toBeVisible();
   await expect(page.locator(".placement-panel")).toContainText("Tidak pernah tampil di halaman absensi, rapor, maupun tagihan.");
   expect(apiCalls, "mode demo tidak memanggil API sponsor").toEqual([]);
 });
@@ -128,7 +128,7 @@ test("analitik sponsor: ganti periode 30 hari & metrik, pilih iklan dari tabel, 
   const metric = page.getByRole("radiogroup", { name: "Metrik grafik tren" });
   await metric.getByRole("radio", { name: "Klik" }).click();
   await expect(metric.getByRole("radio", { name: "Klik" })).toHaveAttribute("aria-checked", "true");
-  await expect(page.locator(".sponsor-analytics .chart-canvas svg").first()).toBeVisible();
+  await expect(page.locator(".brand-analytics .chart-canvas svg").first()).toBeVisible();
   await expect(page.getByRole("list", { name: "Klik per perangkat" })).toContainText("Ponsel");
   await expect(page.getByRole("list", { name: "Klik per provinsi" })).toContainText("DKI Jakarta");
 
@@ -150,7 +150,7 @@ test("beranda & analitik sponsor tanpa overflow horizontal di layar 390px", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await demoSponsor(page);
   await page.goto("/hub");
-  await expect(page.locator(".sponsor-hero .hero-value")).toBeVisible();
+  await expect(page.locator(".brand-hero .hero-value")).toBeVisible();
   await expect(page.locator(".trend-row .chart-canvas svg")).toBeVisible();
   expect(await noOverflow(page)).toBe(true);
   await page.goto("/hub/analytics");
@@ -159,7 +159,7 @@ test("beranda & analitik sponsor tanpa overflow horizontal di layar 390px", asyn
   expect(await noOverflow(page)).toBe(true);
   // Label sumbu-x grafik 30 hari tidak bertumpuk di HP.
   await page.getByRole("radiogroup", { name: "Periode" }).getByRole("radio", { name: "30 hari" }).click();
-  const labels = page.locator(".sponsor-analytics .chart-x text");
+  const labels = page.locator(".brand-analytics .chart-x text");
   await expect(labels.first()).toBeVisible();
   const boxes = await labels.evaluateAll(els => els.filter(e => e.textContent).map(e => { const r = e.getBoundingClientRect(); return [r.left, r.right]; }));
   boxes.slice(1).forEach(([left], i) => expect(left, "label sumbu-x tidak bertumpuk").toBeGreaterThanOrEqual(boxes[i]![1]!));

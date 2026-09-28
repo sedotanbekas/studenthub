@@ -34,13 +34,13 @@ export function SponsorHome() {
   const { profile, balance, ads, summary, series, perf } = useHomeData(version);
   const companyName = profile.data?.companyName ?? me.sponsor?.companyName ?? "";
   const topAd = liveByClicks(ads.data ?? [], perf.data ?? [])[0] ?? null;
-  return <div className="dashboard sponsor-home">
+  return <div className="dashboard brand-home">
     <div className="page-heading"><div><h1>Selamat datang, {firstName(me.user.name)}</h1><p>{longDate(new Date())}{companyName && ` · ${companyName}`}</p></div></div>
     <AccountNoticeBanner profile={profile.data} />
     <LoadError message={firstError(profile, balance, ads, summary, series, perf)} onRetry={() => setVersion(v => v + 1)} />
     <BalanceHero balance={balance.data} weekSpend={summary.data?.kpis.spend.value ?? null} />
     <WeekKpis summary={summary} series={series} />
-    <div className="sponsor-columns trend-row">
+    <div className="brand-columns trend-row">
       <TrendPanel title="Tren 30 hari" note={series.data ? rangeLabel(series.data.period) : undefined} days={series.data?.days ?? null} loading={series.loading} />
       <LiveCampaigns ads={ads.data} perf={perf.data} />
     </div>
@@ -49,9 +49,9 @@ export function SponsorHome() {
 }
 
 function WeekKpis({ summary, series }: { summary: Load<AnalyticsSummary>; series: Load<AnalyticsSeries> }) {
-  return <section className="insight-block" aria-labelledby="sponsor-week-title">
+  return <section className="insight-block" aria-labelledby="brand-week-title">
     <div className="insight-block-head">
-      <div><h2 id="sponsor-week-title">7 hari terakhir</h2>{summary.data && <span>{rangeLabel(summary.data.period)}</span>}</div>
+      <div><h2 id="brand-week-title">7 hari terakhir</h2>{summary.data && <span>{rangeLabel(summary.data.period)}</span>}</div>
       <HubLink href="/hub/analytics" className="text-link">Lihat analitik<Icon name="arrow" size={15} /></HubLink>
     </div>
     <KpiGrid keys={HOME_KPIS} summary={summary.data} days={series.data?.days.slice(-7) ?? null} compareLabel={compareLabel("7d")} loading={summary.loading} />

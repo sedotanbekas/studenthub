@@ -43,7 +43,7 @@ export function SponsorAnalyticsPage({ module }: { module: Module }) {
   const kpis = summary.data?.kpis;
   const empty = !!kpis && kpis.impressions.value === 0 && kpis.clicks.value === 0;
   const thumbs = new Map((ads.data ?? []).map(ad => [ad.id, bannerSrc(ad)]));
-  return <div className="workspace-page sponsor-analytics">
+  return <div className="workspace-page brand-analytics">
     <div className="page-heading"><div><h1>{module.title}</h1><p>{module.description}</p></div></div>
     <InsightsFilters filter={filter} onChange={update} ads={ads.data ?? []} period={summary.data?.period ?? null} />
     <LoadError message={firstError(summary, series, device, province, table)} onRetry={() => setVersion(v => v + 1)} />
@@ -51,7 +51,7 @@ export function SponsorAnalyticsPage({ module }: { module: Module }) {
     <p className="insight-footnote">CTR = klik ÷ tayangan. Klik unik = jumlah siswa berbeda yang mengeklik. Klik ditagih = klik sah yang memotong saldo (paling banyak satu per siswa per iklan per hari).</p>
     {empty ? <EmptyPeriod /> : <>
       <TrendPanel title={`Tren ${periodLabel(filter.preset)}`} note={series.data ? rangeLabel(series.data.period) : undefined} days={series.data?.days ?? null} loading={series.loading} />
-      <div className="sponsor-columns even">
+      <div className="brand-columns even">
         <BreakdownPanel title="Perangkat" note="Jenis perangkat siswa saat mengeklik." data={device.data} loading={device.loading} />
         <BreakdownPanel title="Provinsi" note="Provinsi sekolah siswa yang mengeklik." data={province.data} loading={province.loading} />
       </div>

@@ -20,9 +20,9 @@ export function AccountNoticeBanner({ profile }: { profile: SponsorDto | null })
  * menipis, top-up menunggu verifikasi, perkiraan umur saldo), dan dua aksi utama.
  */
 export function BalanceHero({ balance, weekSpend }: { balance: SponsorBalanceDto | null; weekSpend: number | null }) {
-  return <section className="sponsor-hero" aria-labelledby="sponsor-hero-title">
+  return <section className="brand-hero" aria-labelledby="brand-hero-title">
     <div className="hero-main">
-      <h2 id="sponsor-hero-title" className="hero-kicker"><Icon name="wallet" size={16} />Saldo iklan</h2>
+      <h2 id="brand-hero-title" className="hero-kicker"><Icon name="wallet" size={16} />Saldo iklan</h2>
       {balance
         ? <><strong className="hero-value">{rupiah(balance.balance)}</strong><p className="hero-sub">± {number(balance.estimatedClicksRemaining)} klik lagi · {rupiah(balance.defaultCpcAmount)} per klik</p></>
         : <><span className="hero-skeleton wide" aria-hidden="true" /><span className="hero-skeleton" aria-hidden="true" /><span className="sr-only">Memuat saldo…</span></>}
