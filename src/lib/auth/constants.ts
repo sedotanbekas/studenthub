@@ -14,10 +14,13 @@ export const CLIENT_PLATFORMS = ["ANDROID", "IOS", "WEB"] as const satisfies rea
 export const MOBILE_PLATFORMS = ["ANDROID", "IOS"] as const satisfies readonly ClientPlatform[];
 export const USER_ROLES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"] as const satisfies readonly UserRole[];
 
-/** Umur absolut sesi (family refresh token); tidak diperpanjang oleh rotasi. */
-export const SESSION_ABSOLUTE_TTL_MS: Readonly<Record<PlatformClass, number>> = { MOBILE: 180 * DAY_MS, WEB: 7 * DAY_MS };
+/**
+ * Umur absolut sesi (family refresh token); tidak diperpanjang oleh rotasi. WEB 30 hari (permintaan klien
+ * 2026-09-28: login web tersimpan setidaknya 30 hari, menggantikan 7 hari / idle 12 jam).
+ */
+export const SESSION_ABSOLUTE_TTL_MS: Readonly<Record<PlatformClass, number>> = { MOBILE: 180 * DAY_MS, WEB: 30 * DAY_MS };
 /** Umur idle refresh token: tidak dipakai selama ini => login ulang. */
-export const REFRESH_IDLE_TTL_MS: Readonly<Record<PlatformClass, number>> = { MOBILE: 30 * DAY_MS, WEB: 12 * HOUR_MS };
+export const REFRESH_IDLE_TTL_MS: Readonly<Record<PlatformClass, number>> = { MOBILE: 30 * DAY_MS, WEB: 30 * DAY_MS };
 export const REFRESH_TOKEN_BYTES = 32;
 /** Pemakaian ulang token yang sudah dirotasi dalam jendela ini = balapan (409), di luar = reuse (cabut sesi). */
 export const REFRESH_RACE_GRACE_MS = 30_000;

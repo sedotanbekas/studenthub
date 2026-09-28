@@ -132,7 +132,7 @@ Skema dasar = `docs/design/00-schema.md`, **ditambah** perubahan yang disetujui:
 **Auth & sesi** — `POST /auth/login {identifier, password, platform, deviceId?, expoPushToken?}`:
 10 digit = NISN (hanya STUDENT), selain itu email (non-STUDENT); pesan gagal seragam + padding waktu.
 Access JWT HS256 15 menit (`sub, sid`); refresh token opak dirotasi dengan deteksi reuse (grace 30 s);
-sesi mobile maks 180 hari (idle 30 hari). Setiap request memverifikasi baris `AuthSession` (logout,
+sesi mobile maks 180 hari (idle 30 hari), sesi web 30 hari. Setiap request memverifikasi baris `AuthSession` (logout,
 nonaktif, ganti password langsung berlaku). **Satu sesi mobile aktif per siswa** (login baru mencabut
 yang lama); `deviceId` wajib untuk siswa. Limiter login: pasangan ip::identifier, identifier-saja, dan
 IP; kunci aktif tak pernah di-evict. Kata sandi awal siswa **selalu di-generate**, kedaluwarsa 14 hari,
@@ -309,4 +309,5 @@ Unggahan hanya foto (tanpa PDF) · satu HP = satu akun siswa aktif (HP bersama s
 CPC awal Rp 500/klik, top-up min Rp 100.000 (bisa diubah super admin) · klik ditagih maks 1×/siswa/
 iklan/hari · predikat rapor model K13 relatif KKM · nomor INV-/KWT-TAHUN-urut per sekolah · tanpa
 denda keterlambatan SPP · siswa LULUS tetap bisa login read-only · lupa password → reset oleh admin
-(tanpa email/WA OTP) · sesi web admin 12 jam idle.
+(tanpa email/WA OTP) · ~~sesi web admin 12 jam idle~~ → **login web tersimpan 30 hari** (permintaan klien
+2026-09-28; sesi & refresh WEB 30 hari).

@@ -46,15 +46,15 @@ test("platformClassOf: ANDROID/IOS = MOBILE, WEB = WEB", () => {
   assert.equal(platformClassOf("WEB"), "WEB");
 });
 
-test("sessionExpiry: mobile 180 hari, web 7 hari", () => {
+test("sessionExpiry: mobile 180 hari, web 30 hari", () => {
   assert.equal(sessionExpiry(NOW, "ANDROID").getTime() - NOW.getTime(), 180 * 86_400_000);
-  assert.equal(sessionExpiry(NOW, "WEB").getTime() - NOW.getTime(), 7 * 86_400_000);
+  assert.equal(sessionExpiry(NOW, "WEB").getTime() - NOW.getTime(), 30 * 86_400_000);
 });
 
-test("refreshExpiry: idle mobile 30 hari / web 12 jam, dipotong batas absolut sesi", () => {
+test("refreshExpiry: idle mobile 30 hari / web 30 hari, dipotong batas absolut sesi", () => {
   const far = at(365 * 86_400_000);
   assert.equal(refreshExpiry(NOW, "IOS", far).getTime() - NOW.getTime(), 30 * 86_400_000);
-  assert.equal(refreshExpiry(NOW, "WEB", far).getTime() - NOW.getTime(), 12 * 3_600_000);
+  assert.equal(refreshExpiry(NOW, "WEB", far).getTime() - NOW.getTime(), 30 * 86_400_000);
   const soon = at(3_600_000);
   assert.equal(refreshExpiry(NOW, "ANDROID", soon).getTime(), soon.getTime());
 });

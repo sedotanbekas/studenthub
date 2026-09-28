@@ -49,7 +49,7 @@ test("login NISN dari ANDROID -> token, sesi mobile, perangkat terikat, lastLogi
   assert.equal((await me(data.accessToken)).status, 200);
 });
 
-test("login email tidak peka huruf besar; sesi WEB 7 hari dan refresh 12 jam", async () => {
+test("login email tidak peka huruf besar; sesi WEB & refresh 30 hari (login web tersimpan)", async () => {
   const email = uniqEmail("Adm");
   const admin = await createSchoolAdmin(schoolId, { email });
   const data = await loginOk(email.toUpperCase());
@@ -58,8 +58,10 @@ test("login email tidak peka huruf besar; sesi WEB 7 hari dan refresh 12 jam", a
   const session = await prisma.authSession.findUniqueOrThrow({ where: { id: data.sessionId } });
   assert.equal(session.platform, "WEB");
   assert.equal(session.deviceId, null);
-  const refreshHours = (Date.parse(data.refreshTokenExpiresAt) - session.createdAt.getTime()) / 3_600_000;
-  assert.ok(refreshHours > 11.9 && refreshHours < 12.1, `umur refresh ${refreshHours}`);
+  const sessionDays = (session.expiresAt.getTime() - session.createdAt.getTime()) / 86_400_000;
+  assert.ok(sessionDays > 29.99 && sessionDays < 30.01, `umur sesi ${sessionDays}`);
+  const refreshDays = (Date.parse(data.refreshTokenExpiresAt) - session.createdAt.getTime()) / 86_400_000;
+  assert.ok(refreshDays > 29.99 && refreshDays < 30.01, `umur refresh ${refreshDays}`);
 });
 
 test("kredensial salah / akun tidak ada -> 401 INVALID_CREDENTIALS seragam, dipadatkan >= 300 ms", async () => {
