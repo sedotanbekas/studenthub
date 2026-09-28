@@ -34,7 +34,7 @@ function buildClassSheet(workbook: ExcelJS.Workbook, classNames: readonly string
 
 export async function buildImportTemplate(classNames: readonly string[]): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Student Hub";
+  workbook.creator = "studenthub.id";
   buildStudentSheet(workbook);
   buildClassSheet(workbook, classNames);
   const buffer = await workbook.xlsx.writeBuffer();

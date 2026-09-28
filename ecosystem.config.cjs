@@ -1,5 +1,5 @@
 /**
- * Konfigurasi PM2 Student Hub (produksi & staging).
+ * Konfigurasi PM2 studenthub.id (produksi & staging).
  *
  * Dijalankan oleh user sistem `studenthub` dengan PM2 miliknya sendiri
  * (PM2_HOME=/home/studenthub/.pm2, unit systemd pm2-studenthub) — lihat docs/deploy/BOOTSTRAP.md.

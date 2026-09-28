@@ -1,4 +1,4 @@
-﻿# Attendance domain design: Student Hub
+﻿# Attendance domain design: studenthub.id
 
 This is a design only. I changed no files, ran no installs and connected to nothing. I read lims-sotoy (`kalender-kerja.ts`, `api-permission.ts`, `package.json`) to follow its conventions.
 

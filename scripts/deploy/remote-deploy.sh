@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploy Student Hub di VPS. Dijalankan workflow .github/workflows/ci-cd.yml (job deploy-staging /
+# Deploy studenthub.id di VPS. Dijalankan workflow .github/workflows/ci-cd.yml (job deploy-staging /
 # deploy-production) lewat SSH sebagai user sistem `studenthub` (BUKAN root), SETELAH workflow
 # melakukan `git fetch` + `git reset --hard <sha yang lulus gate>` di folder target.
 #

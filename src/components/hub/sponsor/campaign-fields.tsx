@@ -41,7 +41,7 @@ export function TitleField({ value, error, onChange }: { value: string; error?: 
 const LINK_TYPES: readonly { value: AdLinkType; label: string }[] = [{ value: "EXTERNAL_URL", label: "Situs web" }, { value: "DEEP_LINK", label: "Aplikasi" }];
 
 function linkHint(linkType: AdLinkType, url: string): string {
-  if (linkType === "DEEP_LINK") return "Skema aplikasi harus sudah diizinkan admin Student Hub.";
+  if (linkType === "DEEP_LINK") return "Skema aplikasi harus sudah diizinkan admin studenthub.id.";
   return url && !linkProblem(linkType, url) ? `Siswa dibuka ke ${linkHost(url)} di tab baru.` : "Hanya tautan https:// yang bisa dibuka dengan aman dari HP siswa.";
 }
 

@@ -1,6 +1,6 @@
-# Bootstrap VPS Student Hub (sekali jalan)
+# Bootstrap VPS studenthub.id (sekali jalan)
 
-Panduan penyiapan awal VPS medialab (`38.47.176.211`, Ubuntu 24.04 + aaPanel) untuk Student Hub
+Panduan penyiapan awal VPS medialab (`38.47.176.211`, Ubuntu 24.04 + aaPanel) untuk studenthub.id
 produksi & staging. Setelah bootstrap selesai, setiap push ke `master` men-deploy otomatis lewat
 `.github/workflows/ci-cd.yml` (gerbang → staging → produksi).
 
@@ -12,7 +12,7 @@ tetap manual.
 
 | | Produksi | Staging (data demo) |
 | --- | --- | --- |
-| Domain | `studenthub.medialab.co.id` | `staging.studenthub.medialab.co.id` |
+| Domain | `studenthub.id` | `staging.studenthub.id` |
 | Port app (hanya 127.0.0.1) | 3030 | 3031 |
 | Folder aplikasi | `/www/wwwroot/studenthub` | `/www/wwwroot/studenthub-staging` |
 | Storage (`STORAGE_ROOT`) | `/www/wwwroot/studenthub-storage` | `/www/wwwroot/studenthub-storage-staging` |
@@ -44,7 +44,7 @@ ubah semuanya bersamaan bila perlu.
 
 ## Langkah 0 — Prasyarat & urutan
 
-1. **DNS**: A record `studenthub.medialab.co.id` dan `staging.studenthub.medialab.co.id` →
+1. **DNS**: A record `studenthub.id` dan `staging.studenthub.id` →
    `38.47.176.211`. (Tanpa DNS aplikasi tetap bisa di-deploy; hanya SSL & akses publik tertunda.)
 2. Akses SSH root ke VPS (operator) dan `gh` di komputer lokal sudah login sebagai `sedotanbekas`.
 3. **Urutan yang dianjurkan:** bootstrap VPS (langkah 1–3) **sebelum** merge pertama ke `master`.
@@ -138,8 +138,8 @@ Semua variabel `.env.example`:
 | `SHADOW_DATABASE_URL` | tidak dipakai (hanya `prisma migrate dev` lokal) | tidak dipakai |
 | `JWT_ACCESS_SECRET` / `AD_EVENT_SECRET` / `JOB_SECRET` | masing-masing `openssl rand -hex 32`, saling berbeda | idem (berbeda dari produksi) |
 | `TOTP_ENC_KEY` | `openssl rand -hex 32` (tepat 32 byte; hex 64 karakter atau base64), berbeda dari rahasia lain — kunci AES-256-GCM rahasia TOTP super admin | idem (berbeda dari produksi) |
-| `APP_ORIGIN` | `https://studenthub.medialab.co.id` | `https://staging.studenthub.medialab.co.id` |
-| `PUBLIC_MEDIA_BASE_URL` | `https://studenthub.medialab.co.id/media` | `https://staging.studenthub.medialab.co.id/media` |
+| `APP_ORIGIN` | `https://studenthub.id` | `https://staging.studenthub.id` |
+| `PUBLIC_MEDIA_BASE_URL` | `https://studenthub.id/media` | `https://staging.studenthub.id/media` |
 | `STORAGE_ROOT` | `/www/wwwroot/studenthub-storage` | `/www/wwwroot/studenthub-storage-staging` |
 | `PUSH_TRANSPORT` | `log` (ganti `expo` setelah proyek EAS siap) | `log` |
 | `EXPO_ACCESS_TOKEN` | kosong (isi bila Enhanced Push Security aktif) | kosong |
@@ -222,14 +222,14 @@ pernah membuat atau menimpa rahasia TOTP.
 
 Untuk **setiap** domain (produksi & staging):
 
-1. aaPanel → **Website → Add site**: domain `studenthub.medialab.co.id`; root biarkan bawaan
-   `/www/wwwroot/studenthub.medialab.co.id` (**bukan** folder aplikasi — aaPanel mengubah pemilik
+1. aaPanel → **Website → Add site**: domain `studenthub.id`; root biarkan bawaan
+   `/www/wwwroot/studenthub.id` (**bukan** folder aplikasi — aaPanel mengubah pemilik
    root situs menjadi `www` dan menaruh `.user.ini` di sana); PHP **Static**; tanpa database/FTP.
 2. **Jangan** aktifkan fitur *Reverse proxy*, *Cache*, atau *HSTS* bawaan aaPanel: potongan kita
    sudah memuat `location /` proxy dan header HSTS (duplikat = konflik/berulang).
 3. Tab **SSL** → Let's Encrypt (setelah DNS mengarah ke VPS) → aktifkan **Force HTTPS**.
 4. Pasang potongan: `bash /root/bootstrap-vps.sh nginx` (atau salin manual
-   `docs/deploy/nginx-studenthub.conf` → `/www/server/panel/vhost/nginx/extension/studenthub.medialab.co.id/studenthub.conf`,
+   `docs/deploy/nginx-studenthub.conf` → `/www/server/panel/vhost/nginx/extension/studenthub.id/studenthub.conf`,
    lalu `/www/server/nginx/sbin/nginx -t && /www/server/nginx/sbin/nginx -s reload`).
 
 Isi potongan: `client_max_body_size 12m`, HSTS, header proxy (`Host`, `X-Real-IP $remote_addr`,
@@ -254,9 +254,9 @@ perlu dibuka di firewall (app hanya mendengar 127.0.0.1).
 
 ```bash
 curl -fsS http://127.0.0.1:3030/api/health            # di VPS: version = sha terakhir
-curl -fsS https://studenthub.medialab.co.id/api/health
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://studenthub.medialab.co.id/api/internal/jobs/tick   # 404
-curl -s -o /dev/null -w '%{http_code}\n' https://studenthub.medialab.co.id/docs                             # 401 tanpa Basic auth
+curl -fsS https://studenthub.id/api/health
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://studenthub.id/api/internal/jobs/tick   # 404
+curl -s -o /dev/null -w '%{http_code}\n' https://studenthub.id/docs                             # 401 tanpa Basic auth
 sudo -iu studenthub pm2 ls                              # studenthub & studenthub-staging online
 systemctl is-active pm2-studenthub                      # active
 ls -l /home/studenthub/backups/production               # backup pra-migrasi

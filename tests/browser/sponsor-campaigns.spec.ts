@@ -99,7 +99,7 @@ test("demo sponsor: saldo — rekening tampil, kirim top-up menambah baris Menun
   await page.goto("/hub/balance");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Saldo & top-up");
   await expect(page.getByText("1234 5678 90")).toBeVisible();
-  await expect(page.getByText("a.n. PT Student Hub Indonesia")).toBeVisible();
+  await expect(page.getByText("a.n. studenthub.id")).toBeVisible();
   const pending = page.locator(".topup-row").filter({ hasText: "Menunggu" });
   await expect(pending).toHaveCount(1);
   await page.getByRole("button", { name: "Kirim bukti top-up" }).click();

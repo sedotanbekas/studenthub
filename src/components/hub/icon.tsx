@@ -26,5 +26,6 @@ const paths: Record<string, string> = {
 export function Icon({ name, size = 20, style }: { name: string; size?: number; style?: CSSProperties }) {
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" style={style}><path d={paths[name] ?? paths.report} /></svg>;
 }
-export function Brand() { return <span className="brand"><span className="brand-mark"><Icon name="book" size={22} /></span>Student Hub</span>; }
+/** Wordmark "studenthub.id": ".id" diberi aksen agar nama domain terbaca sebagai bagian merek. */
+export function Brand() { return <span className="brand"><span className="brand-mark"><Icon name="book" size={22} /></span><span className="brand-name">studenthub<span className="brand-tld">.id</span></span></span>; }
 export function BrandMark() { return <span className="brand-mark" aria-hidden="true"><Icon name="book" size={20} /></span>; }

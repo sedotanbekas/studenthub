@@ -1,6 +1,6 @@
 ﻿# REVIEW: security
 
-SUMMARY: Security review of the Student Hub design, covering the schema and the five domain designs. I read the design text only (read-only) and checked two lims-sotoy files to confirm that its deploy runs as root. The biggest risks come from contradictions between domains rather than from any single domain:
+SUMMARY: Security review of the studenthub.id design, covering the schema and the five domain designs. I read the design text only (read-only) and checked two lims-sotoy files to confirm that its deploy runs as root. The biggest risks come from contradictions between domains rather than from any single domain:
 1. The attendance design lets a SCHOOL_ADMIN move the geofence, although auth D19 reserves that to SUPER_ADMIN.
 2. The academic design has a second student lifecycle that claims a NISN when a DRAFT is created, which lets any school lock graduated students elsewhere out of their accounts, and it skips the password policy.
 3. Job routes are split between /api/v1/internal and /api/internal; nginx does not block the /api/v1 ones.

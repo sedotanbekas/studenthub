@@ -71,7 +71,7 @@ export function useDeviceAccess(): DeviceAccess {
 
   const request = useCallback(async () => {
     if (!window.isSecureContext) {
-      blockLocation("Absensi membutuhkan koneksi aman (HTTPS). Buka Student Hub melalui alamat https://.");
+      blockLocation("Absensi membutuhkan koneksi aman (HTTPS). Buka studenthub.id melalui alamat https://.");
       blockCamera("Kamera hanya dapat dibuka melalui koneksi aman (HTTPS).");
       return;
     }

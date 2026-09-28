@@ -17,7 +17,7 @@ export function Login({ onLogin, onDemo }: { onLogin: () => Promise<void>; onDem
     // Siswa (NISN) dari browser HP mendaftarkan HP ini sebagai perangkat absen.
     const deviceId = loginDeviceId(identifier, navigator.userAgent, localStorage, () => crypto.randomUUID());
     try {
-      await api("/auth/login", { method: "POST", body: JSON.stringify({ identifier, password: values.get("password"), platform: "WEB", deviceName: "Student Hub Web", ...(deviceId ? { deviceId } : {}), ...(totp ? { totpCode: values.get("totpCode") } : {}) }) });
+      await api("/auth/login", { method: "POST", body: JSON.stringify({ identifier, password: values.get("password"), platform: "WEB", deviceName: "studenthub.id Web", ...(deviceId ? { deviceId } : {}), ...(totp ? { totpCode: values.get("totpCode") } : {}) }) });
       await onLogin();
     } catch (e) { if (e instanceof ApiError && ["TOTP_REQUIRED", "TOTP_INVALID"].includes(e.code)) setTotp(true); setError(e instanceof Error ? e.message : "Gagal masuk."); }
     finally { setBusy(false); }

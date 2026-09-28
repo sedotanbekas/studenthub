@@ -11,7 +11,7 @@ export function AccountCard({ account }: { account: SponsorBalanceDto["topUpAcco
   if (!account) {
     return <div className="account-card is-empty">
       <span className="account-icon" aria-hidden="true"><Icon name="wallet" size={22} /></span>
-      <div><strong>Rekening belum diatur admin</strong><p>Top-up dibuka setelah admin Student Hub mengatur rekening tujuan.</p></div>
+      <div><strong>Rekening belum diatur admin</strong><p>Top-up dibuka setelah admin studenthub.id mengatur rekening tujuan.</p></div>
     </div>;
   }
   const number = account.accountNumber;

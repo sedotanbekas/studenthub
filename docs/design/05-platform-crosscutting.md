@@ -1,4 +1,4 @@
-﻿# Student Hub: cross-cutting platform design
+﻿# studenthub.id: cross-cutting platform design
 
 This is a read-only design. I read the lims-sotoy conventions (deploy workflows, `db.ts`, auth, rate limiter, backup script, domain folder layout, e2e helpers) and checked current docs through context7:
 - zod v4 `toJSONSchema` targets.

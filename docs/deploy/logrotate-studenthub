@@ -1,4 +1,4 @@
-# /etc/logrotate.d/studenthub — log cron & backup Student Hub.
+# /etc/logrotate.d/studenthub — log cron & backup studenthub.id.
 # Dipasang oleh `scripts/deploy/bootstrap-vps.sh cron` (root:root, 0644).
 # `su`: folder log dimiliki user studenthub (bukan root), logrotate menolak berjalan tanpanya.
 # Log aplikasi (stdout/stderr Next) dikelola modul pm2-logrotate milik user studenthub.

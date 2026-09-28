@@ -61,7 +61,7 @@ export function statusNote(ad: Pick<AdDto, "displayStatus" | "startAt">): string
   const notes: Readonly<Record<DisplayStatus, string>> = {
     LIVE: "Sedang tayang di beranda siswa sesuai jangkauan.",
     SCHEDULED: `Sudah disetujui. Mulai tayang ${dayMonth(wibDate(new Date(ad.startAt)))}.`,
-    PENDING_REVIEW: "Tim Student Hub sedang meninjau banner, tautan, dan jangkauan kampanye ini.",
+    PENDING_REVIEW: "Tim studenthub.id sedang meninjau banner, tautan, dan jangkauan kampanye ini.",
     DRAFT: "Belum diajukan. Ajukan tinjauan bila kampanye sudah siap tayang.",
     REJECTED: "Belum disetujui. Perbaiki sesuai catatan peninjau, lalu ajukan ulang.",
     PAUSED: "Dijeda: tidak tayang dan tidak ada biaya sampai dilanjutkan.",

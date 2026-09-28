@@ -219,7 +219,7 @@ export function demoBalance(today: string = wibToday()): SponsorBalanceDto {
     balance, totalTopUp: totalTopUp("cahaya"), totalSpent: totalSpent("cahaya", today), netAdjustment: ADJUSTMENT,
     estimatedClicksRemaining: Math.floor(balance / CPC), lowBalanceThreshold: 100_000, defaultCpcAmount: CPC, minTopUpAmount: 100_000,
     pendingTopUps: TOPUPS.filter(t => t.sponsor === "cahaya" && t.status === "PENDING").length,
-    topUpAccount: { bankName: "Bank Contoh", accountNumber: "1234 5678 90", accountHolder: "PT Student Hub Indonesia" },
+    topUpAccount: { bankName: "Bank Contoh", accountNumber: "1234 5678 90", accountHolder: "studenthub.id" },
   };
 }
 
@@ -274,7 +274,7 @@ export function demoPlatformSponsors(today: string = wibToday()): SponsorListIte
 }
 
 export function demoAdSettings(today: string = wibToday()): AdSettingsDto {
-  return { defaultCpcAmount: CPC, minTopUpAmount: 100_000, topUpBankName: "Bank Contoh", topUpAccountNumber: "1234 5678 90", topUpAccountHolder: "PT Student Hub Indonesia", deepLinkSchemes: [], lowBalanceThreshold: 100_000, updatedAt: atWib(addDays(today, -30), 9) };
+  return { defaultCpcAmount: CPC, minTopUpAmount: 100_000, topUpBankName: "Bank Contoh", topUpAccountNumber: "1234 5678 90", topUpAccountHolder: "studenthub.id", deepLinkSchemes: [], lowBalanceThreshold: 100_000, updatedAt: atWib(addDays(today, -30), 9) };
 }
 
 export const demoTargetSchools: readonly TargetSchool[] = [

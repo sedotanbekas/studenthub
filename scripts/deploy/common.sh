@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 #
-# Pustaka bersama skrip deploy Student Hub. Di-SOURCE (bukan dijalankan) oleh remote-deploy.sh,
+# Pustaka bersama skrip deploy studenthub.id. Di-SOURCE (bukan dijalankan) oleh remote-deploy.sh,
 # backup-db.sh, dan backup-storage.sh. Pemanggil wajib sudah `set -euo pipefail` dan boleh mengisi
 # LOG_TAG sebelum memanggil fungsi log.
 

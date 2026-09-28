@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Backup database Student Hub (staging/produksi) ke $BACKUP_DIR/<db>-<UTC>.sql.gz.
+# Backup database studenthub.id (staging/produksi) ke $BACKUP_DIR/<db>-<UTC>.sql.gz.
 #
 # Dipanggil remote-deploy.sh SEBELUM `prisma migrate deploy`, dan oleh cron harian produksi
 # (docs/deploy/studenthub.cron). MENGAPA sebelum migrasi: DDL MariaDB tidak transaksional, jadi

@@ -121,7 +121,7 @@ test("publicKeyFor: private/ad-banner → public/ad-banner dengan sisa kunci sam
 });
 
 test("publicUrlFor: buang awalan public/ dan garis miring ganda", () => {
-  assert.equal(publicUrlFor(BANNER_PUBLIC, "https://studenthub.medialab.co.id/media"), `https://studenthub.medialab.co.id/media/ad-banner/2026/09/${ID}.webp`);
+  assert.equal(publicUrlFor(BANNER_PUBLIC, "https://studenthub.id/media"), `https://studenthub.id/media/ad-banner/2026/09/${ID}.webp`);
   assert.equal(publicUrlFor(BANNER_PUBLIC, "https://cdn.example/media///"), `https://cdn.example/media/ad-banner/2026/09/${ID}.webp`);
   assertInvalidKey(() => publicUrlFor(BANNER_PRIVATE, "https://cdn.example/media"));
   assertInvalidKey(() => publicUrlFor(SELFIE_KEY, "https://cdn.example/media"));

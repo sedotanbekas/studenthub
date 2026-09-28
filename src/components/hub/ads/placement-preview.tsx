@@ -13,7 +13,7 @@ export function PlacementPreview({ ad, caption = true }: { ad: AdCardData; capti
         <div className="pp-idcard"><span className="pp-line w50 light" /><span className="pp-line w30 light" /><span className="pp-clock" /></div>
         <div className="pp-tiles">{Array.from({ length: 6 }, (_, i) => <span key={i} className={`pp-tile t${i}`} />)}</div>
         <div className="pp-slot">
-          <span className="pp-slot-label">Dari mitra Student Hub</span>
+          <span className="pp-slot-label">Dari mitra studenthub.id</span>
           <AdCard ad={ad} preview />
         </div>
         <div className="pp-news"><span className="pp-line w60" /><span className="pp-line w40" /></div>

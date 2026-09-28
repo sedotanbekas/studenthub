@@ -1,4 +1,4 @@
-﻿# Student Hub: academic data and SPP billing design
+﻿# studenthub.id: academic data and SPP billing design
 
 The design is complete, but seven points need the client's input before implementation; they are listed in section 7. Nothing was written, installed or migrated. I read only lims-sotoy's finance and numbering modules to match their conventions.
 

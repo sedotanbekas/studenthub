@@ -2,7 +2,7 @@
   "name": "studenthub",
   "version": "0.1.0",
   "private": true,
-  "description": "Student Hub — API manajemen sekolah multi-sekolah (siswa, admin sekolah, sponsor, super admin)",
+  "description": "studenthub.id — API manajemen sekolah multi-sekolah (siswa, admin sekolah, sponsor, super admin)",
   "packageManager": "pnpm@10.15.0",
   "engines": {
     "node": ">=24.0.0"

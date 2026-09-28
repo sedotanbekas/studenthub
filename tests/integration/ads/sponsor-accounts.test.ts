@@ -166,7 +166,7 @@ test("pengaturan iklan: baca, ubah (diaudit), skema deep link berbahaya 422, kar
   assert.equal(cheap.status, 400);
   const res = await callRoute<Envelope<{ topUpBankName: string | null; deepLinkSchemes: string[] }>>(adSettingsPatch, {
     method: "PATCH", url: "/api/v1/platform/settings/ads", bearer: superToken,
-    json: { topUpBankName: "Bank Uji", topUpAccountNumber: "1234567890", topUpAccountHolder: "PT Student Hub", deepLinkSchemes: ["Shopee", "tokopedia", "whatsapp", "shopee"] },
+    json: { topUpBankName: "Bank Uji", topUpAccountNumber: "1234567890", topUpAccountHolder: "studenthub.id", deepLinkSchemes: ["Shopee", "tokopedia", "whatsapp", "shopee"] },
   });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.deepEqual(res.body?.data.deepLinkSchemes, ["shopee", "tokopedia", "whatsapp"]);

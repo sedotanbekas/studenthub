@@ -1,8 +1,8 @@
-# Student Hub — Rencana Implementasi Backend Inti
+# studenthub.id — Rencana Implementasi Backend Inti
 
 ## Context
 
-Klien (medialab) meminta aplikasi **Student Hub** sesuai deck PDF: platform manajemen sekolah
+Klien (medialab) meminta aplikasi **studenthub.id** sesuai deck PDF: platform manajemen sekolah
 multi-sekolah dengan 4 peran — **Siswa** (app mobile), **Admin Sekolah**, **Sponsor**, **Super Admin**
 (dashboard web). Repo `studenthub` masih kosong (hanya `New Text Document.txt`; remote
 `github.com/sedotanbekas/studenthub`, branch `master`, **repo PUBLIC**). Fase ini **hanya core logic &
@@ -26,7 +26,7 @@ pada langkah pertama**. Bila dokumen desain bertentangan dengan rencana ini, **r
 | SPP | Admin buat tagihan; siswa unggah bukti; admin verifikasi; **cicilan/sebagian boleh** |
 | Saldo PPC sponsor | Top-up manual + bukti transfer → Super Admin approve |
 | Target iklan | Semua / provinsi / kota / sekolah tertentu |
-| Deploy | VPS medialab + CI/CD GitHub Actions; **produksi `studenthub.medialab.co.id` + staging berisi data demo** |
+| Deploy | VPS medialab + CI/CD GitHub Actions; **produksi `studenthub.id` + staging berisi data demo** |
 
 ### Fakta infrastruktur (terverifikasi read-only)
 - VPS `38.47.176.211` (root via SSH key): Ubuntu 24.04, 8 core/15 GB/54 GB free, Node 24
@@ -34,7 +34,7 @@ pada langkah pertama**. Bila dokumen desain bertentangan dengan rencana ini, **r
   (`/www/server/mysql`, :3306; login root tanpa password ditolak → pakai kredensial root aaPanel),
   Redis 127.0.0.1:6379, TZ server UTC, crontab root sudah dipakai app lain.
 - Port terpakai: 3000–3003, 3010, 3012, 3013, 3020 (medtal), 3101 → **produksi :3030, staging :3031**.
-- DNS `studenthub.medialab.co.id` belum ada.
+- DNS `studenthub.id` belum ada.
 - Lokal: Node 24, pnpm 10.15, Docker Desktop terpasang **tetapi daemon belum jalan**, `gh` login `sedotanbekas`.
 - Data wilayah: `cahyadsn/wilayah` (MIT, Kepmendagri 300.2.2-2430 Th. 2025) → migrasi Province/City.
 
@@ -298,7 +298,7 @@ X-App-Version gate · sub-peran admin (bendahara/operator) · check-in offline �
 - Akhir tiap fase: workflow review (kualitas + keamanan + TypeScript) sampai tak ada CRITICAL/HIGH.
 
 ## Yang perlu Anda siapkan
-1. **DNS**: A record `studenthub.medialab.co.id` dan `staging.studenthub.medialab.co.id` →
+1. **DNS**: A record `studenthub.id` dan `staging.studenthub.id` →
    `38.47.176.211` (sebelum itu app tetap jalan, hanya SSL & akses publik tertunda).
 2. **Repo saat ini PUBLIC** — kode (bukan data/secret) terlihat publik; disarankan dijadikan private
    (deploy tetap jalan via deploy key read-only).

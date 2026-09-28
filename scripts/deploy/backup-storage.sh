@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Arsip direktori storage Student Hub (STORAGE_ROOT dari .env) ke $BACKUP_DIR/storage-<UTC>.tar.gz.
+# Arsip direktori storage studenthub.id (STORAGE_ROOT dari .env) ke $BACKUP_DIR/storage-<UTC>.tar.gz.
 # Dijalankan cron harian produksi (docs/deploy/studenthub.cron) sebagai user studenthub.
 #
 # Pemakaian:

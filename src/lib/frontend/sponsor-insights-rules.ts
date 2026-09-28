@@ -129,7 +129,7 @@ export function accountNotice(status: SponsorDto["status"], reason: string | nul
   if (status === "PENDING") return { tone: "info", title: "Akun sedang ditinjau", text: "Anda sudah bisa menyiapkan draf kampanye; pengajuan iklan & top-up aktif setelah akun disetujui." };
   if (status === "SUSPENDED") {
     const why = reason ? ` Alasan: ${reason}` : "";
-    return { tone: "warning", title: "Akun ditangguhkan", text: `Iklan Anda berhenti tayang sementara dan pengajuan baru dinonaktifkan.${why} Hubungi tim Student Hub bila ada pertanyaan.` };
+    return { tone: "warning", title: "Akun ditangguhkan", text: `Iklan Anda berhenti tayang sementara dan pengajuan baru dinonaktifkan.${why} Hubungi tim studenthub.id bila ada pertanyaan.` };
   }
   return null;
 }

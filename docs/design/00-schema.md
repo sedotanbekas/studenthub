@@ -1,4 +1,4 @@
-﻿# Student Hub: Prisma schema design
+﻿# studenthub.id: Prisma schema design
 
 I read the lims-sotoy schema to match its conventions. I did not write any files, run anything or connect to the VPS.
 

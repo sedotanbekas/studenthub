@@ -62,8 +62,8 @@ function TodayCard({ today, onStart }: { today: TodayDto; onStart: () => void })
 function MobileOnly() {
   const { logout } = useHub();
   const phone = typeof navigator !== "undefined" && isMobileBrowserAgent(navigator.userAgent);
-  return <section className="today-card tone-neutral"><div><span className="kicker">Absensi dari HP</span><h2>{phone ? "Masuk ulang untuk mengaktifkan absensi" : "Buka Student Hub dari HP kamu"}</h2>
-    <p>{phone ? "Sesi ini dibuat sebelum absensi web aktif. Keluar lalu masuk kembali dengan NISN dari HP ini agar HP terdaftar sebagai perangkat absen." : "Absensi memakai GPS dan kamera depan, jadi hanya bisa dilakukan dari HP (browser HP atau aplikasi Student Hub)."}</p></div>
+  return <section className="today-card tone-neutral"><div><span className="kicker">Absensi dari HP</span><h2>{phone ? "Masuk ulang untuk mengaktifkan absensi" : "Buka studenthub.id dari HP kamu"}</h2>
+    <p>{phone ? "Sesi ini dibuat sebelum absensi web aktif. Keluar lalu masuk kembali dengan NISN dari HP ini agar HP terdaftar sebagai perangkat absen." : "Absensi memakai GPS dan kamera depan, jadi hanya bisa dilakukan dari HP (browser HP atau aplikasi studenthub.id)."}</p></div>
     {phone && <button className="button primary large" onClick={() => void logout()}><Icon name="logout" size={19} />Keluar & masuk ulang</button>}
   </section>;
 }

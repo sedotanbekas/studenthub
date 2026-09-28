@@ -38,7 +38,7 @@ function useStudentHome() {
     }
     api("/student/profile").then(r => { if (active) setClassName((r.data as { className: string | null }).className); }).catch(() => {});
     api("/student/attendance/today").then(r => { if (active) setHeadline(todayHeadline(r.data as TodayDto)); })
-      .catch(() => { if (active) setHeadline({ tone: "neutral", title: "Absen lewat HP", note: "Buka Student Hub dari HP untuk absen." }); });
+      .catch(() => { if (active) setHeadline({ tone: "neutral", title: "Absen lewat HP", note: "Buka studenthub.id dari HP untuk absen." }); });
     api("/notifications?limit=3").then(r => { if (active) setNews(r.data as Row[]); }).catch(() => { if (active) setNews([]); });
     return () => { active = false; };
   }, [demo, me.user.id]);

@@ -1,4 +1,4 @@
-# Student Hub
+# studenthub.id
 
 Platform manajemen sekolah multi-sekolah dengan API dan frontend web responsif untuk Siswa,
 Admin Sekolah, Sponsor, dan Super Admin. Buka `/` untuk login atau menjelajahi tampilan demo.

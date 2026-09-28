@@ -10,7 +10,7 @@ const SCALAR_CDN = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.69.2";
 
 const reference = ApiReference({
   url: "/api/v1/openapi.json",
-  pageTitle: "Student Hub API",
+  pageTitle: "studenthub.id API",
   cdn: SCALAR_CDN,
   hideClientButton: false,
 });

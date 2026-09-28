@@ -102,7 +102,7 @@ export async function findAttendance(db: Tx, student: Pick<CheckInStudent, "id" 
  */
 export function assertCheckInSession(principal: Principal, userAgent: string | null): void {
   if (canCheckInFromSession({ platform: principal.platform, deviceId: principal.deviceId, userAgent })) return;
-  throw forbidden("CHECKIN_MOBILE_ONLY", "Absensi hanya dapat dilakukan dari HP: aplikasi Student Hub atau browser HP.");
+  throw forbidden("CHECKIN_MOBILE_ONLY", "Absensi hanya dapat dilakukan dari HP: aplikasi studenthub.id atau browser HP.");
 }
 
 /** Konteks lengkap untuk today/precheck/check-in. Sesi mobile ber-deviceId; siswa harus ACTIVE (dicek ulang dari DB). */

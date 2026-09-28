@@ -23,10 +23,10 @@ export function SponsorSlot() {
   const many = ads.length > 1;
   return <section className="partner-slot" aria-labelledby="partner-title">
     <div className="partner-head">
-      <h2 id="partner-title">Dari mitra Student Hub</h2>
+      <h2 id="partner-title">Dari mitra studenthub.id</h2>
       <button type="button" className="partner-info" aria-expanded={about} aria-controls="partner-about" onClick={() => setAbout(v => !v)}><Icon name="help" size={16} />Kenapa ada ini?</button>
     </div>
-    {about && <p id="partner-about" className="partner-about">Mitra pendidikan membantu Student Hub tetap bisa dipakai sekolah. Info dipilih berdasarkan wilayah sekolahmu, bukan dari data pribadimu, dan setiap iklan ditinjau tim Student Hub sebelum tayang.</p>}
+    {about && <p id="partner-about" className="partner-about">Mitra pendidikan membantu studenthub.id tetap bisa dipakai sekolah. Info dipilih berdasarkan wilayah sekolahmu, bukan dari data pribadimu, dan setiap iklan ditinjau tim studenthub.id sebelum tayang.</p>}
     <div className={`partner-track${many ? " many" : ""}`} ref={track} onScroll={onScroll} onPointerDown={stop} onWheel={stop} onFocus={stop} role="region" aria-roledescription="carousel" aria-label="Info dari mitra">
       {ads.map((ad, i) => <AdSlide key={ad.token} ad={ad} label={`${i + 1} dari ${ads.length}`} onSeen={seen} busy={busy === ad.adId} onOpen={() => open(ad)} />)}
     </div>

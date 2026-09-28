@@ -17,7 +17,7 @@ const FIELDS: readonly { key: ThemeKey; label: string; hint: string; token?: str
   { key: "secondaryColor", label: "Warna sekunder", hint: "Avatar, ikon pendamping, dan aksen kedua.", token: "--secondary" },
   { key: "bannerColor", label: "Warna banner", hint: "Kartu identitas siswa, panel halaman masuk, dan bilah browser HP.", token: "--banner" },
   { key: "animationColor", label: "Warna animasi", hint: "Pendar latar, pemuat, kilau kartu, dan efek sentuh." },
-  { key: "logoColor", label: "Warna logo", hint: "Tanda logo Student Hub dan ikon sekolah di menu.", token: "--logo" },
+  { key: "logoColor", label: "Warna logo", hint: "Tanda logo studenthub.id dan ikon sekolah di menu.", token: "--logo" },
 ];
 
 function useThemeEditor() {
@@ -61,7 +61,7 @@ export function ThemeSettings() {
       const applied = next ?? DEFAULT_THEME;
       setSaved(applied); setDraft(applied);
       if (!demo && me.school) await reloadMe();
-      toast(next ? (demo ? "Tema demo diterapkan untuk sesi ini." : "Tema sekolah disimpan. Semua admin dan siswa melihat warna baru.") : "Tema dikembalikan ke bawaan Student Hub.");
+      toast(next ? (demo ? "Tema demo diterapkan untuk sesi ini." : "Tema sekolah disimpan. Semua admin dan siswa melihat warna baru.") : "Tema dikembalikan ke bawaan studenthub.id.");
     } catch (e) { setError(e instanceof Error ? e.message : "Tema belum tersimpan."); }
     finally { setBusy(false); }
   }

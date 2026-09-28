@@ -107,10 +107,10 @@ test("verifyTotp: langkah berikutnya tetap diterima setelah langkah sekarang dip
 });
 
 test("buildOtpauthUri: format Key URI (issuer, label ter-encode, SHA1/6/30)", () => {
-  const uri = buildOtpauthUri({ secretBase32: "MZXW6YTBOI", accountName: "admin+1@medialab.co.id", issuer: "Student Hub" });
+  const uri = buildOtpauthUri({ secretBase32: "MZXW6YTBOI", accountName: "admin+1@medialab.co.id", issuer: "studenthub.id" });
   assert.equal(
     uri,
-    "otpauth://totp/Student%20Hub:admin%2B1%40medialab.co.id?secret=MZXW6YTBOI&issuer=Student%20Hub&algorithm=SHA1&digits=6&period=30",
+    "otpauth://totp/studenthub.id:admin%2B1%40medialab.co.id?secret=MZXW6YTBOI&issuer=studenthub.id&algorithm=SHA1&digits=6&period=30",
   );
 });
 

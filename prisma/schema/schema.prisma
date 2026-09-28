@@ -1,4 +1,4 @@
-// ===================== Student Hub — skema basis data =====================
+// ===================== studenthub.id — skema basis data =====================
 // Konvensi global (lihat docs/PLAN.md):
 // - Setelah produksi berjalan: nilai enum baru WAJIB ditambahkan di UJUNG daftar, migrasi aditif.
 // - Uang = Int rupiah (batas divalidasi zod + CHECK). Koordinat = Decimal(10,7).

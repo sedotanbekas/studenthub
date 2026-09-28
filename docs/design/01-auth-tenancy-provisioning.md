@@ -1,4 +1,4 @@
-﻿# Student Hub design: authentication, sessions, RBAC, tenant isolation, provisioning and super admin
+﻿# studenthub.id design: authentication, sessions, RBAC, tenant isolation, provisioning and super admin
 
 This is a design only. I read these lims-sotoy files to reuse its conventions: `src/lib/auth.ts`, `api-permission.ts`, `login-rate-limit.ts`, `app/api/auth/login/route.ts`, `db.ts` and `excel-import.ts`. I wrote no files.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Bootstrap VPS Student Hub — dijalankan SEBAGAI ROOT, idempoten (aman diulang kapan saja).
+# Bootstrap VPS studenthub.id — dijalankan SEBAGAI ROOT, idempoten (aman diulang kapan saja).
 # Mengerjakan bagian non-interaktif docs/deploy/BOOTSTRAP.md; langkah lain (DNS, situs & SSL aaPanel,
 # secret GitHub, super admin pertama) tetap manual sesuai dokumen itu.
 #
@@ -50,7 +50,7 @@ declare -A APP_DIR=([production]=/www/wwwroot/studenthub [staging]=/www/wwwroot/
 declare -A STORAGE_DIR=([production]=/www/wwwroot/studenthub-storage [staging]=/www/wwwroot/studenthub-storage-staging)
 declare -A DB_NAME=([production]=studenthub [staging]=studenthub_staging)
 declare -A DB_USER=([production]=studenthub [staging]=studenthub_staging)
-declare -A DOMAIN=([production]=studenthub.medialab.co.id [staging]=staging.studenthub.medialab.co.id)
+declare -A DOMAIN=([production]=studenthub.id [staging]=staging.studenthub.id)
 declare -A NGINX_SNIPPET=([production]=nginx-studenthub.conf [staging]=nginx-studenthub-staging.conf)
 
 WORK_DIR=""
@@ -242,7 +242,7 @@ phase_clone() {
 
 render_env() {
   local env="$1" domain="${DOMAIN[$1]}"
-  printf '# Student Hub %s — dibuat bootstrap-vps.sh %s. JANGAN di-commit; mode 0600.\n' "$env" "$(date -u +%F)"
+  printf '# studenthub.id %s — dibuat bootstrap-vps.sh %s. JANGAN di-commit; mode 0600.\n' "$env" "$(date -u +%F)"
   printf '# NODE_ENV, TZ, dan APP_VERSION diatur PM2 (ecosystem.config.cjs), bukan di sini.\n'
   printf 'DATABASE_URL="mysql://%s:%s@127.0.0.1:3306/%s"\n' "${DB_USER[$env]}" "$(rand_hex 24)" "${DB_NAME[$env]}"
   printf 'JWT_ACCESS_SECRET="%s"\n' "$(rand_hex 32)"

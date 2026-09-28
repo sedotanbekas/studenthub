@@ -1,4 +1,4 @@
-﻿# Student Hub design: sponsors, ads, pay-per-click and analytics
+﻿# studenthub.id design: sponsors, ads, pay-per-click and analytics
 
 I read the lims-sotoy transaction, error and rate-limit modules to match their patterns. I did not write any files, run anything or connect to the VPS.
 

@@ -17,7 +17,7 @@ export function checkBasicAuth(header: string | null, expected: string): boolean
 export function basicAuthChallenge(): Response {
   return new Response("Autentikasi diperlukan.", {
     status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Student Hub Docs", charset="UTF-8"', "Cache-Control": "no-store" },
+    headers: { "WWW-Authenticate": 'Basic realm="studenthub.id Docs", charset="UTF-8"', "Cache-Control": "no-store" },
   });
 }
 

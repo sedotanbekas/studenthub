@@ -11,7 +11,7 @@ export const TOTP_DIGITS = 6;
 export const TOTP_WINDOW_STEPS = 1;
 /** Panjang rahasia baru (160 bit, sesuai rekomendasi RFC 4226 untuk SHA1). */
 export const TOTP_SECRET_BYTES = 20;
-export const TOTP_ISSUER = "Student Hub";
+export const TOTP_ISSUER = "studenthub.id";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const CODE_PATTERN = /^\d{6}$/;

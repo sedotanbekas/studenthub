@@ -113,7 +113,7 @@ export function buildOpenApiDocument(contracts: readonly AnyContract[], options:
   return createDocument({
     openapi: "3.1.0",
     info: {
-      title: "Student Hub API",
+      title: "studenthub.id API",
       version: options.version,
       description: "API manajemen sekolah multi-sekolah: siswa, admin sekolah, sponsor, super admin. Semua respons memakai envelope {success, data, error, meta}.",
     },

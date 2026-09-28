@@ -1,4 +1,4 @@
-# Aturan kerja repo Student Hub
+# Aturan kerja repo studenthub.id
 
 Rencana induk: `docs/PLAN.md` (disetujui klien 2026-09-21). Dokumen desain rinci per domain ada di
 `docs/design/`; bila bertentangan dengan `docs/PLAN.md`, **PLAN yang berlaku**.

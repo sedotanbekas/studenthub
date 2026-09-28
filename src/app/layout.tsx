@@ -16,7 +16,12 @@ import "../styles/transitions.css";
 import "../styles/print.css";
 
 const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-export const metadata: Metadata = { title: { default: "Student Hub", template: "%s · Student Hub" }, description: "Absensi, rapor, tagihan, dan pengumuman sekolah dalam satu tempat." };
+export const metadata: Metadata = {
+  title: { default: "studenthub.id", template: "%s · studenthub.id" },
+  applicationName: "studenthub.id",
+  appleWebApp: { title: "studenthub.id" },
+  description: "Absensi, rapor, tagihan, dan pengumuman sekolah dalam satu tempat.",
+};
 /** theme-color dikelola saat runtime oleh applyTheme (warna banner tema sekolah), bukan di sini. */
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {

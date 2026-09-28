@@ -5,7 +5,7 @@ kode error di sini diambil dari kontrak route (`src/lib/**/contracts*.ts`) — s
 sama dengan `docs/openapi.json` dan halaman `/docs` (Scalar, dilindungi Basic auth). Bila dokumen ini
 dan OpenAPI berbeda, **OpenAPI yang berlaku**.
 
-- Base URL: `https://studenthub.medialab.co.id/api/v1` (produksi), `https://staging.studenthub.medialab.co.id/api/v1` (staging, data demo).
+- Base URL: `https://studenthub.id/api/v1` (produksi), `https://staging.studenthub.id/api/v1` (staging, data demo).
 - Semua permintaan & respons JSON UTF-8, kecuali unggahan (multipart) dan unduhan berkas (biner).
 - Waktu: instant selalu ISO 8601 UTC (`2026-09-21T01:30:00.000Z`); tanggal lokal sekolah `YYYY-MM-DD`;
   jam lokal `HH:mm`. **Tanggal & jam absensi ditentukan server**, bukan jam HP.

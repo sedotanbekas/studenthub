@@ -1,4 +1,4 @@
-# /etc/cron.d/studenthub — Student Hub (produksi & staging).
+# /etc/cron.d/studenthub — studenthub.id (produksi & staging).
 #
 # Dipasang oleh `scripts/deploy/bootstrap-vps.sh cron` sebagai /etc/cron.d/studenthub
 # (root:root, mode 0644; nama berkas di /etc/cron.d tidak boleh mengandung titik).

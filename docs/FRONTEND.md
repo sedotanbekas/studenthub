@@ -1,4 +1,4 @@
-# Frontend Student Hub
+# Frontend studenthub.id
 
 Frontend web responsif untuk admin sekolah, super admin, sponsor, dan siswa. Dibangun dengan Next.js App Router, React, dan CSS, menggunakan API serta aturan bisnis yang sudah ada.
 
@@ -53,7 +53,7 @@ Keputusan klien 2026-09-25: siswa boleh absen dari **browser HP** (bukan desktop
 Permintaan pemilik 2026-09-26: iklan **halus tapi tetap terlihat** — aplikasi tidak boleh terkesan "butuh uang".
 
 - **Satu slot saja**, di beranda siswa di bawah menu utama dan di atas pengumuman (`src/components/hub/ads/sponsor-slot.tsx`). Tidak pernah tampil di alur absen, rapor, tagihan, atau halaman lain; tanpa pop-up, tanpa suara/video, tanpa iklan layar penuh.
-- **Bentuk:** kartu native — banner 2:1 (1200×600) dengan label kecil "Sponsor", nama mitra, judul dua baris, ajakan "Lihat". Lebih dari satu mitra → carousel geser (kartu berikutnya mengintip, titik navigasi); putar otomatis 7 detik berhenti selamanya begitu siswa menyentuh slot dan dimatikan untuk `prefers-reduced-motion`. Judul bagian "Dari mitra Student Hub" + tombol "Kenapa ada ini?" (iklan dipilih menurut wilayah sekolah, bukan data pribadi, dan ditinjau tim sebelum tayang). Slot hilang sepenuhnya bila tidak ada iklan atau permintaan gagal.
+- **Bentuk:** kartu native — banner 2:1 (1200×600) dengan label kecil "Sponsor", nama mitra, judul dua baris, ajakan "Lihat". Lebih dari satu mitra → carousel geser (kartu berikutnya mengintip, titik navigasi); putar otomatis 7 detik berhenti selamanya begitu siswa menyentuh slot dan dimatikan untuk `prefers-reduced-motion`. Judul bagian "Dari mitra studenthub.id" + tombol "Kenapa ada ini?" (iklan dipilih menurut wilayah sekolah, bukan data pribadi, dan ditinjau tim sebelum tayang). Slot hilang sepenuhnya bila tidak ada iklan atau permintaan gagal.
 - **Impresi** dihitung setelah ≥ 50% kartu terlihat selama 1 detik, dikirim batch (≤ 20 token, tiap 4 detik, saat tab disembunyikan, dan sebelum klik). **Klik:** tab baru dibuka sinkron di dalam ketukan (Safari iPhone memblokir `window.open` setelah `await`), impresi dikirim dulu agar klik sah, lalu tab diarahkan ke `targetUrl` dari server yang diperiksa ulang (`https` untuk tautan luar; skema berbahaya ditolak). Aturan murni di `src/lib/frontend/ad-slot-rules.ts`.
 - **Gambar:** banner yang disetujui disalin ke `/media/…`. Klien membaca path `/media/…` dari domain yang sedang dibuka (domain di `PUBLIC_MEDIA_BASE_URL` bisa berbeda); nginx melayaninya dari disk, dan route cadangan `src/app/media/[...key]/route.ts` melayani salinan publik banner saja bila vhost belum punya alias. Banner yang gagal dimuat diganti inisial mitra.
 - **Pratinjau penempatan** (`ads/placement-preview.tsx`) memakai kartu yang sama persis di tiruan layar HP; dipakai di halaman sponsor dan moderasi super admin agar yang ditinjau = yang dilihat siswa.

@@ -75,7 +75,7 @@ test("pendaftaran: setup -> kode salah 422 -> kode benar mengaktifkan, cabut ses
   assert.equal(body.accountName, sa.email);
   assert.equal(body.digits, 6);
   assert.equal(body.period, 30);
-  assert.ok(body.otpauthUri.startsWith("otpauth://totp/Student%20Hub:"));
+  assert.ok(body.otpauthUri.startsWith("otpauth://totp/studenthub.id:"));
   assert.ok(body.otpauthUri.includes(`secret=${body.secret}`));
   const stored = await prisma.user.findUniqueOrThrow({ where: { id: sa.id }, select: { totpSecretEnc: true, totpEnabledAt: true } });
   assert.ok(stored.totpSecretEnc?.startsWith("v1."));

@@ -9,7 +9,7 @@ test("fileSrc: berkas privat lewat proxy sesi; id demo ke aset statis", () => {
 });
 
 test("sameOriginMedia: URL /media absolut dibaca dari domain yang sedang dibuka", () => {
-  assert.equal(sameOriginMedia("https://studenthub.medialab.co.id/media/ad-banner/2026/09/x.webp"), "/media/ad-banner/2026/09/x.webp");
+  assert.equal(sameOriginMedia("https://studenthub.id/media/ad-banner/2026/09/x.webp"), "/media/ad-banner/2026/09/x.webp");
   assert.equal(sameOriginMedia("https://cdn.example/banner.webp"), "https://cdn.example/banner.webp", "bukan /media -> apa adanya");
   assert.equal(sameOriginMedia("/demo/ads/a.svg"), "/demo/ads/a.svg", "path relatif tetap");
 });
