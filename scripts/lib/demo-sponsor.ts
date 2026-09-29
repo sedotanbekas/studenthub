@@ -53,21 +53,34 @@ function principalOf(user: { id: string; name: string }, role: "SPONSOR" | "SUPE
   };
 }
 
-/** Sponsor APPROVED + satu akun login (kata sandi = DEMO_PASSWORD), di-upsert berdasarkan email login. */
-async function ensureSponsorAccount(passwordHash: string): Promise<Actors> {
-  const account = { name: DEMO_SPONSOR.loginName, passwordHash, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null };
-  const company = { companyName: DEMO_SPONSOR.companyName, contactName: DEMO_SPONSOR.contactName, contactEmail: DEMO_SPONSOR.email, contactPhone: DEMO_SPONSOR.phone };
-  const ids = await withTx(async (tx) => {
-    const existing = await tx.user.findFirst({ where: { email: DEMO_SPONSOR.email, role: "SPONSOR" }, select: { id: true, sponsorId: true } });
+export interface SponsorLoginSpec {
+  readonly email: string;
+  readonly loginName: string;
+  readonly companyName: string;
+  readonly contactName: string;
+  readonly phone: string;
+}
+
+/** Sponsor APPROVED + satu akun login (kata sandi = hash diberikan), di-upsert berdasarkan email login. */
+export async function upsertSponsorLogin(spec: SponsorLoginSpec, passwordHash: string): Promise<{ userId: string; sponsorId: string }> {
+  const account = { name: spec.loginName, passwordHash, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null };
+  const company = { companyName: spec.companyName, contactName: spec.contactName, contactEmail: spec.email, contactPhone: spec.phone };
+  return withTx(async (tx) => {
+    const existing = await tx.user.findFirst({ where: { email: spec.email, role: "SPONSOR" }, select: { id: true, sponsorId: true } });
     if (existing?.sponsorId) {
       await tx.user.update({ where: { id: existing.id }, data: account });
       await tx.sponsor.update({ where: { id: existing.sponsorId }, data: { ...company, status: "APPROVED", statusReason: null } });
       return { userId: existing.id, sponsorId: existing.sponsorId };
     }
     const sponsor = await tx.sponsor.create({ data: { ...company, status: "APPROVED" }, select: { id: true } });
-    const user = await tx.user.create({ data: { ...account, role: "SPONSOR", email: DEMO_SPONSOR.email, sponsorId: sponsor.id }, select: { id: true } });
+    const user = await tx.user.create({ data: { ...account, role: "SPONSOR", email: spec.email, sponsorId: sponsor.id }, select: { id: true } });
     return { userId: user.id, sponsorId: sponsor.id };
   });
+}
+
+/** Sponsor demo (kata sandi = DEMO_PASSWORD) + principal sponsor & super admin demo untuk service domain. */
+async function ensureSponsorAccount(passwordHash: string): Promise<Actors> {
+  const ids = await upsertSponsorLogin(DEMO_SPONSOR, passwordHash);
   const admin = await prisma.user.findFirstOrThrow({ where: { email: DEMO_SUPER_ADMIN.email }, select: { id: true, name: true } });
   return {
     sponsorId: ids.sponsorId,

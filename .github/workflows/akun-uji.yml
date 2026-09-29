@@ -1,0 +1,57 @@
+name: Akun uji (manual)
+
+# Membuat / mereset akun uji (@uji.studenthub.id + siswa NISN 99100000xx) di staging dan/atau produksi untuk
+# blackbox testing sebelum peluncuran — lihat scripts/create-test-accounts.ts. Hanya lewat tombol
+# "Run workflow". Kata sandi = secret TEST_ACCOUNT_PASSWORD (disamarkan di log, tidak pernah dicetak skrip).
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Lingkungan tujuan
+        type: choice
+        options: [keduanya, production, staging]
+        default: keduanya
+
+# Grup sendiri (bukan deploy-studenthub): antrean workflow ini tidak boleh membatalkan deploy yang menunggu.
+concurrency:
+  group: akun-uji
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  akun-uji:
+    name: Akun uji ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      max-parallel: 1
+      matrix:
+        target: ${{ inputs.target == 'keduanya' && fromJSON('["staging","production"]') || fromJSON(format('["{0}"]', inputs.target)) }}
+    steps:
+      # Aksi pihak ketiga yang menerima kunci SSH dipin ke sha commit (= tag v1.2.2), sama dengan ci-cd.yml.
+      - name: Buat / reset akun uji via SSH (user studenthub)
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        env:
+          TARGET: ${{ matrix.target }}
+          TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
+          envs: TARGET,TEST_ACCOUNT_PASSWORD
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            case "$TARGET" in
+              production) cd /www/wwwroot/studenthub ;;
+              staging) cd /www/wwwroot/studenthub-staging ;;
+              *) echo "TARGET tidak sah" >&2; exit 1 ;;
+            esac
+            bash scripts/deploy/akun-uji.sh "$TARGET"

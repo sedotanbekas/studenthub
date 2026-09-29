@@ -18,6 +18,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:validate": "prisma validate",
     "db:seed:demo": "tsx scripts/seed-demo.ts",
+    "db:akun-uji": "tsx scripts/create-test-accounts.ts",
     "db:super-admin": "tsx scripts/create-super-admin.ts",
     "db:totp-reset": "tsx scripts/totp-reset.ts",
     "regions:gen": "tsx scripts/gen-regions-migration.ts",

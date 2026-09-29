@@ -59,6 +59,8 @@ export interface DemoSchoolSpec {
   /** Preset tema awal; diisi seed HANYA bila tema sekolah belum pernah diatur (tanpa = tema bawaan). */
   readonly themePreset?: ThemePresetKey;
   readonly adminName: string;
+  /** Email admin sekolah; tanpa = admin@<slug>.demo.studenthub.id (sekolah uji memakai domain sendiri). */
+  readonly adminEmail?: string;
   readonly classes: readonly DemoClassSpec[];
   readonly subjects: readonly DemoSubjectSpec[];
   readonly students: readonly DemoStudentSpec[];
@@ -276,8 +278,8 @@ const SMA_SCHOOL: DemoSchoolSpec = {
 
 export const DEMO_SCHOOLS: readonly DemoSchoolSpec[] = [SMP_SCHOOL, SMA_SCHOOL];
 
-export function demoAdminEmail(school: Pick<DemoSchoolSpec, "slug">): string {
-  return `admin@${school.slug}.${DEMO_EMAIL_DOMAIN}`;
+export function demoAdminEmail(school: Pick<DemoSchoolSpec, "slug" | "adminEmail">): string {
+  return school.adminEmail ?? `admin@${school.slug}.${DEMO_EMAIL_DOMAIN}`;
 }
 
 // ----------------------------------------------------------------------------- penjaga

@@ -74,11 +74,16 @@ function accountFields(name: string, options: DemoSeedOptions) {
   return { name, passwordHash: options.passwordHash, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null };
 }
 
-export async function ensureSuperAdmin(tx: Tx, options: DemoSeedOptions): Promise<string> {
-  const fields = { ...accountFields(DEMO_SUPER_ADMIN.name, options), role: "SUPER_ADMIN" as const, schoolId: null, sponsorId: null };
+/** Super admin (bawaan: super admin demo). Kolom TOTP tidak disentuh: pendaftaran TOTP bertahan antar-seed. */
+export async function ensureSuperAdmin(
+  tx: Tx,
+  options: DemoSeedOptions,
+  account: { readonly email: string; readonly name: string } = DEMO_SUPER_ADMIN,
+): Promise<string> {
+  const fields = { ...accountFields(account.name, options), role: "SUPER_ADMIN" as const, schoolId: null, sponsorId: null };
   const user = await tx.user.upsert({
-    where: { email: DEMO_SUPER_ADMIN.email },
-    create: { ...fields, email: DEMO_SUPER_ADMIN.email },
+    where: { email: account.email },
+    create: { ...fields, email: account.email },
     update: fields,
     select: { id: true },
   });
