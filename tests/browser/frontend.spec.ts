@@ -3,10 +3,12 @@ import { operations } from "../../src/lib/frontend/catalog";
 import { demoStudents, demoSummary } from "../../src/lib/frontend/demo";
 import { verifyPageSlides } from "./page-slide-scenario";
 import { verifyScrollMemory } from "./scroll-memory-scenario";
+import { markSignedIn } from "./session-cookie";
 
 const identity = { user: { id: "user1", name: "Admin Sekolah", email: "admin@example.test", role: "SCHOOL_ADMIN", mustChangePassword: false, totpEnrollmentRequired: false }, school: { id: "school1", name: "Sekolah Pengujian", timezone: "WIB" }, sponsor: null, permissions: [...new Set(operations.map(o => o.action))] };
 const envelope = (data: unknown, meta: unknown = null) => ({ success: true, data, error: null, meta });
 async function mockSession(page: Page) {
+  await markSignedIn(page);
   await page.route("**/api/web/**", route => {
     const path = new URL(route.request().url()).pathname.replace("/api/web", "");
     const data = path === "/auth/me" ? identity : path === "/school/dashboard/summary" ? demoSummary : path === "/notifications/unread-count" ? { total: 3 } : path === "/school/students" ? demoStudents : [];

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SESSION_ABSOLUTE_TTL_MS } from "@/lib/auth/constants";
 import { operations } from "@/lib/frontend/catalog";
+import { SESSION_HINT } from "@/lib/frontend/session-hint";
 import { boundedBody, sameOrigin } from "@/lib/frontend/web-transport";
 
 export const runtime = "nodejs";
 const ACCESS = "studenthub_access";
 const REFRESH = "studenthub_refresh";
 const cookieOptions = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/api/web" };
+/** Penanda sesi (tanpa rahasia) terbaca server di /hub: src/lib/frontend/session-hint.ts. */
+const hintOptions = { ...cookieOptions, path: "/" };
+/** Umur penanda untuk sesi yang kedaluwarsa refresh token-nya tidak diketahui (= umur sesi web). */
+const HINT_MAX_AGE_S = Math.floor(SESSION_ABSOLUTE_TTL_MS.WEB / 1000);
 function failure(message: string, status: number) {
   return NextResponse.json({ success: false, data: null, error: { code: "WEB_SESSION", message }, meta: null }, { status });
 }
@@ -13,12 +19,29 @@ function allowed(path: string, method: string) {
   return operations.some(op => op.method === method && new RegExp(`^${op.path.replace(/\{[^}]+\}/g, "[^/]+")}$`).test(path));
 }
 function setTokens(response: NextResponse, data: Record<string, unknown>) {
+  const refreshExpires = new Date(String(data.refreshTokenExpiresAt));
   response.cookies.set(ACCESS, String(data.accessToken), { ...cookieOptions, expires: new Date(String(data.accessTokenExpiresAt)) });
-  response.cookies.set(REFRESH, String(data.refreshToken), { ...cookieOptions, expires: new Date(String(data.refreshTokenExpiresAt)) });
+  response.cookies.set(REFRESH, String(data.refreshToken), { ...cookieOptions, expires: refreshExpires });
+  response.cookies.set(SESSION_HINT, "1", { ...hintOptions, expires: refreshExpires });
+}
+function clearHint(response: NextResponse): NextResponse {
+  response.cookies.set(SESSION_HINT, "", { ...hintOptions, maxAge: 0 });
+  return response;
 }
 function clearTokens(response: NextResponse): NextResponse {
   response.cookies.set(ACCESS, "", { ...cookieOptions, maxAge: 0 });
   response.cookies.set(REFRESH, "", { ...cookieOptions, maxAge: 0 });
+  return clearHint(response);
+}
+/**
+ * Status sesi TANPA memanggil backend, selalu 200: halaman masuk (dirender server tanpa penanda) memeriksa
+ * sesi lama tanpa mencatat galat 401/400 di konsol. Sekaligus menyelaraskan penanda dengan cookie token.
+ */
+function sessionStatus(request: NextRequest): NextResponse {
+  const active = Boolean(request.cookies.get(ACCESS)?.value || request.cookies.get(REFRESH)?.value);
+  const response = NextResponse.json({ success: true, data: { active }, error: null, meta: null }, { headers: NO_STORE });
+  if (active && request.cookies.get(SESSION_HINT)?.value !== "1") response.cookies.set(SESSION_HINT, "1", { ...hintOptions, maxAge: HINT_MAX_AGE_S });
+  if (!active && request.cookies.has(SESSION_HINT)) clearHint(response);
   return response;
 }
 const LOGOUT_PATHS = ["/auth/logout", "/auth/logout-all"];
@@ -63,6 +86,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const segments = (await context.params).path;
   if (segments.some(s => !/^[a-zA-Z0-9._:-]+$/.test(s) || s === "." || s === "..")) return failure("Alamat tidak valid.", 400);
   const path = `/${segments.join("/")}`;
+  if (path === "/session" && request.method === "GET") return sessionStatus(request);
   if (!allowed(path, request.method)) return failure("Halaman tidak ditemukan.", 404);
   if (request.method !== "GET" && !sameOrigin(request)) return failure("Asal permintaan tidak valid. Muat ulang halaman.", 403);
   const headers = forwardedHeaders(request);
@@ -94,6 +118,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     if (tokens) { delete payload.data.accessToken; delete payload.data.refreshToken; }
     const response = NextResponse.json(payload, { status: upstream.status, headers: NO_STORE });
     if (tokens) setTokens(response, tokens);
+    // Refresh token ditolak: sesi sudah berakhir, halaman berikutnya langsung dirender sebagai halaman masuk.
+    if (path === "/auth/refresh" && upstream.status >= 400 && upstream.status < 500) clearHint(response);
     return response;
   } catch { return failure("Layanan sedang tidak tersedia. Silakan coba lagi.", 502); }
 }

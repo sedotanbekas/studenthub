@@ -1,4 +1,5 @@
 import { devices, expect, test } from "@playwright/test";
+import { markSignedIn } from "./session-cookie";
 
 /** Safari iPhone: tab mitra dibuka sinkron saat klik lalu diarahkan setelah API klik — tidak diblokir popup blocker. */
 test.use({ ...devices["iPhone 13"], browserName: "webkit", launchOptions: {} });
@@ -8,6 +9,7 @@ const student = { user: { id: "stu1", name: "Alya Putri Ramadhani", email: null,
 const AD = { token: "tok-bimbel-12345678901234", adId: "ad1", title: "Belajar 20 menit sehari bersama Bimbel Cahaya", imageUrl: "/demo/ads/bimbel-cahaya.svg", targetUrl: "https://mitra.example/bimbel", linkType: "EXTERNAL_URL", sponsorName: "PT Cahaya Ilmu Nusantara" };
 
 test("iPhone (WebKit): ketuk kartu mitra membuka tab baru ke tautan mitra", async ({ page, context }) => {
+  await markSignedIn(page);
   await context.route("https://mitra.example/**", route => route.fulfill({ contentType: "text/html", body: "<h1>Mitra</h1>" }));
   await page.route("**/api/web/**", route => {
     const path = new URL(route.request().url()).pathname.replace("/api/web", "");

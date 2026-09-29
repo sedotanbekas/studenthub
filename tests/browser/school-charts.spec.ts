@@ -4,6 +4,7 @@ import { dayLabel } from "../../src/lib/frontend/chart-rules";
 import { demoSummary } from "../../src/lib/frontend/demo";
 import { demoAnalyticsRows, demoSchoolTrend } from "../../src/lib/frontend/demo-analytics";
 import { trendRange } from "../../src/lib/frontend/school-chart-rules";
+import { markSignedIn } from "./session-cookie";
 
 /** Grafik interaktif beranda admin sekolah (mode demo). Waktu dipatok agar data contoh deterministik. */
 const NOW = new Date("2026-09-26T03:00:00Z"); // Sabtu 10.00 WIB
@@ -90,6 +91,7 @@ test("API asli: panel tren yang gagal tidak menyembunyikan panel lain; 'Coba lag
   let failTrend = true;
   const trendQueries: string[] = [];
   await page.clock.setFixedTime(NOW);
+  await markSignedIn(page);
   await page.route("**/api/web/**", route => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace("/api/web", "");

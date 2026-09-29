@@ -1,11 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { operations } from "../../src/lib/frontend/catalog";
 import { demoStudents, demoSummary } from "../../src/lib/frontend/demo";
+import { markSignedIn } from "./session-cookie";
 
 /**
- * Splash screen: tampil saat situs dibuka (belum login / terakhir dipakai > 5 menit lalu) dan saat kembali
- * ke tab setelah > 5 menit; masker logo menyingkap halaman TERAKHIR yang dilihat; transisi login. Setiap
- * perubahan <html data-splash> dicatat (dengan path & waktu) oleh skrip awal sebelum skrip boot berjalan.
+ * Splash screen: HANYA untuk yang sudah masuk — saat situs dibuka / kembali ke tab setelah > 5 menit, masker
+ * logo menyingkap halaman TERAKHIR yang dilihat; transisi masuk (1-2-3) dan keluar (3-2-1). Tamu langsung
+ * melihat halaman masuk (dirender server, tanpa splash). Setiap perubahan <html data-splash> dicatat (dengan
+ * path & waktu) oleh skrip awal sebelum skrip boot berjalan.
  */
 const identity = { user: { id: "user1", name: "Admin Sekolah", email: "admin@example.test", role: "SCHOOL_ADMIN", mustChangePassword: false, totpEnrollmentRequired: false }, school: { id: "school1", name: "Sekolah Pengujian", timezone: "WIB" }, sponsor: null, permissions: [...new Set(operations.map(o => o.action))] };
 const envelope = (data: unknown, meta: unknown = null) => ({ success: true, data, error: null, meta });
@@ -13,6 +15,7 @@ const MIN = 60_000;
 interface SplashEntry { phase: string | null; path: string; t: number }
 
 async function mockSession(page: Page) {
+  await markSignedIn(page);
   await page.route("**/api/web/**", route => {
     const path = new URL(route.request().url()).pathname.replace("/api/web", "");
     const data = path === "/auth/me" ? identity : path === "/school/dashboard/summary" ? demoSummary : path === "/notifications/unread-count" ? { total: 0 } : path === "/school/students" ? demoStudents : [];
@@ -54,14 +57,32 @@ async function leaveAndReturn(page: Page, awayMs: number) {
   await setVisibility("visible");
 }
 
-test("kunjungan pertama (belum login): splash lalu masker logo menyingkap halaman login, maksimal ±1 detik", async ({ page }) => {
+test("tamu (kunjungan pertama): tanpa splash, halaman masuk sudah ada di HTML server, tanpa permintaan sesi yang gagal", async ({ page }) => {
+  const html = await (await page.request.get("/hub")).text();
+  expect(html, "halaman masuk dirender server").toContain("Senang bertemu lagi.");
+  expect(html).not.toContain("Memuat…");
+  const auth: string[] = [];
+  page.on("request", request => { if (request.url().includes("/api/web/auth/")) auth.push(request.url()); });
+  const errors: string[] = [];
+  page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   await prepare(page);
   await page.goto("/");
-  await splashDone(page);
   await expect(page.getByRole("heading", { name: "Senang bertemu lagi." })).toBeVisible();
-  const log = await splashLog(page);
-  expect(phases(log)).toEqual(["intro", "reveal", null]);
-  expect(duration(log)).toBeLessThanOrEqual(1150);
+  await expect(page.getByRole("button", { name: "Masuk", exact: true })).toHaveAttribute("type", "submit");
+  await page.waitForLoadState("networkidle");
+  expect(phases(await splashLog(page))).toEqual([]);
+  expect(auth, "tanpa GET /auth/me & /auth/refresh untuk tamu").toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("tamu kembali ke tab setelah > 5 menit: tetap tanpa splash", async ({ page }) => {
+  await page.clock.install();
+  await prepare(page, { presenceAgoMs: 10 * MIN, signedIn: false });
+  await page.goto("/hub");
+  await expect(page.getByRole("heading", { name: "Senang bertemu lagi." })).toBeVisible();
+  await leaveAndReturn(page, 6 * MIN);
+  await page.clock.runFor(1500);
+  expect(phases(await splashLog(page))).toEqual([]);
 });
 
 test("sudah login & baru pergi <= 5 menit: tanpa splash, langsung ke halaman terakhir", async ({ page }) => {
@@ -111,6 +132,10 @@ test("login (demo): tirai dari tombol lalu masker menyingkap beranda, maksimal �
   await prepare(page, { presenceAgoMs: 0, signedIn: false });
   await page.goto("/hub");
   await splashDone(page);
+  // Seperti pengguna sungguhan: kursor mendekati tombol demo lebih dulu (memanaskan modul isi hub).
+  // Mode dev mengompilasi modul itu saat diminta pertama kali; yang diukur di sini koreografi animasinya.
+  await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).hover();
+  await page.waitForLoadState("networkidle");
   await page.evaluate(() => { (window as unknown as { __splash: unknown[] }).__splash.length = 0; });
   await page.getByRole("button", { name: "Masuk demo sebagai Admin sekolah" }).click();
   await expect(page.getByRole("heading", { name: /Selamat datang/ })).toBeVisible();
@@ -120,13 +145,25 @@ test("login (demo): tirai dari tombol lalu masker menyingkap beranda, maksimal �
   expect(duration(log)).toBeLessThanOrEqual(1150);
 });
 
-test("keluar: halaman terakhir dilupakan (tidak dilanjutkan saat masuk lagi)", async ({ page }) => {
+test("keluar: kebalikan masuk (masker menutup -> logo -> tirai ke tombol Masuk), halaman terakhir dilupakan", async ({ page }) => {
   await mockSession(page);
   await prepare(page, { presenceAgoMs: MIN, resume: { path: "/hub/students", y: 0 } });
   await page.goto("/hub/students");
   await expect(page.getByText("Alya Putri Ramadhani", { exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("studenthub_resume") ?? "null")?.path)).toBe("/hub/students");
+  await page.evaluate(() => { (window as unknown as { __splash: unknown[] }).__splash.length = 0; });
   await page.getByRole("button", { name: /Keluar dari akun/ }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.splash)).toBe("close");
+  expect(await page.evaluate(() => document.documentElement.dataset.splashKind)).toBe("logout");
   await expect(page.getByRole("heading", { name: "Senang bertemu lagi." })).toBeVisible();
+  await splashDone(page);
+  const log = await splashLog(page);
+  expect(phases(log)).toEqual(["close", "hold", "unwipe", null]);
+  expect(log.find(e => e.phase === "unwipe")?.path, "yang disingkap = halaman masuk").toBe("/hub");
+  // Koreografi (masker menutup ±460 ms, tirai ±420 ms); jeda logo di antaranya ikut menunggu navigasi ke /hub.
+  const at = (phase: string | null) => log.find(e => e.phase === phase)!.t;
+  expect(at("hold") - at("close")).toBeLessThanOrEqual(560);
+  expect(at(null) - at("unwipe")).toBeLessThanOrEqual(520);
+  expect(duration(log)).toBeLessThanOrEqual(1600);
   expect(await page.evaluate(() => localStorage.getItem("studenthub_resume"))).toBeNull();
 });

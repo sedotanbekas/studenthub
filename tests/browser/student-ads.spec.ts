@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { markSignedIn } from "./session-cookie";
 
 /** Slot iklan beranda siswa: tampil tenang di bawah menu, impresi tercatat saat terlihat, klik membuka tab mitra. */
 const envelope = (data: unknown) => ({ success: true, data, error: null, meta: null });
@@ -9,6 +10,7 @@ const ADS = [
 ];
 
 async function mockStudent(page: Page, calls: string[]) {
+  await markSignedIn(page);
   await page.route("**/api/web/**", async route => {
     const path = new URL(route.request().url()).pathname.replace("/api/web", "");
     if (route.request().method() === "POST") calls.push(`${path} ${route.request().postData() ?? ""}`);

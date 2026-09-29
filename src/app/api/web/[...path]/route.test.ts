@@ -25,8 +25,47 @@ test("BFF menyimpan token sebagai cookie HttpOnly dan menghapus token dari JSON 
   assert.equal(body.data.refreshToken, undefined);
   assert.equal(body.data.user.name, "Admin");
   const cookies = response.headers.getSetCookie();
-  assert.equal(cookies.length, 2);
-  assert.ok(cookies.every(cookie => cookie.includes("HttpOnly") && cookie.includes("SameSite=lax") && cookie.includes("Path=/api/web")));
+  assert.equal(cookies.length, 3);
+  assert.ok(cookies.every(cookie => cookie.includes("HttpOnly") && cookie.includes("SameSite=lax")));
+  const tokens = cookies.filter(cookie => /^studenthub_(access|refresh)=/.test(cookie));
+  assert.equal(tokens.length, 2);
+  assert.ok(tokens.every(cookie => cookie.includes("Path=/api/web")));
+  // Penanda sesi (tanpa rahasia) untuk render server /hub: Path=/, umur sama dengan refresh token.
+  const hint = cookies.find(cookie => cookie.startsWith("studenthub_session="));
+  assert.match(hint ?? "", /^studenthub_session=1; Path=\/; Expires=Fri, 01 Feb 2030 00:00:00 GMT;/);
+  assert.doesNotMatch(hint ?? "", /private/);
+});
+test("BFF refresh yang berhasil memperpanjang penanda sesi bersama token baru", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ success: true, data: { accessToken: "a2", refreshToken: "r2", accessTokenExpiresAt: "2030-01-01T00:00:00Z", refreshTokenExpiresAt: "2030-03-01T00:00:00Z" } }));
+  const response = await POST(request("auth/refresh", "POST", { cookie: "studenthub_refresh=r1" }), params("auth/refresh"));
+  assert.equal(response.status, 200);
+  assert.match(response.headers.getSetCookie().find(c => c.startsWith("studenthub_session=")) ?? "", /Expires=Fri, 01 Mar 2030/);
+});
+test("BFF refresh yang ditolak menghapus penanda sesi (token tidak disentuh)", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ success: false, error: { code: "UNAUTHORIZED", message: "Sesi tidak valid." } }, { status: 401 }));
+  const response = await POST(request("auth/refresh", "POST", { cookie: "studenthub_refresh=basi; studenthub_session=1" }), params("auth/refresh"));
+  assert.equal(response.status, 401);
+  assert.deepEqual(response.headers.getSetCookie().map(c => c.split(";")[0]), ["studenthub_session="]);
+});
+test("BFF GET /session: status sesi selalu 200 (tanpa galat konsol), tanpa memanggil backend", async t => {
+  const fetch = t.mock.method(globalThis, "fetch", async () => { throw new Error("Tidak boleh dipanggil"); });
+  const anonymous = await GET(request("session", "GET"), params("session"));
+  assert.equal(anonymous.status, 200);
+  assert.deepEqual((await anonymous.json()).data, { active: false });
+  assert.equal(anonymous.headers.get("cache-control"), "private, no-store");
+  assert.equal(anonymous.headers.getSetCookie().length, 0);
+  // Sesi dari sebelum penanda ada: penanda dipasang agar kunjungan berikutnya langsung memuat sesi.
+  const legacy = await GET(request("session", "GET", { cookie: "studenthub_refresh=r" }), params("session"));
+  assert.deepEqual((await legacy.json()).data, { active: true });
+  const legacyHint = legacy.headers.getSetCookie().find(c => c.startsWith("studenthub_session=1; Path=/;")) ?? "";
+  assert.match(legacyHint, /Max-Age=2592000;.*HttpOnly/);
+  // Penanda tertinggal tanpa token: dihapus.
+  const stale = await GET(request("session", "GET", { cookie: "studenthub_session=1" }), params("session"));
+  assert.deepEqual((await stale.json()).data, { active: false });
+  assert.match(stale.headers.getSetCookie().join("\n"), /studenthub_session=; Path=\/; Max-Age=0/);
+  // Hanya GET; metode lain tetap ditolak sebagai jalur bukan kontrak.
+  assert.equal((await POST(request("session"), params("session"))).status, 404);
+  assert.equal(fetch.mock.callCount(), 0);
 });
 test("BFF meneruskan cookie sebagai bearer serta mempertahankan data multipart", async t => {
   let upstream: RequestInit | undefined;
@@ -69,7 +108,11 @@ test("BFF meneruskan User-Agent browser agar server mengenali browser HP untuk a
   await GET(request("student/attendance/today", "GET", { cookie: "studenthub_access=token", "user-agent": phone }), params("student/attendance/today"));
   assert.equal(new Headers(upstream?.headers).get("User-Agent"), phone);
 });
-const cleared = (response: Response) => response.headers.getSetCookie().filter(c => /Max-Age=0/i.test(c) && c.includes("Path=/api/web"));
+const cleared = (response: Response) => {
+  const all = response.headers.getSetCookie().filter(c => /Max-Age=0/i.test(c));
+  assert.ok(all.some(c => c.startsWith("studenthub_session=") && c.includes("Path=/;")), "penanda sesi ikut dihapus");
+  return all.filter(c => c.includes("Path=/api/web"));
+};
 type Call = { url: string; auth: string | null; body: string | null };
 function recordUpstream(t: { mock: { method: (o: object, k: string, f: (...a: never[]) => unknown) => unknown } }, reply: (url: string) => Response) {
   const calls: Call[] = [];

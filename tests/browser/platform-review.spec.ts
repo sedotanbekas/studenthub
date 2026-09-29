@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { markSignedIn } from "./session-cookie";
 
 /** Super admin (mode demo): moderasi iklan & verifikasi top-up. Tidak ada permintaan API di mode demo. */
 
@@ -115,6 +116,7 @@ interface Posted { readonly path: string; readonly body: string | null }
 /** Semua /api/web/** di-mock; `handle` menjawab jalur milik test, sisanya daftar kosong. */
 async function mockApi(page: Page, handle: (method: string, path: string, body: string | null) => { status?: number; json: unknown } | null): Promise<Posted[]> {
   const posted: Posted[] = [];
+  await markSignedIn(page);
   await page.route("**/api/web/**", route => {
     const request = route.request();
     const url = new URL(request.url());

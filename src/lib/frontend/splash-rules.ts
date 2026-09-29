@@ -1,10 +1,12 @@
 import { scrollKey } from "./scroll-memory-rules";
 
 /**
- * Aturan murni splash screen hub (tanpa DOM nyata). Splash tampil saat:
- * - situs dibuka dalam keadaan belum login, atau sudah login tetapi terakhir dipakai > 5 menit lalu;
- * - kembali ke tab/aplikasi setelah pergi > 5 menit (walau lebih 1 detik saja);
- * lalu logo "S + toga" menjadi masker yang membesar dan menyingkap halaman terakhir yang dilihat.
+ * Aturan murni splash screen hub (tanpa DOM nyata). Splash tampil HANYA untuk pengguna yang sudah masuk
+ * (akun atau demo) — tamu langsung melihat halaman masuk tanpa jeda (keputusan pemilik 2026-09-29, demi
+ * PageSpeed 100):
+ * - situs dibuka lagi / kembali ke tab setelah pergi > 5 menit (walau lebih 1 detik saja);
+ * - menekan Masuk / Coba demo (1 tirai dari tombol -> 2 logo -> 3 masker logo menyingkap beranda);
+ * - keluar = kebalikannya (3 masker menutup jadi logo -> 2 logo -> 1 tirai menyusut ke tombol Masuk).
  * Pelaksana DOM: src/components/hub/splash.ts. Keputusan saat halaman dimuat dijalankan SEBELUM
  * lukisan pertama oleh skrip boot (splashBootScript) di app/hub/layout.tsx, agar halaman tidak sempat
  * berkedip tampil sebelum splash menutupinya.
@@ -18,11 +20,12 @@ const FUTURE_SLACK_MS = 60_000;
 /** Halaman terakhir dilanjutkan selama sesi web masih mungkin hidup (30 hari). */
 export const RESUME_MAX_AGE_MS = 30 * 24 * 3_600_000;
 /**
- * Durasi (ms). intro = logo mekar + rumbai toga berayun + wordmark; wipe = tirai melingkar dari tombol;
- * reveal = logo menjadi masker yang membesar. Total animasi + transisi <= 1 detik. holdMax = batas
- * menunggu data sebelum masker tetap dibuka.
+ * Durasi (ms). intro = logo mekar + rumbai toga berayun + wordmark; wipe = tirai melingkar dari tombol
+ * (keluar: menyusut ke tombol Masuk); reveal = logo menjadi masker yang membesar; close = cermin reveal
+ * (lubang logo menyempit menutup halaman); hold = jeda logo utuh saat keluar. Total animasi + transisi
+ * <= 1 detik. holdMax = batas menunggu data sebelum masker tetap dibuka.
  */
-export const SPLASH_MS = { intro: 540, wipe: 420, reveal: 460, holdMax: 8000 } as const;
+export const SPLASH_MS = { intro: 540, wipe: 420, reveal: 460, close: 460, hold: 120, holdMax: 8000 } as const;
 /**
  * Geometri tanda "S + toga" pada kanvas splash persegi (public/brand/splash-*.webp), sebagai pecahan
  * sisi kanvas — dihasilkan scripts/brand-assets.mjs. MARK_ORIGIN = titik terdalam siluet (pusat zoom
@@ -43,6 +46,11 @@ const HUB_PATH = /^\/hub(?:\/[a-z][a-z0-9-]{0,40})?$/;
 
 export function isHexColor(value: unknown): value is string {
   return typeof value === "string" && HEX.test(value);
+}
+
+/** Kembali ke tab/aplikasi yang terbuka: splash hanya bila sedang masuk dan pergi terlalu lama. */
+export function returnSplashDue(signedIn: boolean, seenAt: number | null | undefined, now: number): boolean {
+  return signedIn && awayTooLong(seenAt, now);
 }
 
 /** Pergi terlalu lama: > AWAY_MS sejak terakhir terlihat, belum pernah tercatat, atau catatan tak masuk akal. */
@@ -115,7 +123,8 @@ export function splashBoot(storage: BootStorage, root: BootRoot, now: number, st
   try { record = JSON.parse(storage.getItem(key) || "null"); } catch { record = null; }
   const seenAt = record && typeof record.seenAt === "number" ? record.seenAt : NaN;
   const away = !(now - seenAt <= awayMs) || seenAt - now > 60000;
-  if (record && record.signedIn === true && !away) return false;
+  // Tamu (belum masuk / belum pernah tercatat / penyimpanan diblokir) tidak pernah melihat splash saat membuka situs.
+  if (!record || record.signedIn !== true || !away) return false;
   const tint = (record && record.tint && typeof record.tint === "object" ? record.tint : {}) as Record<string, unknown>;
   for (const name of ["a", "b", "ink", "glow"]) {
     const value = tint[name];

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEMO_PERSONAS, demoPersona, demoPersonaForUser, demoTodayFor } from "./demo-personas";
+import { DEMO_PERSONAS, demoPersona, demoPersonaForUser } from "./demo-personas";
+import { demoTodayFor } from "./demo";
 
 test("persona demo: admin sekolah, tiga siswa, sponsor, super admin — kunci unik", () => {
   const roles = DEMO_PERSONAS.map(p => p.identity.user.role);

@@ -1,18 +1,21 @@
 "use client";
 import { scrollKey } from "@/lib/frontend/scroll-memory-rules";
-import { PRESENCE_KEY, RESUME_KEY, SPLASH_MS, awayTooLong, isHexColor, parsePresence, parseResume, revealDelay, revealZoom, type ResumeRecord, type SplashTint } from "@/lib/frontend/splash-rules";
+import { PRESENCE_KEY, RESUME_KEY, SPLASH_MS, isHexColor, parsePresence, parseResume, returnSplashDue, revealDelay, revealZoom, type ResumeRecord, type SplashTint } from "@/lib/frontend/splash-rules";
 
 /**
  * Pelaksana DOM splash screen hub. Aturan: src/lib/frontend/splash-rules.ts; tampilan:
  * splash-screen.tsx + src/styles/splash.css. Fase ditandai atribut <html data-splash>:
- * intro (logo buku terbuka + wordmark) | wipe (setelah login: tirai melingkar dari tombol) |
+ * intro (logo + wordmark) | wipe (setelah login: tirai melingkar dari tombol) |
  * reveal (logo menjadi masker yang membesar dan menyingkap halaman) | leave (dibatalkan: memudar).
+ * Keluar = login dibalik: close (lubang logo menyempit menutup halaman) | hold (logo utuh) |
+ * unwipe (tirai menyusut ke tombol Masuk, menyingkap halaman masuk).
  * Masker baru dibuka setelah halaman tujuan siap (sesi dimuat, halaman terakhir dilanjutkan), paling
  * lambat SPLASH_MS.holdMax. "Terakhir terlihat" dicatat di localStorage (bersama semua tab) setiap
  * detak, saat tab disembunyikan, dan saat halaman ditutup; kembali setelah > 5 menit memutar splash.
  */
 export type SplashView = "loading" | "login" | "app";
-type SplashKind = "load" | "return" | "login";
+type SplashKind = "load" | "return" | "login" | "logout";
+type SplashPhase = "intro" | "wipe" | "close" | "hold";
 interface Point { readonly x: number; readonly y: number }
 
 const REDUCED = "(prefers-reduced-motion: reduce)";
@@ -20,6 +23,10 @@ const HEARTBEAT_MS = 15_000;
 const LEAVE_MS = 180;
 const TINT_VARS = { a: "--splash-a", b: "--splash-b", ink: "--splash-ink", glow: "--splash-glow" } as const;
 const STATE_KEY = "__studenthubSplash";
+/** Gambar splash; tamu tidak melihat splash saat membuka situs, jadi gambarnya dipanaskan setelah halaman selesai dimuat. */
+const SPLASH_IMAGES = ["/brand/splash-body.webp", "/brand/splash-tassel.webp", "/brand/splash-shape.webp"];
+/** Tombol Masuk di halaman masuk: tujuan tirai saat keluar (asal tirai saat masuk). */
+const LOGIN_BUTTON = ".login-box .button.primary";
 
 interface SplashState {
   kind: SplashKind | null;
@@ -97,8 +104,25 @@ function setOnTop(show: boolean): void {
   } catch { /* popover tidak didukung: tetap tampil lewat z-index */ }
 }
 
+/** Fase pembuka tiap jenis splash. */
+function openingPhase(kind: SplashKind): SplashPhase {
+  return kind === "login" ? "wipe" : kind === "logout" ? "close" : "intro";
+}
+
+/** Waktu minimum sejak mulai sebelum halaman tujuan disingkap. */
+function minimumMs(kind: SplashKind): number {
+  if (reduced()) return 0;
+  return kind === "login" ? SPLASH_MS.wipe : kind === "logout" ? SPLASH_MS.close + SPLASH_MS.hold : SPLASH_MS.intro;
+}
+
+/** Skala akhir masker untuk layar ini (splash harus sudah tampil agar ukurannya terbaca). */
+function setZoom(): void {
+  const size = screen()?.querySelector<HTMLElement>(".splash-art")?.offsetWidth ?? 0;
+  root().style.setProperty("--splash-zoom", String(revealZoom(window.innerWidth, window.innerHeight, size)));
+}
+
 /** Pasang ulang fase agar animasi CSS mulai dari awal. */
-function playPhase(phase: "intro" | "wipe"): void {
+function playPhase(phase: SplashPhase): void {
   const el = root();
   delete el.dataset.splash;
   void el.offsetWidth;
@@ -110,7 +134,8 @@ function start(kind: SplashKind, onTop: boolean): void {
   clearTimers();
   Object.assign(s, { kind, scheduled: false, paused: false, startedAt: performance.now() });
   root().dataset.splashKind = kind;
-  playPhase(kind === "login" ? "wipe" : "intro");
+  playPhase(openingPhase(kind));
+  if (kind === "logout") setZoom();
   if (onTop) setOnTop(true);
   armHold();
   maybeReveal();
@@ -123,15 +148,17 @@ function armHold(): void {
 
 function ready(s: SplashState): boolean {
   if (s.resumeTo && scrollKey(s.pathname) !== s.resumeTo) return false;
-  return s.kind === "login" ? s.view === "app" : s.view !== "loading";
+  if (s.kind === "login") return s.view === "app";
+  // Keluar: tunggu halaman masuk benar-benar di /hub (router.replace selesai) agar tidak ada geser halaman di balik tirai.
+  if (s.kind === "logout") return s.view === "login" && scrollKey(s.pathname) === "/hub";
+  return s.view !== "loading";
 }
 
 function maybeReveal(): void {
   const s = state();
   if (!s.kind || s.scheduled || s.paused || !ready(s) || document.visibilityState === "hidden") return;
   s.scheduled = true;
-  const minMs = reduced() ? 0 : s.kind === "login" ? SPLASH_MS.wipe : SPLASH_MS.intro;
-  later(reveal, revealDelay(s.startedAt, performance.now(), minMs));
+  later(reveal, revealDelay(s.startedAt, performance.now(), minimumMs(s.kind)));
 }
 
 /** Logo menjadi masker: lubang berbentuk buku membesar sampai menutup layar, lalu splash dilepas. */
@@ -141,10 +168,21 @@ function reveal(): void {
   clearTimers();
   s.scheduled = true;
   if (reduced()) { finish(); return; }
-  const size = screen()?.querySelector<HTMLElement>(".splash-art")?.offsetWidth ?? 0;
-  root().style.setProperty("--splash-zoom", String(revealZoom(window.innerWidth, window.innerHeight, size)));
+  if (s.kind === "logout") { unwipe(); return; }
+  setZoom();
   root().dataset.splash = "reveal";
   later(finish, SPLASH_MS.reveal);
+}
+
+/** Langkah terakhir keluar: tirai menyusut kembali ke tombol Masuk (asal tirai saat masuk). */
+function unwipe(): void {
+  const target = centerOf(document.querySelector(LOGIN_BUTTON));
+  if (target) {
+    root().style.setProperty("--splash-x", `${Math.round(target.x)}px`);
+    root().style.setProperty("--splash-y", `${Math.round(target.y)}px`);
+  }
+  root().dataset.splash = "unwipe";
+  later(finish, SPLASH_MS.wipe);
 }
 
 function finish(): void {
@@ -208,6 +246,19 @@ export function playLoginSplash(origin: Point | null): Promise<void> {
   applyTint(currentTint());
   start("login", true);
   return new Promise(resolve => window.setTimeout(resolve, SPLASH_MS.wipe));
+}
+
+/**
+ * Keluar = login dibalik (3-2-1): lubang berbentuk logo menyempit dari layar penuh hingga seukuran logo
+ * lalu logo terisi, logo utuh sejenak, kemudian tirai menyusut ke tombol Masuk. Promise selesai saat
+ * layar tertutup — identitas dilepas setelahnya agar pergantian ke halaman masuk tidak terlihat.
+ */
+export function playLogoutSplash(): Promise<void> {
+  if (typeof window === "undefined" || reduced() || state().kind || document.visibilityState === "hidden") return Promise.resolve();
+  applyTint(currentTint());
+  start("logout", true);
+  later(() => { if (state().kind === "logout" && root().dataset.splash === "close") root().dataset.splash = "hold"; }, SPLASH_MS.close);
+  return new Promise(resolve => window.setTimeout(resolve, SPLASH_MS.close));
 }
 
 /** Login gagal setelah tirai mulai: splash memudar tanpa membuka masker. */
@@ -291,9 +342,18 @@ function onVisibility(): void {
   }
   s.lastBeat = Date.now();
   if (s.kind) {
-    if (s.paused) { Object.assign(s, { paused: false, startedAt: performance.now() }); playPhase(s.kind === "login" ? "wipe" : "intro"); armHold(); maybeReveal(); }
-  } else if (awayTooLong(parsePresence(readStorage(PRESENCE_KEY))?.seenAt, Date.now())) playReturnSplash();
+    if (s.paused) resumePaused(s, s.kind);
+  } else if (returnSplashDue(s.signedIn, parsePresence(readStorage(PRESENCE_KEY))?.seenAt, Date.now())) playReturnSplash();
   writePresence();
+}
+
+/** Splash yang mulai saat tab tersembunyi diulang begitu tab terlihat (keluar: lanjut dari logo utuh). */
+function resumePaused(s: SplashState, kind: SplashKind): void {
+  const logout = kind === "logout";
+  Object.assign(s, { paused: false, startedAt: performance.now() - (logout ? SPLASH_MS.close : 0) });
+  playPhase(logout ? "hold" : openingPhase(kind));
+  armHold();
+  maybeReveal();
 }
 
 /** Tab terbuka tetapi perangkat tidur (timer berhenti) lebih dari 5 menit = kembali setelah pergi. */
@@ -301,10 +361,18 @@ function heartbeat(): void {
   const s = state();
   if (document.visibilityState !== "visible") return;
   const now = Date.now();
-  if (awayTooLong(s.lastBeat, now)) playReturnSplash();
+  if (returnSplashDue(s.signedIn, s.lastBeat, now)) playReturnSplash();
   s.lastBeat = now;
   writePresence();
   saveResume();
+}
+
+/** Unduh gambar splash saat peramban senggang setelah halaman dimuat (siap untuk tirai Masuk/Keluar). */
+function warmSplashImages(): void {
+  const warm = () => SPLASH_IMAGES.forEach(src => { const image = new Image(); image.decoding = "async"; image.src = src; });
+  const idle = () => { if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(warm, { timeout: 3000 }); else setTimeout(warm, 1500); };
+  if (document.readyState === "complete") idle();
+  else window.addEventListener("load", idle, { once: true });
 }
 
 function install(): void {
@@ -312,6 +380,7 @@ function install(): void {
   const s = state();
   if (s.installed) return;
   s.installed = true;
+  warmSplashImages();
   document.addEventListener("visibilitychange", onVisibility);
   window.addEventListener("pageshow", event => { if (event.persisted) onVisibility(); });
   window.addEventListener("pagehide", () => { writePresence(); saveResume(); });

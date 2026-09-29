@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { operations } from "../../src/lib/frontend/catalog";
 import { addDays, demoAnalyticsSeries, demoAnalyticsSummary, demoBalance, wibToday } from "../../src/lib/frontend/demo-ads";
+import { markSignedIn } from "./session-cookie";
 
 /**
  * Halaman sponsor "Kampanye saya" (daftar, detail + pratinjau, editor dengan pratinjau langsung, ?baru=1)
@@ -204,6 +205,7 @@ const envelope = (data: unknown, meta: unknown = { page: 1, total: 0, totalPages
 const profile = { id: "sp1", companyName: "PT Cahaya Ilmu", contactName: "Rizky", contactEmail: "rizky@example.test", contactPhone: "0812", address: null, status: "APPROVED", statusReason: null, reviewedAt: null, balance: 100_000, createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-01T00:00:00Z" };
 
 async function mockSponsorApi(page: Page, handle: (path: string, method: string) => unknown) {
+  await markSignedIn(page);
   await page.route("**/api/web/**", route => {
     const path = new URL(route.request().url()).pathname.replace("/api/web", "");
     const custom = handle(path, route.request().method());

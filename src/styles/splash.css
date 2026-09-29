@@ -6,7 +6,10 @@
  * - reveal (460 ms): logo MENJADI MASKER — lubang berbentuk siluet logo menyusut sedikit lalu membesar
  *   ("masuk ke dalam logo") dan menyingkap halaman terakhir yang dilihat;
  * - leave  (180 ms): dibatalkan (login gagal), memudar.
- * intro/wipe + reveal <= 1 detik. Warna dibekukan saat mulai (--splash-a/b/ink/glow), bawaan = tema aktif.
+ * Keluar = masuk dibalik (3-2-1): close (460 ms, cermin reveal: lubang logo menyempit dari layar penuh ke
+ * siluet logo lalu logo terisi) -> hold (120 ms, logo utuh, rumbai berayun, kilau) -> unwipe (420 ms,
+ * tirai menyusut kembali ke tombol Masuk). Tamu yang membuka situs tidak melihat splash.
+ * intro/wipe + reveal <= 1 detik; close + hold + unwipe <= 1 detik. Warna dibekukan saat mulai (--splash-a/b/ink/glow), bawaan = tema aktif.
  * Aset & geometri: scripts/brand-assets.mjs. --splash-ox/oy = MARK_ORIGIN (splash-rules.ts): titik
  * terdalam siluet, diletakkan tepat di tengah layar sebagai pusat zoom masker.
  */
@@ -23,7 +26,7 @@
   /* Pengaman: bila skrip aplikasi gagal dimuat, splash tidak pernah menutupi halaman selamanya. */
   animation: splash-failsafe 1ms linear 10s forwards;
 }
-:root:is([data-splash="reveal"], [data-splash="leave"]) .splash { pointer-events: none; }
+:root:is([data-splash="reveal"], [data-splash="leave"], [data-splash="unwipe"]) .splash { pointer-events: none; }
 
 /* Lebih besar dari layar: saat antisipasi (menyusut 14%) tepinya tetap menutupi layar. */
 .splash-curtain {
@@ -69,25 +72,42 @@
 :root[data-splash="wipe"] .splash-mark { animation: splash-breathe 1.4s ease-in-out 800ms infinite; }
 :root[data-splash="wipe"] .splash-tassel { animation: splash-swing 300ms ease-out 120ms both; }
 :root[data-splash="wipe"] .splash-spark { animation: splash-spark 200ms var(--splash-spring) var(--dw) both; }
-/* Splash login tanpa wordmark (juga saat reveal sesudahnya). */
-:root[data-splash-kind="login"] .splash-word { visibility: hidden; }
+/* Splash masuk & keluar tanpa wordmark (juga saat reveal sesudahnya). */
+:root:is([data-splash-kind="login"], [data-splash-kind="logout"]) .splash-word { visibility: hidden; }
 
-/* reveal: logo menjadi masker — lubang berbentuk siluet logo, pusat zoom = titik terdalamnya */
-:root[data-splash="reveal"] .splash-curtain {
+/* reveal: logo menjadi masker — lubang berbentuk siluet logo, pusat zoom = titik terdalamnya.
+   close (keluar) memakai masker yang sama dengan animasi dibalik. */
+:root:is([data-splash="reveal"], [data-splash="close"]) .splash-curtain {
   -webkit-mask:
     url("/brand/splash-shape.webp") calc(50% - (var(--splash-ox) - 0.5) * var(--splash-size)) calc(50% - (var(--splash-oy) - 0.5) * var(--splash-size)) / var(--splash-size) var(--splash-size) no-repeat,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   will-change: transform;
-  animation: splash-zoom 460ms linear both, splash-curtain-out 460ms linear both;
 }
+:root[data-splash="reveal"] .splash-curtain { animation: splash-zoom 460ms linear both, splash-curtain-out 460ms linear both; }
 :root[data-splash="reveal"] .splash-art { will-change: transform, opacity; animation: splash-zoom 460ms linear both, splash-art-out 460ms linear both; }
 :root[data-splash="reveal"] .splash-word { animation: splash-word-out 140ms ease-in both; }
+
+/* close (keluar, langkah 3 dibalik): lubang logo menyempit dari layar penuh hingga seukuran logo, lalu logo terisi. */
+:root[data-splash="close"] .splash-curtain { animation: splash-zoom 460ms linear reverse both, splash-curtain-out 460ms linear reverse both; }
+:root[data-splash="close"] .splash-art { will-change: transform, opacity; animation: splash-zoom 460ms linear reverse both, splash-art-out 460ms linear reverse both; }
+/* Langkah 2 dibalik: begitu logo utuh, rumbai berayun & kilau muncul. Nilai animasi sama di close/hold/unwipe
+   sehingga tidak dimulai ulang saat fase berganti. */
+:root:is([data-splash="close"], [data-splash="hold"], [data-splash="unwipe"]) .splash-tassel { animation: splash-swing 300ms ease-out 340ms both; }
+:root:is([data-splash="close"], [data-splash="hold"]) .splash-spark { animation: splash-spark 200ms var(--splash-spring) calc(var(--dw) + 160ms) both; }
+
+/* unwipe (keluar, langkah 1 dibalik): tirai menyusut kembali ke tombol Masuk, logo & kilau mengecil. */
+:root[data-splash="unwipe"] .splash { animation: splash-wipe 420ms var(--ease-in-out) reverse both, splash-failsafe 1ms linear 10s forwards; }
+:root[data-splash="unwipe"] .splash-art { animation: splash-pop-out 300ms cubic-bezier(0.36, 0, 0.66, -0.56) both; }
+:root[data-splash="unwipe"] .splash-spark { animation: splash-spark-out 180ms ease-in both; }
 
 :root[data-splash="leave"] .splash { animation: splash-leave 180ms ease-out both; }
 
 @keyframes splash-pop { from { opacity: 0; transform: translateY(14px) scale(0.62) rotate(-8deg); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
+/* Cermin splash-pop (easing "back in" = kebalikan pegas). */
+@keyframes splash-pop-out { 60% { opacity: 1; } to { opacity: 0; transform: translateY(14px) scale(0.62) rotate(-8deg); } }
+@keyframes splash-spark-out { to { opacity: 0; transform: scale(0) rotate(60deg); } }
 /* Bandul teredam: rumbai terayun saat logo mendarat lalu diam. */
 @keyframes splash-swing {
   0% { transform: rotate(0); }

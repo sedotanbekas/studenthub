@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { operations } from "../../src/lib/frontend/catalog";
 import { demoAdPerformance, demoAnalyticsBreakdown, demoAnalyticsSeries, demoAnalyticsSummary, demoBalance, demoSponsorAds, demoSponsorProfile } from "../../src/lib/frontend/demo-ads";
+import { markSignedIn } from "./session-cookie";
 
 /**
  * Beranda & analitik sponsor: mode demo (tanpa API) untuk isi, interaksi grafik, filter, dan tata letak
@@ -29,6 +30,7 @@ const FIXTURES: Record<string, (q: URLSearchParams) => unknown> = {
 
 /** API tiruan; `failing` = jalur yang gagal (500) sampai `recover()` dipanggil (efek dev berjalan dua kali). */
 async function mockSponsorApi(page: Page, failing: string | null = null) {
+  await markSignedIn(page);
   const requested: string[] = [];
   let broken = failing;
   await page.route("**/api/web/**", route => {

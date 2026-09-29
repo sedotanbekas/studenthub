@@ -5,6 +5,7 @@ import { api } from "@/lib/frontend/api";
 import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionFromPath } from "@/lib/frontend/modules";
 import { applyGlassMode, applyTheme, glassModeFor, readGlassPreference } from "@/lib/frontend/theme";
 import { resolveTheme } from "@/lib/schools/theme-rules";
+import type { SessionHint } from "@/lib/frontend/session-hint";
 import type { Identity } from "@/lib/frontend/types";
 import { HubContext } from "./context";
 import { DemoBanner, Sidebar, TabBar, Topbar, deviceMemory } from "./frame";
@@ -12,6 +13,7 @@ import { Brand } from "./icon";
 import { Login } from "./login";
 import { cancelPageSlide, playPageSlide } from "./page-slide";
 import { forgetScrollPositions, restoreScroll } from "./scroll-memory";
+import { loadSections, useSections } from "./sections";
 import { useHubSession } from "./use-session";
 import { useSplash } from "./use-splash";
 
@@ -65,9 +67,18 @@ function useDrawer() {
   return { open, show, hide };
 }
 
-export function HubShell({ children }: { children: ReactNode }) {
-  const session = useHubSession();
+/** Modul isi bagian (sections.ts) dimuat begitu ada identitas; halaman aplikasi menunggu modul itu. */
+function useSectionsFor(me: Identity | null) {
+  const state = useSections();
+  const signedIn = Boolean(me);
+  useEffect(() => { if (signedIn) void loadSections(); }, [signedIn]);
+  return { ready: !me || state.sections !== null, failed: Boolean(me) && state.failed };
+}
+
+export function HubShell({ hint, children }: { hint: SessionHint; children: ReactNode }) {
+  const session = useHubSession(hint);
   const { me, demo, schoolId, notice } = session;
+  const sections = useSectionsFor(me);
   const pathname = usePathname();
   const section = sectionFromPath(pathname);
   // Akun/peran berganti: lupakan posisi gulir akun sebelumnya (sebelum halaman berikutnya dipulihkan).
@@ -77,13 +88,14 @@ export function HubShell({ children }: { children: ReactNode }) {
   // geser dari tangkapan halaman lama (potongan hantu dihitung dari posisi yang sudah dipulihkan).
   useLayoutEffect(() => { restoreScroll(pathname); playPageSlide(pathname); }, [pathname]);
   // Splash + halaman terakhir yang dilanjutkan (setelah forgetScrollPositions di atas).
-  const resuming = useSplash(me, demo, session.ready, pathname);
+  const resuming = useSplash(me, demo, session.ready && sections.ready, pathname);
   const drawer = useDrawer();
   const { schools, unread } = useNavigationData(me, demo);
   useAppearance(me);
   useSectionGuard(me, section);
   const toast = notice ? <div className="toast" role="status">{notice}</div> : null;
-  if (!session.ready || resuming) return <main className="standalone"><Brand /><div className="loader" /><p>Memuat…</p></main>;
+  if (sections.failed) return <main className="standalone"><Brand /><p>Halaman gagal dimuat. Periksa koneksi internet lalu coba lagi.</p><button type="button" className="button primary" onClick={() => void loadSections()}>Coba lagi</button></main>;
+  if (!session.ready || resuming || !sections.ready) return <main className="standalone"><Brand /><div className="loader" /><p>Memuat…</p></main>;
   if (!me) return <><Login onLogin={session.login} onDemo={session.startDemo} />{toast}</>;
   const restricted = isRestricted(me);
   const { home, module: current } = resolveSection(me.user.role, restricted, section);

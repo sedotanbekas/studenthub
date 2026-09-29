@@ -1,5 +1,4 @@
 import type { TodayDto } from "@/lib/attendance/student-schemas";
-import { demoToday } from "./demo";
 import type { Identity, Role } from "./types";
 
 /**
@@ -44,10 +43,5 @@ export function demoPersona(key: string | null): DemoPersona {
 export function demoPersonaForUser(userId: string): DemoPersona | undefined {
   return DEMO_PERSONAS.find(p => p.identity.user.id === userId);
 }
-
-/** Status absen hari ini untuk siswa demo (tiap siswa punya kondisi berbeda). */
-export function demoTodayFor(key: string): TodayDto {
-  const base = demoToday as unknown as TodayDto;
-  const record = demoPersona(key).todayRecord ?? null;
-  return record ? { ...base, record, canCheckIn: false, blockReason: "ALREADY_CHECKED_IN" } : base;
-}
+// Status absen hari ini per persona: demoTodayFor di ./demo — modul ini dipakai halaman masuk, jadi
+// sengaja tidak mengimpor data contoh (±30 KB) yang baru dibutuhkan setelah masuk demo.

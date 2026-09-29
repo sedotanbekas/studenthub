@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   AWAY_MS, MARK_INSCRIBED, MARK_ORIGIN, PRESENCE_KEY, RESUME_MAX_AGE_MS, SPLASH_MS, awayTooLong, isHexColor, parsePresence, parseResume,
-  resumePlan, revealDelay, revealZoom, splashBoot, splashBootScript,
+  resumePlan, returnSplashDue, revealDelay, revealZoom, splashBoot, splashBootScript,
 } from "./splash-rules";
 
 const NOW = Date.UTC(2026, 8, 28, 3, 0, 0);
@@ -21,6 +21,12 @@ test("SPLASH_MS: animasi + transisi masker maksimal 1 detik, baik saat membuka s
   assert.ok(SPLASH_MS.intro + SPLASH_MS.reveal <= 1000);
   assert.ok(SPLASH_MS.wipe + SPLASH_MS.reveal <= 1000);
   assert.ok(SPLASH_MS.holdMax > SPLASH_MS.intro, "penjagaan saat data belum siap lebih lama dari intro");
+});
+
+test("SPLASH_MS: logout = login dibalik (masker menutup -> logo -> tirai kembali ke tombol), total <= 1 detik", () => {
+  assert.equal(SPLASH_MS.close, SPLASH_MS.reveal, "masker menutup = cermin masker membuka");
+  assert.ok(SPLASH_MS.hold > 0);
+  assert.ok(SPLASH_MS.close + SPLASH_MS.hold + SPLASH_MS.wipe <= 1000);
 });
 
 test("awayTooLong: kembali setelah LEBIH dari 5 menit (walau 1 ms) -> splash; <= 5 menit -> tidak", () => {
@@ -60,11 +66,11 @@ test("isHexColor: hanya #rrggbb", () => {
   assert.equal(isHexColor(12), false);
 });
 
-test("splashBoot: kunjungan pertama (belum ada catatan) -> splash dengan penanda waktu mulai", () => {
-  const { storage, root } = fakes();
-  assert.equal(splashBoot(storage, root, NOW, 12.5, PRESENCE_KEY, AWAY_MS), true);
-  assert.equal(root.dataset.splash, "intro");
-  assert.equal(root.dataset.splashAt, "12.5");
+test("splashBoot: kunjungan pertama (belum ada catatan) -> tanpa splash, halaman masuk langsung tampil", () => {
+  const { storage, root, vars } = fakes();
+  assert.equal(splashBoot(storage, root, NOW, 12.5, PRESENCE_KEY, AWAY_MS), false);
+  assert.deepEqual(root.dataset, {});
+  assert.deepEqual(vars, {});
 });
 
 test("splashBoot: sudah masuk dan baru pergi <= 5 menit -> tanpa splash, <html> tidak disentuh", () => {
@@ -78,19 +84,24 @@ test("splashBoot: sudah masuk tetapi pergi > 5 menit -> splash bertema warna ter
   const { storage, root, vars } = fakes(presence({ seenAt: NOW - 5 * MIN - 1000, signedIn: true, tint: { a: "#111111", b: "#222222", ink: "#fefefe", glow: "#333333" } }));
   assert.equal(splashBoot(storage, root, NOW, 1, PRESENCE_KEY, AWAY_MS), true);
   assert.equal(root.dataset.splash, "intro");
+  assert.equal(root.dataset.splashAt, "1");
   assert.deepEqual(vars, { "--splash-a": "#111111", "--splash-b": "#222222", "--splash-ink": "#fefefe", "--splash-glow": "#333333" });
 });
 
-test("splashBoot: belum login -> selalu splash, walau baru saja dibuka", () => {
-  const { storage, root } = fakes(presence({ seenAt: NOW - 1000, signedIn: false }));
-  assert.equal(splashBoot(storage, root, NOW, 1, PRESENCE_KEY, AWAY_MS), true);
+test("splashBoot: tamu (belum login) -> tidak pernah splash, baru dibuka maupun lama pergi", () => {
+  for (const seenAt of [NOW - 1000, NOW - 60 * MIN]) {
+    const { storage, root } = fakes(presence({ seenAt, signedIn: false }));
+    assert.equal(splashBoot(storage, root, NOW, 1, PRESENCE_KEY, AWAY_MS), false);
+    assert.deepEqual(root.dataset, {});
+  }
 });
 
-test("splashBoot: catatan rusak / penyimpanan diblokir -> splash; warna tak sah tidak pernah dipasang", () => {
-  assert.equal(splashBoot(fakes({ [PRESENCE_KEY]: "{rusak" }).storage, fakes().root, NOW, 1, PRESENCE_KEY, AWAY_MS), true);
+test("splashBoot: catatan rusak / penyimpanan diblokir -> tanpa splash; warna tak sah tidak pernah dipasang", () => {
+  const broken = fakes({ [PRESENCE_KEY]: "{rusak" });
+  assert.equal(splashBoot(broken.storage, broken.root, NOW, 1, PRESENCE_KEY, AWAY_MS), false);
   const blocked = fakes({}, true);
-  assert.equal(splashBoot(blocked.storage, blocked.root, NOW, 1, PRESENCE_KEY, AWAY_MS), true);
-  assert.equal(blocked.root.dataset.splash, "intro");
+  assert.equal(splashBoot(blocked.storage, blocked.root, NOW, 1, PRESENCE_KEY, AWAY_MS), false);
+  assert.deepEqual(blocked.root.dataset, {});
   const evil = fakes(presence({ seenAt: NOW - 10 * MIN, signedIn: true, tint: { a: "red;}html{display:none", b: "#222222", ink: "#ffffff", glow: "#333333" } }));
   splashBoot(evil.storage, evil.root, NOW, 1, PRESENCE_KEY, AWAY_MS);
   assert.equal(evil.vars["--splash-a"], undefined);
@@ -105,10 +116,18 @@ test("splashBootScript: skrip <script> mandiri (tanpa impor) menjalankan keputus
     new Function("localStorage", "document", "performance", "Date", script)(storage, { documentElement: root }, { now: () => 42 }, { now: () => NOW });
     return root.dataset;
   };
-  assert.deepEqual(run({}), { splash: "intro", splashAt: "42" });
+  assert.deepEqual(run({}), {}, "tamu: tanpa splash");
   assert.deepEqual(run(presence({ seenAt: NOW - MIN, signedIn: true })), {});
   assert.deepEqual(run(presence({ seenAt: NOW - 6 * MIN, signedIn: true })), { splash: "intro", splashAt: "42" });
   assert.doesNotThrow(() => new Function("localStorage", "document", "performance", "Date", script)(null, null, null, null), "galat apa pun ditelan: halaman tetap tampil");
+});
+
+test("returnSplashDue: kembali ke tab setelah > 5 menit memutar splash hanya untuk yang sudah masuk", () => {
+  assert.equal(returnSplashDue(true, NOW - 6 * MIN, NOW), true);
+  assert.equal(returnSplashDue(true, NOW - 2 * MIN, NOW), false);
+  assert.equal(returnSplashDue(true, null, NOW), true, "tanpa catatan pada akun yang masuk = lama pergi");
+  assert.equal(returnSplashDue(false, NOW - 6 * MIN, NOW), false, "tamu di halaman masuk");
+  assert.equal(returnSplashDue(false, null, NOW), false);
 });
 
 test("parseResume: hanya path bagian hub (tanpa query/host) milik user tertentu", () => {

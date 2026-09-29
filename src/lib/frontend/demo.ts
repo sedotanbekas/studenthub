@@ -1,4 +1,6 @@
+import type { TodayDto } from "@/lib/attendance/student-schemas";
 import type { Row } from "./types";
+import { demoPersona } from "./demo-personas";
 import { demoAdsDetail, demoAdsRows } from "./demo-ads";
 import { demoAnalyticsRows } from "./demo-analytics";
 import { demoMonitorRows } from "./demo-monitor";
@@ -70,4 +72,10 @@ function sharedRows(path: string): unknown {
 }
 /** Status absen hari ini untuk mode demo (titik sekolah disimulasikan di sekitar pengguna saat alur berjalan). */
 export const demoToday = { date: "2026-09-25", serverTime: "2026-09-25T00:10:00.000Z", timezone: "WIB", ianaTimezone: "Asia/Jakarta", schoolDay: { isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null }, window: { opensAt: "06:00", lateAfter: "07:15", closesAt: "10:00", state: "OPEN" }, geofence: { radiusM: 150, maxAccuracyM: 100, latitude: -6.1754, longitude: 106.8272 }, record: null, pendingLeave: null, canCheckIn: true, blockReason: null } as const;
+/** Status absen hari ini untuk siswa demo (tiap siswa punya kondisi berbeda). */
+export function demoTodayFor(key: string): TodayDto {
+  const base = demoToday as unknown as TodayDto;
+  const record = demoPersona(key).todayRecord ?? null;
+  return record ? { ...base, record, canCheckIn: false, blockReason: "ALREADY_CHECKED_IN" } : base;
+}
 export const demoHistory = { month: "2026-09", days: ["22", "23", "24"].map((d, i) => ({ date: `2026-09-${d}`, status: i === 1 ? "TERLAMBAT" : "HADIR", source: "CHECKIN", checkInTimeLocal: i === 1 ? "07:26" : `06:4${i}`, lateMinutes: i === 1 ? 26 : null, leaveRequestId: null })), nonSchoolDays: [], summary: { recorded: 3, present: 2, late: 1, izin: 0, sakit: 0, alpha: 0, presentPct: 100 } };

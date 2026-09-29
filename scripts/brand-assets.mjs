@@ -25,7 +25,8 @@ const CLOSE_RADIUS = 44;
 const PENDANT_CLOSE_RADIUS = 8;
 const RIM = 16;
 const SPLASH_SIZE = 512;
-const MARK_SIZE = 256;
+/** Logo UI tampil paling besar 42 px (login/sidebar): 128 px = tajam di layar 3x, file kecil untuk PageSpeed. */
+const MARK_SIZE = 128;
 
 /** Transformasi jarak Euclid kuadrat 1D (Felzenszwalb & Huttenlocher). */
 function edt1d(f, n, d, v, z) {
