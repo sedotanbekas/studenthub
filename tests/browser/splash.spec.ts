@@ -75,6 +75,14 @@ test("tamu (kunjungan pertama): tanpa splash, halaman masuk sudah ada di HTML se
   expect(errors).toEqual([]);
 });
 
+test("penanda demo basi (sesi demo milik tab lain) dihapus: muat berikutnya langsung halaman masuk dari server", async ({ page }) => {
+  await page.context().addCookies([{ name: "studenthub_demo", value: "1", url: "http://localhost:3030" }]);
+  await page.goto("/hub");
+  await expect(page.getByRole("heading", { name: "Senang bertemu lagi." })).toBeVisible();
+  await expect.poll(async () => (await page.context().cookies()).some(c => c.name === "studenthub_demo" && c.value === "1")).toBe(false);
+  expect(await (await page.request.get("/hub")).text()).toContain("Senang bertemu lagi.");
+});
+
 test("tamu kembali ke tab setelah > 5 menit: tetap tanpa splash", async ({ page }) => {
   await page.clock.install();
   await prepare(page, { presenceAgoMs: 10 * MIN, signedIn: false });

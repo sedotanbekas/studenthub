@@ -87,9 +87,12 @@ function useSessionState(hint: SessionHint) {
   const [schoolId, setSchoolIdState] = useState("");
   const [notice, setNotice] = useState("");
   const account = hint.account;
+  const demoHinted = hint.demo;
   useEffect(() => {
     let active = true;
     const key = restoredDemoKey();
+    // Penanda demo milik tab lain (sessionStorage per tab): hapus agar tab ini kembali mendapat halaman masuk langsung.
+    if (!key && demoHinted) writeDemoHint(false);
     if (key) {
       void loadSections(); writeDemoHint(true);
       Promise.resolve().then(() => { if (active) { setDemo(true); setMe(demoIdentity(key)); setReady(true); } });
@@ -102,7 +105,7 @@ function useSessionState(hint: SessionHint) {
     }
     Promise.resolve().then(() => { if (active) setSchoolIdState(sessionStorage.getItem(SCHOOL_KEY) ?? ""); });
     return () => { active = false; };
-  }, [account]);
+  }, [account, demoHinted]);
   useEffect(() => {
     const expired = () => { setMe(null); setNotice("Sesi berakhir. Silakan masuk kembali."); };
     window.addEventListener("studenthub:expired", expired);
