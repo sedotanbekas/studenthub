@@ -37,21 +37,22 @@ jobs:
       # Aksi pihak ketiga yang menerima kunci SSH dipin ke sha commit (= tag v1.2.2), sama dengan ci-cd.yml.
       - name: Buat / reset akun uji via SSH (user studenthub)
         uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        # Jangan beri nama TARGET: entrypoint.sh ssh-action memakai TARGET untuk path biner drone-ssh.
         env:
-          TARGET: ${{ matrix.target }}
+          AKUN_UJI_TARGET: ${{ matrix.target }}
           TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
-          envs: TARGET,TEST_ACCOUNT_PASSWORD
+          envs: AKUN_UJI_TARGET,TEST_ACCOUNT_PASSWORD
           command_timeout: 10m
           script: |
             set -euo pipefail
-            case "$TARGET" in
+            case "$AKUN_UJI_TARGET" in
               production) cd /www/wwwroot/studenthub ;;
               staging) cd /www/wwwroot/studenthub-staging ;;
-              *) echo "TARGET tidak sah" >&2; exit 1 ;;
+              *) echo "AKUN_UJI_TARGET tidak sah" >&2; exit 1 ;;
             esac
-            bash scripts/deploy/akun-uji.sh "$TARGET"
+            bash scripts/deploy/akun-uji.sh "$AKUN_UJI_TARGET"
