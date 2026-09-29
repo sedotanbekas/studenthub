@@ -12,7 +12,7 @@
 
 /* Login */
 .login-page { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: var(--paper); }
-.login-story { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; margin: 12px; padding: 40px 48px; border-radius: 28px; background: linear-gradient(150deg, var(--banner), var(--banner-2)); color: var(--on-banner); }
+.login-story { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; margin: 0; padding: 40px 48px; border-radius: 0; /* kotak tajam, menempel tepi layar */ background: linear-gradient(150deg, var(--banner), var(--banner-2)); color: var(--on-banner); }
 .login-story .brand { color: var(--on-banner); }
 .login-story .brand-hub { color: color-mix(in srgb, var(--on-banner) 70%, #8b3dff); }
 .login-story { --focus: var(--on-banner); }
