@@ -6,6 +6,7 @@ import { AppError, conflict, unprocessable } from "@/lib/http/errors";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { localParts, toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
+import { familyOf } from "../family";
 import { issueTemporaryPassword, type TemporaryCredential } from "../guards";
 import { nisnHeldByGraduate } from "../nisn-claim";
 import { recordNisnReleases } from "../nisn-release-log";
@@ -123,6 +124,7 @@ function studentRow(p: PreparedRow, scope: SchoolScope, activate: boolean, now: 
     address: r.address,
     guardianName: r.guardianName,
     guardianPhone: r.guardianPhone,
+    ...familyOf(r),
     status: activate ? ("ACTIVE" as const) : ("DRAFT" as const),
     currentClassId: r.class?.id ?? null,
     activatedAt: activate ? now : null,

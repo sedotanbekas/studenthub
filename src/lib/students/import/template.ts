@@ -5,8 +5,11 @@ import { HEADER_LABELS, IMPORT_FIELDS, type ImportField } from "./headers";
  * Templat XLSX impor siswa: sheet "Siswa" berisi header (kolom NISN/NIS/No HP berformat teks agar
  * nol depan tidak hilang) dan sheet "Kelas" berisi daftar nama kelas aktif sekolah.
  */
-const TEXT_COLUMNS: readonly ImportField[] = ["nisn", "nis", "guardianPhone", "birthDate"];
-const COLUMN_WIDTH: Readonly<Partial<Record<ImportField, number>>> = { name: 30, address: 40, guardianName: 25, birthPlace: 18, className: 14 };
+const TEXT_COLUMNS: readonly ImportField[] = ["nisn", "nis", "phone", "fatherPhone", "motherPhone", "guardianPhone", "birthDate"];
+const COLUMN_WIDTH: Readonly<Partial<Record<ImportField, number>>> = {
+  name: 30, address: 40, fatherName: 25, motherName: 25, guardianName: 25, fatherOccupation: 20, motherOccupation: 20, guardianOccupation: 20,
+  birthPlace: 18, className: 14,
+};
 const DEFAULT_WIDTH = 16;
 
 function buildStudentSheet(workbook: ExcelJS.Workbook): void {

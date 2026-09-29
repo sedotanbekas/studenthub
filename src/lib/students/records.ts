@@ -6,6 +6,7 @@ import { resolveSchoolScope, type SchoolScope } from "@/lib/tenant/scope";
 import type { SchoolTz } from "@/lib/time/zone";
 import { lockKey } from "@/lib/tx";
 import type { ActivationClass } from "./activation-rules";
+import { FAMILY_FIELDS, type FamilyField } from "./family";
 import { studentLockKeys, type StudentWriteLocks } from "./lock-plan";
 
 /**
@@ -54,6 +55,9 @@ export async function findClassInSchool(db: Tx, scope: SchoolScope, classId: str
   return klass;
 }
 
+/** Kolom data keluarga & kontak (src/lib/students/family.ts). */
+export const familySelect = Object.fromEntries(FAMILY_FIELDS.map((field) => [field, true])) as { readonly [K in FamilyField]: true };
+
 export const studentRowSelect = {
   id: true,
   schoolId: true,
@@ -67,6 +71,7 @@ export const studentRowSelect = {
   address: true,
   guardianName: true,
   guardianPhone: true,
+  ...familySelect,
   status: true,
   currentClassId: true,
   activatedAt: true,

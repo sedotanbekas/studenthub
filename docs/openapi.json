@@ -29481,7 +29481,122 @@
               "null"
             ]
           },
+          "phone": {
+            "example": "081234567890",
+            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherOccupation": {
+            "example": "Wiraswasta",
+            "x-suggestions": [
+              "PNS/TNI/Polri",
+              "Karyawan swasta",
+              "Karyawan BUMN/BUMD",
+              "Wiraswasta",
+              "Pedagang",
+              "Petani",
+              "Nelayan",
+              "Peternak",
+              "Buruh",
+              "Guru/Dosen",
+              "Tenaga kesehatan",
+              "Sopir/Ojek",
+              "Pensiunan",
+              "Ibu rumah tangga",
+              "Tidak bekerja",
+              "Sudah meninggal",
+              "Lainnya"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherPhone": {
+            "example": "081234567890",
+            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherOccupation": {
+            "example": "Wiraswasta",
+            "x-suggestions": [
+              "PNS/TNI/Polri",
+              "Karyawan swasta",
+              "Karyawan BUMN/BUMD",
+              "Wiraswasta",
+              "Pedagang",
+              "Petani",
+              "Nelayan",
+              "Peternak",
+              "Buruh",
+              "Guru/Dosen",
+              "Tenaga kesehatan",
+              "Sopir/Ojek",
+              "Pensiunan",
+              "Ibu rumah tangga",
+              "Tidak bekerja",
+              "Sudah meninggal",
+              "Lainnya"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherPhone": {
+            "example": "081234567890",
+            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "guardianName": {
+            "description": "Kontak utama sekolah: ayah, ibu, atau wali lain. Wajib sebelum aktivasi.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guardianOccupation": {
+            "example": "Wiraswasta",
+            "x-suggestions": [
+              "PNS/TNI/Polri",
+              "Karyawan swasta",
+              "Karyawan BUMN/BUMD",
+              "Wiraswasta",
+              "Pedagang",
+              "Petani",
+              "Nelayan",
+              "Peternak",
+              "Buruh",
+              "Guru/Dosen",
+              "Tenaga kesehatan",
+              "Sopir/Ojek",
+              "Pensiunan",
+              "Ibu rumah tangga",
+              "Tidak bekerja",
+              "Sudah meninggal",
+              "Lainnya"
+            ],
             "type": [
               "string",
               "null"
@@ -29581,7 +29696,122 @@
               "null"
             ]
           },
+          "phone": {
+            "example": "081234567890",
+            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherOccupation": {
+            "example": "Wiraswasta",
+            "x-suggestions": [
+              "PNS/TNI/Polri",
+              "Karyawan swasta",
+              "Karyawan BUMN/BUMD",
+              "Wiraswasta",
+              "Pedagang",
+              "Petani",
+              "Nelayan",
+              "Peternak",
+              "Buruh",
+              "Guru/Dosen",
+              "Tenaga kesehatan",
+              "Sopir/Ojek",
+              "Pensiunan",
+              "Ibu rumah tangga",
+              "Tidak bekerja",
+              "Sudah meninggal",
+              "Lainnya"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherPhone": {
+            "example": "081234567890",
+            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherOccupation": {
+            "example": "Wiraswasta",
+            "x-suggestions": [
+              "PNS/TNI/Polri",
+              "Karyawan swasta",
+              "Karyawan BUMN/BUMD",
+              "Wiraswasta",
+              "Pedagang",
+              "Petani",
+              "Nelayan",
+              "Peternak",
+              "Buruh",
+              "Guru/Dosen",
+              "Tenaga kesehatan",
+              "Sopir/Ojek",
+              "Pensiunan",
+              "Ibu rumah tangga",
+              "Tidak bekerja",
+              "Sudah meninggal",
+              "Lainnya"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherPhone": {
+            "example": "081234567890",
+            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "guardianName": {
+            "description": "Kontak utama sekolah: ayah, ibu, atau wali lain. Wajib sebelum aktivasi.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guardianOccupation": {
+            "example": "Wiraswasta",
+            "x-suggestions": [
+              "PNS/TNI/Polri",
+              "Karyawan swasta",
+              "Karyawan BUMN/BUMD",
+              "Wiraswasta",
+              "Pedagang",
+              "Petani",
+              "Nelayan",
+              "Peternak",
+              "Buruh",
+              "Guru/Dosen",
+              "Tenaga kesehatan",
+              "Sopir/Ojek",
+              "Pensiunan",
+              "Ibu rumah tangga",
+              "Tidak bekerja",
+              "Sudah meninggal",
+              "Lainnya"
+            ],
             "type": [
               "string",
               "null"
@@ -33793,7 +34023,55 @@
               "null"
             ]
           },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherOccupation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherPhone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherOccupation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherPhone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "guardianName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guardianOccupation": {
             "type": [
               "string",
               "null"
@@ -33928,7 +34206,15 @@
           "birthPlace",
           "birthDate",
           "address",
+          "phone",
+          "fatherName",
+          "fatherOccupation",
+          "fatherPhone",
+          "motherName",
+          "motherOccupation",
+          "motherPhone",
           "guardianName",
+          "guardianOccupation",
           "guardianPhone",
           "class",
           "sppAmount",
@@ -34140,6 +34426,72 @@
               "GRADUATED",
               "MOVED"
             ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherOccupation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fatherPhone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherOccupation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motherPhone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guardianName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guardianOccupation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guardianPhone": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -34151,7 +34503,18 @@
           "birthDate",
           "className",
           "school",
-          "status"
+          "status",
+          "address",
+          "phone",
+          "fatherName",
+          "fatherOccupation",
+          "fatherPhone",
+          "motherName",
+          "motherOccupation",
+          "motherPhone",
+          "guardianName",
+          "guardianOccupation",
+          "guardianPhone"
         ],
         "additionalProperties": false
       },

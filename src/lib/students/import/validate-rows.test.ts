@@ -213,3 +213,19 @@ test("ringkasan laporan: total, valid, error, peringatan", () => {
   assert.equal(report.warningRows, 1);
   assert.deepEqual(report.rows.map((r) => r.row), [...report.rows.map((r) => r.row)].sort((a, b) => a - b));
 });
+
+test("kolom data keluarga: dirapikan, HP dinormalkan, HP tidak valid -> error baris (bukan kekurangan aktivasi)", () => {
+  const header = [...HEADER, "Nama Ayah", "Pekerjaan Ayah", "No HP Ayah", "Nama Ibu", "Pekerjaan Ibu", "No HP Ibu", "Pekerjaan Wali", "No HP Siswa"];
+  const columns = matchHeaders(header, true).columns;
+  const family = ["  Slamet  Riyadi ", "Wiraswasta", "0813-3333-4444", "Siti Aminah", "Guru", 81555566667, "Petani", "0812 1111 2222"];
+  const ok = { row: 90, values: [...row().values, ...family] };
+  const bad = { row: 91, values: [...row().values, "Budi", "Buruh", "021555", null, null, null, null, null] };
+  const parsed = parseImportRows([ok, bad], columns, LOOKUP, { today: TODAY });
+  const { report, rows } = validateImportRows(parsed, NO_LOOKUPS, { activate: true, activation: ACTIVATION, confirmRelease: true });
+  assert.deepEqual(report.rows[0]?.errors, []);
+  assert.deepEqual(
+    [rows[0]?.fatherName, rows[0]?.fatherOccupation, rows[0]?.fatherPhone, rows[0]?.motherPhone, rows[0]?.guardianOccupation, rows[0]?.phone],
+    ["Slamet Riyadi", "Wiraswasta", "+6281333334444", "+6281555566667", "Petani", "+6281211112222"],
+  );
+  assert.deepEqual(report.rows[1]?.errors, ["Nomor HP ayah tidak valid (contoh 081234567890)."]);
+});

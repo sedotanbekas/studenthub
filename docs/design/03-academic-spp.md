@@ -202,6 +202,8 @@ All responses use the envelope `{success, data, error, meta}`.
    | `address` | 5–500 characters |
    | `guardianName` | 2–100 characters |
    | `guardianPhone` | strip spaces, `-` and `.`, then match `^(?:\+62\|62\|0)8\d{7,11}$`; stored as E.164 `+628…` |
+   | `phone`, `fatherPhone`, `motherPhone` | optional; same rule as `guardianPhone` (2026-09-29, `src/lib/students/family.ts`) |
+   | `fatherName`, `motherName`, `fatherOccupation`, `motherOccupation`, `guardianOccupation` | optional, ≤ 100 characters; occupation is free text with suggestions (`OCCUPATION_SUGGESTIONS`) |
    | `sppAmount` | null, or an integer 0 to `MAX_INVOICE_AMOUNT` |
    | `initialPassword` | 8–72 bytes |
 

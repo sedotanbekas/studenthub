@@ -8,6 +8,7 @@
  */
 import type { Tx } from "../../src/lib/db";
 import { toThemeColumns } from "../../src/lib/schools/theme-dto";
+import { familyOf } from "../../src/lib/students/family";
 import { THEME_PRESETS } from "../../src/lib/schools/theme-rules";
 import type { ThemePresetKey } from "../../src/lib/schools/theme-store-rules";
 import { toDbDate } from "../../src/lib/time/zone";
@@ -191,6 +192,7 @@ function studentFields(spec: DemoStudentSpec, classId: string) {
     address: spec.address,
     guardianName: spec.guardianName,
     guardianPhone: spec.guardianPhone,
+    ...familyOf(spec),
     status: "ACTIVE" as const,
     activeNisn: spec.nisn,
     currentClassId: classId,

@@ -17,6 +17,7 @@ import {
   isValidNis,
   isValidNisn,
 } from "./constants";
+import { FAMILY_LABELS, OCCUPATION_MAX, OCCUPATION_SUGGESTIONS, PARENT_NAME_MAX } from "./family";
 import { normalizeIdPhone } from "./phone";
 import { parseStatusList } from "./search-rules";
 
@@ -59,19 +60,25 @@ const birthDateInput = z
   .transform((v) => (v === null || v.trim() === "" ? null : v.trim()))
   .meta({ example: "2012-05-17" });
 
-const guardianPhoneInput = z
-  .union([z.string(), z.null()])
-  .transform((v, ctx) => {
-    const text = v === null ? null : collapseText(v);
-    if (text === null) return null;
-    const phone = normalizeIdPhone(text);
-    if (phone === null) {
-      ctx.addIssue({ code: "custom", message: "Nomor HP wali tidak valid (contoh 081234567890)." });
-      return z.NEVER;
-    }
-    return phone;
-  })
-  .meta({ example: "081234567890", description: "Awalan 08 / 62 / +62; disimpan sebagai +628…" });
+/** Nomor HP Indonesia opsional (`label` = "Nomor HP wali", dst.); disimpan sebagai +628…, null = kosongkan. */
+const phoneInput = (label: string) =>
+  z
+    .union([z.string(), z.null()])
+    .transform((v, ctx) => {
+      const text = v === null ? null : collapseText(v);
+      if (text === null) return null;
+      const phone = normalizeIdPhone(text);
+      if (phone === null) {
+        ctx.addIssue({ code: "custom", message: `${label} tidak valid (contoh 081234567890).` });
+        return z.NEVER;
+      }
+      return phone;
+    })
+    .meta({ example: "081234567890", description: "Awalan 08 / 62 / +62; disimpan sebagai +628…" });
+
+/** Pekerjaan orang tua/wali: isian bebas; `x-suggestions` = saran pilihan (datalist) di formulir web. */
+const occupationInput = (label: string) =>
+  optionalText(OCCUPATION_MAX, label).meta({ example: "Wiraswasta", "x-suggestions": [...OCCUPATION_SUGGESTIONS] });
 
 const classIdInput = z.union([idString, z.null()]);
 const sppAmountInput = z
@@ -87,12 +94,25 @@ const confirmReleaseInput = z
       "true = setuju melepas NISN yang masih tercatat pada siswa LULUS di sekolah lain (akun lama tidak dapat login; tercatat di audit & dilaporkan ke super admin; kuota 20/hari untuk admin sekolah). false (default) -> 409 NISN_HELD_BY_GRADUATE.",
   });
 
+/**
+ * Urutan = urutan formulir web: biodata, kontak siswa, ayah, ibu, lalu wali (kontak utama sekolah; nama &
+ * HP wali wajib sebelum aktivasi, data keluarga lain opsional — src/lib/students/family.ts).
+ */
 const studentFields = {
   birthPlace: optionalText(BIRTH_PLACE_MAX, "Tempat lahir").optional(),
   birthDate: birthDateInput.optional(),
   address: optionalText(ADDRESS_MAX, "Alamat").optional(),
-  guardianName: optionalText(GUARDIAN_NAME_MAX, "Nama wali").optional(),
-  guardianPhone: guardianPhoneInput.optional(),
+  phone: phoneInput(FAMILY_LABELS.phone).optional(),
+  fatherName: optionalText(PARENT_NAME_MAX, FAMILY_LABELS.fatherName).optional(),
+  fatherOccupation: occupationInput(FAMILY_LABELS.fatherOccupation).optional(),
+  fatherPhone: phoneInput(FAMILY_LABELS.fatherPhone).optional(),
+  motherName: optionalText(PARENT_NAME_MAX, FAMILY_LABELS.motherName).optional(),
+  motherOccupation: occupationInput(FAMILY_LABELS.motherOccupation).optional(),
+  motherPhone: phoneInput(FAMILY_LABELS.motherPhone).optional(),
+  guardianName: optionalText(GUARDIAN_NAME_MAX, "Nama wali").optional()
+    .meta({ description: "Kontak utama sekolah: ayah, ibu, atau wali lain. Wajib sebelum aktivasi." }),
+  guardianOccupation: occupationInput(FAMILY_LABELS.guardianOccupation).optional(),
+  guardianPhone: phoneInput("Nomor HP wali").optional(),
   currentClassId: classIdInput.optional(),
   sppAmount: sppAmountInput.optional(),
 };
@@ -177,6 +197,20 @@ export type ListStudentsQuery = z.output<typeof listStudentsQuery>;
 const isoInstant = z.string().meta({ format: "date-time" });
 const localDate = z.string().meta({ format: "date", example: "2012-05-17" });
 const studentStatus = z.enum(STUDENT_STATUSES);
+const nullableText = z.string().nullable();
+/** Kontak & data keluarga pada respons (urutan tampilan sama dengan formulir). */
+const familyResponseFields = {
+  phone: nullableText,
+  fatherName: nullableText,
+  fatherOccupation: nullableText,
+  fatherPhone: nullableText,
+  motherName: nullableText,
+  motherOccupation: nullableText,
+  motherPhone: nullableText,
+  guardianName: nullableText,
+  guardianOccupation: nullableText,
+  guardianPhone: nullableText,
+};
 
 export const activationGapSchema = z
   .object({ field: z.string(), code: z.string(), message: z.string() })
@@ -209,8 +243,7 @@ export const studentDetailSchema = z
     birthPlace: z.string().nullable(),
     birthDate: localDate.nullable(),
     address: z.string().nullable(),
-    guardianName: z.string().nullable(),
-    guardianPhone: z.string().nullable(),
+    ...familyResponseFields,
     class: z.object({ id: z.string(), name: z.string(), isActive: z.boolean(), academicYearId: z.string() }).nullable(),
     sppAmount: z.int().nullable(),
     /** true bila siswa memegang NISN sebagai kunci login nasional (activeNisn terisi). */
@@ -266,6 +299,8 @@ export const studentProfileSchema = z
     className: z.string().nullable(),
     school: z.object({ name: z.string() }),
     status: studentStatus,
+    address: nullableText,
+    ...familyResponseFields,
   })
   .meta({ id: "StudentProfile" });
 export type StudentProfile = z.input<typeof studentProfileSchema>;

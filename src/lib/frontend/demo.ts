@@ -3,13 +3,21 @@ import { demoAdsDetail, demoAdsRows } from "./demo-ads";
 import { demoAnalyticsRows } from "./demo-analytics";
 import { demoMonitorRows } from "./demo-monitor";
 import { studentDemoDetail, studentDemoRows } from "./demo-student";
+/** Biodata, kontak, & data keluarga demo (tampil di detail siswa admin dan profil siswa). */
+const family = (n: number, address: string, [father, fatherJob]: [string, string], [mother, motherJob]: [string, string], ownPhone = true): Row => ({
+  birthPlace: "Bandung", birthDate: `2010-0${n}-1${n}`, address,
+  phone: ownPhone ? `+62857100000${n}0` : null,
+  fatherName: father, fatherOccupation: fatherJob, fatherPhone: `+62812100000${n}0`,
+  motherName: mother, motherOccupation: motherJob, motherPhone: `+62813100000${n}0`,
+  guardianName: father, guardianOccupation: fatherJob, guardianPhone: `+62812100000${n}0`,
+});
 export const demoStudents: Row[] = [
-  { id: "s1", name: "Alya Putri Ramadhani", nisn: "0098765432", nis: "2026001", gender: "FEMALE", status: "ACTIVE", class: { name: "X IPA 1" }, sppAmount: 350000 },
-  { id: "s2", name: "Bima Aditya Pratama", nisn: "0098765433", nis: "2026002", gender: "MALE", status: "ACTIVE", class: { name: "X IPA 1" }, sppAmount: 350000 },
-  { id: "s3", name: "Citra Ayu Lestari", nisn: "0098765434", nis: "2026003", gender: "FEMALE", status: "ACTIVE", class: { name: "XI IPS 2" }, sppAmount: 350000 },
-  { id: "s4", name: "Daffa Rizky Saputra", nisn: "0098765435", nis: "2026004", gender: "MALE", status: "DRAFT", class: { name: "X IPA 2" }, sppAmount: 350000 },
-  { id: "s5", name: "Elena Safira", nisn: "0098765436", nis: "2026005", gender: "FEMALE", status: "ACTIVE", class: { name: "XII IPA 1" }, sppAmount: 350000 },
-  { id: "s6", name: "Farhan Maulana", nisn: "0098765437", nis: "2026006", gender: "MALE", status: "ACTIVE", class: { name: "XI IPA 1" }, sppAmount: 350000 },
+  { id: "s1", name: "Alya Putri Ramadhani", nisn: "0098765432", nis: "2026001", gender: "FEMALE", status: "ACTIVE", class: { name: "X IPA 1" }, sppAmount: 350000, ...family(1, "Jl. Merdeka No. 12, Kota Bandung", ["Rahmat Hidayat", "Wiraswasta"], ["Siti Rahmawati", "Guru/Dosen"]) },
+  { id: "s2", name: "Bima Aditya Pratama", nisn: "0098765433", nis: "2026002", gender: "MALE", status: "ACTIVE", class: { name: "X IPA 1" }, sppAmount: 350000, ...family(2, "Jl. Dago No. 45, Kota Bandung", ["Agus Pratama", "PNS/TNI/Polri"], ["Dewi Lestari", "Ibu rumah tangga"]) },
+  { id: "s3", name: "Citra Ayu Lestari", nisn: "0098765434", nis: "2026003", gender: "FEMALE", status: "ACTIVE", class: { name: "XI IPS 2" }, sppAmount: 350000, ...family(3, "Jl. Cihampelas No. 8, Kota Bandung", ["Joko Susilo", "Pedagang"], ["Ayu Wulandari", "Pedagang"], false) },
+  { id: "s4", name: "Daffa Rizky Saputra", nisn: "0098765435", nis: "2026004", gender: "MALE", status: "DRAFT", class: { name: "X IPA 2" }, sppAmount: 350000, ...family(4, "Jl. Setiabudi No. 21, Kota Bandung", ["Hendra Saputra", "Karyawan swasta"], ["Rina Marlina", "Tenaga kesehatan"]) },
+  { id: "s5", name: "Elena Safira", nisn: "0098765436", nis: "2026005", gender: "FEMALE", status: "ACTIVE", class: { name: "XII IPA 1" }, sppAmount: 350000, ...family(5, "Jl. Riau No. 3, Kota Bandung", ["Yusuf Safari", "Petani"], ["Nur Aini", "Wiraswasta"]) },
+  { id: "s6", name: "Farhan Maulana", nisn: "0098765437", nis: "2026006", gender: "MALE", status: "ACTIVE", class: { name: "XI IPA 1" }, sppAmount: 350000, ...family(6, "Jl. Buah Batu No. 17, Kota Bandung", ["Maulana Ishak", "Buruh"], ["Endang Susilowati", "Ibu rumah tangga"], false) },
 ];
 export const demoSummary = { students: { active: 1284, draft: 12, inactive: 8, graduated: 320, moved: 3 }, attendanceToday: { present: 1198, late: 24, izin: 18, sakit: 12, alpha: 8, notYet: 24, eligible: 1284, presentPct: 95.2, isSchoolDay: true }, billing: { pendingVerification: 8, studentsNotFullyPaid: 126, outstandingAmount: 44100000, period: { collectedAmount: 405300000, billedAmount: 449400000, paid: 1158, invoiced: 1284 } }, reportCards: { published: 1080, activeStudents: 1284, studentsComplete: 1160, term: { label: "Ganjil 2026/2027" } } };
 /** Siapa yang melihat data demo; persona siswa membawa `studentId` miliknya. */

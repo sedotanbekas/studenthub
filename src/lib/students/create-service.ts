@@ -5,6 +5,7 @@ import type { SchoolScope } from "@/lib/tenant/scope";
 import { toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { getActivationGaps, type ActivationInput } from "./activation-rules";
+import { familyOf } from "./family";
 import {
   activationIncomplete,
   assertIdentityFree,
@@ -66,6 +67,7 @@ function studentData(scope: SchoolScope, input: CreateStudentInput, userId: stri
     address: input.address ?? null,
     guardianName: input.guardianName ?? null,
     guardianPhone: input.guardianPhone ?? null,
+    ...familyOf(input),
     status: input.activate ? ("ACTIVE" as const) : ("DRAFT" as const),
     currentClassId: input.currentClassId ?? null,
     activatedAt: input.activate ? now : null,

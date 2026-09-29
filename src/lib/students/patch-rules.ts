@@ -1,9 +1,10 @@
 import type { LocalDate } from "@/lib/time/zone";
 import type { GapField } from "./activation-rules";
 import type { GenderValue, StudentStatusValue } from "./constants";
+import { FAMILY_FIELDS, type FamilyData } from "./family";
 
 /** Aturan PATCH siswa (murni): selisih field & izin ganti NISN. */
-export interface PatchableSnapshot {
+export interface PatchableSnapshot extends FamilyData {
   readonly name: string;
   readonly nisn: string;
   readonly nis: string;
@@ -22,6 +23,7 @@ export type StudentPatch = { readonly [K in PatchField]?: PatchableSnapshot[K] |
 
 const PATCH_FIELDS: readonly PatchField[] = [
   "name", "nisn", "nis", "gender", "birthPlace", "birthDate", "address", "guardianName", "guardianPhone", "currentClassId", "sppAmount",
+  ...FAMILY_FIELDS,
 ];
 
 /** Field yang dikirim DAN nilainya berbeda dari data sekarang. */

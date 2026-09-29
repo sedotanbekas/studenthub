@@ -77,7 +77,13 @@ export function importForm(file: Blob, fileName: string, fields: Record<string, 
   return form;
 }
 
+/** Header minimal (templat lama tanpa kolom keluarga) — tetap harus bisa diimpor. */
 export const IMPORT_HEADER = ["NISN", "NIS", "Nama Lengkap", "Jenis Kelamin", "Tempat Lahir", "Tanggal Lahir", "Alamat", "Nama Wali", "No HP Wali", "Kelas", "SPP"];
+/** Header templat XLSX saat ini (kolom data keluarga di antara alamat & wali). */
+export const TEMPLATE_HEADER = [
+  "NISN", "NIS", "Nama Lengkap", "Jenis Kelamin", "Tempat Lahir", "Tanggal Lahir", "Alamat", "No HP Siswa",
+  "Nama Ayah", "Pekerjaan Ayah", "No HP Ayah", "Nama Ibu", "Pekerjaan Ibu", "No HP Ibu", "Nama Wali", "Pekerjaan Wali", "No HP Wali", "Kelas", "SPP",
+];
 
 /** Satu baris data impor lengkap (string, cocok untuk CSV maupun XLSX). */
 export function importRow(className: string, overrides: Partial<Record<number, string>> = {}): string[] {

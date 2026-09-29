@@ -165,11 +165,11 @@ function phoneText(value: unknown): string | null {
   return text === null ? null : stripApostrophe(text);
 }
 
-export function parsePhoneCell(value: unknown): CellResult<string> {
+export function parsePhoneCell(value: unknown, label = "Nomor HP wali"): CellResult<string> {
   const text = phoneText(value);
   if (text === null || text === "") return empty();
   const phone = normalizeIdPhone(text);
-  return phone ? { value: phone } : fail("Nomor HP wali tidak valid (contoh 081234567890).");
+  return phone ? { value: phone } : fail(`${label} tidak valid (contoh 081234567890).`);
 }
 
 const SPP_ERROR = `SPP harus bilangan bulat rupiah 0–${SPP_AMOUNT_MAX.toLocaleString("id-ID")}.`;

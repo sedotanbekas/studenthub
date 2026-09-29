@@ -116,7 +116,10 @@ sesi lain dicabut; tidak perlu login ulang. 409 `PASSWORD_CHANGED_CONCURRENTLY` 
 
 `GET /auth/me` → `user` (termasuk `mustChangePassword`), `school {id, name, timezone, theme}`,
 `student {id, nisn, nis, status, className}`, `permissions` (aksi yang diizinkan saat ini — pakai untuk
-menyembunyikan menu). Profil lengkap: `GET /student/profile`. Kalender bulanan:
+menyembunyikan menu). Profil lengkap: `GET /student/profile` (biodata, kelas, alamat, `phone` HP siswa,
+data ayah & ibu — `fatherName/fatherOccupation/fatherPhone`, `motherName/motherOccupation/motherPhone` —
+dan wali `guardianName/guardianOccupation/guardianPhone`; semua nullable, HP berformat `+628…`, baca-saja
+untuk siswa: perubahan lewat admin sekolah). Kalender bulanan:
 `GET /student/calendar?month=YYYY-MM`.
 
 **Tema sekolah** (`school.theme`, komponen `SchoolTheme`): `{preset, primaryColor, secondaryColor,

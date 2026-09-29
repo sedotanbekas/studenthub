@@ -1,5 +1,6 @@
 import { fromDbDate } from "@/lib/time/zone";
 import type { ActivationGap, ActivationInput } from "./activation-rules";
+import { familyOf } from "./family";
 import type { SchoolContext, StudentRow } from "./records";
 import type { StudentDetail } from "./schemas";
 
@@ -39,6 +40,7 @@ export function toStudentDetail(row: StudentRow, gaps: readonly ActivationGap[])
     birthPlace: row.birthPlace,
     birthDate: row.birthDate === null ? null : fromDbDate(row.birthDate),
     address: row.address,
+    ...familyOf(row),
     guardianName: row.guardianName,
     guardianPhone: row.guardianPhone,
     class: klass === null ? null : { id: klass.id, name: klass.name, isActive: klass.isActive, academicYearId: klass.academicYearId },
@@ -70,6 +72,7 @@ export function auditSnapshot(row: StudentRow): Record<string, unknown> {
     address: row.address,
     guardianName: row.guardianName,
     guardianPhone: row.guardianPhone,
+    ...familyOf(row),
     currentClassId: row.currentClassId,
     sppAmount: row.sppAmount,
   };

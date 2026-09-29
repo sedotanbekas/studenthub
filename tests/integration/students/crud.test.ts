@@ -276,6 +276,49 @@ describe("GET/PATCH/DELETE /school/students/{id}", () => {
   });
 });
 
+describe("data keluarga & kontak siswa", () => {
+  const detailUrl = (id: string) => studentUrl(`/${id}`);
+  const FAMILY = {
+    phone: "0812-7000-0001", fatherName: "Slamet Riyadi", fatherOccupation: "Wiraswasta", fatherPhone: "+62 813 7000 0002",
+    motherName: "Siti Aminah", motherOccupation: "Guru/Dosen", motherPhone: "6281470000003", guardianOccupation: "Petani",
+  };
+  const NORMALIZED = {
+    phone: "+6281270000001", fatherName: "Slamet Riyadi", fatherOccupation: "Wiraswasta", fatherPhone: "+6281370000002",
+    motherName: "Siti Aminah", motherOccupation: "Guru/Dosen", motherPhone: "+6281470000003", guardianOccupation: "Petani",
+  };
+  type FamilyDetail = Detail & Record<keyof typeof FAMILY, string | null>;
+
+  test("POST menyimpan data keluarga (HP dinormalkan); GET detail & audit memuatnya; tanpa data keluarga tetap boleh aktif", async () => {
+    const res = await post(completeStudentBody(a.klass.id, FAMILY));
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const id = res.body!.data.student.id;
+    const detail = await callRoute<{ data: FamilyDetail }>(getOne, { method: "GET", url: detailUrl(id), params: { id }, bearer: a.adminToken });
+    assert.equal(detail.status, 200);
+    for (const [field, value] of Object.entries(NORMALIZED)) assert.equal(detail.body?.data[field as keyof typeof FAMILY], value, field);
+    const row = await prisma.student.findFirst({ where: { id, schoolId: a.school.id } });
+    assert.equal(row?.motherPhone, "+6281470000003");
+    const audit = await prisma.auditLog.findFirst({ where: { action: "student.create", entityId: id } });
+    assert.equal((audit?.after as Record<string, unknown>).fatherOccupation, "Wiraswasta");
+    const plain = await post(completeStudentBody(a.klass.id));
+    assert.equal(plain.status, 201, "data keluarga bukan syarat aktivasi");
+    assert.equal((plain.body?.data.student as FamilyDetail).fatherName, null);
+  });
+
+  test("PATCH mengubah & mengosongkan data keluarga siswa AKTIF; HP tidak valid -> 400", async () => {
+    const { student } = await createStudent(a.school.id, { classId: a.klass.id, data: { fatherName: "Budi", motherPhone: "+6281234500000" } });
+    const patch = (json: unknown) => callRoute<Envelope<FamilyDetail>>(patchOne, { method: "PATCH", url: detailUrl(student.id), params: { id: student.id }, bearer: a.adminToken, json });
+    const res = await patch({ fatherOccupation: "Nelayan", motherPhone: null, guardianOccupation: "Buruh" });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body?.data.fatherName, "Budi");
+    assert.equal(res.body?.data.fatherOccupation, "Nelayan");
+    assert.equal(res.body?.data.motherPhone, null);
+    assert.equal(res.body?.data.guardianOccupation, "Buruh");
+    const bad = await patch({ fatherPhone: "021555123" });
+    assert.equal(bad.status, 400);
+    assert.equal(bad.body?.error?.code, "VALIDATION_FAILED");
+  });
+});
+
 describe("GET /student/profile", () => {
   test("siswa AKTIF & LULUS membaca biodata sendiri; admin -> 403", async () => {
     for (const status of ["ACTIVE", "GRADUATED"] as const) {
@@ -290,6 +333,15 @@ describe("GET /student/profile", () => {
       assert.equal(res.body?.data.school.name, a.school.name);
       assert.equal(res.body?.data.status, status);
     }
+    const { user } = await createStudent(a.school.id, { classId: a.klass.id, data: { fatherName: "Slamet", fatherOccupation: "Petani", motherName: "Siti", phone: "+6281299990000" } });
+    const { token } = await createSessionToken(user.id);
+    const own = await callRoute<{ data: Record<string, string | null> }>(profile, { method: "GET", url: "/api/v1/student/profile", bearer: token });
+    assert.equal(own.status, 200);
+    assert.deepEqual(
+      { address: own.body?.data.address, phone: own.body?.data.phone, fatherName: own.body?.data.fatherName, fatherOccupation: own.body?.data.fatherOccupation, motherName: own.body?.data.motherName, motherPhone: own.body?.data.motherPhone, guardianName: own.body?.data.guardianName, guardianPhone: own.body?.data.guardianPhone },
+      { address: "Jl. Contoh No. 1, Bandung", phone: "+6281299990000", fatherName: "Slamet", fatherOccupation: "Petani", motherName: "Siti", motherPhone: null, guardianName: "Wali Siswa", guardianPhone: "+6281234567890" },
+      "siswa melihat alamat, kontak, dan data keluarganya sendiri",
+    );
     const adminRes = await callRoute(profile, { method: "GET", url: "/api/v1/student/profile", bearer: a.adminToken });
     assert.equal(adminRes.status, 403);
   });

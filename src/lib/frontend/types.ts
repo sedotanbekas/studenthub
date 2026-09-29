@@ -14,6 +14,8 @@ export interface Schema {
   $ref?: string; type?: string | string[]; properties?: Record<string, Schema>; required?: string[];
   items?: Schema; enum?: (string | number)[]; anyOf?: Schema[]; oneOf?: Schema[]; allOf?: Schema[];
   format?: string; default?: unknown; description?: string; example?: unknown; const?: unknown; lookup?: string;
+  /** Saran isian (datalist) dari meta OpenAPI `x-suggestions`; isian bebas tetap diterima. */
+  "x-suggestions"?: string[];
   minimum?: number; maximum?: number; minLength?: number; maxLength?: number; pattern?: string;
 }
 export interface Parameter { name: string; in: string; required?: boolean; schema: Schema }

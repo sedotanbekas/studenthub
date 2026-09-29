@@ -127,6 +127,11 @@ test("HP wali: string & angka (nol depan hilang) dinormalisasi", () => {
   assert.deepEqual(parsePhoneCell(null), { value: null });
 });
 
+test("HP keluarga: pesan error menyebut kolomnya", () => {
+  assert.equal(parsePhoneCell("12345", "Nomor HP ayah").error, "Nomor HP ayah tidak valid (contoh 081234567890).");
+  assert.equal(parsePhoneCell("12345").error, "Nomor HP wali tidak valid (contoh 081234567890).");
+});
+
 test("SPP: angka, teks berformat rupiah, batas 0..50.000.000", () => {
   assert.equal(parseSppCell(150000).value, 150000);
   assert.equal(parseSppCell("Rp 150.000").value, 150000);

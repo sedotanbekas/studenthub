@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { isThemePresetKey } from "../../src/lib/schools/theme-store-rules";
+import { OCCUPATION_SUGGESTIONS } from "../../src/lib/students/family";
 import {
   checkDemoPassword,
   checkSeedDatabaseUrl,
@@ -117,5 +118,17 @@ test("dataset: 15 siswa per sekolah, NISN deterministik unik, biodata lengkap un
       assert.match(st.birthDate, /^20(0\d|1\d)-\d{2}-\d{2}$/);
       assert.ok(classNames.has(st.className), st.className);
     }
+  }
+});
+
+test("dataset: data keluarga lengkap (ayah = wali), HP valid & unik, pekerjaan dari saran", () => {
+  const phones = DEMO_SCHOOLS.flatMap((s) => s.students.flatMap((st) => [st.motherPhone, st.phone].filter((p): p is string => p !== null)));
+  assert.equal(new Set(phones).size, phones.length, "HP ibu & siswa unik");
+  for (const st of DEMO_SCHOOLS.flatMap((s) => s.students)) {
+    assert.equal(st.fatherName, st.guardianName);
+    assert.equal(st.fatherPhone, st.guardianPhone);
+    assert.ok(st.motherName.length >= 3 && st.motherName.length <= 100);
+    for (const phone of [st.motherPhone, st.phone]) if (phone !== null) assert.match(phone, /^\+628[1-9]\d{6,10}$/);
+    for (const job of [st.fatherOccupation, st.motherOccupation, st.guardianOccupation]) assert.ok(OCCUPATION_SUGGESTIONS.includes(job), job);
   }
 });

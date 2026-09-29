@@ -388,8 +388,17 @@ model Student {
   birthPlace     String?       @db.VarChar(100)
   birthDate      DateTime?     @db.Date
   address        String?       @db.Text
-  guardianName   String?       @db.VarChar(100)
+  // Data keluarga & kontak (migrasi 20260929000000_student_family; opsional, bukan syarat aktivasi):
+  phone              String?   @db.VarChar(20)   // HP siswa, "+628…"
+  fatherName         String?   @db.VarChar(100)
+  fatherOccupation   String?   @db.VarChar(100)
+  fatherPhone        String?   @db.VarChar(20)
+  motherName         String?   @db.VarChar(100)
+  motherOccupation   String?   @db.VarChar(100)
+  motherPhone        String?   @db.VarChar(20)
+  guardianName   String?       @db.VarChar(100)  // wali = kontak utama (ayah, ibu, atau wali lain)
   guardianPhone  String?       @db.VarChar(20)
+  guardianOccupation String?   @db.VarChar(100)
   status         StudentStatus @default(DRAFT)
   currentClassId String?
   activatedAt    DateTime?

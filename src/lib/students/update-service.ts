@@ -10,6 +10,7 @@ import { fromDbDate, localParts, toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { getActivationGaps, newGapsAfterPatch, type ActivationInput } from "./activation-rules";
 import { activationInputOf } from "./dto";
+import { familyOf } from "./family";
 import { activationIncomplete, assertIdentityFree, resolveAssignableClass, studentStateChanged, withStudentConflicts } from "./guards";
 import { claimNisn, type ReleasedHolder } from "./nisn-claim";
 import { recordNisnReleases } from "./nisn-release-log";
@@ -48,6 +49,7 @@ function snapshotOf(row: StudentRow): PatchableSnapshot {
     address: row.address,
     guardianName: row.guardianName,
     guardianPhone: row.guardianPhone,
+    ...familyOf(row),
     currentClassId: row.currentClassId,
     sppAmount: row.sppAmount,
   };

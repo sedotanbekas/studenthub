@@ -86,8 +86,12 @@ function invoices(student: Row): Row[] {
   return [...MONTHS].reverse().map(month => Object.fromEntries(Object.entries(invoiceDetail(student, month)).filter(([key]) => !DETAIL_ONLY.has(key))));
 }
 
+const PROFILE_CONTACT = ["address", "phone", "fatherName", "fatherOccupation", "fatherPhone", "motherName", "motherOccupation", "motherPhone", "guardianName", "guardianOccupation", "guardianPhone"] as const;
+
+/** Bentuk sama dengan GET /student/profile: biodata, lalu alamat, kontak, dan data keluarga. */
 function profile(student: Row): Row {
-  return { name: student.name, nisn: student.nisn, nis: student.nis, gender: student.gender, className: classOf(student), status: student.status, school: { name: "SMA Cendekia Nusantara" } };
+  const contact = Object.fromEntries(PROFILE_CONTACT.map(key => [key, student[key] ?? null]));
+  return { name: student.name, nisn: student.nisn, nis: student.nis, gender: student.gender, birthPlace: student.birthPlace ?? null, birthDate: student.birthDate ?? null, className: classOf(student), school: { name: "SMA Cendekia Nusantara" }, status: student.status, ...contact };
 }
 
 /** Daftar/objek milik `student` untuk jalur /student/*; jalur yang tidak dikenal -> []. */

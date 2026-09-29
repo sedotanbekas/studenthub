@@ -9,7 +9,8 @@ import { studentSelf, type SchoolScope } from "@/lib/tenant/scope";
 import { fromDbDate } from "@/lib/time/zone";
 import { getActivationGaps } from "./activation-rules";
 import { activationInputOf, toStudentDetail } from "./dto";
-import { findStudentRow, loadSchoolContext, scopeFor } from "./records";
+import { familyOf } from "./family";
+import { familySelect, findStudentRow, loadSchoolContext, scopeFor } from "./records";
 import type { ListStudentsQuery, StudentDetail, StudentProfile } from "./schemas";
 import { parseStudentSearch } from "./search-rules";
 
@@ -100,6 +101,7 @@ export async function getOwnProfile(ctx: ActionContext): Promise<StudentProfile>
     where: { id: self.studentId, schoolId: self.schoolId },
     select: {
       nisn: true, nis: true, gender: true, birthPlace: true, birthDate: true, status: true,
+      address: true, guardianName: true, guardianPhone: true, ...familySelect,
       user: { select: { name: true } },
       currentClass: { select: { name: true } },
       school: { select: { name: true } },
@@ -116,5 +118,9 @@ export async function getOwnProfile(ctx: ActionContext): Promise<StudentProfile>
     className: row.currentClass?.name ?? null,
     school: { name: row.school.name },
     status: row.status,
+    address: row.address,
+    ...familyOf(row),
+    guardianName: row.guardianName,
+    guardianPhone: row.guardianPhone,
   };
 }

@@ -14,6 +14,14 @@ const CURRENT: PatchableSnapshot = {
   guardianPhone: "+6281234567890",
   currentClassId: "c1",
   sppAmount: null,
+  phone: null,
+  fatherName: "Slamet",
+  fatherOccupation: "Petani",
+  fatherPhone: null,
+  motherName: "Siti",
+  motherOccupation: null,
+  motherPhone: null,
+  guardianOccupation: null,
 };
 
 test("diffStudentPatch hanya memuat field yang benar-benar berubah", () => {
@@ -25,6 +33,14 @@ test("diffStudentPatch: null mengosongkan; undefined diabaikan", () => {
   assert.deepEqual(diffStudentPatch(CURRENT, { guardianPhone: null, birthPlace: undefined }), { guardianPhone: null });
   assert.deepEqual(diffStudentPatch(CURRENT, { sppAmount: 0 }), { sppAmount: 0 });
   assert.deepEqual(diffStudentPatch(CURRENT, { sppAmount: null }), {});
+});
+
+test("diffStudentPatch: data keluarga ikut dibandingkan", () => {
+  assert.deepEqual(diffStudentPatch(CURRENT, { fatherOccupation: "Petani", motherOccupation: "Pedagang", fatherName: null }), { motherOccupation: "Pedagang", fatherName: null });
+});
+
+test("gapFieldsOf: data keluarga bukan syarat aktivasi", () => {
+  assert.deepEqual([...gapFieldsOf({ fatherName: "A", motherPhone: "+6281234567890", phone: null, guardianOccupation: "Buruh" })], []);
 });
 
 test("gapFieldsOf memetakan field patch ke field kekurangan (sppAmount tidak termasuk)", () => {

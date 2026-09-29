@@ -19,6 +19,16 @@ test("semua alias dikenali", () => {
   });
 });
 
+test("kolom data keluarga dikenali (opsional, tidak pernah wajib)", () => {
+  const header = ["NISN", "NIS", "Nama", "JK", "No. HP Siswa", "Nama Ayah Kandung", "Pekerjaan Ayah", "HP Ayah", "Nama Ibu", "Pekerjaan Ibu", "No Telp Ibu", "Pekerjaan Wali"];
+  const match = matchHeaders(header, false);
+  assert.deepEqual(match.missing, []);
+  assert.deepEqual(match.columns, {
+    nisn: 0, nis: 1, name: 2, gender: 3, phone: 4, fatherName: 5, fatherOccupation: 6, fatherPhone: 7, motherName: 8, motherOccupation: 9, motherPhone: 10, guardianOccupation: 11,
+  });
+  assert.equal(matchHeaders(["NISN", "NIS", "Nama", "JK", "Tempat Lahir", "Tanggal Lahir", "Alamat", "Nama Wali", "HP Wali", "Kelas"], true).missing.length, 0, "templat lama (tanpa kolom keluarga) tetap diterima");
+});
+
 test("label templat cocok dengan dirinya sendiri", () => {
   const match = matchHeaders(IMPORT_FIELDS.map((f) => HEADER_LABELS[f]), true);
   assert.deepEqual(match.missing, []);

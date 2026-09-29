@@ -13,6 +13,7 @@ import { createStudent } from "../helpers/factories";
 import { callRoute, type Envelope } from "../helpers/request";
 import {
   IMPORT_HEADER,
+  TEMPLATE_HEADER,
   callMultipart,
   countSchoolStudents,
   createSchoolFixture,
@@ -49,7 +50,7 @@ describe("templat impor", () => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(await res.response.arrayBuffer());
     const header = (workbook.getWorksheet("Siswa")?.getRow(1).values as unknown[]).slice(1);
-    assert.deepEqual(header, IMPORT_HEADER);
+    assert.deepEqual(header, TEMPLATE_HEADER);
     const classes: unknown[] = [];
     workbook.getWorksheet("Kelas")?.eachRow((row, n) => n > 1 && classes.push(row.getCell(1).value));
     assert.deepEqual(classes, [a.klass.name]);
@@ -100,6 +101,20 @@ describe("dry-run & commit", () => {
     const audit = await prisma.auditLog.findFirst({ where: { action: "student.import", schoolId: a.school.id }, orderBy: { createdAt: "desc" } });
     assert.match(JSON.stringify(audit?.after), /"fileSha256":"[0-9a-f]{64}"/);
     assert.doesNotMatch(JSON.stringify(audit), new RegExp(credentials[0]?.temporaryPassword ?? "x"));
+  });
+
+  test("kolom data keluarga pada templat ikut tersimpan (HP dinormalkan)", async () => {
+    const family = ["0812 7777 0001", "Slamet Riyadi", "Wiraswasta", "0813-7777-0002", "Siti Aminah", "Pedagang", "081477770003", "Wali Ani", "Petani", "081298765432"];
+    const base = importRow(a.klass.name);
+    const row = [...base.slice(0, 7), ...family, base[9]!, base[10]!];
+    const res = await send(await xlsxBlob([TEMPLATE_HEADER, row]), "siswa.xlsx", { dryRun: "false" });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body?.data.created, 1);
+    const student = await prisma.student.findFirst({ where: { schoolId: a.school.id, nisn: base[0] } });
+    assert.deepEqual(
+      [student?.phone, student?.fatherName, student?.fatherOccupation, student?.fatherPhone, student?.motherName, student?.motherOccupation, student?.motherPhone, student?.guardianOccupation],
+      ["+6281277770001", "Slamet Riyadi", "Wiraswasta", "+6281377770002", "Siti Aminah", "Pedagang", "+6281477770003", "Petani"],
+    );
   });
 
   test("satu baris salah -> commit 422 IMPORT_INVALID + laporan, NOL baris tertulis", async () => {

@@ -35,6 +35,14 @@ Impor siswa menyediakan pratinjau sebelum penyimpanan. Kata sandi sementara hasi
 - `POST /auth/logout` selalu menghapus kedua cookie sesi, termasuk bila access token sudah tidak ada atau backend gagal.
 - Kerangka hub (`app/hub/layout.tsx` → `HubShell`) bertahan antarhalaman; isi per bagian ada di `app/hub/[[...section]]/page.tsx`. Setiap pergantian identitas (masuk, keluar, masuk demo, ganti persona) mereset state dan tema, lalu membawa pengguna ke beranda bila halaman saat itu bukan milik perannya (`src/components/hub/use-session.ts`, `sectionAllowed`).
 
+## Data siswa: keluarga & kontak
+
+Permintaan klien 2026-09-29. Data siswa memuat **alamat, nomor HP siswa, data ayah & ibu (nama, pekerjaan, nomor HP), dan wali** (kontak utama sekolah: nama, pekerjaan, nomor HP).
+
+- Formulir tambah/edit siswa, detail siswa (admin), dan **Profil saya** (siswa, baca-saja) menampilkan semuanya; pekerjaan diisi bebas dengan saran pilihan (datalist dari `x-suggestions` OpenAPI, `OCCUPATION_SUGGESTIONS` di `src/lib/students/family.ts`).
+- Semua data keluarga **opsional** — syarat aktivasi tetap nama & HP wali (kontak utama). Nomor HP diterima berawalan 08/62/+62 dan disimpan `+628…`.
+- Impor Excel: templat punya kolom No HP Siswa, Nama/Pekerjaan/No HP Ayah, Nama/Pekerjaan/No HP Ibu, dan Pekerjaan Wali; templat lama tanpa kolom ini tetap diterima.
+
 ## Splash screen & sesi kerja
 
 Permintaan klien 2026-09-28. Login web tersimpan **30 hari** (sesi & refresh token WEB 30 hari, cookie ikut kedaluwarsa refresh token).

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { rawSchema, resolveSchema } from "@/lib/frontend/catalog";
 import { display, label } from "@/lib/frontend/format";
@@ -29,8 +29,10 @@ export function Field({ name, schema: input, value, required, onChange }: FieldP
   return <SimpleField {...{ name, schema: input, value, required, onChange }} />;
 }
 function SimpleField({ name, schema: input, value, required, onChange }: FieldProps) {
+  const listId = useId();
   const schema = resolveSchema(input);
   const original = rawSchema(input);
+  const suggestions = original["x-suggestions"] ?? schema["x-suggestions"];
   const nullable = Array.isArray(original.type) && original.type.includes("null") || (original.anyOf ?? original.oneOf)?.some(s => s.type === "null");
   const type = Array.isArray(schema.type) ? schema.type.find(t => t !== "null") : schema.type;
   const caption = <span>{label(name)}{required && <b className="required"> *</b>}</span>;
@@ -48,7 +50,7 @@ function SimpleField({ name, schema: input, value, required, onChange }: FieldPr
   if (/body|content|description|reason|note|address/i.test(name)) return <label className="field full-width">{caption}<textarea {...props} rows={3} minLength={schema.minLength} maxLength={schema.maxLength} placeholder={`Tulis ${label(name).toLowerCase()}…`} /></label>;
   const inputType = /password/i.test(name) ? "password" : schema.format === "date" || /Date$/.test(name) ? "date" : schema.format === "date-time" ? "datetime-local" : type === "number" || type === "integer" ? "number" : name === "month" ? "month" : /email/i.test(name) ? "email" : "text";
   if (schema.format === "date-time" && props.value) { const date = new Date(props.value); if (!Number.isNaN(date.getTime())) props.value = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
-  return <label className="field">{caption}<input {...props} type={inputType} step={type === "integer" ? 1 : type === "number" ? "any" : undefined} min={schema.minimum} max={schema.maximum} minLength={schema.minLength} maxLength={schema.maxLength} placeholder={typeof schema.example === "string" ? schema.example : label(name)} />{schema.description && <small className="field-hint">{schema.description}</small>}</label>;
+  return <label className="field">{caption}<input {...props} type={inputType} step={type === "integer" ? 1 : type === "number" ? "any" : undefined} min={schema.minimum} max={schema.maximum} minLength={schema.minLength} maxLength={schema.maxLength} placeholder={typeof schema.example === "string" ? schema.example : label(name)} list={suggestions ? listId : undefined} />{suggestions && <datalist id={listId}>{suggestions.map(s => <option key={s} value={s} />)}</datalist>}{schema.description && <small className="field-hint">{schema.description}</small>}</label>;
 }
 function VariantField({ name, schema, value, onChange }: FieldProps) {
   const variants = (schema.oneOf ?? schema.anyOf ?? []).filter(s => s.type !== "null");

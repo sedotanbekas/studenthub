@@ -6,6 +6,7 @@
  */
 import type { Gender, SchoolTimezone, Semester } from "@prisma/client";
 import { checkPasswordPolicy, PASSWORD_VIOLATION_MESSAGES } from "../../src/lib/auth/password";
+import type { FamilyData } from "../../src/lib/students/family";
 import type { ThemePresetKey } from "../../src/lib/schools/theme-store-rules";
 import type { LocalDate } from "../../src/lib/time/zone";
 import { parseDatabaseUrl } from "../deploy/db-url";
@@ -20,7 +21,15 @@ export interface DemoSubjectSpec {
   readonly name: string;
 }
 
-export interface DemoStudentSpec {
+/** Data keluarga demo: ayah = wali (kontak utama); nama & pekerjaan orang tua selalu terisi. */
+export interface DemoStudentSpec extends FamilyData {
+  readonly fatherName: string;
+  readonly fatherOccupation: string;
+  readonly fatherPhone: string;
+  readonly motherName: string;
+  readonly motherOccupation: string;
+  readonly motherPhone: string;
+  readonly guardianOccupation: string;
   readonly nisn: string;
   readonly nis: string;
   readonly name: string;
@@ -123,8 +132,14 @@ const SMA_ROSTER: readonly RosterEntry[] = [
   ["Zakharia Mirino", "MALE", "Elias Mirino"],
 ];
 
+/** Pekerjaan demo bergilir (semuanya ada di OCCUPATION_SUGGESTIONS). */
+const FATHER_JOBS = ["Wiraswasta", "PNS/TNI/Polri", "Petani", "Karyawan swasta", "Pedagang", "Nelayan", "Buruh", "Guru/Dosen", "Sopir/Ojek"];
+const MOTHER_JOBS = ["Ibu rumah tangga", "Pedagang", "Guru/Dosen", "Karyawan swasta", "Wiraswasta", "Tenaga kesehatan"];
+
 interface RosterContext {
   readonly schoolIndex: number;
+  /** Nama ibu per urutan siswa (sepanjang roster). */
+  readonly motherNames: readonly string[];
   readonly classes: readonly DemoClassSpec[];
   readonly birthYear: number;
   readonly birthPlaces: readonly string[];
@@ -149,6 +164,22 @@ function toStudent(entry: RosterEntry, i: number, ctx: RosterContext): DemoStude
     guardianName,
     guardianPhone: `+628121${ctx.schoolIndex}${pad(i + 1, 6)}`,
     className: ctx.classes[i % ctx.classes.length]?.name ?? "",
+    ...demoFamily(guardianName, i, ctx),
+  };
+}
+
+/** Ayah = wali; tidak semua siswa punya HP sendiri (tiap siswa ke-3 tanpa HP). */
+function demoFamily(fatherName: string, i: number, ctx: RosterContext) {
+  const fatherOccupation = FATHER_JOBS[(i + ctx.schoolIndex * 4) % FATHER_JOBS.length]!;
+  return {
+    phone: i % 3 === 2 ? null : `+628571${ctx.schoolIndex}${pad(i + 1, 6)}`,
+    fatherName,
+    fatherOccupation,
+    fatherPhone: `+628121${ctx.schoolIndex}${pad(i + 1, 6)}`,
+    motherName: ctx.motherNames[i] ?? `Ibu ${fatherName}`,
+    motherOccupation: MOTHER_JOBS[(i * 2 + ctx.schoolIndex) % MOTHER_JOBS.length]!,
+    motherPhone: `+628131${ctx.schoolIndex}${pad(i + 1, 6)}`,
+    guardianOccupation: fatherOccupation,
   };
 }
 
@@ -190,6 +221,10 @@ const SMP_SCHOOL: DemoSchoolSpec = {
   students: SMP_ROSTER.map((entry, i) =>
     toStudent(entry, i, {
       schoolIndex: 0,
+      motherNames: [
+        "Sri Wahyuni", "Dewi Rahmawati", "Siti Nurjanah", "Ratna Sari", "Endang Susilowati", "Nur Aini", "Yuliani Pertiwi", "Rina Marlina",
+        "Tri Handayani", "Wulan Sari", "Lilis Suryani", "Eni Kusmawati", "Suharti", "Dian Puspita", "Retno Wulandari",
+      ],
       classes: SMP_CLASSES,
       birthYear: 2012,
       birthPlaces: ["Bandung", "Cimahi", "Garut", "Sumedang", "Bogor"],
@@ -226,6 +261,10 @@ const SMA_SCHOOL: DemoSchoolSpec = {
   students: SMA_ROSTER.map((entry, i) =>
     toStudent(entry, i, {
       schoolIndex: 1,
+      motherNames: [
+        "Yosina Wenda", "Martha Kogoya", "Ruth Rumbiak", "Agustina Mandowen", "Debora Waromi", "Lidia Sanggenafa", "Naomi Rumaropen", "Sarah Ayomi",
+        "Fatimah Hamid", "Yohana Wanggai", "Ester Yoku", "Rebeka Kambu", "Sulastri Setiawan", "Dorkas Rumbewas", "Priskila Mirino",
+      ],
       classes: SMA_CLASSES,
       birthYear: 2009,
       birthPlaces: ["Jayapura", "Sentani", "Biak", "Merauke", "Wamena"],

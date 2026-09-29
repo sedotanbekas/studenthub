@@ -1,6 +1,7 @@
 import type { LocalDate, SchoolTz } from "@/lib/time/zone";
 import { getActivationGaps, type ActivationClass, type ActivationInput, type GapField } from "../activation-rules";
 import { ADDRESS_MAX, BIRTH_PLACE_MAX, GUARDIAN_NAME_MAX, type GenderValue, type StudentStatusValue } from "../constants";
+import { FAMILY_LABELS, OCCUPATION_MAX, PARENT_NAME_MAX, familyOf, type FamilyData, type FamilyField } from "../family";
 import {
   cellText,
   normalizeClassName,
@@ -32,7 +33,7 @@ export interface RawImportRow {
   readonly values: readonly unknown[];
 }
 
-export interface ParsedImportRow {
+export interface ParsedImportRow extends FamilyData {
   readonly row: number;
   readonly nisn: string | null;
   readonly nis: string | null;
@@ -147,6 +148,23 @@ function parseCells(raw: RawImportRow, columns: ColumnMap, classes: ClassLookup,
     guardianPhone: parsePhoneCell(cell("guardianPhone")),
     className: matchClass(cellText(cell("className")), classes),
     sppAmount: parseSppCell(cell("sppAmount")),
+    ...parseFamilyCells(cell),
+  };
+}
+
+/** Data keluarga opsional: nama & pekerjaan (teks), nomor HP (dinormalkan +62). */
+function parseFamilyCells(cell: (field: ImportField) => unknown): Record<FamilyField, CellResult<unknown>> {
+  const text = (field: FamilyField, max: number) => parseTextCell(cell(field), max, FAMILY_LABELS[field]);
+  const phone = (field: FamilyField) => parsePhoneCell(cell(field), FAMILY_LABELS[field]);
+  return {
+    phone: phone("phone"),
+    fatherName: text("fatherName", PARENT_NAME_MAX),
+    fatherOccupation: text("fatherOccupation", OCCUPATION_MAX),
+    fatherPhone: phone("fatherPhone"),
+    motherName: text("motherName", PARENT_NAME_MAX),
+    motherOccupation: text("motherOccupation", OCCUPATION_MAX),
+    motherPhone: phone("motherPhone"),
+    guardianOccupation: text("guardianOccupation", OCCUPATION_MAX),
   };
 }
 
@@ -164,6 +182,7 @@ function parseImportRow(raw: RawImportRow, columns: ColumnMap, classes: ClassLoo
     address: cells.address.value as string | null,
     guardianName: cells.guardianName.value as string | null,
     guardianPhone: cells.guardianPhone.value as string | null,
+    ...familyOf(Object.fromEntries(Object.entries(cells).map(([field, result]) => [field, result.value as string | null]))),
     className: cellText(cellOf(raw, columns, "className")),
     class: cells.className.value,
     sppAmount: cells.sppAmount.value as number | null,
