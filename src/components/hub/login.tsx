@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { Suspense, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { api, ApiError } from "@/lib/frontend/api";
 import { loginDeviceId } from "@/lib/frontend/attendance";
 import { DEMO_PERSONAS } from "@/lib/frontend/demo-personas";
@@ -52,7 +52,7 @@ export function Login({ onLogin, onDemo }: { onLogin: (covered: Promise<void>) =
       <label className="field">Kata sandi<span className="password-input"><input name="password" type={visible ? "text" : "password"} autoComplete="current-password" placeholder="Masukkan kata sandi" required /><button type="button" aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} onClick={() => setVisible(!visible)}><Icon name="eye" size={20} /></button></span></label>
       {totp && <label className="field">Kode autentikator<input name="totpCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 digit kode verifikasi" autoComplete="one-time-code" required /></label>}
       {error && <div className="error-message" role="alert">{error}</div>}<button type={hydrated ? "submit" : "button"} className="button primary block large" disabled={busy}>{busy ? "Sedang masuk…" : "Masuk"}<Icon name="arrow" size={20} /></button>
-    </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p><DemoPicker onDemo={onDemo} /></div></section>
+    </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p><Suspense fallback={null}><DemoPicker onDemo={onDemo} /></Suspense></div></section>
   </main>;
 }
 

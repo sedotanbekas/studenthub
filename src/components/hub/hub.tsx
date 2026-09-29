@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/frontend/api";
 import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionFromPath } from "@/lib/frontend/modules";
@@ -96,7 +96,8 @@ export function HubShell({ hint, children }: { hint: SessionHint; children: Reac
   const toast = notice ? <div className="toast" role="status">{notice}</div> : null;
   if (sections.failed) return <main className="standalone"><Brand /><p>Halaman gagal dimuat. Periksa koneksi internet lalu coba lagi.</p><button type="button" className="button primary" onClick={() => void loadSections()}>Coba lagi</button></main>;
   if (!session.ready || resuming || !sections.ready) return <main className="standalone"><Brand /><div className="loader" /><p>Memuat…</p></main>;
-  if (!me) return <><Login onLogin={session.login} onDemo={session.startDemo} />{toast}</>;
+  // Suspense: halaman masuk (HTML server) dihidrasi bertahap setelah kerangka, bukan dalam satu long task (TBT).
+  if (!me) return <><Suspense fallback={null}><Login onLogin={session.login} onDemo={session.startDemo} /></Suspense>{toast}</>;
   const restricted = isRestricted(me);
   const { home, module: current } = resolveSection(me.user.role, restricted, section);
   const value = { me, demo, schoolId, toast: session.setNotice, reloadMe: session.reloadMe, logout: session.logout, saveDemoTheme: session.saveDemoTheme };
