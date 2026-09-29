@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  AWAY_MS, BOOK_INSCRIBED, PRESENCE_KEY, RESUME_MAX_AGE_MS, SPLASH_MS, awayTooLong, isHexColor, parsePresence, parseResume,
+  AWAY_MS, MARK_INSCRIBED, MARK_ORIGIN, PRESENCE_KEY, RESUME_MAX_AGE_MS, SPLASH_MS, awayTooLong, isHexColor, parsePresence, parseResume,
   resumePlan, revealDelay, revealZoom, splashBoot, splashBootScript,
 } from "./splash-rules";
 
@@ -148,10 +148,17 @@ test("revealZoom: lubang logo cukup besar menutup seluruh layar di akhir zoom", 
   for (const [w, h, size] of [[390, 844, 101], [1440, 1000, 148], [3840, 2160, 148], [320, 568, 96]] as const) {
     const zoom = revealZoom(w, h, size);
     assert.ok(Number.isInteger(zoom));
-    assert.ok(zoom * size * BOOK_INSCRIBED >= Math.hypot(w, h) / 2, `${w}x${h}`);
+    assert.ok(zoom * size * MARK_INSCRIBED >= Math.hypot(w, h) / 2, `${w}x${h}`);
   }
   assert.equal(revealZoom(0, 0, 100), 2, "minimal 2");
   assert.equal(revealZoom(800, 600, 0), 2, "ukuran tak sah");
+});
+
+test("geometri tanda: pusat zoom + lingkaran dalamnya berada di dalam kanvas logo", () => {
+  for (const v of [MARK_ORIGIN.x, MARK_ORIGIN.y]) {
+    assert.ok(v - MARK_INSCRIBED >= 0 && v + MARK_INSCRIBED <= 1, `${v}`);
+  }
+  assert.ok(MARK_INSCRIBED > 0.1 && MARK_INSCRIBED < 0.5);
 });
 
 test("revealDelay: sisa waktu intro sebelum masker dibuka", () => {

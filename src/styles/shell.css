@@ -1,6 +1,9 @@
 /* Kerangka: identitas, login, sidebar, topbar, banner demo, toast. */
-.brand { display: inline-flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; color: var(--ink); }
-.brand-tld { color: var(--primary-ink); }
+/* Logo StudentHub: tanda "S + toga" (public/brand/mark.webp) + tulisan dua warna berfont bulat. Warna
+   merek tetap (tidak ikut tema sekolah). */
+.brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-brand), var(--font); font-size: 25px; font-weight: 700; letter-spacing: -0.01em; line-height: 1; white-space: nowrap; color: var(--brand-ink); }
+.brand-hub { color: var(--brand-hub); }
+.brand-logo { display: inline-block; flex: none; width: 42px; height: 42px; background: url("/brand/mark.webp") center / contain no-repeat; }
 .brand-mark { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--logo); color: var(--on-logo); box-shadow: inset 0 1px 0 rgb(255 255 255 / 35%), 0 4px 12px -4px color-mix(in srgb, var(--logo) 60%, transparent); }
 .avatar { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--secondary); color: var(--on-secondary); font-size: 15px; font-weight: 800; flex-shrink: 0; }
 .avatar.small { width: 40px; height: 40px; font-size: 14px; }
@@ -11,9 +14,9 @@
 .login-page { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: var(--paper); }
 .login-story { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; margin: 12px; padding: 40px 48px; border-radius: 28px; background: linear-gradient(150deg, var(--banner), var(--banner-2)); color: var(--on-banner); }
 .login-story .brand { color: var(--on-banner); }
-.login-story .brand-tld { color: var(--on-banner-muted); }
+.login-story .brand-hub { color: color-mix(in srgb, var(--on-banner) 70%, #8b3dff); }
 .login-story { --focus: var(--on-banner); }
-.login-story .brand-mark { box-shadow: 0 0 0 2px rgb(255 255 255 / 55%), inset 0 1px 0 rgb(255 255 255 / 35%); }
+.login-story .brand-logo { filter: drop-shadow(0 0 1px rgb(255 255 255 / 0.9)) drop-shadow(0 4px 10px rgb(0 0 0 / 0.25)); }
 .login-story h1 { max-width: 14ch; font-size: clamp(34px, 4vw, 52px); color: var(--on-banner); }
 .login-story p { margin-top: 16px; font-size: 18px; color: var(--on-banner-muted); }
 .login-form-side { display: flex; align-items: center; justify-content: center; padding: 32px 20px; }

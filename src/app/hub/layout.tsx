@@ -4,6 +4,7 @@ import { SplashScreen } from "@/components/hub/splash-screen";
 import { splashBootScript } from "@/lib/frontend/splash-rules";
 
 const SPLASH_BOOT = splashBootScript();
+const BRAND_IMAGES = ["/brand/splash-body.webp", "/brand/splash-tassel.webp", "/brand/splash-shape.webp", "/brand/mark.webp"];
 
 /**
  * Kerangka hub bertahan antarhalaman (sesi & tema tidak dimuat ulang saat pindah bagian). Skrip boot
@@ -12,6 +13,8 @@ const SPLASH_BOOT = splashBootScript();
  */
 export default function HubLayout({ children }: { children: ReactNode }) {
   return <>
+    {/* Gambar logo (±55 KB) dimuat seawal mungkin agar sudah ada saat intro splash mulai (React memindahkannya ke <head>). */}
+    {BRAND_IMAGES.map(href => <link key={href} rel="preload" as="image" type="image/webp" href={href} fetchPriority="high" />)}
     <script dangerouslySetInnerHTML={{ __html: SPLASH_BOOT }} />
     <SplashScreen />
     <HubShell>{children}</HubShell>

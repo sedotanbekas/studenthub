@@ -139,7 +139,7 @@ body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { 
 
 /* ---- Kerangka HP: topbar mengambang, laci kaca, tombol kembali, tab bar ---- */
 .back-button, .topbar-mark { display: none; }
-.topbar-mark .brand-mark { width: 34px; height: 34px; border-radius: 10px; }
+.topbar-mark .brand-logo { width: 36px; height: 36px; }
 .tab-bar { display: none; }
 @media (max-width: 960px) {
   .topbar { top: 8px; margin: 8px 8px 0; min-height: 56px; padding: 6px 10px; box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-2); }

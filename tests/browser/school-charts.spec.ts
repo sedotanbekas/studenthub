@@ -190,6 +190,8 @@ test.describe("layar sentuh", () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
   test("donat: tap segmen menyorot dan tetap tersorot; tap lagi melepas", async ({ page }) => {
     await openDashboard(page);
+    // Perangkat sentuh tidak punya hover: kursor sisa klik tombol demo tidak boleh ikut menyorot legenda.
+    await page.mouse.move(0, 0);
     const panel = page.locator(".sc-today");
     const izin = panel.locator(".donut-figure path").nth(2);
     await izin.scrollIntoViewIfNeeded();

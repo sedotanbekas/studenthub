@@ -17,7 +17,7 @@ const FIELDS: readonly { key: ThemeKey; label: string; hint: string; token?: str
   { key: "secondaryColor", label: "Warna sekunder", hint: "Avatar, ikon pendamping, dan aksen kedua.", token: "--secondary" },
   { key: "bannerColor", label: "Warna banner", hint: "Kartu identitas siswa, panel halaman masuk, dan bilah browser HP.", token: "--banner" },
   { key: "animationColor", label: "Warna animasi", hint: "Pendar latar, pemuat, kilau kartu, dan efek sentuh." },
-  { key: "logoColor", label: "Warna logo", hint: "Tanda logo studenthub.id dan ikon sekolah di menu.", token: "--logo" },
+  { key: "logoColor", label: "Warna logo", hint: "Ikon sekolah di menu, ikon pintasan, dan kop rapor (logo StudentHub tetap berwarna aslinya).", token: "--logo" },
 ];
 
 function useThemeEditor() {

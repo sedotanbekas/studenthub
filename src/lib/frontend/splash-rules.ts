@@ -4,7 +4,7 @@ import { scrollKey } from "./scroll-memory-rules";
  * Aturan murni splash screen hub (tanpa DOM nyata). Splash tampil saat:
  * - situs dibuka dalam keadaan belum login, atau sudah login tetapi terakhir dipakai > 5 menit lalu;
  * - kembali ke tab/aplikasi setelah pergi > 5 menit (walau lebih 1 detik saja);
- * lalu logo "buku terbuka" menjadi masker yang membesar dan menyingkap halaman terakhir yang dilihat.
+ * lalu logo "S + toga" menjadi masker yang membesar dan menyingkap halaman terakhir yang dilihat.
  * Pelaksana DOM: src/components/hub/splash.ts. Keputusan saat halaman dimuat dijalankan SEBELUM
  * lukisan pertama oleh skrip boot (splashBootScript) di app/hub/layout.tsx, agar halaman tidak sempat
  * berkedip tampil sebelum splash menutupinya.
@@ -18,19 +18,19 @@ const FUTURE_SLACK_MS = 60_000;
 /** Halaman terakhir dilanjutkan selama sesi web masih mungkin hidup (30 hari). */
 export const RESUME_MAX_AGE_MS = 30 * 24 * 3_600_000;
 /**
- * Durasi (ms). intro = logo buku terbuka + wordmark; wipe = tirai melingkar dari tombol masuk;
+ * Durasi (ms). intro = logo mekar + rumbai toga berayun + wordmark; wipe = tirai melingkar dari tombol;
  * reveal = logo menjadi masker yang membesar. Total animasi + transisi <= 1 detik. holdMax = batas
  * menunggu data sebelum masker tetap dibuka.
  */
 export const SPLASH_MS = { intro: 540, wipe: 420, reveal: 460, holdMax: 8000 } as const;
 /**
- * Jari-jari lingkaran terbesar di dalam siluet buku (dari titik pusat kotak 24x24, dibatasi lekuk
- * punggung buku di atas) sebagai pecahan sisi kotak, dibulatkan ke bawah untuk tepi antialias.
+ * Geometri tanda "S + toga" pada kanvas splash persegi (public/brand/splash-*.webp), sebagai pecahan
+ * sisi kanvas — dihasilkan scripts/brand-assets.mjs. MARK_ORIGIN = titik terdalam siluet (pusat zoom
+ * masker, diletakkan di tengah layar); MARK_INSCRIBED = jari-jari lingkaran dalamnya, dibulatkan ke
+ * bawah untuk tepi antialias. Salin juga ke src/styles/splash.css (--splash-ox/--splash-oy).
  */
-export const BOOK_INSCRIBED = 0.28;
-/** Siluet buku terbuka (ikon "book" di-isi), kiri & kanan terpisah untuk animasi membuka. */
-export const BOOK_LEFT_PAGE = "M12 5C8 2 4 3 2 4v15c4-2 7-1 10 2z";
-export const BOOK_RIGHT_PAGE = "M12 5c4-3 8-2 10-1v15c-4-2-7-1-10 2z";
+export const MARK_ORIGIN = { x: 0.4318, y: 0.3833 } as const;
+export const MARK_INSCRIBED = 0.29;
 
 export interface SplashTint { readonly a: string; readonly b: string; readonly ink: string; readonly glow: string }
 export interface Presence { readonly seenAt: number; readonly signedIn: boolean; readonly tint: SplashTint | null }
@@ -91,10 +91,10 @@ export function resumePlan(record: ResumeRecord | null, ctx: ResumeContext): { p
   return current === "/hub" || current === record.path ? { path: record.path, y: record.y } : null;
 }
 
-/** Skala akhir masker agar lubang logo (ukuran `size` px) menutup seluruh layar w x h. */
+/** Skala akhir masker agar lubang logo (kanvas `size` px, pusat zoom di tengah layar) menutup layar w x h. */
 export function revealZoom(width: number, height: number, size: number): number {
   if (!(size > 0)) return 2;
-  return Math.max(2, Math.ceil(Math.hypot(width, height) / 2 / (size * BOOK_INSCRIBED)) + 1);
+  return Math.max(2, Math.ceil(Math.hypot(width, height) / 2 / (size * MARK_INSCRIBED)) + 1);
 }
 
 /** Sisa waktu intro sebelum masker boleh dibuka (0 = segera). */

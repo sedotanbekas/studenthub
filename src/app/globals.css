@@ -34,6 +34,9 @@
   --animation-soft: #afe5fc;
   --logo: #1d4ed8;
   --on-logo: #ffffff;
+  /* Warna tulisan logo StudentHub (merek produk, tidak ikut tema sekolah). */
+  --brand-ink: #0330a6;
+  --brand-hub: #640ae0;
   /* Turunan alfa (ikut nilai inline tema di <html>). */
   --primary-glow: color-mix(in srgb, var(--primary) 45%, transparent);
   --animation-glow: color-mix(in srgb, var(--animation) 40%, transparent);
