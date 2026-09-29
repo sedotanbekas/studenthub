@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { HubShell } from "@/components/hub/hub";
 import { SplashScreen } from "@/components/hub/splash-screen";
+import { appEnvOfHost } from "@/lib/frontend/app-env";
 import { earlyDemoScript } from "@/lib/frontend/early-demo";
 import { readSessionHint } from "@/lib/frontend/session-hint";
 import { splashBootScript } from "@/lib/frontend/splash-rules";
@@ -22,6 +23,8 @@ const SPLASH_IMAGES = ["/brand/splash-body.webp", "/brand/splash-tassel.webp", "
 export default async function HubLayout({ children }: { children: ReactNode }) {
   const jar = await cookies();
   const hint = readSessionHint(name => jar.get(name)?.value);
+  // Produksi / staging dari header Host (nginx meneruskan $host); host lain (lokal) = tanpa sakelar lingkungan.
+  const env = appEnvOfHost((await headers()).get("host"));
   // Splash saat membuka situs hanya untuk yang sudah masuk (penanda sesi): hanya merekalah yang perlu gambar
   // splash (±36 KB) seawal mungkin. Tamu memanaskannya setelah halaman dimuat (splash.ts) untuk tirai Masuk.
   const guest = !hint.account && !hint.demo;
@@ -33,6 +36,6 @@ export default async function HubLayout({ children }: { children: ReactNode }) {
     {/* Tamu: tombol demo di halaman masuk (HTML server) bisa diketuk sebelum JS aktif — dicatat lalu dijalankan. */}
     {guest && <script dangerouslySetInnerHTML={{ __html: EARLY_DEMO_CAPTURE }} />}
     <SplashScreen />
-    <HubShell hint={hint}>{children}</HubShell>
+    <HubShell hint={hint} env={env}>{children}</HubShell>
   </>;
 }

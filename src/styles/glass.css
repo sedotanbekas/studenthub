@@ -179,6 +179,18 @@ body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { 
 .glass-toggle input:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
 .gps-wait { display: block; width: 100%; font-weight: 600; opacity: 0.85; }
 
+/* Sakelar lingkungan Produksi | Staging (sidebar & halaman masuk) + penanda staging di topbar. */
+.env-switch { display: flex; flex-direction: column; gap: 6px; padding: 4px 12px; }
+.env-switch-track { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: 12px; background: var(--line-soft); }
+.env-option { display: grid; place-items: center; min-height: 36px; border-radius: 9px; font-size: 14px; font-weight: 700; color: var(--ink-2); text-decoration: none; }
+a.env-option:hover { color: var(--ink); background: color-mix(in srgb, var(--paper) 55%, transparent); }
+a.env-option:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+.env-option.active { background: var(--paper); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / 14%); }
+.env-switch[data-env="staging"] .env-option.active { background: var(--warning-soft); color: var(--warning-ink); box-shadow: inset 0 0 0 2px var(--warning); }
+.env-switch small { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--muted); }
+.login-env { margin-top: 4px; padding: 16px 0 0; border-top: 2px solid var(--line-soft); }
+.env-badge { flex: none; padding: 4px 10px; border-radius: 999px; border: 2px solid var(--warning); background: var(--warning-soft); color: var(--warning-ink); font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+
 /* Fokus tidak tertutup bar mengambang (WCAG 2.4.11): gulir menyisakan ruang topbar & tab bar. */
 @media (max-width: 960px) { html { scroll-padding-top: 84px; } }
 @media (max-width: 760px) { html { scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom)); } }
@@ -188,4 +200,5 @@ body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { 
   .glass-toggle input { border: 1px solid CanvasText; }
   .glass-toggle input::after { background: CanvasText; }
   .glass-toggle input:checked { background: Highlight; }
+  .env-option.active { outline: 2px solid Highlight; outline-offset: -2px; }
 }

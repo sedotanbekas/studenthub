@@ -3,7 +3,9 @@ import { Suspense, useEffect, useState, useSyncExternalStore, type FormEvent } f
 import { api, ApiError } from "@/lib/frontend/api";
 import { loginDeviceId } from "@/lib/frontend/attendance";
 import { DEMO_PERSONAS } from "@/lib/frontend/demo-personas";
+import type { AppEnv } from "@/lib/frontend/app-env";
 import { EARLY_DEMO, takeEarlyDemo } from "@/lib/frontend/early-demo";
+import { EnvSwitch } from "./env-switch";
 import { Brand, Icon } from "./icon";
 import { loadSections } from "./sections";
 import { cancelSplash, centerOf, playLoginSplash } from "./splash";
@@ -21,7 +23,8 @@ function useHydrated(): boolean {
  * bertipe submit (form dengan 2 isian tanpa tombol submit tidak terkirim lewat Enter), jadi kredensial
  * tidak pernah terkirim sebagai form biasa; method="post" = pengaman bila browser tetap mengirimnya.
  */
-export function Login({ onLogin, onDemo }: { onLogin: (covered: Promise<void>) => Promise<void>; onDemo: (personaKey: string, covered: Promise<void>) => void }) {
+interface LoginProps { env: AppEnv | null; onLogin: (covered: Promise<void>) => Promise<void>; onDemo: (personaKey: string, covered: Promise<void>) => void }
+export function Login({ env, onLogin, onDemo }: LoginProps) {
   const hydrated = useHydrated();
   // Tombol demo yang diketuk sebelum JS aktif (dicatat skrip sebaris, src/lib/frontend/early-demo.ts).
   useEffect(() => {
@@ -50,9 +53,9 @@ export function Login({ onLogin, onDemo }: { onLogin: (covered: Promise<void>) =
     <section className="login-form-side"><div className="login-box"><span className="login-brand"><Brand /></span><h2>Senang bertemu lagi.</h2><p>Masuk dengan NISN (siswa) atau email (admin & sponsor).</p><form method="post" onSubmit={submit} onInput={() => void loadSections()}>
       <label className="field">NISN atau email<input name="identifier" autoComplete="username" inputMode="email" placeholder="10 digit NISN atau nama@sekolah.sch.id" required autoFocus /></label>
       <label className="field">Kata sandi<span className="password-input"><input name="password" type={visible ? "text" : "password"} autoComplete="current-password" placeholder="Masukkan kata sandi" required /><button type="button" aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} onClick={() => setVisible(!visible)}><Icon name="eye" size={20} /></button></span></label>
-      {totp && <label className="field">Kode autentikator<input name="totpCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 digit kode verifikasi" autoComplete="one-time-code" required /></label>}
+      {totp && <label className="field">Kode autentikator<input name="totpCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 digit kode verifikasi" autoComplete="one-time-code" required onChange={e => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 6); }} /></label>}
       {error && <div className="error-message" role="alert">{error}</div>}<button type={hydrated ? "submit" : "button"} className="button primary block large" disabled={busy}>{busy ? "Sedang masuk…" : "Masuk"}<Icon name="arrow" size={20} /></button>
-    </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p><Suspense fallback={null}><DemoPicker onDemo={onDemo} /></Suspense></div></section>
+    </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p><Suspense fallback={null}><DemoPicker onDemo={onDemo} /></Suspense><EnvSwitch env={env} className="login-env" /></div></section>
   </main>;
 }
 

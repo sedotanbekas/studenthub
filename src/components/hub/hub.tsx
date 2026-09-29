@@ -5,6 +5,7 @@ import { api } from "@/lib/frontend/api";
 import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionFromPath } from "@/lib/frontend/modules";
 import { applyGlassMode, applyTheme, glassModeFor, readGlassPreference } from "@/lib/frontend/theme";
 import { resolveTheme } from "@/lib/schools/theme-rules";
+import type { AppEnv } from "@/lib/frontend/app-env";
 import type { SessionHint } from "@/lib/frontend/session-hint";
 import type { Identity } from "@/lib/frontend/types";
 import { HubContext } from "./context";
@@ -75,7 +76,7 @@ function useSectionsFor(me: Identity | null) {
   return { ready: !me || state.sections !== null, failed: Boolean(me) && state.failed };
 }
 
-export function HubShell({ hint, children }: { hint: SessionHint; children: ReactNode }) {
+export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppEnv | null; children: ReactNode }) {
   const session = useHubSession(hint);
   const { me, demo, schoolId, notice } = session;
   const sections = useSectionsFor(me);
@@ -97,14 +98,14 @@ export function HubShell({ hint, children }: { hint: SessionHint; children: Reac
   if (sections.failed) return <main className="standalone"><Brand /><p>Halaman gagal dimuat. Periksa koneksi internet lalu coba lagi.</p><button type="button" className="button primary" onClick={() => void loadSections()}>Coba lagi</button></main>;
   if (!session.ready || resuming || !sections.ready) return <main className="standalone"><Brand /><div className="loader" /><p>Memuat…</p></main>;
   // Suspense: halaman masuk (HTML server) dihidrasi bertahap setelah kerangka, bukan dalam satu long task (TBT).
-  if (!me) return <><Suspense fallback={null}><Login onLogin={session.login} onDemo={session.startDemo} /></Suspense>{toast}</>;
+  if (!me) return <><Suspense fallback={null}><Login env={env} onLogin={session.login} onDemo={session.startDemo} /></Suspense>{toast}</>;
   const restricted = isRestricted(me);
   const { home, module: current } = resolveSection(me.user.role, restricted, section);
   const value = { me, demo, schoolId, toast: session.setNotice, reloadMe: session.reloadMe, logout: session.logout, saveDemoTheme: session.saveDemoTheme };
   return <HubContext.Provider value={value}><div className="app-shell">
     {drawer.open && <button className="sidebar-overlay" aria-label="Tutup navigasi" onClick={() => drawer.hide()} />}
-    <Sidebar me={me} modules={modulesFor(me.user.role)} current={current} home={home} unread={unread} open={drawer.open} onNavigate={() => drawer.hide(false)} onLogout={session.logout} />
-    <div className="main-shell" inert={drawer.open}><Topbar key={me.user.id} title={current?.title ?? "Beranda"} home={home || restricted} unread={unread} me={me} onMenu={drawer.show} />
+    <Sidebar me={me} env={env} modules={modulesFor(me.user.role)} current={current} home={home} unread={unread} open={drawer.open} onNavigate={() => drawer.hide(false)} onLogout={session.logout} />
+    <div className="main-shell" inert={drawer.open}><Topbar key={me.user.id} title={current?.title ?? "Beranda"} home={home || restricted} unread={unread} me={me} env={env} onMenu={drawer.show} />
       {/* .hub-view = seluruh isi yang ikut tergulir, digeser utuh saat pindah halaman (page-slide.ts). */}
       <main id="main-content" className="page-content"><div className="hub-view">{demo && <DemoBanner me={me} onPersona={session.switchPersona} onExit={session.logout} />}
         {me.user.role === "SUPER_ADMIN" && current?.paths.some(p => p.startsWith("/school/")) && <label className="scope-select">Sekolah yang dikelola<select value={schoolId} onChange={e => session.setSchoolId(e.target.value)}><option value="">Pilih sekolah terlebih dahulu</option>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
