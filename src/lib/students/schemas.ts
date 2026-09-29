@@ -74,7 +74,7 @@ const phoneInput = (label: string) =>
       }
       return phone;
     })
-    .meta({ example: "081234567890", description: "Awalan 08 / 62 / +62; disimpan sebagai +628…" });
+    .meta({ example: "081234567890", description: "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…)." });
 
 /** Pekerjaan orang tua/wali: isian bebas; `x-suggestions` = saran pilihan (datalist) di formulir web. */
 const occupationInput = (label: string) =>
@@ -83,7 +83,7 @@ const occupationInput = (label: string) =>
 const classIdInput = z.union([idString, z.null()]);
 const sppAmountInput = z
   .union([z.int().min(0).max(SPP_AMOUNT_MAX, `SPP maksimal ${SPP_AMOUNT_MAX}.`), z.null()])
-  .meta({ description: "Tarif SPP per bulan (rupiah). null = tarif default, 0 = bebas SPP." });
+  .meta({ description: "Kosongkan untuk memakai tarif default sekolah; isi 0 bila siswa bebas SPP." });
 
 /** Opt-in eksplisit pelepasan NISN milik siswa LULUS di sekolah lain (default false -> 409 NISN_HELD_BY_GRADUATE). */
 const confirmReleaseInput = z

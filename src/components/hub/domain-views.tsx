@@ -2,11 +2,16 @@
 import { useState } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { display, label } from "@/lib/frontend/format";
+import { numericSpec } from "@/lib/frontend/numeric-input-rules";
 import type { Row } from "@/lib/frontend/types";
 import type { SheetDto } from "@/lib/report-cards/schemas";
 import { useHub } from "./context";
 import { Icon } from "./icon";
 import { Status } from "./data-view";
+import { NumericInput } from "./numeric-input";
+
+/** Nilai rapor 0–100: bilangan bulat tanpa minus. */
+const SCORE_INPUT = numericSpec("score", { minimum: 0 }, "integer")!;
 
 export function FeedView({ rows, onSelect }: { rows: Row[]; onSelect: (row: Row) => void }) {
   return <div className="feed-grid">{rows.map((row, index) => <button key={String(row.id ?? index)} className="feed-card" onClick={() => onSelect(row)}><span className="feed-top"><span className={`quick-icon tone-${index % 4}`}><Icon name="megaphone" size={22} /></span>{row.status ? <Status value={row.status} /> : <span className="pill">{row.readAt ? "Sudah dibaca" : "Belum dibaca"}</span>}</span><h3>{String(row.title ?? "Informasi sekolah")}</h3><p>{String(row.body ?? row.content ?? "Buka informasi untuk melihat selengkapnya.")}</p><span className="feed-bottom"><small>{display(row.createdAt)}</small><span>Baca selengkapnya <Icon name="arrow" size={15} /></span></span></button>)}</div>;
@@ -43,5 +48,5 @@ export function GradeSheet({ sheet, onDone }: { sheet: SheetDto; onDone: () => v
     } catch (e) { setError(e instanceof Error ? e.message : "Nilai belum tersimpan."); }
     finally { setBusy(false); }
   }
-  return <div className="grade-sheet"><div className="grade-heading"><div><h2>{sheet.class.name} · {sheet.subject.name}</h2><p>{sheet.term.label} · KKM {sheet.subject.kkm}</p></div><span className="pill">{sheet.rows.length} SISWA</span></div>{error && <div className="error-message" role="alert">{error}</div>}<form onSubmit={e => { e.preventDefault(); void save(); }}><div className="table-scroll"><table><thead><tr><th>Siswa</th><th>NIS</th><th>Nilai (0–100)</th><th>Predikat</th><th>Status rapor</th></tr></thead><tbody>{sheet.rows.map(row => <tr key={row.studentId}><td>{row.name}</td><td>{row.nis}</td><td><input aria-label={`Nilai ${row.name}`} type="number" min={0} max={100} step={1} disabled={!!row.blockedReason || busy || (!demo && !me.permissions.includes("reportCards.manage"))} value={edits[row.studentId] ?? row.score ?? ""} onChange={e => setEdits({ ...edits, [row.studentId]: e.target.value })} /></td><td>{row.predicate ?? "—"}</td><td>{row.reportCardStatus ? <Status value={row.reportCardStatus} /> : "Belum dibuat"}</td></tr>)}</tbody></table></div><div className="grade-footer"><span>{Object.keys(edits).length} nilai diubah · Nilai kosong akan dihapus.</span><button className="button primary" disabled={busy || !Object.keys(edits).length}>{busy ? "Menyimpan…" : "Simpan nilai"}<Icon name="check" size={17} /></button></div></form></div>;
+  return <div className="grade-sheet"><div className="grade-heading"><div><h2>{sheet.class.name} · {sheet.subject.name}</h2><p>{sheet.term.label} · KKM {sheet.subject.kkm}</p></div><span className="pill">{sheet.rows.length} SISWA</span></div>{error && <div className="error-message" role="alert">{error}</div>}<form onSubmit={e => { e.preventDefault(); void save(); }}><div className="table-scroll"><table><thead><tr><th>Siswa</th><th>NIS</th><th>Nilai (0–100)</th><th>Predikat</th><th>Status rapor</th></tr></thead><tbody>{sheet.rows.map(row => <tr key={row.studentId}><td>{row.name}</td><td>{row.nis}</td><td><NumericInput aria-label={`Nilai ${row.name}`} spec={SCORE_INPUT} minimum={0} maximum={100} disabled={!!row.blockedReason || busy || (!demo && !me.permissions.includes("reportCards.manage"))} value={row.studentId in edits ? (edits[row.studentId] === "" ? undefined : Number(edits[row.studentId])) : row.score} onValue={score => setEdits({ ...edits, [row.studentId]: score === undefined ? "" : String(score) })} /></td><td>{row.predicate ?? "—"}</td><td>{row.reportCardStatus ? <Status value={row.reportCardStatus} /> : "Belum dibuat"}</td></tr>)}</tbody></table></div><div className="grade-footer"><span>{Object.keys(edits).length} nilai diubah · Nilai kosong akan dihapus.</span><button className="button primary" disabled={busy || !Object.keys(edits).length}>{busy ? "Menyimpan…" : "Simpan nilai"}<Icon name="check" size={17} /></button></div></form></div>;
 }

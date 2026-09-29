@@ -175,6 +175,9 @@
 .money-input { position: relative; display: flex; align-items: center; }
 .money-input span { position: absolute; left: 16px; font-weight: 800; color: var(--muted); pointer-events: none; }
 .money-input input { padding-left: 46px; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+/* Varian formulir umum (SPP, nominal tagihan): ukuran sama dengan isian lain. */
+.money-input.compact span { left: 14px; font-weight: 700; }
+.money-input.compact input { padding-left: 44px; font-size: 16px; font-weight: 600; }
 .proof-drop { min-height: 76px; }
 .proof-chosen { display: grid; grid-template-columns: 60px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 8px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--paper); }
 .proof-chosen img { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; background: var(--line-soft); }

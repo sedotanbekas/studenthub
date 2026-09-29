@@ -485,14 +485,8 @@ export const QUICK_AMOUNTS: readonly { readonly value: number; readonly label: s
   { value: 100_000, label: "100 rb" }, { value: 500_000, label: "500 rb" }, { value: 1_000_000, label: "1 jt" }, { value: 2_000_000, label: "2 jt" },
 ];
 
-/**
- * Bagian desimal di akhir nominal tempelan: ",00" / ",-" (format Indonesia) atau ".00" setelah ribuan
- * berkoma ("500,000.00"). Titik tanpa koma selalu pemisah ribuan (kolom sendiri memformat "500.000").
- */
-const stripDecimals = (text: string): string => text.trim().replace(/,(?:\d{1,2}|-)?$/, "").replace(/(,\d{3})\.\d{1,2}$/, "$1");
-/** Isi kolom nominal -> digit saja (tanpa desimal, tanpa nol di depan, maks 9 digit sesuai kontrak). */
-export const amountDigits = (text: string): string => stripDecimals(text).replace(/\D/g, "").replace(/^0+/, "").slice(0, 9);
-export const formatAmountInput = (digits: string): string => (digits ? number(Number(digits)) : "");
+/** Nominal isian bersama formulir umum (numeric-input-rules.ts); diekspor ulang untuk form top-up. */
+export { amountDigits, formatAmountInput } from "./numeric-input-rules";
 
 export function signedRupiah(amount: number): string {
   if (amount > 0) return `+${rupiah(amount)}`;

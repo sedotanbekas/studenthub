@@ -29483,7 +29483,7 @@
           },
           "phone": {
             "example": "081234567890",
-            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "description": "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…).",
             "type": [
               "string",
               "null"
@@ -29523,7 +29523,7 @@
           },
           "fatherPhone": {
             "example": "081234567890",
-            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "description": "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…).",
             "type": [
               "string",
               "null"
@@ -29563,7 +29563,7 @@
           },
           "motherPhone": {
             "example": "081234567890",
-            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "description": "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…).",
             "type": [
               "string",
               "null"
@@ -29604,7 +29604,7 @@
           },
           "guardianPhone": {
             "example": "081234567890",
-            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "description": "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…).",
             "type": [
               "string",
               "null"
@@ -29633,7 +29633,7 @@
                 "type": "null"
               }
             ],
-            "description": "Tarif SPP per bulan (rupiah). null = tarif default, 0 = bebas SPP."
+            "description": "Kosongkan untuk memakai tarif default sekolah; isi 0 bila siswa bebas SPP."
           },
           "activate": {
             "default": true,
@@ -29698,7 +29698,7 @@
           },
           "phone": {
             "example": "081234567890",
-            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "description": "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…).",
             "type": [
               "string",
               "null"
@@ -29738,7 +29738,7 @@
           },
           "fatherPhone": {
             "example": "081234567890",
-            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "description": "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…).",
             "type": [
               "string",
               "null"
@@ -29778,7 +29778,7 @@
           },
           "motherPhone": {
             "example": "081234567890",
-            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "description": "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…).",
             "type": [
               "string",
               "null"
@@ -29819,7 +29819,7 @@
           },
           "guardianPhone": {
             "example": "081234567890",
-            "description": "Awalan 08 / 62 / +62; disimpan sebagai +628…",
+            "description": "Angka saja, diawali 08 atau 62 (disimpan sebagai +628…).",
             "type": [
               "string",
               "null"
@@ -29848,7 +29848,7 @@
                 "type": "null"
               }
             ],
-            "description": "Tarif SPP per bulan (rupiah). null = tarif default, 0 = bebas SPP."
+            "description": "Kosongkan untuk memakai tarif default sekolah; isi 0 bila siswa bebas SPP."
           }
         },
         "additionalProperties": false
