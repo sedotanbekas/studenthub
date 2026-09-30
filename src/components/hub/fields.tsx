@@ -2,7 +2,7 @@
 import { useEffect, useId, useState } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { rawSchema, resolveSchema } from "@/lib/frontend/catalog";
-import { display, label } from "@/lib/frontend/format";
+import { clockText, display, isClockMinuteField, label } from "@/lib/frontend/format";
 import { demoRows } from "@/lib/frontend/demo";
 import { numericSpec } from "@/lib/frontend/numeric-input-rules";
 import type { Row, Schema } from "@/lib/frontend/types";
@@ -39,7 +39,7 @@ function SimpleField({ name, schema: input, value, required, onChange }: FieldPr
   const type = Array.isArray(schema.type) ? schema.type.find(t => t !== "null") : schema.type;
   const caption = <span>{label(name)}{required && <b className="required"> *</b>}</span>;
   if (name === "schoolDaysMask") return <WeekdayField value={value} onChange={onChange} />;
-  if (/^(dayStartMinute|dayEndMinute|checkInOpenMinute)$/.test(name)) return <label className="field">{caption}<input type="time" required={required} value={typeof value === "number" ? `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}` : ""} onChange={e => { const [hours, minutes] = e.target.value.split(":").map(Number); onChange(hours === undefined || minutes === undefined ? undefined : hours * 60 + minutes); }} /></label>;
+  if (isClockMinuteField(name)) return <label className="field">{caption}<input type="time" required={required} value={typeof value === "number" ? clockText(value) : ""} onChange={e => { const [hours, minutes] = e.target.value.split(":").map(Number); onChange(hours === undefined || minutes === undefined ? undefined : hours * 60 + minutes); }} /></label>;
   if (name === "imageFileId") return <BannerField value={value} required={required} onChange={onChange} />;
   if (type === "object") return <fieldset className="nested-field"><legend>{label(name)}</legend><Fields schema={schema} value={(value ?? {}) as Row} onChange={onChange} /></fieldset>;
   if (type === "array") return <ArrayField {...{ name, schema, value, required, onChange }} />;

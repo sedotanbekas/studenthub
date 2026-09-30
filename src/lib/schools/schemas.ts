@@ -42,6 +42,10 @@ const identityShape = {
 const nonEmpty = (value: object): boolean => Object.values(value).some((v) => v !== undefined);
 const NON_EMPTY_MESSAGE = { message: "Minimal satu kolom harus diubah." };
 
+/**
+ * Jadwal & hari sekolah tidak diterima saat pembuatan (kunci asing -> 400): sekolah baru memakai
+ * DEFAULT_SCHOOL_CONFIG, lalu admin sekolah mengaturnya sendiri lewat PATCH /school/settings.
+ */
 export const createSchoolBody = z.strictObject({
   ...identityShape,
   name: z.string().trim().min(3).max(150),
@@ -51,7 +55,6 @@ export const createSchoolBody = z.strictObject({
   longitude: z.number().meta({ description: "Bujur titik pusat geofence (94.5..141.5)." }),
   geofenceRadiusM: z.int().optional().meta({ description: "Radius geofence 50..1000 m (default 150)." }),
   timezone: z.enum(SCHOOL_TIMEZONES),
-  ...scheduleShape,
   ...bankShape,
 });
 export type CreateSchoolInput = z.output<typeof createSchoolBody>;

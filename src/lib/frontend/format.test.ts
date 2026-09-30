@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { display } from "./format";
+import { display, isClockMinuteField, label } from "./format";
 test("teks data dan kredensial sementara ditampilkan persis tanpa humanisasi", () => {
   assert.equal(display("TempSiswa123", "temporaryPassword"), "TempSiswa123");
   assert.equal(display("StudentHub.co.id"), "StudentHub.co.id");
@@ -26,4 +26,17 @@ test("label kolom rapor & tagihan berbahasa Indonesia", async () => {
 
 test("sisa tagihan ditampilkan sebagai rupiah", () => {
   assert.equal(display(0, "remaining"), "Rp\u00a00");
+});
+
+test("kolom jadwal sekolah dikenali sebagai jam, berlabel Indonesia, dan tampil HH:MM", () => {
+  for (const key of ["checkInOpenMinute", "startMinute", "checkInCloseMinute", "dayEndMinute"]) {
+    assert.equal(isClockMinuteField(key), true, key);
+  }
+  assert.equal(isClockMinuteField("lateToleranceMinutes"), false);
+  assert.equal(label("startMinute"), "Jam masuk");
+  assert.equal(label("checkInCloseMinute"), "Absen ditutup");
+  assert.equal(label("dayEndMinute"), "Akhir hari sekolah");
+  assert.equal(display(420, "startMinute"), "07:00");
+  assert.equal(display(905, "dayEndMinute"), "15:05");
+  assert.equal(display(15, "lateToleranceMinutes"), "15");
 });
