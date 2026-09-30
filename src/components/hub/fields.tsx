@@ -9,6 +9,7 @@ import type { Row, Schema } from "@/lib/frontend/types";
 import { useHub } from "./context";
 import { Icon } from "./icon";
 import { NumericField } from "./numeric-input";
+import { PasswordInput } from "./password-input";
 
 export function defaults(input: Schema, initial: Row = {}): Row {
   const schema = resolveSchema(input, initial);
@@ -52,7 +53,8 @@ function SimpleField({ name, schema: input, value, required, onChange }: FieldPr
   if (numeric) return <NumericField caption={caption} spec={numeric} value={value} required={required} nullable={nullable} minimum={schema.minimum} maximum={schema.maximum} placeholder={typeof schema.example === "string" ? schema.example : label(name)} hint={schema.description} onChange={onChange} />;
   if (schema.format === "binary") return <label className="field full-width">{caption}<span className="file-picker"><Icon name="upload" size={23} /><span>Pilih berkas dari perangkat<small>{schema.description}</small></span><input type="file" required={required} accept={name === "selfie" || name === "attachment" || name === "proof" ? "image/jpeg,image/png,image/webp" : undefined} capture={name === "selfie" ? "user" : undefined} onChange={e => onChange(e.target.files?.[0])} /></span></label>;
   if (/body|content|description|reason|note|address/i.test(name)) return <label className="field full-width">{caption}<textarea {...props} rows={3} minLength={schema.minLength} maxLength={schema.maxLength} placeholder={`Tulis ${label(name).toLowerCase()}…`} /></label>;
-  const inputType = /password/i.test(name) ? "password" : schema.format === "date" || /Date$/.test(name) ? "date" : schema.format === "date-time" ? "datetime-local" : name === "month" ? "month" : /email/i.test(name) ? "email" : "text";
+  if (/password/i.test(name)) return <label className="field">{caption}<PasswordInput {...props} autoComplete={name === "currentPassword" ? "current-password" : "new-password"} minLength={schema.minLength} maxLength={schema.maxLength} placeholder={label(name)} />{schema.description && <small className="field-hint">{schema.description}</small>}</label>;
+  const inputType = schema.format === "date" || /Date$/.test(name) ? "date" : schema.format === "date-time" ? "datetime-local" : name === "month" ? "month" : /email/i.test(name) ? "email" : "text";
   if (schema.format === "date-time" && props.value) { const date = new Date(props.value); if (!Number.isNaN(date.getTime())) props.value = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
   return <label className="field">{caption}<input {...props} type={inputType} minLength={schema.minLength} maxLength={schema.maxLength} placeholder={typeof schema.example === "string" ? schema.example : label(name)} list={suggestions ? listId : undefined} />{suggestions && <datalist id={listId}>{suggestions.map(s => <option key={s} value={s} />)}</datalist>}{schema.description && <small className="field-hint">{schema.description}</small>}</label>;
 }

@@ -185,6 +185,9 @@ export async function ensureSchoolAdmin(tx: Tx, schoolId: string, spec: DemoScho
   const email = demoAdminEmail(spec);
   const fields = { ...accountFields(spec.adminName, options), role: "SCHOOL_ADMIN" as const, schoolId, sponsorId: null };
   const user = await tx.user.upsert({ where: { email }, create: { ...fields, email }, update: fields, select: { id: true } });
+  // Admin seed = admin utama sekolahnya bila belum ada (bisa masuk juga dengan NPSN sekolah).
+  const primary = await tx.user.findFirst({ where: { primarySchoolId: schoolId }, select: { id: true } });
+  if (!primary) await tx.user.update({ where: { id: user.id }, data: { primarySchoolId: schoolId } });
   return user.id;
 }
 

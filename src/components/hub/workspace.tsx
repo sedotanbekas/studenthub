@@ -14,6 +14,7 @@ import { ActionDialog, actionTitle, buildPath, parameterSchema } from "./action-
 import { CalendarView, FeedView, GradeSheet } from "./domain-views";
 import type { SheetDto } from "@/lib/report-cards/schemas";
 import { ReportCardDocument, isReportCardDetail } from "./report-card";
+import { SecurityPanel } from "./security-panel";
 
 /** Kolom tabel paling berguna per tampilan (isi lengkap tetap ada di detail). */
 const VIEW_COLUMNS: Record<string, readonly string[]> = {
@@ -58,7 +59,7 @@ export function Workspace({ module, embedded = false }: { module: Module; embedd
   function changeView(op: Operation) { setView(op); setFilters(defaults(parameterSchema(op, "query"))); setQuery(""); setData(undefined); setMeta(undefined); }
   const filtersSchema = view ? parameterSchema({ ...view, parameters: view.parameters.filter(p => p.name !== "q" && p.name !== "cursor" && p.name !== "page" && p.name !== "limit") }, "query") : {};
   return <div className="workspace-page"><div className={`page-heading${embedded ? " embedded" : ""}`}>{!embedded && <div><h1>{module.title}</h1><p>{module.description}</p></div>}<div className="heading-actions">{create && <button className="button primary" disabled={needsSchool} onClick={() => setAction({ op: create })}><Icon name="plus" size={17} />{create.id.startsWith("create") ? `Tambah ${module.key === "students" ? "siswa" : "baru"}` : actionTitle(create)}</button>}<OperationMenu available={available} onSelect={op => setAction({ op })} /></div></div>
-    {module.key === "security" && <SecurityIntro />}
+    {module.key === "security" && <SecurityPanel />}
     <section className="panel data-panel"><div className="data-panel-top"><div className="view-title"><span className="module-icon"><Icon name={module.icon} size={21} /></span><div><h2>{view ? actionTitle(view) : module.title}</h2>{meta?.total !== undefined && <small>{`${number(meta.total)} data ${demo ? "contoh" : "tersedia"}`}</small>}</div></div>{views.length > 1 && <select className="view-select" aria-label="Pilih tampilan" value={view?.id} onChange={e => changeView(views.find(v => v.id === e.target.value)!)}>{views.map(op => <option key={op.id} value={op.id}>{actionTitle(op)}</option>)}</select>}</div>
       {view && <div className="table-toolbar"><div className="table-search"><Icon name="search" size={17} /><input aria-label="Cari data" placeholder={view.parameters.some(p => p.name === "q") ? "Cari nama atau nomor…" : "Pencarian tidak tersedia pada tampilan ini"} value={query} disabled={!view.parameters.some(p => p.name === "q")} onChange={e => { setQuery(e.target.value); setFilters(f => ({ ...f, page: 1, cursor: undefined })); }} /></div><div className="toolbar-actions">{Object.keys(filtersSchema.properties ?? {}).length > 0 && <button className={`button secondary small-button ${filterOpen ? "selected-button" : ""}`} onClick={() => setFilterOpen(!filterOpen)}><Icon name="settings" size={15} />Filter</button>}<button className="icon-button" aria-label="Muat ulang data" disabled={loading} onClick={() => setVersion(v => v + 1)}><Icon name="refresh" size={17} /></button></div></div>}
       {(filterOpen || requiredMissing) && <div className="filter-panel"><Fields schema={filtersSchema} value={filters} onChange={v => setFilters({ ...v, page: 1, cursor: undefined })} /><button className="text-button" onClick={() => { setFilters(view ? defaults(parameterSchema(view, "query")) : {}); setQuery(""); }}>Reset filter</button></div>}
@@ -67,10 +68,6 @@ export function Workspace({ module, embedded = false }: { module: Module; embedd
     </section>{selected && <RecordDialog key={String(selected.row.id ?? selected.path ?? "record")} row={selected.row} view={selected.path && view ? { ...view, path: selected.path } : view} available={available} onNested={(row, path) => setSelected({ row, path })} onClose={() => setSelected(null)} onAction={(op, row) => { setSelected(null); setAction({ op, initial: row }); }} />}{action && <ActionDialog key={action.op.id} op={action.op} initial={action.initial} onClose={() => setAction(null)} onDone={() => setVersion(v => v + 1)} />}</div>;
 }
 function Empty({ icon, title, text }: { icon: string; title: string; text: string }) { return <div className="empty-state"><span className="empty-icon"><Icon name={icon} size={30} /></span><h3>{title}</h3><p>{text}</p></div>; }
-function SecurityIntro() {
-  const { me } = useHub();
-  return <div className="security-intro"><span className="quick-icon tone-0"><Icon name="shield" size={29} /></span><div><h2>Keamanan akun</h2><p>Periksa perangkat yang terhubung dan perbarui kata sandi secara berkala.{me.user.totpEnrollmentRequired ? " Mulai dengan pendaftaran TOTP dari menu tindakan." : ""}</p></div></div>;
-}
 function OperationMenu({ available, onSelect }: { available: Operation[]; onSelect: (op: Operation) => void }) {
   const { schoolId, toast } = useHub();
   return <select className="action-select" aria-label="Tindakan lainnya" value="" onChange={async e => {

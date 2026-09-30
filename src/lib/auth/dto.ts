@@ -60,9 +60,12 @@ export interface MeRow {
   readonly email: string | null;
   readonly role: UserRole;
   readonly mustChangePassword: boolean;
+  readonly primarySchoolId: string | null;
   readonly lastLoginAt: Date | null;
   readonly totpEnabledAt: Date | null;
-  readonly school: ({ readonly id: string; readonly name: string; readonly timezone: SchoolTimezone } & SchoolThemeRow) | null;
+  readonly school:
+    | ({ readonly id: string; readonly name: string; readonly npsn: string | null; readonly timezone: SchoolTimezone } & SchoolThemeRow)
+    | null;
   readonly student: {
     readonly id: string;
     readonly nisn: string;
@@ -79,6 +82,7 @@ export function toMe(row: MeRow, permissions: readonly string[]): MeDto {
       id: row.id,
       name: row.name,
       email: row.email,
+      loginNpsn: row.primarySchoolId !== null ? (row.school?.npsn ?? null) : null,
       role: row.role,
       mustChangePassword: row.mustChangePassword,
       totpEnabled: row.totpEnabledAt !== null,

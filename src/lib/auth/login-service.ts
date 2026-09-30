@@ -15,6 +15,7 @@ import type { ActionContext } from "./principal";
 import { checkLoginEligibility, type IneligibleReason } from "./principal-rules";
 import { lockUserSessions, openSession, retryOnUniqueConflict, type NewSessionInput } from "./session-service";
 import { checkLoginTotpCode, consumeTotpStep, totpInvalid } from "./totp-service";
+import { isTrustedDevice, issueTrustedDevice, type IssuedTrustedDevice } from "./trusted-device";
 
 /**
  * POST /auth/login. Urutan: validasi input murni -> limiter: cek kunci + pesan slot di 3 limiter (sebelum
@@ -105,7 +106,10 @@ function toAccount(user: SelectedUser, student: LoginAccount["student"]): LoginA
   };
 }
 
-/** NISN hanya menemukan STUDENT (lewat activeNisn); email hanya menemukan non-STUDENT. */
+/**
+ * NISN hanya menemukan STUDENT (lewat activeNisn); NPSN hanya menemukan admin utama sekolah bernpsn itu
+ * (User.primarySchoolId); email hanya menemukan non-STUDENT.
+ */
 async function findLoginAccount(identifier: IdentifierKind): Promise<LoginAccount | null> {
   if (identifier.kind === "NISN") {
     const row = await prisma.student.findUnique({
@@ -114,6 +118,13 @@ async function findLoginAccount(identifier: IdentifierKind): Promise<LoginAccoun
     });
     if (!row || row.user.role !== "STUDENT") return null;
     return toAccount(row.user, { id: row.id, schoolId: row.schoolId, status: row.status, boundDeviceId: row.boundDeviceId });
+  }
+  if (identifier.kind === "NPSN") {
+    const admin = await prisma.user.findFirst({
+      where: { role: "SCHOOL_ADMIN", primarySchoolId: { not: null }, school: { npsn: identifier.npsn } },
+      select: USER_SELECT,
+    });
+    return admin ? toAccount(admin, null) : null;
   }
   if (identifier.kind !== "EMAIL") return null;
   const user = await prisma.user.findFirst({ where: { email: identifier.email, role: { not: "STUDENT" } }, select: USER_SELECT });
@@ -174,6 +185,8 @@ async function rejectCredentials(startedAt: number): Promise<never> {
  */
 async function checkSecondFactor(account: LoginAccount, body: LoginBody, keys: LimiterKeys, ctx: ActionContext, startedAt: number): Promise<number | null> {
   if (account.role !== "SUPER_ADMIN" || account.totpEnabledAt === null) return null;
+  // Perangkat tepercaya ("Ingat perangkat ini", 30 hari): kode TOTP tidak diminta.
+  if (await isTrustedDevice(account.userId, body.trustedDeviceToken, ctx.now)) return null;
   if (!body.totpCode) {
     refundAttempt(keys);
     await padFailure(startedAt);
@@ -187,12 +200,12 @@ async function checkSecondFactor(account: LoginAccount, body: LoginBody, keys: L
   return step;
 }
 
+const INVALID_IDENTIFIER_MESSAGE = "Masukkan NISN 10 digit, NPSN 8 digit, atau email yang valid.";
+
 /** Aturan input murni yang tidak membutuhkan DB (NISN => pasti STUDENT). */
 function assertLoginInput(identifier: IdentifierKind, body: LoginBody): void {
   if (identifier.kind === "INVALID") {
-    throw badRequest("VALIDATION_FAILED", "Masukkan NISN 10 digit atau email yang valid.", [
-      { path: "body.identifier", code: "custom", message: "Masukkan NISN 10 digit atau email yang valid." },
-    ]);
+    throw badRequest("VALIDATION_FAILED", INVALID_IDENTIFIER_MESSAGE, [{ path: "body.identifier", code: "custom", message: INVALID_IDENTIFIER_MESSAGE }]);
   }
   if (identifier.kind === "NISN" && isMobilePlatform(body.platform) && !body.deviceId) {
     throw badRequest("DEVICE_ID_REQUIRED", "deviceId wajib dikirim untuk login siswa dari aplikasi mobile.");
@@ -281,6 +294,8 @@ interface LoginResult {
   readonly session: IssuedSession;
   /** Akun hasil baca ulang di dalam transaksi (dipakai untuk respons). */
   readonly account: LoginAccount;
+  /** Terbit hanya bila rememberDevice + kode TOTP diterima pada login ini. */
+  readonly trusted: IssuedTrustedDevice | null;
 }
 
 /**
@@ -296,7 +311,9 @@ function createLoginSession(verified: LoginAccount, body: LoginBody, ctx: Action
       await bindStudentDevice(tx, account, body, ctx);
       await touchLastLogin(tx, account, ctx.now);
       const session = await openSession(tx, sessionInput(account, body, ctx));
-      return { session, account };
+      const remember = totpStep !== null && body.rememberDevice === true;
+      const trusted = remember ? await issueTrustedDevice(tx, { userId: account.userId, userAgent: ctx.userAgent, ip: ctx.ip, now: ctx.now }) : null;
+      return { session, account, trusted };
     }),
   );
 }
@@ -313,11 +330,12 @@ export async function login(body: LoginBody, ctx: ActionContext): Promise<AuthTo
   const totpStep = await checkSecondFactor(found, body, keys, ctx, startedAt);
   refundAttempt(keys);
   assertAccountUsable(found, ctx.now);
-  const { session, account } = await createLoginSession(found, body, ctx, totpStep).catch(async (error: unknown) => {
+  const { session, account, trusted } = await createLoginSession(found, body, ctx, totpStep).catch(async (error: unknown) => {
     // Kode TOTP kalah balapan (dipakai login paralel) -> tetap dipadatkan seperti kegagalan lain.
     if (isAppError(error) && error.code === "TOTP_INVALID") await padFailure(startedAt);
     throw error;
   });
   const access = await signAccessToken({ sub: account.userId, sid: session.sessionId }, ctx.now);
-  return toAuthTokens(access, session, { ...account, id: account.userId });
+  const tokens = toAuthTokens(access, session, { ...account, id: account.userId });
+  return trusted ? { ...tokens, trustedDevice: { token: trusted.token, expiresAt: trusted.expiresAt.toISOString() } } : tokens;
 }

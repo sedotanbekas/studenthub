@@ -431,8 +431,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Login dengan NISN (siswa) atau email (admin/sponsor/super admin)",
-        "description": "Identifier tepat 10 digit = NISN (hanya akun siswa), selain itu email (hanya non-siswa). Gagal login selalu 401 `INVALID_CREDENTIALS` dengan pesan seragam. Limiter hanya-kegagalan: pasangan IP+identifier (8/10 menit), identifier (10/15 menit), dan IP (200/10 menit) -> 429 `RATE_LIMITED` + header `Retry-After`. Siswa di ANDROID/IOS wajib `deviceId`; login mobile siswa mencabut sesi mobile lamanya (satu HP aktif). Super admin ber-TOTP aktif wajib `totpCode`: tanpa kode -> 401 `TOTP_REQUIRED` (ulangi dengan kode), kode salah/sudah dipakai -> 401 `TOTP_INVALID` (5 kali salah/15 menit per akun -> 429). Super admin yang belum mendaftar TOTP tetap bisa login, tetapi aksi selain /auth/* & /me/* -> 403 `TOTP_ENROLLMENT_REQUIRED`.\n\nPublik.",
+        "summary": "Login dengan NISN (siswa), NPSN (admin utama sekolah), atau email (admin/sponsor/super admin)",
+        "description": "Identifier tepat 10 digit = NISN (hanya akun siswa), tepat 8 digit = NPSN (hanya admin utama sekolah itu), selain itu email (hanya non-siswa). Gagal login selalu 401 `INVALID_CREDENTIALS` dengan pesan seragam. Limiter hanya-kegagalan: pasangan IP+identifier (8/10 menit), identifier (10/15 menit), dan IP (200/10 menit) -> 429 `RATE_LIMITED` + header `Retry-After`. Siswa di ANDROID/IOS wajib `deviceId`; login mobile siswa mencabut sesi mobile lamanya (satu HP aktif). Super admin ber-TOTP aktif wajib `totpCode`: tanpa kode -> 401 `TOTP_REQUIRED` (ulangi dengan kode), kode salah/sudah dipakai -> 401 `TOTP_INVALID` (5 kali salah/15 menit per akun -> 429). Super admin yang belum mendaftar TOTP tetap bisa login, tetapi aksi selain /auth/* & /me/* -> 403 `TOTP_ENROLLMENT_REQUIRED`. `rememberDevice: true` + kode benar -> respons memuat `trustedDevice` (30 hari); kirim ulang sebagai `trustedDeviceToken` agar kode tidak diminta. Perangkat tepercaya dilupakan saat kata sandi diganti/direset, logout semua perangkat, akun dinonaktifkan, atau DELETE /me/trusted-devices.\n\nPublik.",
         "security": [],
         "parameters": [],
         "requestBody": {
@@ -1945,6 +1945,276 @@
           },
           "429": {
             "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/email": {
+      "put": {
+        "operationId": "updateMyLoginEmail",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Tambah/ubah email login sendiri (admin sekolah)",
+        "description": "Email langsung bisa dipakai untuk masuk; NPSN tetap berlaku untuk admin utama. Wajib konfirmasi kata sandi saat ini (salah -> 400 `CURRENT_PASSWORD_INVALID`, 5 kali/15 menit -> 429). Email dipakai akun lain -> 409 `EMAIL_TAKEN`.\n\nAksi POLICY: `auth.email`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthLoginEmailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON, CURRENT_PASSWORD_INVALID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: EMAIL_TAKEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/trusted-devices": {
+      "delete": {
+        "operationId": "forgetMyTrustedDevices",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Lupakan semua perangkat tepercaya (login berikutnya kembali meminta kode TOTP)",
+        "description": "Aksi POLICY: `auth.totp`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "removed": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "removed"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3972,7 +4242,7 @@
           "Super Admin - Pengguna"
         ],
         "summary": "Buat akun admin sekolah atau super admin",
-        "description": "SPONSOR dan STUDENT -> 400 `USE_DEDICATED_ENDPOINT` (pakai endpoint sponsor/siswa). SCHOOL_ADMIN wajib `schoolId` sekolah aktif. Email unik tanpa peka huruf (409 `EMAIL_TAKEN`). `initialPassword` opsional dicek kebijakan (422 `PASSWORD_POLICY`); bila kosong sistem membuat kata sandi sementara (berlaku 14 hari) yang dikembalikan SEKALI sebagai `temporaryPassword`. Akun baru wajib ganti kata sandi saat login pertama.\n\nAksi POLICY: `users.manage`.",
+        "description": "SPONSOR dan STUDENT -> 400 `USE_DEDICATED_ENDPOINT` (pakai endpoint sponsor/siswa). SCHOOL_ADMIN wajib `schoolId` sekolah aktif. Admin sekolah PERTAMA di sekolahnya = admin utama: masuk dengan NPSN sekolah, email opsional (sekolah tanpa NPSN -> 422 `SCHOOL_NPSN_REQUIRED`). Admin tambahan & super admin wajib email (422 `EMAIL_REQUIRED`); dua admin utama bersamaan -> 409 `PRIMARY_ADMIN_TAKEN`. Email unik tanpa peka huruf (409 `EMAIL_TAKEN`). `initialPassword` opsional dicek kebijakan (422 `PASSWORD_POLICY`); bila kosong sistem membuat kata sandi sementara (berlaku 14 hari) yang dikembalikan SEKALI sebagai `temporaryPassword`. Akun baru wajib ganti kata sandi saat login pertama.\n\nAksi POLICY: `users.manage`.",
         "security": [
           {
             "bearerAuth": []
@@ -4002,6 +4272,7 @@
                     "maxLength": 100
                   },
                   "email": {
+                    "description": "Opsional untuk admin sekolah pertama (admin utama, masuk dengan NPSN sekolah). Wajib untuk super admin dan admin tambahan.",
                     "type": "string",
                     "maxLength": 191
                   },
@@ -4020,8 +4291,7 @@
                 },
                 "required": [
                   "role",
-                  "name",
-                  "email"
+                  "name"
                 ],
                 "additionalProperties": false
               }
@@ -4115,7 +4385,7 @@
             }
           },
           "409": {
-            "description": "Konflik status/duplikat. Kode: SCHOOL_INACTIVE, EMAIL_TAKEN.",
+            "description": "Konflik status/duplikat. Kode: SCHOOL_INACTIVE, PRIMARY_ADMIN_TAKEN, EMAIL_TAKEN.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4145,7 +4415,7 @@
             }
           },
           "422": {
-            "description": "Pelanggaran aturan bisnis. Kode: PASSWORD_POLICY.",
+            "description": "Pelanggaran aturan bisnis. Kode: EMAIL_REQUIRED, SCHOOL_NPSN_REQUIRED, PASSWORD_POLICY.",
             "content": {
               "application/json": {
                 "schema": {
@@ -29228,7 +29498,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 191,
-            "description": "NISN 10 digit (siswa) atau email (admin/sponsor/super admin).",
+            "description": "NISN 10 digit (siswa), NPSN 8 digit (admin utama sekolah), atau email (admin/sponsor/super admin).",
             "example": "0012345678"
           },
           "password": {
@@ -29267,6 +29537,16 @@
             "type": "string",
             "pattern": "^\\d{6}$",
             "example": "123456"
+          },
+          "rememberDevice": {
+            "description": "true bersama totpCode yang benar = perangkat ini tidak diminta TOTP lagi selama 30 hari (lihat trustedDevice di respons).",
+            "type": "boolean"
+          },
+          "trustedDeviceToken": {
+            "description": "Token perangkat tepercaya dari login sebelumnya; masih berlaku = totpCode tidak diminta.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
           }
         },
         "required": [
@@ -29336,6 +29616,27 @@
         },
         "required": [
           "code"
+        ],
+        "additionalProperties": false
+      },
+      "AuthLoginEmailRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "example": "admin@sekolah.sch.id",
+            "type": "string",
+            "maxLength": 191
+          },
+          "currentPassword": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Konfirmasi kata sandi saat ini."
+          }
+        },
+        "required": [
+          "email",
+          "currentPassword"
         ],
         "additionalProperties": false
       },
@@ -31624,6 +31925,25 @@
           },
           "mustChangePassword": {
             "type": "boolean"
+          },
+          "trustedDevice": {
+            "description": "Hanya bila rememberDevice + totpCode benar. Simpan aman; kirim sebagai trustedDeviceToken saat login.",
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "token",
+              "expiresAt"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -31695,6 +32015,13 @@
                   "null"
                 ]
               },
+              "loginNpsn": {
+                "description": "NPSN sekolah bila akun ini admin utama (bisa masuk dengan NPSN).",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "role": {
                 "type": "string",
                 "enum": [
@@ -31732,6 +32059,7 @@
               "id",
               "name",
               "email",
+              "loginNpsn",
               "role",
               "mustChangePassword",
               "totpEnabled",
@@ -33052,6 +33380,13 @@
               "null"
             ]
           },
+          "loginNpsn": {
+            "description": "NPSN sekolah bila akun ini admin utama (masuk dengan NPSN).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -33164,6 +33499,7 @@
           "id",
           "name",
           "email",
+          "loginNpsn",
           "role",
           "isActive",
           "mustChangePassword",
@@ -33187,6 +33523,13 @@
             "type": "string"
           },
           "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "loginNpsn": {
+            "description": "NPSN sekolah bila akun ini admin utama (masuk dengan NPSN).",
             "type": [
               "string",
               "null"
@@ -33310,6 +33653,7 @@
           "id",
           "name",
           "email",
+          "loginNpsn",
           "role",
           "isActive",
           "mustChangePassword",

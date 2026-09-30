@@ -4,7 +4,8 @@ export type { SchoolThemeDto };
 export type Row = Record<string, unknown>;
 export type Role = "SCHOOL_ADMIN" | "SUPER_ADMIN" | "SPONSOR" | "STUDENT";
 export interface Identity {
-  user: { id: string; name: string; email: string | null; role: Role; mustChangePassword: boolean; totpEnrollmentRequired: boolean };
+  /** `loginNpsn` opsional agar mock/persona lama tetap valid (terisi untuk admin utama sekolah). */
+  user: { id: string; name: string; email: string | null; loginNpsn?: string | null; role: Role; mustChangePassword: boolean; totpEnrollmentRequired: boolean; totpEnabled?: boolean };
   /** `theme` dari GET /auth/me (tema warna sekolah); opsional agar mock/persona lama tetap valid. */
   school: { id: string; name: string; timezone: string; theme?: SchoolThemeDto } | null;
   sponsor: { id: string; companyName: string } | null;

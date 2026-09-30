@@ -113,7 +113,10 @@ test("gerbang kata sandi wajib membatasi ruang kerja ke keamanan", async ({ page
   await page.route("**/api/web/auth/me", route => route.fulfill({ json: envelope({ ...identity, user: { ...identity.user, mustChangePassword: true } }) }));
   await page.goto("/hub/students");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Keamanan akun");
-  await expect(page.getByText("Sebelum melanjutkan, ganti kata sandi awal", { exact: false })).toBeVisible();
+  // Pesan + formulirnya tampil bersama (CTA tidak tersembunyi di "Tindakan lainnya").
+  await expect(page.getByRole("heading", { name: "Ganti kata sandi awal" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Simpan kata sandi baru" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tampilkan kata sandi" }).first()).toBeVisible();
 });
 test("siswa (HP): beranda ringkas, alur absen wajib izin lokasi & kamera sebelum lanjut", async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36" });

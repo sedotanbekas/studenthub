@@ -109,7 +109,7 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
       {/* .hub-view = seluruh isi yang ikut tergulir, digeser utuh saat pindah halaman (page-slide.ts). */}
       <main id="main-content" className="page-content"><div className="hub-view">{demo && <DemoBanner me={me} onPersona={session.switchPersona} onExit={session.logout} />}
         {me.user.role === "SUPER_ADMIN" && current?.paths.some(p => p.startsWith("/school/")) && <label className="scope-select">Sekolah yang dikelola<select value={schoolId} onChange={e => session.setSchoolId(e.target.value)}><option value="">Pilih sekolah terlebih dahulu</option>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
-        {restricted && <div className="info-message">{me.user.mustChangePassword ? "Sebelum melanjutkan, ganti kata sandi awal untuk mengamankan akunmu." : "Aktifkan autentikasi dua langkah terlebih dahulu untuk mengamankan akun super admin."}</div>}
+        {/* Akun terbatas: pesan + formulir/tombolnya tampil bersama di kartu tugas halaman Keamanan akun (security-panel.tsx). */}
         {children}
       </div></main></div>
     <TabBar me={me} section={restricted ? "security" : section} menuOpen={drawer.open} inert={drawer.open} onMenu={drawer.show} />

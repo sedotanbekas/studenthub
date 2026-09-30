@@ -4,6 +4,8 @@ import {
   changePasswordBodySchema,
   changePasswordResultSchema,
   loginBodySchema,
+  loginEmailBodySchema,
+  loginEmailResultSchema,
   logoutAllResultSchema,
   logoutResultSchema,
   meSchema,
@@ -16,6 +18,7 @@ import {
   totpConfirmBodySchema,
   totpConfirmResultSchema,
   totpSetupSchema,
+  trustedDevicesRemovedSchema,
 } from "./auth-schemas";
 
 /** Kontrak route domain auth: /api/v1/auth/* dan /api/v1/me/* (sesi & token push milik sendiri). */
@@ -26,14 +29,16 @@ export const loginContract = defineContract({
   method: "POST",
   path: "/api/v1/auth/login",
   tag: TAG,
-  summary: "Login dengan NISN (siswa) atau email (admin/sponsor/super admin)",
+  summary: "Login dengan NISN (siswa), NPSN (admin utama sekolah), atau email (admin/sponsor/super admin)",
   description: [
-    "Identifier tepat 10 digit = NISN (hanya akun siswa), selain itu email (hanya non-siswa).",
+    "Identifier tepat 10 digit = NISN (hanya akun siswa), tepat 8 digit = NPSN (hanya admin utama sekolah itu), selain itu email (hanya non-siswa).",
     "Gagal login selalu 401 `INVALID_CREDENTIALS` dengan pesan seragam. Limiter hanya-kegagalan: pasangan IP+identifier (8/10 menit),",
     "identifier (10/15 menit), dan IP (200/10 menit) -> 429 `RATE_LIMITED` + header `Retry-After`.",
     "Siswa di ANDROID/IOS wajib `deviceId`; login mobile siswa mencabut sesi mobile lamanya (satu HP aktif).",
     "Super admin ber-TOTP aktif wajib `totpCode`: tanpa kode -> 401 `TOTP_REQUIRED` (ulangi dengan kode), kode salah/sudah dipakai -> 401 `TOTP_INVALID`",
     "(5 kali salah/15 menit per akun -> 429). Super admin yang belum mendaftar TOTP tetap bisa login, tetapi aksi selain /auth/* & /me/* -> 403 `TOTP_ENROLLMENT_REQUIRED`.",
+    "`rememberDevice: true` + kode benar -> respons memuat `trustedDevice` (30 hari); kirim ulang sebagai `trustedDeviceToken` agar kode tidak diminta.",
+    "Perangkat tepercaya dilupakan saat kata sandi diganti/direset, logout semua perangkat, akun dinonaktifkan, atau DELETE /me/trusted-devices.",
   ].join(" "),
   action: "public",
   body: loginBodySchema,
@@ -185,6 +190,32 @@ export const totpConfirmContract = defineContract({
   errors: ["TOTP_CODE_INVALID", "TOTP_SETUP_REQUIRED", "TOTP_ALREADY_ENABLED", "RATE_LIMITED"],
 });
 
+export const updateLoginEmailContract = defineContract({
+  id: "updateMyLoginEmail",
+  method: "PUT",
+  path: "/api/v1/me/email",
+  tag: TAG,
+  summary: "Tambah/ubah email login sendiri (admin sekolah)",
+  description: [
+    "Email langsung bisa dipakai untuk masuk; NPSN tetap berlaku untuk admin utama. Wajib konfirmasi kata sandi saat ini",
+    "(salah -> 400 `CURRENT_PASSWORD_INVALID`, 5 kali/15 menit -> 429). Email dipakai akun lain -> 409 `EMAIL_TAKEN`.",
+  ].join(" "),
+  action: "auth.email",
+  body: loginEmailBodySchema,
+  response: loginEmailResultSchema,
+  errors: ["CURRENT_PASSWORD_INVALID", "EMAIL_TAKEN", "RATE_LIMITED"],
+});
+
+export const forgetTrustedDevicesContract = defineContract({
+  id: "forgetMyTrustedDevices",
+  method: "DELETE",
+  path: "/api/v1/me/trusted-devices",
+  tag: TAG,
+  summary: "Lupakan semua perangkat tepercaya (login berikutnya kembali meminta kode TOTP)",
+  action: "auth.totp",
+  response: trustedDevicesRemovedSchema,
+});
+
 export const authContracts: readonly AnyContract[] = [
   loginContract,
   refreshContract,
@@ -198,4 +229,6 @@ export const authContracts: readonly AnyContract[] = [
   removePushTokenContract,
   totpSetupContract,
   totpConfirmContract,
+  updateLoginEmailContract,
+  forgetTrustedDevicesContract,
 ];

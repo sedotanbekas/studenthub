@@ -8,6 +8,7 @@ import {
   assertResetTarget,
   assertSessionTarget,
   assertStatusTarget,
+  planAdminLogin,
   planCredential,
 } from "./rules";
 
@@ -87,4 +88,17 @@ test("tanpa kata sandi: generate sementara cost 8, kedaluwarsa 14 hari", () => {
   assert.equal(plan.tempPasswordExpiresAt?.getTime(), NOW.getTime() + TEMP_PASSWORD_TTL_MS);
   const real = planCredential(undefined, {}, NOW);
   assert.equal(real.plain.length, 10);
+});
+
+test("planAdminLogin: admin sekolah pertama = admin utama (NPSN), email opsional", () => {
+  assert.deepEqual(planAdminLogin({ role: "SCHOOL_ADMIN", email: undefined, hasPrimary: false, schoolNpsn: "20100123" }), { primary: true });
+  assert.deepEqual(planAdminLogin({ role: "SCHOOL_ADMIN", email: "a@b.id", hasPrimary: false, schoolNpsn: null }), { primary: true });
+});
+
+test("planAdminLogin: admin tambahan & super admin wajib email; sekolah tanpa NPSN wajib email", () => {
+  assert.deepEqual(planAdminLogin({ role: "SCHOOL_ADMIN", email: "a@b.id", hasPrimary: true, schoolNpsn: "20100123" }), { primary: false });
+  const code = (fn: () => unknown) => { try { fn(); return null; } catch (e) { return (e as { code?: string }).code; } };
+  assert.equal(code(() => planAdminLogin({ role: "SCHOOL_ADMIN", email: undefined, hasPrimary: true, schoolNpsn: "20100123" })), "EMAIL_REQUIRED");
+  assert.equal(code(() => planAdminLogin({ role: "SCHOOL_ADMIN", email: undefined, hasPrimary: false, schoolNpsn: null })), "SCHOOL_NPSN_REQUIRED");
+  assert.equal(code(() => planAdminLogin({ role: "SUPER_ADMIN", email: undefined, hasPrimary: false, schoolNpsn: null })), "EMAIL_REQUIRED");
 });

@@ -7,6 +7,7 @@ import type { AppEnv } from "@/lib/frontend/app-env";
 import { EARLY_DEMO, takeEarlyDemo } from "@/lib/frontend/early-demo";
 import { EnvSwitch } from "./env-switch";
 import { Brand, Icon } from "./icon";
+import { PasswordInput } from "./password-input";
 import { loadSections } from "./sections";
 import { cancelSplash, centerOf, playLoginSplash } from "./splash";
 
@@ -34,7 +35,6 @@ export function Login({ env, onLogin, onDemo }: LoginProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [totp, setTotp] = useState(false);
-  const [visible, setVisible] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
     const values = new FormData(event.currentTarget);
@@ -42,7 +42,7 @@ export function Login({ env, onLogin, onDemo }: LoginProps) {
     // Siswa (NISN) dari browser HP mendaftarkan HP ini sebagai perangkat absen.
     const deviceId = loginDeviceId(identifier, navigator.userAgent, localStorage, () => crypto.randomUUID());
     try {
-      await api("/auth/login", { method: "POST", body: JSON.stringify({ identifier, password: values.get("password"), platform: "WEB", deviceName: "studenthub.id Web", ...(deviceId ? { deviceId } : {}), ...(totp ? { totpCode: values.get("totpCode") } : {}) }) });
+      await api("/auth/login", { method: "POST", body: JSON.stringify({ identifier, password: values.get("password"), platform: "WEB", deviceName: "studenthub.id Web", ...(deviceId ? { deviceId } : {}), ...(totp ? { totpCode: values.get("totpCode"), ...(values.get("rememberDevice") ? { rememberDevice: true } : {}) } : {}) }) });
       // Tirai splash melingkar dari tombol Masuk; beranda disingkap masker logo setelah identitas dimuat.
       await onLogin(playLoginSplash(centerOf((event.nativeEvent as SubmitEvent).submitter)));
     } catch (e) { cancelSplash(); if (e instanceof ApiError && ["TOTP_REQUIRED", "TOTP_INVALID"].includes(e.code)) setTotp(true); setError(e instanceof Error ? e.message : "Gagal masuk."); }
@@ -50,10 +50,11 @@ export function Login({ env, onLogin, onDemo }: LoginProps) {
   }
   return <main className="login-page">
     <section className="login-story" aria-hidden="true"><Brand /><div><h1>Sekolah dan siswa, dalam satu tempat.</h1><p>Absensi, rapor, tagihan, dan pengumuman sekolah.</p></div></section>
-    <section className="login-form-side"><div className="login-box"><span className="login-brand"><Brand /></span><h2>Senang bertemu lagi.</h2><p>Masuk dengan NISN (siswa) atau email (admin & sponsor).</p><form method="post" onSubmit={submit} onInput={() => void loadSections()}>
-      <label className="field">NISN atau email<input name="identifier" autoComplete="username" inputMode="email" placeholder="10 digit NISN atau nama@sekolah.sch.id" required autoFocus /></label>
-      <label className="field">Kata sandi<span className="password-input"><input name="password" type={visible ? "text" : "password"} autoComplete="current-password" placeholder="Masukkan kata sandi" required /><button type="button" aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} onClick={() => setVisible(!visible)}><Icon name="eye" size={20} /></button></span></label>
+    <section className="login-form-side"><div className="login-box"><span className="login-brand"><Brand /></span><h2>Senang bertemu lagi.</h2><p>Masuk dengan NISN (siswa), NPSN (admin sekolah), atau email.</p><form method="post" onSubmit={submit} onInput={() => void loadSections()}>
+      <label className="field">NISN, NPSN, atau email<input name="identifier" autoComplete="username" inputMode="email" placeholder="NISN, NPSN sekolah, atau email" required autoFocus /></label>
+      <label className="field">Kata sandi<PasswordInput name="password" autoComplete="current-password" placeholder="Masukkan kata sandi" required /></label>
       {totp && <label className="field">Kode autentikator<input name="totpCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 digit kode verifikasi" autoComplete="one-time-code" required onChange={e => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 6); }} /></label>}
+      {totp && <label className="check-field"><input type="checkbox" name="rememberDevice" value="1" /><span>Ingat perangkat ini selama 30 hari<small>Browser ini tidak meminta kode autentikator lagi. Jangan dipakai di komputer bersama.</small></span></label>}
       {error && <div className="error-message" role="alert">{error}</div>}<button type={hydrated ? "submit" : "button"} className="button primary block large" disabled={busy}>{busy ? "Sedang masuk…" : "Masuk"}<Icon name="arrow" size={20} /></button>
     </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p><Suspense fallback={null}><DemoPicker onDemo={onDemo} /></Suspense><EnvSwitch env={env} className="login-env" /></div></section>
   </main>;

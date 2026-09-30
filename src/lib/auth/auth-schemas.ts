@@ -9,6 +9,7 @@ import {
   PASSWORD_INPUT_MAX,
   PUSH_TOKEN_MAX,
   REFRESH_TOKEN_INPUT_MAX,
+  TRUSTED_DEVICE_TOKEN_MAX,
   USER_ROLES,
 } from "./constants";
 import { classifyIdentifier } from "./identifier";
@@ -33,8 +34,11 @@ export const loginBodySchema = z
       .trim()
       .min(1)
       .max(IDENTIFIER_MAX)
-      .refine((value) => classifyIdentifier(value).kind !== "INVALID", "Masukkan NISN 10 digit atau email yang valid.")
-      .meta({ description: "NISN 10 digit (siswa) atau email (admin/sponsor/super admin).", example: "0012345678" }),
+      .refine((value) => classifyIdentifier(value).kind !== "INVALID", "Masukkan NISN 10 digit, NPSN 8 digit, atau email yang valid.")
+      .meta({
+        description: "NISN 10 digit (siswa), NPSN 8 digit (admin utama sekolah), atau email (admin/sponsor/super admin).",
+        example: "0012345678",
+      }),
     password: z.string().min(1).max(PASSWORD_INPUT_MAX),
     platform: platformSchema,
     deviceId: z
@@ -52,6 +56,16 @@ export const loginBodySchema = z
     totpCode: totpCodeSchema
       .optional()
       .meta({ description: "Wajib untuk super admin yang sudah mengaktifkan TOTP (6 digit dari aplikasi autentikator)." }),
+    rememberDevice: z
+      .boolean()
+      .optional()
+      .meta({ description: "true bersama totpCode yang benar = perangkat ini tidak diminta TOTP lagi selama 30 hari (lihat trustedDevice di respons)." }),
+    trustedDeviceToken: z
+      .string()
+      .min(1)
+      .max(TRUSTED_DEVICE_TOKEN_MAX)
+      .optional()
+      .meta({ description: "Token perangkat tepercaya dari login sebelumnya; masih berlaku = totpCode tidak diminta." }),
   })
   .meta({ id: "AuthLoginRequest" });
 
@@ -65,6 +79,14 @@ export const changePasswordBodySchema = z
     newPassword: z.string().min(1).max(PASSWORD_INPUT_MAX),
   })
   .meta({ id: "AuthChangePasswordRequest" });
+
+/** Email login tambahan (admin sekolah): dinormalisasi trim + huruf kecil; unik tanpa peka huruf (kolasi _ci). */
+export const loginEmailBodySchema = z
+  .strictObject({
+    email: z.string().trim().toLowerCase().max(191).pipe(z.email("Format email tidak valid.")).meta({ example: "admin@sekolah.sch.id" }),
+    currentPassword: z.string().min(1).max(PASSWORD_INPUT_MAX).meta({ description: "Konfirmasi kata sandi saat ini." }),
+  })
+  .meta({ id: "AuthLoginEmailRequest" });
 
 export const pushTokenBodySchema = z
   .strictObject({ expoPushToken: z.string().min(1).max(PUSH_TOKEN_MAX).meta({ example: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]" }) })
@@ -93,6 +115,10 @@ export const authTokensSchema = z
     sessionId: z.string(),
     user: authUserSchema,
     mustChangePassword: z.boolean(),
+    trustedDevice: z
+      .object({ token: z.string(), expiresAt: instant })
+      .optional()
+      .meta({ description: "Hanya bila rememberDevice + totpCode benar. Simpan aman; kirim sebagai trustedDeviceToken saat login." }),
   })
   .meta({ id: "AuthTokens" });
 
@@ -101,6 +127,8 @@ export const logoutAllResultSchema = z.object({ revokedCount: z.int().min(0) });
 export const changePasswordResultSchema = z.object({ changed: z.literal(true), otherSessionsRevoked: z.int().min(0) });
 export const pushTokenRegisteredSchema = z.object({ registered: z.literal(true) });
 export const pushTokenRemovedSchema = z.object({ removed: z.literal(true) });
+export const loginEmailResultSchema = z.object({ email: z.string() });
+export const trustedDevicesRemovedSchema = z.object({ removed: z.int().min(0) });
 
 export const meSchema = z
   .object({
@@ -108,6 +136,7 @@ export const meSchema = z
       id: z.string(),
       name: z.string(),
       email: z.string().nullable(),
+      loginNpsn: z.string().nullable().meta({ description: "NPSN sekolah bila akun ini admin utama (bisa masuk dengan NPSN)." }),
       role: roleSchema,
       mustChangePassword: z.boolean(),
       totpEnabled: z.boolean().meta({ description: "TOTP 2FA aktif (hanya relevan untuk super admin)." }),
@@ -168,6 +197,7 @@ export const totpConfirmResultSchema = z
   .meta({ id: "AuthTotpConfirmResult" });
 
 export type LoginBody = z.output<typeof loginBodySchema>;
+export type LoginEmailBody = z.output<typeof loginEmailBodySchema>;
 export type AuthTokens = z.input<typeof authTokensSchema>;
 export type MeDto = z.input<typeof meSchema>;
 export type SessionItem = z.input<typeof sessionItemSchema>;

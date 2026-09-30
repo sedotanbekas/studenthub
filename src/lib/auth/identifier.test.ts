@@ -19,7 +19,7 @@ test("email di-lowercase; +tag diterima", () => {
 });
 
 test("sampah ditolak", () => {
-  for (const raw of ["", "   ", "admin", "admin@", "@contoh.id", "12345abcde", "a b@c.id", "1234567890@"]) {
+  for (const raw of ["", "   ", "admin", "admin@", "@contoh.id", "12345abcde", "a b@c.id", "1234567890@", "1234567", "123456789"]) {
     assert.equal(classifyIdentifier(raw).kind, "INVALID", raw);
   }
 });
@@ -34,4 +34,10 @@ test("limiterIdentifier menormalkan NISN/email; INVALID -> null", () => {
   assert.equal(limiterIdentifier(classifyIdentifier("A@B.ID")), "a@b.id");
   assert.equal(limiterIdentifier(classifyIdentifier(" 1234567890")), "1234567890");
   assert.equal(limiterIdentifier(classifyIdentifier("x")), null);
+});
+
+test("8 digit = NPSN admin utama sekolah; 00000000 tidak valid", () => {
+  assert.deepEqual(classifyIdentifier(" 20100123 "), { kind: "NPSN", npsn: "20100123" });
+  assert.equal(classifyIdentifier("00000000").kind, "INVALID");
+  assert.equal(limiterIdentifier(classifyIdentifier("20100123")), "20100123");
 });

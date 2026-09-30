@@ -41,6 +41,8 @@ export const createPlatformUserContract = defineContract({
   summary: "Buat akun admin sekolah atau super admin",
   description: [
     "SPONSOR dan STUDENT -> 400 `USE_DEDICATED_ENDPOINT` (pakai endpoint sponsor/siswa). SCHOOL_ADMIN wajib `schoolId` sekolah aktif.",
+    "Admin sekolah PERTAMA di sekolahnya = admin utama: masuk dengan NPSN sekolah, email opsional (sekolah tanpa NPSN -> 422 `SCHOOL_NPSN_REQUIRED`).",
+    "Admin tambahan & super admin wajib email (422 `EMAIL_REQUIRED`); dua admin utama bersamaan -> 409 `PRIMARY_ADMIN_TAKEN`.",
     "Email unik tanpa peka huruf (409 `EMAIL_TAKEN`). `initialPassword` opsional dicek kebijakan (422 `PASSWORD_POLICY`);",
     "bila kosong sistem membuat kata sandi sementara (berlaku 14 hari) yang dikembalikan SEKALI sebagai `temporaryPassword`.",
     "Akun baru wajib ganti kata sandi saat login pertama.",
@@ -49,7 +51,17 @@ export const createPlatformUserContract = defineContract({
   body: createUserBody,
   response: createUserResult,
   successStatus: 201,
-  errors: ["USE_DEDICATED_ENDPOINT", "SCHOOL_ID_REQUIRED", "SCHOOL_ID_NOT_ALLOWED", "SCHOOL_INACTIVE", "EMAIL_TAKEN", "PASSWORD_POLICY"],
+  errors: [
+    "USE_DEDICATED_ENDPOINT",
+    "SCHOOL_ID_REQUIRED",
+    "SCHOOL_ID_NOT_ALLOWED",
+    "SCHOOL_INACTIVE",
+    "EMAIL_REQUIRED",
+    "SCHOOL_NPSN_REQUIRED",
+    "PRIMARY_ADMIN_TAKEN",
+    "EMAIL_TAKEN",
+    "PASSWORD_POLICY",
+  ],
 });
 
 export const getPlatformUserContract = defineContract({

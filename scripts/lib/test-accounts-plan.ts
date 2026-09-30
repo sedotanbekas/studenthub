@@ -83,7 +83,7 @@ export const TEST_SCHOOL: DemoSchoolSpec = {
 export interface TestAccountLogin {
   readonly role: "SUPER_ADMIN" | "SCHOOL_ADMIN" | "SPONSOR" | "STUDENT";
   readonly name: string;
-  /** Isian "NISN atau email" di halaman masuk. */
+  /** Isian "NISN, NPSN, atau email" di halaman masuk. */
   readonly login: string;
 }
 

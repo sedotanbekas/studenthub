@@ -26,7 +26,9 @@ export type ListUsersQuery = z.output<typeof listUsersQuery>;
 export const createUserBody = z.strictObject({
   role: userRoleSchema.meta({ description: "Hanya SCHOOL_ADMIN atau SUPER_ADMIN; SPONSOR/STUDENT -> 400 USE_DEDICATED_ENDPOINT." }),
   name: nameSchema,
-  email: emailSchema,
+  email: emailSchema.optional().meta({
+    description: "Opsional untuk admin sekolah pertama (admin utama, masuk dengan NPSN sekolah). Wajib untuk super admin dan admin tambahan.",
+  }),
   schoolId: idString.optional().meta({ description: "Wajib untuk SCHOOL_ADMIN (sekolah harus aktif); dilarang untuk SUPER_ADMIN." }),
   initialPassword: passwordInput.optional().meta({ description: "Opsional; bila kosong sistem membuat kata sandi sementara (14 hari)." }),
 });
@@ -54,6 +56,7 @@ export const platformUserSchema = z
     id: z.string(),
     name: z.string(),
     email: z.string().nullable(),
+    loginNpsn: z.string().nullable().meta({ description: "NPSN sekolah bila akun ini admin utama (masuk dengan NPSN)." }),
     role: userRoleSchema,
     isActive: z.boolean(),
     mustChangePassword: z.boolean(),

@@ -15,6 +15,7 @@ import {
   assertResetTarget,
   assertSessionTarget,
   assertStatusTarget,
+  planAdminLogin,
   planCredential,
 } from "./rules";
 import type { CreateUserInput, PlatformUserDto, UpdateUserInput } from "./schemas";
@@ -42,35 +43,49 @@ async function assertEmailFree(db: Tx, email: string, exceptUserId?: string): Pr
   if (holder) throw emailTaken();
 }
 
-/** P2002 pada User saat create/ubah email = email bentrok (balapan dua request). */
+/**
+ * P2002 pada User saat create/ubah email = email bentrok (balapan dua request), atau dua admin utama untuk
+ * sekolah yang sama dibuat bersamaan (unik primarySchoolId).
+ */
 function mapEmailRace(error: unknown): never {
-  if ((error as { code?: unknown } | null)?.code === "P2002") throw emailTaken();
-  throw error;
+  const failure = error as { code?: unknown; meta?: unknown; message?: unknown } | null;
+  if (failure?.code !== "P2002") throw error;
+  if (JSON.stringify([failure.meta ?? null, String(failure.message ?? "")]).includes("primarySchoolId")) {
+    throw conflict("PRIMARY_ADMIN_TAKEN", "Sekolah ini baru saja mendapat admin utama. Isi email untuk admin tambahan lalu coba lagi.");
+  }
+  throw emailTaken();
 }
 
-async function assertSchoolUsable(tx: Tx, schoolId: string): Promise<void> {
-  const school = await tx.school.findUnique({ where: { id: schoolId }, select: { isActive: true } });
+/** Sekolah harus aktif; admin sekolah pertama menjadi admin utama (login NPSN). true = admin utama. */
+async function planSchoolAdmin(tx: Tx, schoolId: string, email: string | undefined): Promise<boolean> {
+  const school = await tx.school.findUnique({ where: { id: schoolId }, select: { isActive: true, npsn: true } });
   if (!school) throw notFound("Sekolah tidak ditemukan.");
   if (!school.isActive) throw conflict("SCHOOL_INACTIVE", "Sekolah nonaktif; aktifkan sekolah terlebih dahulu.");
+  const primary = await tx.user.findFirst({ where: { primarySchoolId: schoolId }, select: { id: true } });
+  return planAdminLogin({ role: "SCHOOL_ADMIN", email, hasPrimary: primary !== null, schoolNpsn: school.npsn }).primary;
 }
 
 /**
  * Buat akun SCHOOL_ADMIN/SUPER_ADMIN. Kata sandi awal diketik (lolos kebijakan) atau di-generate
- * (dikembalikan SEKALI). Akun baru selalu wajib ganti kata sandi saat login pertama.
+ * (dikembalikan SEKALI). Akun baru selalu wajib ganti kata sandi saat login pertama. Admin sekolah pertama
+ * di sekolahnya = admin utama (login NPSN, email opsional); lainnya wajib email (planAdminLogin).
  */
 export async function createUser(input: CreateUserInput, ctx: ActionContext): Promise<{ user: PlatformUserDto; temporaryPassword?: string }> {
   assertCreatableRole(input.role, input.schoolId);
-  const plan = planCredential(input.initialPassword, { email: input.email }, ctx.now);
-  await assertEmailFree(prisma, input.email);
+  if (input.role === "SUPER_ADMIN") planAdminLogin({ role: input.role, email: input.email, hasPrimary: false, schoolNpsn: null });
+  const plan = planCredential(input.initialPassword, { email: input.email ?? null }, ctx.now);
+  if (input.email) await assertEmailFree(prisma, input.email);
   const passwordHash = await hashPassword(plan.plain, plan.cost);
   const schoolId = input.role === "SCHOOL_ADMIN" ? (input.schoolId ?? null) : null;
+  const email = input.email ?? null;
   const userId = await withTx(async (tx) => {
-    if (schoolId) await assertSchoolUsable(tx, schoolId);
+    const primary = schoolId ? await planSchoolAdmin(tx, schoolId, input.email) : false;
+    const primarySchoolId = primary ? schoolId : null;
     const created = await tx.user.create({
-      data: { role: input.role, name: input.name, email: input.email, schoolId, passwordHash, mustChangePassword: true, tempPasswordExpiresAt: plan.tempPasswordExpiresAt },
+      data: { role: input.role, name: input.name, email, schoolId, primarySchoolId, passwordHash, mustChangePassword: true, tempPasswordExpiresAt: plan.tempPasswordExpiresAt },
       select: { id: true },
     });
-    const after = { role: input.role, name: input.name, email: input.email, schoolId, credential: plan.kind };
+    const after = { role: input.role, name: input.name, email, schoolId, primary, credential: plan.kind };
     await writeAudit(tx, { action: "user.create", entityType: "User", entityId: created.id, schoolId, after }, ctx);
     return created.id;
   }).catch(mapEmailRace);

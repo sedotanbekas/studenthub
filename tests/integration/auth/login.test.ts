@@ -77,7 +77,7 @@ test("kredensial salah / akun tidak ada -> 401 INVALID_CREDENTIALS seragam, dipa
     const elapsed = performance.now() - started;
     assert.equal(res.status, 401);
     assert.equal(res.body?.error?.code, "INVALID_CREDENTIALS");
-    assert.equal(res.body?.error?.message, "NISN/email atau kata sandi salah.");
+    assert.equal(res.body?.error?.message, "NISN/NPSN/email atau kata sandi salah.");
     assert.ok(elapsed >= 295, `respons gagal terlalu cepat: ${elapsed} ms`);
   }
 });

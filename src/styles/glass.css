@@ -23,7 +23,7 @@ body::before {
 input, textarea, select { border-radius: 14px; }
 
 /* Kaca semu: kartu di atas kanvas statis. */
-.login-box, .stat-card, .role-card, .tile, .today-card, .security-intro, .access-row {
+.login-box, .stat-card, .role-card, .tile, .today-card, .security-intro, .security-card, .access-row {
   border: 1px solid var(--glass-border);
   background: var(--glass-sheen), var(--glass-card);
   box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-1);

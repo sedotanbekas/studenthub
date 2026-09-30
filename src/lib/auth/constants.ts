@@ -44,9 +44,16 @@ export const PUSH_TOKEN_MAX = 255;
 export const SESSION_LIST_MAX = 50;
 
 export const NISN_PATTERN = /^\d{10}$/;
+/** NPSN sekolah (8 digit) = login admin utama sekolah (User.primarySchoolId). */
+export const NPSN_PATTERN = /^\d{8}$/;
+
+/** "Ingat perangkat ini": login super admin dari perangkat tepercaya tanpa kode TOTP selama 30 hari. */
+export const TRUSTED_DEVICE_TTL_MS = 30 * DAY_MS;
+export const TRUSTED_DEVICE_TOKEN_BYTES = 32;
+export const TRUSTED_DEVICE_TOKEN_MAX = 128;
 export const DEVICE_ID_PATTERN = /^[A-Za-z0-9._:-]{8,100}$/;
 export const EXPO_PUSH_TOKEN_PATTERN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,200}\]$/;
 
-export const INVALID_CREDENTIALS_MESSAGE = "NISN/email atau kata sandi salah.";
+export const INVALID_CREDENTIALS_MESSAGE = "NISN/NPSN/email atau kata sandi salah.";
 export const SESSION_INVALID_MESSAGE = "Sesi tidak berlaku. Silakan login ulang.";
 export const ACCOUNT_INACTIVE_MESSAGE = "Akun tidak aktif.";

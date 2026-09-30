@@ -18,9 +18,10 @@ export const USER_SELECT = {
   tempPasswordExpiresAt: true,
   lastLoginAt: true,
   passwordChangedAt: true,
+  primarySchoolId: true,
   createdAt: true,
   updatedAt: true,
-  school: { select: { id: true, name: true } },
+  school: { select: { id: true, name: true, npsn: true } },
   sponsor: { select: { id: true, companyName: true } },
 } as const satisfies Prisma.UserSelect;
 
@@ -33,6 +34,7 @@ export function toUserDto(row: UserRow): PlatformUserDto {
     id: row.id,
     name: row.name,
     email: row.email,
+    loginNpsn: row.primarySchoolId !== null ? (row.school?.npsn ?? null) : null,
     role: row.role,
     isActive: row.isActive,
     mustChangePassword: row.mustChangePassword,

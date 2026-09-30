@@ -8,6 +8,9 @@ export const runtime = "nodejs";
 const ACCESS = "studenthub_access";
 const REFRESH = "studenthub_refresh";
 const cookieOptions = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/api/web" };
+/** "Ingat perangkat ini" (super admin, 30 hari): hanya dikirim ke login; bertahan setelah keluar. */
+const TRUSTED = "studenthub_trusted";
+const trustedOptions = { ...cookieOptions, path: "/api/web/auth/login" };
 /** Penanda sesi (tanpa rahasia) terbaca server di /hub: src/lib/frontend/session-hint.ts. */
 const hintOptions = { ...cookieOptions, path: "/" };
 /** Umur penanda untuk sesi yang kedaluwarsa refresh token-nya tidak diketahui (= umur sesi web). */
@@ -23,6 +26,19 @@ function setTokens(response: NextResponse, data: Record<string, unknown>) {
   response.cookies.set(ACCESS, String(data.accessToken), { ...cookieOptions, expires: new Date(String(data.accessTokenExpiresAt)) });
   response.cookies.set(REFRESH, String(data.refreshToken), { ...cookieOptions, expires: refreshExpires });
   response.cookies.set(SESSION_HINT, "1", { ...hintOptions, expires: refreshExpires });
+}
+function setTrustedDevice(response: NextResponse, data: Record<string, unknown>) {
+  const trusted = data.trustedDevice as { token?: unknown; expiresAt?: unknown } | undefined;
+  if (typeof trusted?.token === "string" && typeof trusted.expiresAt === "string") response.cookies.set(TRUSTED, trusted.token, { ...trustedOptions, expires: new Date(trusted.expiresAt) });
+}
+/** Token perangkat tepercaya dari cookie disisipkan ke body login (JS halaman tidak pernah melihatnya). */
+function withTrustedDevice(request: NextRequest, body: BodyInit | undefined): BodyInit | undefined {
+  const token = request.cookies.get(TRUSTED)?.value;
+  if (!token || !(body instanceof ArrayBuffer)) return body;
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(body)) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? JSON.stringify({ ...parsed, trustedDeviceToken: token }) : body;
+  } catch { return body; }
 }
 function clearHint(response: NextResponse): NextResponse {
   response.cookies.set(SESSION_HINT, "", { ...hintOptions, maxAge: 0 });
@@ -98,6 +114,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   let body: BodyInit | undefined;
   try { body = request.method === "GET" ? undefined : await boundedBody(request); }
   catch { return failure("Berkas terlalu besar atau tidak dapat dibaca. Maksimal 10 MB.", 413); }
+  if (path === "/auth/login") body = withTrustedDevice(request, body);
   if (path === "/auth/refresh") {
     headers.set("Content-Type", "application/json");
     body = JSON.stringify({ refreshToken: request.cookies.get(REFRESH)?.value ?? "" });
@@ -115,9 +132,9 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     }
     const payload = await upstream.json();
     const tokens = isPublic && upstream.ok ? { ...payload.data } : null;
-    if (tokens) { delete payload.data.accessToken; delete payload.data.refreshToken; }
+    if (tokens) { delete payload.data.accessToken; delete payload.data.refreshToken; delete payload.data.trustedDevice; }
     const response = NextResponse.json(payload, { status: upstream.status, headers: NO_STORE });
-    if (tokens) setTokens(response, tokens);
+    if (tokens) { setTokens(response, tokens); setTrustedDevice(response, tokens); }
     // Refresh token ditolak: sesi sudah berakhir, halaman berikutnya langsung dirender sebagai halaman masuk.
     if (path === "/auth/refresh" && upstream.status >= 400 && upstream.status < 500) clearHint(response);
     return response;

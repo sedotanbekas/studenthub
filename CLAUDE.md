@@ -26,5 +26,7 @@ Rencana induk: `docs/PLAN.md` (disetujui klien 2026-09-21). Dokumen desain rinci
 ## Basis data
 - Sebelum deploy produksi pertama: migrasi init boleh direvisi. **Setelah produksi berjalan:**
   migrasi selalu aditif (nol DROP/MODIFY/RENAME/TRUNCATE pada tabel terpakai) dan nilai enum baru
-  ditambahkan di UJUNG daftar.
+  ditambahkan di UJUNG daftar. Pengecualian (disetujui pemilik 2026-09-30): MELONGGARKAN CHECK constraint
+  (DROP + ADD ulang bernama sama dalam satu ALTER) boleh bila semua baris & kode lama tetap memenuhi syarat
+  baru; bandingkan kolom nullable dengan `<=>` (hasil NULL pada CHECK = lolos).
 - Data referensi yang dibutuhkan produksi (wilayah, PlatformSetting) masuk migrasi, bukan seed.

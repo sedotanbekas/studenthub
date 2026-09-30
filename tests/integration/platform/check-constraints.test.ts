@@ -65,6 +65,10 @@ const SCHOOL_CASES: readonly CheckCase[] = [
       () => prisma.user.create({ data: { role: "SCHOOL_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("adm") } }),
       () => prisma.user.create({ data: { role: "SPONSOR", name: "x", passwordHash: "x", email: uniqEmail("sp") } }),
       () => prisma.user.create({ data: { role: "SUPER_ADMIN", name: "x", passwordHash: "x", email: null } }),
+      // Admin sekolah tanpa email hanya boleh bila admin utama; primarySchoolId hanya untuk admin sekolahnya sendiri.
+      () => prisma.user.create({ data: { role: "SCHOOL_ADMIN", name: "x", passwordHash: "x", email: null, schoolId: fx.school.id } }),
+      () => prisma.user.create({ data: { role: "SUPER_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("sa"), primarySchoolId: uniq("ps") } }),
+      () => prisma.user.create({ data: { role: "SCHOOL_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("adm"), schoolId: fx.school.id, primarySchoolId: uniq("ps") } }),
     ],
     valid: () => createSchoolAdmin(fx.school.id),
   },
@@ -316,7 +320,8 @@ describe("platform: cakupan test CHECK constraint", () => {
   test("tabel kasus mencakup persis semua chk_* di seluruh migrasi (tanpa duplikat)", async () => {
     const dirs = (await readdir(resolve(process.cwd(), MIGRATIONS_DIR), { withFileTypes: true })).filter((d) => d.isDirectory()).map((d) => d.name).sort();
     const sql = (await Promise.all(dirs.map((dir) => readFile(resolve(process.cwd(), MIGRATIONS_DIR, dir, "migration.sql"), "utf8")))).join("\n");
-    const declared = [...sql.matchAll(/ADD CONSTRAINT `(chk_[a-z0-9_]+)` CHECK/g)].map((m) => m[1]).sort();
+    // Constraint yang dilonggarkan kemudian (DROP + ADD ulang dengan nama sama) tetap dihitung sekali.
+    const declared = [...new Set([...sql.matchAll(/ADD CONSTRAINT `(chk_[a-z0-9_]+)` CHECK/g)].map((m) => m[1]))].sort();
     const tested = ALL_CASES.map((c) => c.constraint).sort();
     assert.equal(new Set(tested).size, tested.length, "ada constraint yang diuji dua kali");
     assert.deepEqual(tested, declared);

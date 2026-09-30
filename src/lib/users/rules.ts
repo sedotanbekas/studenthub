@@ -29,6 +29,36 @@ export function assertCreatableRole(role: UserRole, schoolId: string | null | un
   if (role === "SUPER_ADMIN" && schoolId) throw badRequest("SCHOOL_ID_NOT_ALLOWED", "Super admin tidak terikat sekolah; hapus schoolId.");
 }
 
+export interface AdminLoginInput {
+  readonly role: UserRole;
+  readonly email: string | undefined;
+  /** Sekolah sudah punya admin utama (User.primarySchoolId). */
+  readonly hasPrimary: boolean;
+  readonly schoolNpsn: string | null;
+}
+
+/**
+ * Cara masuk akun baru. Admin sekolah PERTAMA di sekolahnya = admin utama: masuk dengan NPSN sekolah, email
+ * opsional (bisa ditambah sendiri di Keamanan akun). Admin tambahan dan super admin wajib email. Sekolah
+ * tanpa NPSN: admin utama tetap wajib email sampai NPSN diisi.
+ */
+export function planAdminLogin(input: AdminLoginInput): { primary: boolean } {
+  if (input.role !== "SCHOOL_ADMIN") {
+    if (!input.email) throw unprocessable("EMAIL_REQUIRED", "Email wajib diisi untuk akun super admin.");
+    return { primary: false };
+  }
+  if (!input.hasPrimary) {
+    if (!input.email && !input.schoolNpsn) {
+      throw unprocessable("SCHOOL_NPSN_REQUIRED", "Sekolah belum memiliki NPSN. Lengkapi NPSN sekolah atau isi email untuk login.");
+    }
+    return { primary: true };
+  }
+  if (!input.email) {
+    throw unprocessable("EMAIL_REQUIRED", "Sekolah ini sudah punya admin utama yang masuk dengan NPSN. Admin tambahan wajib memakai email.");
+  }
+  return { primary: false };
+}
+
 /** Nonaktifkan/aktifkan akun: status siswa dikelola lewat status siswa agar tetap selaras. */
 export function assertStatusTarget(actorUserId: string, target: Target): void {
   if (target.role === "STUDENT") {

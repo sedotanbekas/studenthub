@@ -1,5 +1,6 @@
 import type { SessionRevokeReason } from "@prisma/client";
 import type { Tx } from "@/lib/db";
+import { forgetTrustedDevices } from "./trusted-device";
 
 /**
  * Pencabutan sesi (idempoten). Token push sesi ikut dihapus agar HP tidak lagi menerima
@@ -13,6 +14,7 @@ export async function revokeSession(tx: Tx, sessionId: string, reason: SessionRe
   return result.count > 0;
 }
 
+/** Cabut semua sesi akun (kecuali `exceptSessionId`) dan lupakan seluruh perangkat tepercayanya. */
 export async function revokeAllSessions(
   tx: Tx,
   userId: string,
@@ -24,6 +26,8 @@ export async function revokeAllSessions(
     where: { userId, revokedAt: null, ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}) },
     data: { revokedAt: now, revokeReason: reason, expoPushToken: null },
   });
+  // Semua sesi dicabut = perangkat tepercaya ikut dilupakan (login berikutnya kembali meminta TOTP).
+  await forgetTrustedDevices(tx, userId);
   return result.count;
 }
 
