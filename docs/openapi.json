@@ -2213,42 +2213,6 @@
                       "WIT"
                     ]
                   },
-                  "checkInOpenMinute": {
-                    "type": "integer",
-                    "minimum": -9007199254740991,
-                    "maximum": 9007199254740991,
-                    "description": "Jam buka absensi (menit sejak 00:00 waktu lokal sekolah)."
-                  },
-                  "startMinute": {
-                    "type": "integer",
-                    "minimum": -9007199254740991,
-                    "maximum": 9007199254740991,
-                    "description": "Jam masuk (menit sejak 00:00 waktu lokal sekolah)."
-                  },
-                  "lateToleranceMinutes": {
-                    "description": "Toleransi terlambat 0..120 menit.",
-                    "type": "integer",
-                    "minimum": -9007199254740991,
-                    "maximum": 9007199254740991
-                  },
-                  "checkInCloseMinute": {
-                    "type": "integer",
-                    "minimum": -9007199254740991,
-                    "maximum": 9007199254740991,
-                    "description": "Jam tutup absensi (menit sejak 00:00 waktu lokal sekolah)."
-                  },
-                  "dayEndMinute": {
-                    "type": "integer",
-                    "minimum": -9007199254740991,
-                    "maximum": 9007199254740991,
-                    "description": "Akhir hari sekolah; setelah ini auto-ALPHA berjalan (menit sejak 00:00 waktu lokal sekolah)."
-                  },
-                  "schoolDaysMask": {
-                    "description": "Bitmask hari sekolah: Sen=1 Sel=2 Rab=4 Kam=8 Jum=16 Sab=32 Min=64.",
-                    "type": "integer",
-                    "minimum": -9007199254740991,
-                    "maximum": 9007199254740991
-                  },
                   "bankName": {
                     "description": "Nama bank tujuan transfer SPP (null = hapus rekening).",
                     "anyOf": [

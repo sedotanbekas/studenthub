@@ -64,7 +64,7 @@ describe("POST /platform/schools", () => {
   });
 
   test("kolom opsional & rekening lengkap tersimpan; koordinat dibulatkan 7 desimal", async () => {
-    const body = newSchoolBody({ latitude: -6.123456789, geofenceRadiusM: 300, schoolDaysMask: 63, bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "Yayasan Uji" });
+    const body = newSchoolBody({ latitude: -6.123456789, geofenceRadiusM: 300, bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "Yayasan Uji" });
     const res = await create(fx.sa.token, body);
     assert.equal(res.status, 201);
     assert.equal(res.body?.data.latitude, -6.1234568);
@@ -78,8 +78,16 @@ describe("POST /platform/schools", () => {
     assert.equal(missing.body?.error?.code, "VALIDATION_FAILED");
     const unknownKey = await create(fx.sa.token, newSchoolBody({ isActive: false }));
     assert.equal(unknownKey.status, 400);
-    const fraction = await create(fx.sa.token, newSchoolBody({ startMinute: 420.5 }));
+    const fraction = await create(fx.sa.token, newSchoolBody({ geofenceRadiusM: 150.5 }));
     assert.equal(fraction.status, 400);
+  });
+
+  test("jadwal & hari sekolah diatur admin sekolah, bukan saat pembuatan -> 400", async () => {
+    for (const key of ["checkInOpenMinute", "startMinute", "lateToleranceMinutes", "checkInCloseMinute", "dayEndMinute", "schoolDaysMask"]) {
+      const res = await create(fx.sa.token, newSchoolBody({ [key]: 420 }));
+      assert.equal(res.status, 400, key);
+      assert.equal(res.body?.error?.code, "VALIDATION_FAILED", key);
+    }
   });
 
   test("aturan konfigurasi -> 422 SCHOOL_CONFIG_INVALID dengan detail per kolom", async () => {
@@ -87,9 +95,6 @@ describe("POST /platform/schools", () => {
       [{ latitude: 10 }, "LATITUDE_OUT_OF_RANGE"],
       [{ longitude: 90 }, "LONGITUDE_OUT_OF_RANGE"],
       [{ geofenceRadiusM: 49 }, "RADIUS_OUT_OF_RANGE"],
-      [{ checkInCloseMinute: 430 }, "LATE_THRESHOLD_NOT_BEFORE_CLOSE"],
-      [{ dayEndMinute: 1440 }, "SCHEDULE_DAY_END_TOO_LATE"],
-      [{ schoolDaysMask: 0 }, "SCHOOL_DAYS_MASK_OUT_OF_RANGE"],
       [{ npsn: "1234" }, "NPSN_INVALID"],
       [{ bankName: "BCA" }, "BANK_INCOMPLETE"],
       [{ bankName: "BCA", bankAccountNumber: "12-34", bankAccountHolder: "X" }, "BANK_ACCOUNT_NUMBER_INVALID"],
