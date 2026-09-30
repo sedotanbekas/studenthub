@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cookies, headers } from "next/headers";
 import { HubShell } from "@/components/hub/hub";
 import { SplashScreen } from "@/components/hub/splash-screen";
-import { appEnvOfHost } from "@/lib/frontend/app-env";
+import { appEnvOfHost, demoAllowed } from "@/lib/frontend/app-env";
 import { earlyDemoScript } from "@/lib/frontend/early-demo";
 import { readSessionHint } from "@/lib/frontend/session-hint";
 import { splashBootScript } from "@/lib/frontend/splash-rules";
@@ -33,8 +33,8 @@ export default async function HubLayout({ children }: { children: ReactNode }) {
     {/* React memindahkan preload ke <head>. */}
     {images.map(href => <link key={href} rel="preload" as="image" type="image/webp" href={href} fetchPriority="high" />)}
     <script dangerouslySetInnerHTML={{ __html: SPLASH_BOOT }} />
-    {/* Tamu: tombol demo di halaman masuk (HTML server) bisa diketuk sebelum JS aktif — dicatat lalu dijalankan. */}
-    {guest && <script dangerouslySetInnerHTML={{ __html: EARLY_DEMO_CAPTURE }} />}
+    {/* Tamu: tombol demo di halaman masuk (HTML server) bisa diketuk sebelum JS aktif — dicatat lalu dijalankan. Produksi tanpa demo. */}
+    {guest && demoAllowed(env) && <script dangerouslySetInnerHTML={{ __html: EARLY_DEMO_CAPTURE }} />}
     <SplashScreen />
     <HubShell hint={hint} env={env}>{children}</HubShell>
   </>;

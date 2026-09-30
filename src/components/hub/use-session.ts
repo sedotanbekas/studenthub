@@ -53,6 +53,16 @@ async function legacySession(): Promise<Identity | null> {
   return body.data?.active ? (await api("/auth/me")).data as Identity : null;
 }
 
+/**
+ * Meninggalkan lingkungan ini (tombol "Kembali ke Produksi" di staging) = keluar: sesi demo & sesi akun
+ * diakhiri tanpa animasi karena halaman langsung berpindah domain sesudahnya.
+ */
+export async function leaveEnvironment(): Promise<void> {
+  clearDemoStorage();
+  forgetResume();
+  await endServerSession();
+}
+
 /** Hapus cookie sesi server tanpa memicu event "sesi berakhir" (proxy selalu menghapus cookie). */
 function endServerSession(): Promise<void> {
   return fetch("/api/web/auth/logout", { method: "POST", cache: "no-store" }).then(() => undefined, () => undefined);
@@ -80,7 +90,7 @@ export interface HubSession {
  * penanda sesi), atau — tanpa penanda — halaman masuk yang sudah dirender server tetap tampil sambil
  * memeriksa sesi lama lewat GET /session (tanpa 401/400 di konsol).
  */
-function useSessionState(hint: SessionHint) {
+function useSessionState(hint: SessionHint, demoEnabled: boolean) {
   const [me, setMe] = useState<Identity | null>(null);
   const [ready, setReady] = useState(() => initialSessionView(hint) === "login");
   const [demo, setDemo] = useState(false);
@@ -90,7 +100,9 @@ function useSessionState(hint: SessionHint) {
   const demoHinted = hint.demo;
   useEffect(() => {
     let active = true;
-    const key = restoredDemoKey();
+    // Produksi tanpa mode demo: sisa sesi demo lama di tab ini dibersihkan (kembali ke halaman masuk).
+    if (!demoEnabled && sessionStorage.getItem(DEMO_FLAG)) clearDemoStorage();
+    const key = demoEnabled ? restoredDemoKey() : null;
     // Penanda demo milik tab lain (sessionStorage per tab): hapus agar tab ini kembali mendapat halaman masuk langsung.
     if (!key && demoHinted) writeDemoHint(false);
     if (key) {
@@ -105,7 +117,7 @@ function useSessionState(hint: SessionHint) {
     }
     Promise.resolve().then(() => { if (active) setSchoolIdState(sessionStorage.getItem(SCHOOL_KEY) ?? ""); });
     return () => { active = false; };
-  }, [account, demoHinted]);
+  }, [account, demoHinted, demoEnabled]);
   useEffect(() => {
     const expired = () => { setMe(null); setNotice("Sesi berakhir. Silakan masuk kembali."); };
     window.addEventListener("studenthub:expired", expired);
@@ -115,9 +127,9 @@ function useSessionState(hint: SessionHint) {
   return { me, setMe, ready, setReady, demo, setDemo, schoolId, setSchoolIdState, notice, setNotice };
 }
 
-export function useHubSession(hint: SessionHint): HubSession {
+export function useHubSession(hint: SessionHint, demoEnabled = true): HubSession {
   const router = useRouter();
-  const { me, setMe, ready, setReady, demo, setDemo, schoolId, setSchoolIdState, notice, setNotice } = useSessionState(hint);
+  const { me, setMe, ready, setReady, demo, setDemo, schoolId, setSchoolIdState, notice, setNotice } = useSessionState(hint, demoEnabled);
 
   const reloadMe = useCallback(async () => { const result = await api("/auth/me"); setMe(result.data as Identity); setReady(true); }, [setMe, setReady]);
 

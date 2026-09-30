@@ -35,3 +35,20 @@ export function appEnvOfHost(host: string | null | undefined): AppEnv | null {
 export function switchEnvUrl(target: AppEnv, here: { readonly pathname: string; readonly search: string; readonly hash: string }): string {
   return `${APP_ENVS[target].origin}${here.pathname}${here.search}${here.hash}`;
 }
+
+/**
+ * Sakelar lingkungan (keputusan pemilik 2026-09-30, klien mulai mencoba produksi): produksi bersih — hanya
+ * super admin yang melihat jalan ke staging; staging selalu punya tombol "Kembali ke Produksi" (yang
+ * sekaligus mengakhiri sesi staging, demo maupun akun). Lokal/test (env null) tanpa sakelar.
+ */
+export type EnvSwitchMode = "none" | "to-staging" | "back-to-production";
+
+export function envSwitchMode(env: AppEnv | null, role: string | null): EnvSwitchMode {
+  if (env === "staging") return "back-to-production";
+  return env === "production" && role === "SUPER_ADMIN" ? "to-staging" : "none";
+}
+
+/** Mode demo (tombol persona di halaman masuk) hanya di luar produksi. */
+export function demoAllowed(env: AppEnv | null): boolean {
+  return env !== "production";
+}

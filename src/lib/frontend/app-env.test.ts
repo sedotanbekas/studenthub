@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { APP_ENVS, appEnvOfHost, switchEnvUrl } from "./app-env";
+import { APP_ENVS, appEnvOfHost, demoAllowed, envSwitchMode, switchEnvUrl } from "./app-env";
 
 test("lingkungan dikenali dari header Host (domain resmi & alias sslip.io, port diabaikan)", () => {
   assert.equal(appEnvOfHost("studenthub.id"), "production");
@@ -28,4 +28,20 @@ test("pindah lingkungan membuka halaman yang sama di domain lingkungan tujuan", 
 test("tujuan selalu origin tetap (bukan dari input), sehingga bukan pengalihan terbuka", () => {
   const tricky = { pathname: "//evil.example/x", search: "", hash: "" };
   assert.equal(new URL(switchEnvUrl("staging", tricky)).origin, APP_ENVS.staging.origin);
+});
+
+test("produksi bersih untuk klien: sakelar hanya untuk super admin; staging selalu punya jalan kembali", () => {
+  assert.equal(envSwitchMode("production", null), "none", "halaman masuk produksi tanpa sakelar");
+  assert.equal(envSwitchMode("production", "SCHOOL_ADMIN"), "none");
+  assert.equal(envSwitchMode("production", "STUDENT"), "none");
+  assert.equal(envSwitchMode("production", "SUPER_ADMIN"), "to-staging");
+  assert.equal(envSwitchMode("staging", null), "back-to-production");
+  assert.equal(envSwitchMode("staging", "STUDENT"), "back-to-production");
+  assert.equal(envSwitchMode(null, "SUPER_ADMIN"), "none", "lokal/test tanpa sakelar");
+});
+
+test("mode demo (tombol persona) hanya di luar produksi", () => {
+  assert.equal(demoAllowed("production"), false);
+  assert.equal(demoAllowed("staging"), true);
+  assert.equal(demoAllowed(null), true, "lokal/test tetap bisa demo");
 });

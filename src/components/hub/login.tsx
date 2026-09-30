@@ -3,7 +3,7 @@ import { Suspense, useEffect, useState, useSyncExternalStore, type FormEvent } f
 import { api, ApiError } from "@/lib/frontend/api";
 import { loginDeviceId } from "@/lib/frontend/attendance";
 import { DEMO_PERSONAS } from "@/lib/frontend/demo-personas";
-import type { AppEnv } from "@/lib/frontend/app-env";
+import { demoAllowed, type AppEnv } from "@/lib/frontend/app-env";
 import { EARLY_DEMO, takeEarlyDemo } from "@/lib/frontend/early-demo";
 import { EnvSwitch } from "./env-switch";
 import { Brand, Icon } from "./icon";
@@ -56,7 +56,7 @@ export function Login({ env, onLogin, onDemo }: LoginProps) {
       {totp && <label className="field">Kode autentikator<input name="totpCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 digit kode verifikasi" autoComplete="one-time-code" required onChange={e => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 6); }} /></label>}
       {totp && <label className="check-field"><input type="checkbox" name="rememberDevice" value="1" /><span>Ingat perangkat ini selama 30 hari<small>Browser ini tidak meminta kode autentikator lagi. Jangan dipakai di komputer bersama.</small></span></label>}
       {error && <div className="error-message" role="alert">{error}</div>}<button type={hydrated ? "submit" : "button"} className="button primary block large" disabled={busy}>{busy ? "Sedang masuk…" : "Masuk"}<Icon name="arrow" size={20} /></button>
-    </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p><Suspense fallback={null}><DemoPicker onDemo={onDemo} /></Suspense><EnvSwitch env={env} className="login-env" /></div></section>
+    </form><p className="login-help">Lupa kata sandi? Hubungi admin sekolah untuk mengatur ulang.</p>{demoAllowed(env) && <Suspense fallback={null}><DemoPicker onDemo={onDemo} /></Suspense>}<EnvSwitch env={env} className="login-env" /></div></section>
   </main>;
 }
 

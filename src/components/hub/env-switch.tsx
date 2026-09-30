@@ -1,22 +1,35 @@
 "use client";
-import { APP_ENVS, APP_ENV_ORDER, switchEnvUrl, type AppEnv } from "@/lib/frontend/app-env";
+import { useState } from "react";
+import { APP_ENVS, envSwitchMode, switchEnvUrl, type AppEnv } from "@/lib/frontend/app-env";
+import type { Role } from "@/lib/frontend/types";
+import { Icon } from "./icon";
+import { leaveEnvironment } from "./use-session";
 
 /**
- * Sakelar Produksi | Staging: membuka halaman yang sama di domain lingkungan lain. Akun, sesi, dan data
- * tiap lingkungan terpisah (database & cookie berbeda), jadi di sana perlu masuk lagi.
+ * Jalan antarlingkungan (aturan: envSwitchMode di src/lib/frontend/app-env.ts). Produksi bersih untuk klien:
+ * hanya super admin yang melihat tautan ke staging. Staging selalu punya tombol "Kembali ke Produksi" yang
+ * sekaligus MENGAKHIRI sesi staging (demo maupun akun). Akun, sesi, dan data tiap lingkungan terpisah.
  * `env` dihitung server dari header Host (app/hub/layout.tsx) agar HTML awal sudah memuatnya (tanpa geser tata letak).
  */
-export function EnvSwitch({ env, className = "" }: { env: AppEnv | null; className?: string }) {
-  if (!env) return null;
-  const info = APP_ENVS[env];
-  return <div className={`env-switch ${className}`} data-env={env}>
-    <div className="env-switch-track" role="group" aria-label="Pindah lingkungan aplikasi">
-      {APP_ENV_ORDER.map(target => target === env
-        ? <span key={target} className="env-option active" aria-current="true">{APP_ENVS[target].label}</span>
-        : <a key={target} className="env-option" href={`${APP_ENVS[target].origin}/hub`}
-          onClick={e => { e.preventDefault(); window.location.assign(switchEnvUrl(target, window.location)); }}>{APP_ENVS[target].label}</a>)}
-    </div>
-    <small>Sedang di {info.label.toLowerCase()} — {info.hint.toLowerCase()} Akun tiap lingkungan terpisah.</small>
+export function EnvSwitch({ env, role = null, className = "" }: { env: AppEnv | null; role?: Role | null; className?: string }) {
+  const mode = envSwitchMode(env, role);
+  const [leaving, setLeaving] = useState(false);
+  if (mode === "none") return null;
+  if (mode === "to-staging") {
+    return <div className={`env-switch ${className}`} data-env="production">
+      <a className="env-link" href={`${APP_ENVS.staging.origin}/hub`} onClick={e => { e.preventDefault(); window.location.assign(switchEnvUrl("staging", window.location)); }}>Buka staging (uji coba)<Icon name="arrow" size={15} /></a>
+      <small>Hanya terlihat oleh super admin. Akun staging terpisah.</small>
+    </div>;
+  }
+  async function backToProduction() {
+    setLeaving(true);
+    await leaveEnvironment();
+    window.location.assign(switchEnvUrl("production", window.location));
+  }
+  return <div className={`env-switch ${className}`} data-env="staging">
+    <small>Kamu di <strong>STAGING</strong> — uji coba dengan data contoh.</small>
+    <button type="button" className="env-back" disabled={leaving} onClick={() => void backToProduction()}><Icon name="back" size={16} />{leaving ? "Keluar dari staging…" : "Kembali ke Produksi"}</button>
+    <small>Kembali ke produksi sekaligus keluar dari staging.</small>
   </div>;
 }
 

@@ -5,7 +5,7 @@ import { api } from "@/lib/frontend/api";
 import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionFromPath } from "@/lib/frontend/modules";
 import { applyGlassMode, applyTheme, glassModeFor, readGlassPreference } from "@/lib/frontend/theme";
 import { resolveTheme } from "@/lib/schools/theme-rules";
-import type { AppEnv } from "@/lib/frontend/app-env";
+import { demoAllowed, type AppEnv } from "@/lib/frontend/app-env";
 import type { SessionHint } from "@/lib/frontend/session-hint";
 import type { Identity } from "@/lib/frontend/types";
 import { HubContext } from "./context";
@@ -77,7 +77,7 @@ function useSectionsFor(me: Identity | null) {
 }
 
 export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppEnv | null; children: ReactNode }) {
-  const session = useHubSession(hint);
+  const session = useHubSession(hint, demoAllowed(env));
   const { me, demo, schoolId, notice } = session;
   const sections = useSectionsFor(me);
   const pathname = usePathname();
