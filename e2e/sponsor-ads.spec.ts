@@ -60,7 +60,7 @@ async function enrollTotp(request: APIRequestContext, email: string, token: stri
 }
 async function setupSchool(request: APIRequestContext, sa: string): Promise<{ schoolId: string; nisn: string; temporaryPassword: string }> {
   const school = await data<{ id: string }>(await request.post("/api/v1/platform/schools", {
-    headers: auth(sa), data: { name: `SMP E2E ${uid}`, provinceCode: "32", cityCode: "32.73", latitude: -6.9147, longitude: 107.6098, timezone: "WIB" },
+    headers: auth(sa), data: { name: `SMP E2E ${uid}`, educationLevel: "SMP", provinceCode: "32", cityCode: "32.73", latitude: -6.9147, longitude: 107.6098, timezone: "WIB" },
   }), 201);
   const q = `?schoolId=${school.id}`;
   const y = new Date().getUTCMonth() >= 6 ? new Date().getUTCFullYear() : new Date().getUTCFullYear() - 1;
