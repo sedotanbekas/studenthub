@@ -2,7 +2,6 @@
 .page-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
 .page-heading p { margin-top: 6px; color: var(--ink-2); font-size: 16px; }
 .heading-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.action-select, .view-select { width: auto; min-width: 200px; font-weight: 600; }
 .panel { background: var(--paper); border: 2px solid var(--line-soft); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .panel-heading p { margin-top: 4px; color: var(--muted); }
@@ -210,3 +209,27 @@ tbody tr:hover { background: color-mix(in srgb, var(--primary) 4%, #fff); }
   .report-signs { gap: 8px; }
 }
 .action-dialog:has(.report-doc) { width: min(940px, calc(100vw - 24px)); }
+
+/* Workspace generik: tab tampilan, menu "Lainnya" berpenjelasan, dan baris tabel yang bisa diklik. */
+.view-tabs { overflow-x: auto; scrollbar-width: thin; }
+.action-menu { position: relative; }
+.action-menu-list { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; display: flex; flex-direction: column; gap: 2px; width: max-content; min-width: 260px; max-width: min(360px, calc(100vw - 32px)); margin: 0; padding: 6px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--surface-strong); box-shadow: 0 0 0 1px var(--glass-edge), 0 18px 40px -16px rgb(15 23 42 / 35%); list-style: none; }
+.action-menu-list button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 10px 12px; border-radius: 10px; color: var(--ink); text-align: left; }
+.action-menu-list button:hover, .action-menu-list button:focus-visible { background: var(--primary-soft); }
+.action-menu-list strong { font-size: 15px; }
+.action-menu-list small { color: var(--muted); font-size: 13px; line-height: 1.35; }
+.row-hint { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--muted); font-size: 14px; }
+.clickable-row { cursor: pointer; }
+.clickable-row:hover td { background: color-mix(in srgb, var(--primary-soft) 55%, transparent); }
+@media (max-width: 900px) {
+  /* Tombol "Lainnya" bisa turun ke baris sendiri di tablet: daftar dibuka di bawahnya, tidak melayang keluar layar. */
+  .action-menu { flex-basis: 100%; }
+  .action-menu-toggle { width: 100%; }
+  .action-menu-list { position: static; width: 100%; max-width: none; margin-top: 8px; }
+}
+@media (max-width: 640px) {
+  /* Dua aksi sekunder berdampingan; tombol biru & menu Lainnya selebar baris. */
+  .heading-actions:has(> .button.secondary + .button.secondary) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .heading-actions > .button.primary, .heading-actions > .action-menu { grid-column: 1 / -1; }
+  .heading-actions > .button.secondary { min-width: 0; padding-right: 12px; padding-left: 12px; white-space: normal; text-align: center; }
+}
