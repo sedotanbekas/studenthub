@@ -1,0 +1,68 @@
+/*
+ * Wizard berpanduan di dalam dialog (impor siswa, tagihan massal, rapor, daftarkan sekolah) dan kartu persiapan
+ * Beranda. Melengkapi .setup-wizard / .wizard-* di academics.css.
+ */
+.wizard-dialog { width: min(1040px, calc(100vw - 24px)); }
+.wizard-dialog-body { gap: 16px; }
+.wizard-steps-bar { display: flex; gap: 6px; margin: 0; padding: 12px 20px; overflow-x: auto; border-bottom: 1px solid var(--line-soft); background: var(--surface-strong); list-style: none; scrollbar-width: thin; }
+.wizard-steps-bar li { flex: 0 0 auto; }
+.wizard-steps-bar button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; color: var(--ink-2); font-size: 14px; font-weight: 700; }
+.wizard-steps-bar button .step-mark { width: 26px; height: 26px; font-size: 13px; }
+.wizard-steps-bar button.current { background: var(--primary-soft); color: var(--primary-ink); }
+.wizard-steps-bar button.current .step-mark { border-color: var(--primary); color: var(--primary-ink); }
+.wizard-steps-bar button.done .step-mark { border-color: var(--success); background: var(--success); color: #fff; }
+.wizard-steps-bar button:disabled { opacity: 0.5; }
+.wizard-step-intro { display: flex; flex-direction: column; gap: 6px; }
+.wizard-step-intro h3 { font-size: 20px; }
+.wizard-actions-main { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-left: auto; }
+.wizard-fallback { display: flex; justify-content: center; padding: 0 20px 16px; }
+.wizard-tips { display: grid; gap: 6px; margin: 0; padding-left: 20px; color: var(--ink-2); font-size: 15px; }
+.wizard-done-card { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--paper); }
+.wizard-done-card strong { font-size: 18px; }
+.wizard-done-card span { color: var(--ink-2); }
+.wizard-table { max-height: 320px; overflow: auto; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); }
+.wizard-table td { vertical-align: top; }
+.cell-error { display: block; color: var(--danger-ink); font-weight: 700; }
+.credentials-table code { padding: 2px 6px; border-radius: 6px; background: var(--line-soft); font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+.wizard-summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0; padding: 16px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--paper); }
+.wizard-summary dt { color: var(--muted); font-weight: 700; }
+.wizard-summary dd { margin: 0; overflow-wrap: anywhere; }
+.subject-progress { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.subject-progress li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--paper); }
+.subject-progress li > span { display: flex; flex-direction: column; gap: 2px; }
+.subject-progress small { color: var(--muted); }
+.student-picker { display: flex; flex-direction: column; gap: 10px; }
+.location-picker .map-canvas { height: min(42vh, 380px); cursor: crosshair; }
+.location-picker figcaption { color: var(--muted); font-size: 14px; }
+
+/* Kartu persiapan Beranda */
+.checklist-card { display: flex; flex-direction: column; gap: 16px; }
+.checklist-steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.checklist-step { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--paper); }
+.checklist-step .step-mark { margin-top: 2px; }
+.checklist-step.done .step-mark { border-color: var(--success); background: var(--success); color: #fff; }
+.checklist-step.waiting .step-mark { border-color: var(--warning); color: var(--warning-ink); }
+.checklist-step.todo { border-color: var(--primary-line); }
+.checklist-text { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.checklist-text strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.checklist-text small { color: var(--ink-2); font-size: 14px; }
+.checklist-why { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.checklist-step .button { flex: none; align-self: center; }
+
+@media (max-width: 640px) {
+  .wizard-dialog { width: 100vw; max-width: 100vw; max-height: 100dvh; height: 100dvh; border-radius: 0; }
+  .wizard-steps-bar { padding: 10px 16px; }
+  .wizard-steps-bar button span:not(.step-mark) { display: none; }
+  .wizard-steps-bar button.current span:not(.step-mark) { display: inline; }
+  .wizard-actions-main { width: 100%; }
+  .wizard-actions-main .button { flex: 1 1 auto; }
+  .checklist-step { flex-wrap: wrap; }
+  .checklist-step .button { width: 100%; }
+  .wizard-summary { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Cetak dari wizard: hanya isi (tabel kata sandi / data masuk admin), tanpa bilah langkah dan tombol. */
+@media print {
+  .wizard-steps-bar, .wizard-actions, .wizard-fallback, .wizard-step-intro .acad-why { display: none !important; }
+  .wizard-table { max-height: none; overflow: visible; border: 0; }
+}

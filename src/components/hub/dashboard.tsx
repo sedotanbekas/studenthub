@@ -1,7 +1,7 @@
 "use client";
 import { HubLink as Link } from "./hub-link";
 import { useEffect, useState } from "react";
-import { SemesterNotice } from "./semester-notice";
+import { SchoolSetupPanel } from "./school-setup";
 import type { DashboardSummaryDto } from "@/lib/dashboard/schemas";
 import { api } from "@/lib/frontend/api";
 import { demoSummary, demoRows } from "@/lib/frontend/demo";
@@ -38,7 +38,7 @@ function AdminDashboard() {
   const date = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
   return <div className="dashboard"><div className="page-heading"><div><h1>Selamat datang, {me.user.name.split(" ")[0]}</h1><p>{date}</p></div>{isSchool && <Link href="/hub/attendance" className="button primary">Pantau kehadiran<Icon name="arrow" size={18} /></Link>}</div>
     {error && <div className="error-message" role="alert">{error}<button className="text-button" onClick={() => setRetry(v => v + 1)}>Coba lagi</button></div>}
-    {isSchool && !demo && <SemesterNotice />}
+    {isSchool && !demo && <SchoolSetupPanel />}
     {isSchool ? <><div className="stat-grid"><Stat title="Siswa aktif" value={summary ? number(summary.students.active) : "—"} icon="users" note={summary ? `${number(summary.students.draft)} siswa masih draf` : "Memuat…"} /><Stat title="Kehadiran hari ini" value={summary ? pctText(summary.attendanceToday.presentPct) : "—"} icon="check" note={summary ? `${number(summary.attendanceToday.present + summary.attendanceToday.late)} siswa sudah hadir` : "Memuat…"} /><Stat title="SPP terkumpul" value={summary ? rupiah(summary.billing.period?.collectedAmount ?? 0) : "—"} icon="wallet" note="Periode bulan berjalan" /><Stat title="Rapor diterbitkan" value={summary ? number(summary.reportCards.published) : "—"} icon="report" note={summary?.reportCards.term?.label ?? "Semester aktif"} /></div><SchoolCharts summary={summary} /><div className="dashboard-columns"><AttentionPanel summary={summary} /><NewsPanel announcements={announcements} /></div></> : <RoleOverview />}
   </div>;
 }

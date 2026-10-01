@@ -1,6 +1,7 @@
 "use client";
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { hasQuickReason, REASON_MAX, reasonError, toggleQuickReason } from "@/lib/frontend/review-rules";
+import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { Icon } from "../icon";
 import { useModalDialog } from "./review-dialog-focus";
 import { errorText } from "./review-hooks";
@@ -60,7 +61,7 @@ export function DecisionDialog({ config, onSubmit, onClose }: DecisionDialogProp
     if (busy) element.showModal();
     else onClose();
   };
-  return <dialog ref={dialog} className="action-dialog review-decision" aria-labelledby={titleId} aria-busy={busy || undefined} onCancel={e => { e.preventDefault(); close(); }} onClose={onNativeClose}>
+  return <dialog ref={dialog} className="action-dialog review-decision" aria-labelledby={titleId} aria-busy={busy || undefined} onCancel={e => { if (!isOwnDialogCancel(e)) return; e.preventDefault(); close(); }} onClose={onNativeClose}>
     <form onSubmit={submit} noValidate>
       <div className="dialog-heading"><div><span className="eyebrow">{config.eyebrow}</span><h2 id={titleId}>{config.title}</h2></div><button type="button" className="icon-button" aria-label="Tutup" disabled={busy} onClick={close}><Icon name="close" /></button></div>
       <div className="dialog-body">

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { scoped } from "@/lib/frontend/api";
+import { downloadApiFile, scoped } from "@/lib/frontend/api";
 import type { Operation } from "@/lib/frontend/types";
 import { ACTION_LABELS, splitActions, VIEW_LABELS } from "@/lib/frontend/workspace-rules";
 import { actionLabel, actionTitle } from "./action-dialog";
@@ -36,14 +36,7 @@ function useRunAction(onOpen: (op: Operation) => void): (op: Operation) => void 
   const { schoolId, toast } = useHub();
   return (op) => {
     if (!op.id.includes("Template")) { onOpen(op); return; }
-    fetch(`/api/web${scoped(op.path, schoolId)}`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Templat belum dapat diunduh. Coba masuk kembali.");
-        const url = URL.createObjectURL(await response.blob());
-        const link = document.createElement("a");
-        link.href = url; link.download = "template-siswa.xlsx"; link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      })
+    downloadApiFile(scoped(op.path, schoolId), "template-siswa.xlsx")
       .catch((e: unknown) => toast(e instanceof Error ? e.message : "Unduhan gagal."));
   };
 }

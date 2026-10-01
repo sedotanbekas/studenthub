@@ -12,6 +12,7 @@ import { DataTable, Details } from "./data-view";
 import { Fields, defaults } from "./fields";
 import { ActionDialog, actionLabel, buildPath, parameterSchema } from "./action-dialog";
 import { PageActions, ViewTabs, viewLabel } from "./workspace-parts";
+import { WIZARD_ACTIONS } from "./wizards/registry";
 import { ACTION_LABELS, detailBase, pageActions, VIEW_COLUMNS, viewsFor } from "@/lib/frontend/workspace-rules";
 import { CalendarView, FeedView, GradeSheet } from "./domain-views";
 import type { SheetDto } from "@/lib/report-cards/schemas";
@@ -31,7 +32,7 @@ export function Workspace({ module, embedded = false }: { module: Module; embedd
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [action, setAction] = useState<{ op: Operation; initial?: Row } | null>(null);
+  const [action, setAction] = useState<{ op: Operation; initial?: Row; fallback?: boolean } | null>(null);
   const [selected, setSelected] = useState<{ row: Row; path?: string } | null>(null);
   const selectRow = (row: Row) => setSelected({ row });
   const [version, setVersion] = useState(0);
@@ -63,7 +64,14 @@ export function Workspace({ module, embedded = false }: { module: Module; embedd
       {(filterOpen || requiredMissing) && <div className="filter-panel"><Fields schema={filtersSchema} value={filters} onChange={v => setFilters({ ...v, page: 1, cursor: undefined })} /><button className="text-button" onClick={() => { setFilters(view ? defaults(parameterSchema(view, "query")) : {}); setQuery(""); }}>Reset filter</button></div>}
       {needsSchool ? <Empty icon="school" title="Pilih sekolah untuk memulai" text="Gunakan pemilih sekolah di atas untuk membuka data sekolah." /> : requiredMissing ? <Empty icon="calendar" title="Lengkapi pilihan di atas" text="Pilih periode atau data yang ingin kamu tampilkan." /> : loading ? <div className="table-loading" role="status" aria-label="Memuat data">{[1, 2, 3, 4, 5].map(i => <div className="skeleton" key={i} />)}</div> : error ? <div className="empty-state"><span className="empty-icon"><Icon name="refresh" size={28} /></span><h3>Data belum berhasil dimuat</h3><p role="alert">{error}</p><button className="button secondary" onClick={() => setVersion(v => v + 1)}>Coba lagi</button></div> : data !== undefined && /holidays|calendar/.test(view?.path ?? "") ? <CalendarView key={JSON.stringify(filters)} monthHint={typeof filters.month === "string" && filters.month.includes("-") ? filters.month : `${filters.year ?? new Date().getFullYear()}-${String(filters.month ?? new Date().getMonth() + 1).padStart(2, "0")}`} data={data} onSelect={selectRow} /> : view?.id === "getReportCardGradeSheet" && data ? <GradeSheet key={version} sheet={data as SheetDto} onDone={() => setVersion(v => v + 1)} /> : rows ? rows.length ? /announcements|notifications/.test(view?.path ?? "") ? <FeedView rows={rows} onSelect={selectRow} /> : <DataTable rows={rows} onSelect={selectRow} columns={VIEW_COLUMNS[view?.path ?? ""]} /> : <Empty icon={module.icon} title={query || Object.values(filters).some(v => v && v !== 1 && v !== 20) ? "Belum ada data yang cocok" : "Belum ada data"} text={query ? "Coba kata kunci atau filter yang berbeda." : "Data akan tampil di sini setelah ditambahkan."} /> : data !== undefined ? <div className="object-content"><Details value={data} /></div> : <Empty icon={module.icon} title="Siap untuk memulai" text="Pilih tindakan di atas untuk mengelola informasi." />}
       {rows && rows.length > 0 && <div className="pagination"><span>{meta?.total !== undefined ? `${number(meta.total)} data` : `${rows.length} data pada halaman ini`}{meta?.page ? ` · Halaman ${meta.page} dari ${meta.totalPages ?? 1}` : ""}</span><div><button className="button secondary small-button" disabled={loading || Number(filters.page ?? 1) <= 1} onClick={() => setFilters(f => ({ ...f, page: Number(f.page ?? 1) - 1 }))}>Sebelumnya</button><button className="button secondary small-button" disabled={loading || (!meta?.hasMore && Number(filters.page ?? 1) >= (meta?.totalPages ?? 1))} onClick={() => setFilters(f => meta?.nextCursor ? { ...f, cursor: meta.nextCursor } : { ...f, page: Number(f.page ?? 1) + 1 })}>Berikutnya<Icon name="chevron" size={13} /></button></div></div>}
-    </section>{selected && <RecordDialog key={String(selected.row.id ?? selected.path ?? "record")} row={selected.row} view={selected.path && view ? { ...view, path: selected.path } : view} available={available} onNested={(row, path) => setSelected({ row, path })} onClose={() => setSelected(null)} onAction={(op, row) => { setSelected(null); setAction({ op, initial: row }); }} />}{action && <ActionDialog key={action.op.id} op={action.op} initial={action.initial} onClose={() => setAction(null)} onDone={() => setVersion(v => v + 1)} />}</div>;
+    </section>{selected && <RecordDialog key={String(selected.row.id ?? selected.path ?? "record")} row={selected.row} view={selected.path && view ? { ...view, path: selected.path } : view} available={available} onNested={(row, path) => setSelected({ row, path })} onClose={() => setSelected(null)} onAction={(op, row) => { setSelected(null); setAction({ op, initial: row }); }} />}{action && renderAction(action, setAction, () => setVersion(v => v + 1))}</div>;
+}
+type ActionState = { op: Operation; initial?: Row; fallback?: boolean };
+/** Operasi berpanduan dibuka sebagai wizard; sisanya (dan "formulir lengkap" dari wizard) memakai formulir generik. */
+function renderAction(action: ActionState, setAction: (next: ActionState | null) => void, refresh: () => void) {
+  const wizard = WIZARD_ACTIONS[action.op.id];
+  if (wizard && !action.fallback && !action.initial) return wizard({ onClose: () => setAction(null), onDone: refresh, onFallback: () => setAction({ op: action.op, fallback: true }) });
+  return <ActionDialog key={action.op.id} op={action.op} initial={action.initial} onClose={() => setAction(null)} onDone={refresh} />;
 }
 function Empty({ icon, title, text }: { icon: string; title: string; text: string }) { return <div className="empty-state"><span className="empty-icon"><Icon name={icon} size={30} /></span><h3>{title}</h3><p>{text}</p></div>; }
 function RecordDialog({ row, view, available, onClose, onAction, onNested }: { onNested: (row: Row, path: string) => void; row: Row; view?: Operation; available: Operation[]; onClose: () => void; onAction: (op: Operation, row: Row) => void }) {

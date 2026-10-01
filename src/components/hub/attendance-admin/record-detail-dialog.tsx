@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { RecordDetailDto } from "@/lib/attendance/monitor-schemas";
 import { display, initials } from "@/lib/frontend/format";
+import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { useHub } from "../context";
 import { Icon } from "../icon";
 import { AttPill } from "./att-pill";
@@ -24,7 +25,7 @@ export function RecordDetailDialog({ target, date, onClose }: { target: DetailTa
     element?.showModal();
     return () => element?.close();
   }, []);
-  return <dialog ref={dialog} className="action-dialog detail-dialog monitor-detail" aria-labelledby="monitor-detail-title" onCancel={e => { e.preventDefault(); onClose(); }}>
+  return <dialog ref={dialog} className="action-dialog detail-dialog monitor-detail" aria-labelledby="monitor-detail-title" onCancel={e => { if (!isOwnDialogCancel(e)) return; e.preventDefault(); onClose(); }}>
     <div className="dialog-heading"><div><span className="eyebrow">Detail kehadiran</span><h2 id="monitor-detail-title">{target.name}</h2>{data && <small className="muted">{[data.className ?? "Tanpa kelas", `NIS ${data.student.nis}`, display(data.date)].join(" · ")}</small>}</div><button className="icon-button" aria-label="Tutup detail" onClick={onClose}><Icon name="close" /></button></div>
     <div className="dialog-body">
       {error ? <div className="error-message" role="alert">{error}<button className="text-button" onClick={() => setRetry(v => v + 1)}>Coba lagi</button></div>
