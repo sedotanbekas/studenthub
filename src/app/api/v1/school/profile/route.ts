@@ -7,5 +7,5 @@ import { resolveSchoolScope } from "@/lib/tenant/scope";
 export const runtime = "nodejs";
 
 export const GET = defineRoute(getSchoolProfileContract, async ({ query }, ctx) => ({
-  data: await getSchoolProfile(resolveSchoolScope(requirePrincipal(ctx), query.schoolId)),
+  data: await getSchoolProfile(resolveSchoolScope(requirePrincipal(ctx), query.schoolId), ctx.now),
 }));

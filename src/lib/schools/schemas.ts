@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { pageQuerySchema } from "@/lib/http/pagination";
+import { EDUCATION_LEVELS } from "./education-level";
 import { DAY_CODES, SCHOOL_TIMEZONES } from "./rules";
 
 /**
@@ -39,6 +40,8 @@ const identityShape = {
   address: optionalText(500),
 };
 
+const educationLevel = z.enum(EDUCATION_LEVELS).meta({ description: "Jenjang sekolah; menentukan rentang kelas nasional (SMK = kelas 10..12, tampil sebagai tingkat 1..3)." });
+
 const nonEmpty = (value: object): boolean => Object.values(value).some((v) => v !== undefined);
 const NON_EMPTY_MESSAGE = { message: "Minimal satu kolom harus diubah." };
 
@@ -49,6 +52,7 @@ const NON_EMPTY_MESSAGE = { message: "Minimal satu kolom harus diubah." };
 export const createSchoolBody = z.strictObject({
   ...identityShape,
   name: z.string().trim().min(3).max(150),
+  educationLevel,
   provinceCode: z.string().regex(/^\d{2}$/, "Kode provinsi harus 2 digit."),
   cityCode: z.string().regex(/^\d{2}\.\d{2}$/, "Kode kabupaten/kota berformat 00.00."),
   latitude: z.number().meta({ description: "Lintang titik pusat geofence (-11.5..6.5)." }),
@@ -63,6 +67,7 @@ export const updateSchoolBody = z
   .strictObject({
     ...identityShape,
     name: z.string().trim().min(3).max(150).optional(),
+    educationLevel: educationLevel.optional(),
     provinceCode: z.string().regex(/^\d{2}$/, "Kode provinsi harus 2 digit.").optional(),
     cityCode: z.string().regex(/^\d{2}\.\d{2}$/, "Kode kabupaten/kota berformat 00.00.").optional(),
     latitude: z.number().optional(),
@@ -75,8 +80,11 @@ export const updateSchoolBody = z
   .refine(nonEmpty, NON_EMPTY_MESSAGE);
 export type UpdateSchoolInput = z.output<typeof updateSchoolBody>;
 
-/** Admin sekolah HANYA boleh mengubah jadwal & hari sekolah (kunci lain -> 400). */
-export const updateSchoolSettingsBody = z.strictObject(scheduleShape).refine(nonEmpty, NON_EMPTY_MESSAGE);
+/**
+ * Admin sekolah HANYA boleh mengubah jadwal & hari sekolah (kunci lain -> 400), plus mengisi jenjang SEKALI
+ * selama masih kosong (409 EDUCATION_LEVEL_LOCKED setelahnya; SUPER_ADMIN tetap boleh).
+ */
+export const updateSchoolSettingsBody = z.strictObject({ ...scheduleShape, educationLevel: educationLevel.optional() }).refine(nonEmpty, NON_EMPTY_MESSAGE);
 export type UpdateSchoolSettingsInput = z.output<typeof updateSchoolSettingsBody>;
 
 export const deactivateSchoolBody = z.strictObject({
@@ -105,6 +113,7 @@ export const schoolSchema = z
     id: z.string(),
     npsn: z.string().nullable(),
     name: z.string(),
+    educationLevel: z.enum(EDUCATION_LEVELS).nullable(),
     address: z.string().nullable(),
     province: regionRef,
     city: regionRef,
@@ -169,7 +178,10 @@ export const activeTermSchema = z.object({
 
 export const setupChecklistSchema = z
   .object({
+    today: z.iso.date().meta({ description: "Tanggal lokal sekolah saat ini." }),
     hasActiveTerm: z.boolean(),
+    hasTermToday: z.boolean().meta({ description: "Ada semester yang mencakup hari ini. false = siswa tidak bisa absen (OUTSIDE_TERM)." }),
+    nextTermStartDate: z.iso.date().nullable().meta({ description: "Awal semester berikutnya setelah hari ini (null bila belum ada)." }),
     classCount: z.int().meta({ description: "Kelas aktif pada tahun ajaran semester aktif (semua kelas aktif bila belum ada semester aktif)." }),
     subjectCount: z.int().meta({ description: "Mata pelajaran aktif." }),
     activeStudentCount: z.int(),

@@ -9,6 +9,7 @@ import { Icon } from "./icon";
 import { StudentHome } from "./student-home";
 import { ThemeSettings } from "./theme-settings";
 import { Workspace } from "./workspace";
+import { AcademicsPage } from "./academics/academics-page";
 import { AttendancePage } from "./attendance/attendance-page";
 import { AttendanceMonitorPage } from "./attendance-admin/attendance-monitor-page";
 import { AdReviewPage } from "./platform/ad-review-page";
@@ -22,6 +23,7 @@ const DEDICATED: Record<string, (module: Module) => ReactNode> = {
   "my-attendance": () => <AttendancePage />,
   "school-theme": () => <ThemeSettings />,
   attendance: module => <AttendanceMonitorPage module={module} />,
+  academics: module => <AcademicsPage module={module} />,
   campaigns: module => <CampaignsPage module={module} />,
   analytics: module => <SponsorAnalyticsPage module={module} />,
   balance: module => <BalancePage module={module} />,

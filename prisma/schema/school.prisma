@@ -9,6 +9,18 @@ enum Semester {
   GENAP
 }
 
+/// Jenjang sekolah: menentukan rentang kelas nasional (src/lib/schools/education-level.ts).
+enum EducationLevel {
+  SD
+  MI
+  SMP
+  MTS
+  SMA
+  MA
+  SMK
+  MAK
+}
+
 /// Referensi wilayah (kode Kemendagri). Diisi lewat migrasi (insert idempoten).
 model Province {
   code String @id @db.VarChar(2)
@@ -39,6 +51,9 @@ model School {
   address              String?        @db.Text
   provinceCode         String         @db.VarChar(2)
   cityCode             String         @db.VarChar(5)
+  /// Jenjang. NULL = belum diisi (sekolah lama): admin sekolah boleh mengisi SEKALI, selanjutnya hanya
+  /// SUPER_ADMIN. SchoolClass.gradeLevel tetap kelas nasional 1..12; jenjang hanya untuk tampilan & validasi.
+  educationLevel       EducationLevel?
   /// Lokasi & geofence: hanya SUPER_ADMIN yang boleh mengubah.
   latitude             Decimal        @db.Decimal(10, 7)
   longitude            Decimal        @db.Decimal(10, 7)

@@ -37,13 +37,13 @@ export const createClassContract = defineContract({
   path: "/api/v1/school/classes",
   tag: TAG,
   summary: "Buat kelas",
-  description: `Nama 1-50 karakter unik per tahun ajaran, tingkat 1-12. ${SCOPE_NOTE}`,
+  description: `Nama 1-50 karakter unik per tahun ajaran. Tingkat = kelas nasional 1-12; bila jenjang sekolah terisi, harus di dalam jenjang (SMK: 10-12) -> 422 GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL. ${SCOPE_NOTE}`,
   action: "academics.manage",
   query: schoolIdQuery,
   body: createClassBody,
   response: classSchema,
   successStatus: 201,
-  errors: ["CLASS_NAME_TAKEN"],
+  errors: ["CLASS_NAME_TAKEN", "GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL"],
 });
 
 export const updateClassContract = defineContract({
@@ -52,13 +52,13 @@ export const updateClassContract = defineContract({
   path: "/api/v1/school/classes/{id}",
   tag: TAG,
   summary: "Ubah atau nonaktifkan kelas",
-  description: `Nonaktif hanya bila tidak ada siswa AKTIF di kelas. ${SCOPE_NOTE}`,
+  description: `Nonaktif hanya bila tidak ada siswa AKTIF di kelas. Tingkat yang diubah harus di dalam jenjang sekolah (422 GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL); tingkat lama yang tidak diubah tidak diperiksa. ${SCOPE_NOTE}`,
   action: "academics.manage",
   params: idParams,
   query: schoolIdQuery,
   body: updateClassBody,
   response: classSchema,
-  errors: ["CLASS_NAME_TAKEN", "CLASS_HAS_STUDENTS"],
+  errors: ["CLASS_NAME_TAKEN", "CLASS_HAS_STUDENTS", "GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL"],
 });
 
 export const deleteClassContract = defineContract({

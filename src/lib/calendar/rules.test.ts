@@ -5,6 +5,7 @@ import {
   MAX_HOLIDAY_DAYS,
   backdateLimitDate,
   checkSchoolDay,
+  termCoverageSealDate,
   describeDays,
   holidayPeriod,
   monthKeyOf,
@@ -130,4 +131,14 @@ test("holidayPeriod: satu tahun penuh atau satu bulan", () => {
 
 test("monthKeyOf: YYYY-MM dari tanggal lokal", () => {
   assert.equal(monthKeyOf("2026-09-21"), "2026-09");
+});
+
+test("termCoverageSealDate: semester yang baru mencakup hari ini SETELAH absen ditutup -> hari ini disegel", () => {
+  const base = { today: "2026-10-01", checkInCloseMinute: 745, after: { startDate: "2026-07-13", endDate: "2026-12-19" } };
+  assert.equal(termCoverageSealDate({ ...base, minuteOfDay: 785, before: null }), "2026-10-01", "dibuat 13:05, tutup 12:25");
+  assert.equal(termCoverageSealDate({ ...base, minuteOfDay: 745, before: null }), "2026-10-01", "tepat jam tutup = sudah tutup");
+  assert.equal(termCoverageSealDate({ ...base, minuteOfDay: 700, before: null }), null, "absen masih buka: siswa masih sempat");
+  assert.equal(termCoverageSealDate({ ...base, minuteOfDay: 785, before: { startDate: "2026-07-13", endDate: "2026-11-30" } }), null, "hari ini sudah tercakup sebelumnya");
+  assert.equal(termCoverageSealDate({ ...base, minuteOfDay: 785, before: { startDate: "2026-07-13", endDate: "2026-09-30" } }), "2026-10-01", "diperpanjang mencakup hari ini");
+  assert.equal(termCoverageSealDate({ ...base, minuteOfDay: 785, before: null, after: { startDate: "2026-10-02", endDate: "2026-12-19" } }), null, "mulai besok");
 });

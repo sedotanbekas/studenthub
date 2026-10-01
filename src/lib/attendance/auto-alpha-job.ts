@@ -1,11 +1,12 @@
 import type { JobContext } from "@/lib/auth/principal";
 import { loadCalendarContext } from "@/lib/calendar/queries";
-import { checkSchoolDay, type DayReason } from "@/lib/calendar/rules";
+import type { DateRange } from "@/lib/calendar/ranges";
+import { checkSchoolDay, termCoverageSealDate, type DayReason } from "@/lib/calendar/rules";
 import { prisma, type Prisma, type Tx } from "@/lib/db";
 import { runKeyedJob } from "@/lib/jobs/runner";
 import type { JobOutcome, JobResult } from "@/lib/jobs/types";
 import { log } from "@/lib/log";
-import { fromDbDate, toDbDate, type LocalDate } from "@/lib/time/zone";
+import { fromDbDate, localParts, toDbDate, type LocalDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import {
   AUTO_ALPHA_BATCH_SIZE,
@@ -13,10 +14,13 @@ import {
   candidateCloseDates,
   chunk,
   eligibilityCutoff,
+  isSealedClose,
   isSettledRun,
   lookbackRunKeys,
   planDayClose,
+  sealedCloseResult,
   summarizeDrafts,
+  SEALED_AFTER_CLOSE,
   type AttendanceDraft,
 } from "./auto-alpha-rules";
 import { lockCalendarShared } from "./calendar-locks";
@@ -115,7 +119,7 @@ async function insertDrafts(tx: Tx, schoolId: string, date: LocalDate, drafts: r
 
 /** Hasil penutupan satu hari (disimpan apa adanya di JobRun.result). */
 export type DayCloseResult =
-  | { readonly date: LocalDate; readonly skipped: "NON_SCHOOL_DAY"; readonly reason: DayReason }
+  | { readonly date: LocalDate; readonly skipped: "NON_SCHOOL_DAY"; readonly reason: DayReason; readonly sealed?: typeof SEALED_AFTER_CLOSE }
   | {
       readonly date: LocalDate;
       readonly planned: number;
@@ -132,6 +136,7 @@ export type DayCloseResult =
  * sinkronisasi kalender untuk tanggal di luar jendela lookback.
  */
 export async function closeDayLocked(tx: Tx, school: CloseSchool, date: LocalDate, ctx: Pick<JobContext, "now" | "requestId">): Promise<DayCloseResult> {
+  if (await isDaySealed(tx, school.id, date)) return sealedCloseResult(date);
   const day = checkSchoolDay(date, await loadCalendarContext(tx, school, { from: date, to: date }));
   if (!day.isSchoolDay) return { date, skipped: "NON_SCHOOL_DAY", reason: day.reason };
   const drafts = await loadDrafts(tx, school, date);
@@ -165,4 +170,27 @@ export async function markDayClosed(tx: Tx, schoolId: string, date: LocalDate, r
   const key = { job: AUTO_ALPHA_JOB, scopeKey: schoolId, runKey: date };
   const done = { status: "SUCCEEDED" as const, startedAt: now, finishedAt: now, result: result as Prisma.InputJsonObject, error: null };
   await tx.jobRun.upsert({ where: { job_scopeKey_runKey: key }, create: { ...key, attempts: 1, ...done }, update: done });
+}
+
+/**
+ * Segel tetap berlaku untuk tick, tutup-ulang super admin, dan sinkronisasi kalender. Dibaca di bawah kunci
+ * kalender: tick yang sudah mengklaim JobRun sebelum segel ditulis tetap melihat segel itu di sini.
+ */
+async function isDaySealed(tx: Tx, schoolId: string, date: LocalDate): Promise<boolean> {
+  const run = await tx.jobRun.findUnique({ where: { job_scopeKey_runKey: { job: AUTO_ALPHA_JOB, scopeKey: schoolId, runKey: date } }, select: { result: true } });
+  return isSealedClose(run?.result);
+}
+
+/**
+ * Semester dibuat/diubah sehingga HARI INI baru tercakup setelah jam tutup absen -> hari ini disegel (ditutup
+ * tanpa ALPHA; siswa tidak pernah sempat absen). Pemanggil WAJIB memegang kunci libur sekolah EKSKLUSIF
+ * (lockAcademicCalendarScope) agar tidak berselisih dengan penutupan hari yang sedang berjalan.
+ */
+export async function sealTodayForTermChange(tx: Tx, schoolId: string, ranges: { before: DateRange | null; after: DateRange }, now: Date): Promise<LocalDate | null> {
+  const school = await tx.school.findUnique({ where: { id: schoolId }, select: { timezone: true, checkInCloseMinute: true } });
+  if (!school) return null;
+  const local = localParts(now, school.timezone);
+  const date = termCoverageSealDate({ today: local.ymd, minuteOfDay: local.minuteOfDay, checkInCloseMinute: school.checkInCloseMinute, ...ranges });
+  if (date) await markDayClosed(tx, schoolId, date, sealedCloseResult(date), now);
+  return date;
 }

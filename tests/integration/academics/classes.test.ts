@@ -238,3 +238,32 @@ test("IDOR dua sekolah pada kelas & pemetaan mapel", async () => {
   assert.equal((await patchClass(clsA.id, { gradeLevel: 8 }, env.superToken, env.a.schoolId)).status, 200);
   assert.equal((await postClass({ academicYearId: yearA.academicYear.id, name: "Z", gradeLevel: 7 }, env.b.adminToken)).status, 404);
 });
+
+test("jenjang sekolah membatasi tingkat kelas (kelas nasional): SMK hanya kelas 10..12", async () => {
+  const t = await createTenant({ data: { educationLevel: "SMK" } });
+  const { academicYear } = await createAcademicYearWithTerm(t.schoolId);
+  const wrong = await postClass({ academicYearId: academicYear.id, name: "XII TKJ 1", gradeLevel: 3 }, t.adminToken);
+  assert.equal(wrong.status, 422);
+  assert.equal(wrong.body?.error?.code, "GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL");
+  const ok = await postClass({ academicYearId: academicYear.id, name: "XII TKJ 1", gradeLevel: 12 }, t.adminToken);
+  assert.equal(ok.status, 201);
+  const patched = await patchClass(ok.body!.data.id, { gradeLevel: 9 }, t.adminToken);
+  assert.equal(patched.status, 422);
+  assert.equal(patched.body?.error?.code, "GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL");
+});
+
+test("sekolah tanpa jenjang menerima kelas 1..12 seperti sebelumnya", async () => {
+  const t = await createTenant();
+  const { academicYear } = await createAcademicYearWithTerm(t.schoolId);
+  assert.equal((await postClass({ academicYearId: academicYear.id, name: "Kelas 3A", gradeLevel: 3 }, t.adminToken)).status, 201);
+});
+
+test("kelas lama di luar jenjang tetap bisa diganti nama & dinonaktifkan selama tingkatnya tidak diubah", async () => {
+  const t = await createTenant({ data: { educationLevel: "SMK" } });
+  const { academicYear } = await createAcademicYearWithTerm(t.schoolId);
+  const legacy = await createClass(t.schoolId, academicYear.id, { gradeLevel: 3 });
+  const res = await patchClass(legacy.id, { name: "XII TKJ Lama", gradeLevel: 3, isActive: false }, t.adminToken);
+  assert.equal(res.status, 200);
+  assert.equal(res.body?.data.isActive, false);
+  assert.equal(res.body?.data.gradeLevel, 3);
+});

@@ -11,6 +11,24 @@ import { AUTO_ALPHA_RUN_RETENTION_DAYS } from "./retention";
 
 /** Nama job pada JobRun (kunci: job + schoolId + tanggal lokal). Dipakai juga calendar-sync & maintenance. */
 export const AUTO_ALPHA_JOB = "auto-alpha";
+
+/** Penanda hari yang baru menjadi hari sekolah setelah jam tutup absen (src/lib/calendar/rules.ts termCoverageSealDate). */
+export const SEALED_AFTER_CLOSE = "SCHOOL_DAY_AFTER_CLOSE";
+
+/** Hasil penutupan hari yang disegel: saat absen ditutup hari itu masih di luar semester -> tanpa ALPHA. */
+export interface SealedCloseResult {
+  readonly date: LocalDate;
+  readonly skipped: "NON_SCHOOL_DAY";
+  readonly reason: "OUTSIDE_TERM";
+  readonly sealed: typeof SEALED_AFTER_CLOSE;
+}
+
+export const sealedCloseResult = (date: LocalDate): SealedCloseResult => ({ date, skipped: "NON_SCHOOL_DAY", reason: "OUTSIDE_TERM", sealed: SEALED_AFTER_CLOSE });
+
+/** JobRun.result (JSON) adalah segel -> penutupan berikutnya (tick, tutup-ulang, sinkronisasi) tidak menulis ALPHA. */
+export function isSealedClose(result: unknown): boolean {
+  return typeof result === "object" && result !== null && (result as { sealed?: unknown }).sealed === SEALED_AFTER_CLOSE;
+}
 /** Hari ke belakang yang masih dikejar (catch-up) bila tick terlewat. */
 export const AUTO_ALPHA_LOOKBACK_DAYS = 7;
 /** Ukuran potongan createMany. */

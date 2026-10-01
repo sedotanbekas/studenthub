@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { GET as getProfile } from "@/app/api/v1/school/profile/route";
 import { PATCH as patchSettings } from "@/app/api/v1/school/settings/route";
 import { resetAllLimiters } from "@/lib/http/rate-limits";
-import { toDbDate } from "@/lib/time/zone";
+import { localParts, toDbDate } from "@/lib/time/zone";
 import { disconnect, prisma, uniq } from "../helpers/db";
 import { createAcademicYearWithTerm, createClass, createSchool, createSchoolAdmin, createStudent } from "../helpers/factories";
 import { callRoute, type Envelope } from "../helpers/request";
@@ -13,9 +13,10 @@ type Profile = {
   id: string;
   name: string;
   startMinute: number;
+  educationLevel: string | null;
   schedule: Record<string, string>;
   activeTerm: { label: string; academicYearName: string; startDate: string } | null;
-  setupChecklist: { hasActiveTerm: boolean; classCount: number; subjectCount: number; activeStudentCount: number; holidayCount: number };
+  setupChecklist: { today: string; hasActiveTerm: boolean; hasTermToday: boolean; nextTermStartDate: string | null; classCount: number; subjectCount: number; activeStudentCount: number; holidayCount: number };
 };
 type ErrorDetails = { errors: Array<{ field: string; code: string }> };
 
@@ -53,7 +54,12 @@ describe("GET /school/profile", () => {
       label: "Semester Ganjil 2026/2027",
       startDate: "2026-07-13",
     });
-    assert.deepEqual(res.body?.data.setupChecklist, { hasActiveTerm: true, classCount: 1, subjectCount: 1, activeStudentCount: 1, holidayCount: 1 });
+    const { today, hasTermToday, nextTermStartDate, ...counts } = res.body!.data.setupChecklist;
+    assert.deepEqual(counts, { hasActiveTerm: true, classCount: 1, subjectCount: 1, activeStudentCount: 1, holidayCount: 1 });
+    // Semester uji: 2026-07-13..2026-12-19 (aktif) dan 2027-07-12..2027-12-18; nilai "hari ini" mengikuti jam nyata.
+    assert.equal(today, localParts(new Date(), "WIB").ymd);
+    assert.equal(hasTermToday, (today >= "2026-07-13" && today <= "2026-12-19") || (today >= "2027-07-12" && today <= "2027-12-18"));
+    assert.equal(nextTermStartDate, today < "2026-07-13" ? "2026-07-13" : today < "2027-07-12" ? "2027-07-12" : null);
   });
 
   test("tanpa semester aktif: activeTerm null", async () => {
@@ -156,5 +162,34 @@ describe("PATCH /school/settings", () => {
   test("siswa & sponsor -> 403", async () => {
     assert.equal((await settings(fx.student.token, { startMinute: 425 })).status, 403);
     assert.equal((await settings(fx.sponsor.token, { startMinute: 425 })).status, 403);
+  });
+});
+
+describe("jenjang sekolah lewat PATCH /school/settings", () => {
+  test("admin sekolah mengisi jenjang yang kosong SEKALI; menggantinya ditolak, super admin tetap boleh", async () => {
+    const school = await createSchool();
+    const admin = await actor(await createSchoolAdmin(school.id));
+    assert.equal((await profile(admin.token)).body?.data.educationLevel, null);
+
+    const first = await settings(admin.token, { educationLevel: "SMK" });
+    assert.equal(first.status, 200);
+    assert.equal(first.body?.data.educationLevel, "SMK");
+    assert.equal((await settings(admin.token, { educationLevel: "SMK" })).status, 200, "nilai sama = tidak berubah");
+
+    const locked = await settings(admin.token, { educationLevel: "SMA" });
+    assert.equal(locked.status, 409);
+    assert.equal(locked.body?.error?.code, "EDUCATION_LEVEL_LOCKED");
+
+    const bySa = await settings(fx.sa.token, { educationLevel: "SMA" }, `?schoolId=${school.id}`);
+    assert.equal(bySa.status, 200);
+    assert.equal(bySa.body?.data.educationLevel, "SMA");
+    const audit = await prisma.auditLog.findFirst({ where: { schoolId: school.id, action: "school.settings_update" }, orderBy: { createdAt: "desc" } });
+    assert.deepEqual(audit?.after, { educationLevel: "SMA" });
+  });
+
+  test("jenjang tidak dikenal -> 400", async () => {
+    const school = await createSchool();
+    const admin = await actor(await createSchoolAdmin(school.id));
+    assert.equal((await settings(admin.token, { educationLevel: "SLB" })).status, 400);
   });
 });

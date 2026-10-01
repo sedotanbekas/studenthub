@@ -2453,6 +2453,20 @@
                     "minLength": 3,
                     "maxLength": 150
                   },
+                  "educationLevel": {
+                    "type": "string",
+                    "enum": [
+                      "SD",
+                      "MI",
+                      "SMP",
+                      "MTS",
+                      "SMA",
+                      "MA",
+                      "SMK",
+                      "MAK"
+                    ],
+                    "description": "Jenjang sekolah; menentukan rentang kelas nasional (SMK = kelas 10..12, tampil sebagai tingkat 1..3)."
+                  },
                   "provinceCode": {
                     "type": "string",
                     "pattern": "^\\d{2}$"
@@ -2524,6 +2538,7 @@
                 },
                 "required": [
                   "name",
+                  "educationLevel",
                   "provinceCode",
                   "cityCode",
                   "latitude",
@@ -2835,6 +2850,20 @@
                     "type": "string",
                     "minLength": 3,
                     "maxLength": 150
+                  },
+                  "educationLevel": {
+                    "type": "string",
+                    "enum": [
+                      "SD",
+                      "MI",
+                      "SMP",
+                      "MTS",
+                      "SMA",
+                      "MA",
+                      "SMK",
+                      "MAK"
+                    ],
+                    "description": "Jenjang sekolah; menentukan rentang kelas nasional (SMK = kelas 10..12, tampil sebagai tingkat 1..3)."
                   },
                   "provinceCode": {
                     "type": "string",
@@ -3507,8 +3536,8 @@
         "tags": [
           "Sekolah - Profil & Pengaturan"
         ],
-        "summary": "Ubah jadwal absensi & hari sekolah",
-        "description": "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `schoolDaysMask`. Lokasi, geofence, zona waktu, dan rekening SPP HANYA dapat diubah super admin (kunci lain -> 400 `VALIDATION_FAILED`). Hasil merge harus memenuhi 0 <= buka < masuk <= tutup, tutup + 5 menit <= akhir hari < 1440, dan masuk + toleransi < tutup (422 `SCHOOL_CONFIG_INVALID`). Baris absensi yang SUDAH tercatat tidak ditulis ulang; aturan baru berlaku untuk hari/check-in berikutnya. Diaudit sebagai `school.settings_update`.\n\nAksi POLICY: `schools.settings.update`.",
+        "summary": "Ubah jadwal absensi, hari sekolah, & jenjang",
+        "description": "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `schoolDaysMask`, dan `educationLevel`. Jenjang boleh diisi admin sekolah SEKALI selama masih kosong; mengganti jenjang yang sudah terisi -> 409 `EDUCATION_LEVEL_LOCKED` (super admin tetap boleh). Lokasi, geofence, zona waktu, dan rekening SPP HANYA dapat diubah super admin (kunci lain -> 400 `VALIDATION_FAILED`). Hasil merge harus memenuhi 0 <= buka < masuk <= tutup, tutup + 5 menit <= akhir hari < 1440, dan masuk + toleransi < tutup (422 `SCHOOL_CONFIG_INVALID`). Baris absensi yang SUDAH tercatat tidak ditulis ulang; aturan baru berlaku untuk hari/check-in berikutnya. Diaudit sebagai `school.settings_update`.\n\nAksi POLICY: `schools.settings.update`.",
         "security": [
           {
             "bearerAuth": []
@@ -3569,6 +3598,20 @@
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
+                  },
+                  "educationLevel": {
+                    "type": "string",
+                    "enum": [
+                      "SD",
+                      "MI",
+                      "SMP",
+                      "MTS",
+                      "SMA",
+                      "MA",
+                      "SMK",
+                      "MAK"
+                    ],
+                    "description": "Jenjang sekolah; menentukan rentang kelas nasional (SMK = kelas 10..12, tampil sebagai tingkat 1..3)."
                   }
                 },
                 "additionalProperties": false
@@ -3641,6 +3684,16 @@
           },
           "404": {
             "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: EDUCATION_LEVEL_LOCKED.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8650,7 +8703,7 @@
           "Akademik"
         ],
         "summary": "Buat kelas",
-        "description": "Nama 1-50 karakter unik per tahun ajaran, tingkat 1-12. Admin sekolah: sekolahnya sendiri. Super admin: wajib ?schoolId=.\n\nAksi POLICY: `academics.manage`.",
+        "description": "Nama 1-50 karakter unik per tahun ajaran. Tingkat = kelas nasional 1-12; bila jenjang sekolah terisi, harus di dalam jenjang (SMK: 10-12) -> 422 GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL. Admin sekolah: sekolahnya sendiri. Super admin: wajib ?schoolId=.\n\nAksi POLICY: `academics.manage`.",
         "security": [
           {
             "bearerAuth": []
@@ -8804,6 +8857,16 @@
               }
             }
           },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
             "content": {
@@ -8824,7 +8887,7 @@
           "Akademik"
         ],
         "summary": "Ubah atau nonaktifkan kelas",
-        "description": "Nonaktif hanya bila tidak ada siswa AKTIF di kelas. Admin sekolah: sekolahnya sendiri. Super admin: wajib ?schoolId=.\n\nAksi POLICY: `academics.manage`.",
+        "description": "Nonaktif hanya bila tidak ada siswa AKTIF di kelas. Tingkat yang diubah harus di dalam jenjang sekolah (422 GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL); tingkat lama yang tidak diubah tidak diperiksa. Admin sekolah: sekolahnya sendiri. Super admin: wajib ?schoolId=.\n\nAksi POLICY: `academics.manage`.",
         "security": [
           {
             "bearerAuth": []
@@ -8973,6 +9036,16 @@
           },
           "415": {
             "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: GRADE_LEVEL_OUTSIDE_EDUCATION_LEVEL.",
             "content": {
               "application/json": {
                 "schema": {
@@ -32530,6 +32603,26 @@
           "name": {
             "type": "string"
           },
+          "educationLevel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "SD",
+                  "MI",
+                  "SMP",
+                  "MTS",
+                  "SMA",
+                  "MA",
+                  "SMK",
+                  "MAK"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "address": {
             "type": [
               "string",
@@ -32780,6 +32873,7 @@
           "id",
           "npsn",
           "name",
+          "educationLevel",
           "address",
           "province",
           "city",
@@ -32821,6 +32915,26 @@
           },
           "name": {
             "type": "string"
+          },
+          "educationLevel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "SD",
+                  "MI",
+                  "SMP",
+                  "MTS",
+                  "SMA",
+                  "MA",
+                  "SMK",
+                  "MAK"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "address": {
             "type": [
@@ -33063,8 +33177,31 @@
           "setupChecklist": {
             "type": "object",
             "properties": {
+              "today": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                "description": "Tanggal lokal sekolah saat ini."
+              },
               "hasActiveTerm": {
                 "type": "boolean"
+              },
+              "hasTermToday": {
+                "type": "boolean",
+                "description": "Ada semester yang mencakup hari ini. false = siswa tidak bisa absen (OUTSIDE_TERM)."
+              },
+              "nextTermStartDate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Awal semester berikutnya setelah hari ini (null bila belum ada)."
               },
               "classCount": {
                 "type": "integer",
@@ -33091,7 +33228,10 @@
               }
             },
             "required": [
+              "today",
               "hasActiveTerm",
+              "hasTermToday",
+              "nextTermStartDate",
               "classCount",
               "subjectCount",
               "activeStudentCount",
@@ -33105,6 +33245,7 @@
           "id",
           "npsn",
           "name",
+          "educationLevel",
           "address",
           "province",
           "city",
@@ -33147,6 +33288,26 @@
           },
           "name": {
             "type": "string"
+          },
+          "educationLevel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "SD",
+                  "MI",
+                  "SMP",
+                  "MTS",
+                  "SMA",
+                  "MA",
+                  "SMK",
+                  "MAK"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "address": {
             "type": [
@@ -33339,6 +33500,7 @@
           "id",
           "npsn",
           "name",
+          "educationLevel",
           "address",
           "province",
           "city",

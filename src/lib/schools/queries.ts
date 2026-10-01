@@ -4,6 +4,7 @@ import { notFound } from "@/lib/http/errors";
 import { likeSearch } from "@/lib/http/like";
 import { toSkipTake } from "@/lib/http/pagination";
 import type { SchoolScope } from "@/lib/tenant/scope";
+import { fromDbDate, localParts, toDbDate, type LocalDate } from "@/lib/time/zone";
 import { SCHOOL_INCLUDE, toActiveTermDto, toSchoolDto } from "./dto";
 import type { ListSchoolsQuery, PlatformSchoolDetailDto, SchoolDto, SchoolListItemDto, SchoolProfileDto } from "./schemas";
 
@@ -71,18 +72,29 @@ export async function getPlatformSchoolDetail(schoolId: string): Promise<Platfor
   return { ...school, counts: { studentsByStatus: byStatus, adminCount, activeAdminCount } };
 }
 
-async function setupChecklist(schoolId: string, activeYearId: string | null): Promise<SchoolProfileDto["setupChecklist"]> {
-  const [classCount, subjectCount, activeStudentCount, holidayCount] = await Promise.all([
+/** Semester yang mencakup hari ini (absensi hanya berjalan di dalam semester) dan awal semester berikutnya. */
+async function termToday(schoolId: string, today: LocalDate): Promise<{ hasTermToday: boolean; nextTermStartDate: LocalDate | null }> {
+  const day = toDbDate(today);
+  const [covering, next] = await Promise.all([
+    prisma.term.count({ where: { schoolId, startDate: { lte: day }, endDate: { gte: day } } }),
+    prisma.term.findFirst({ where: { schoolId, startDate: { gt: day } }, orderBy: { startDate: "asc" }, select: { startDate: true } }),
+  ]);
+  return { hasTermToday: covering > 0, nextTermStartDate: next ? fromDbDate(next.startDate) : null };
+}
+
+async function setupChecklist(schoolId: string, activeYearId: string | null, today: LocalDate): Promise<SchoolProfileDto["setupChecklist"]> {
+  const [classCount, subjectCount, activeStudentCount, holidayCount, term] = await Promise.all([
     prisma.schoolClass.count({ where: { schoolId, isActive: true, ...(activeYearId ? { academicYearId: activeYearId } : {}) } }),
     prisma.subject.count({ where: { schoolId, isActive: true } }),
     prisma.student.count({ where: { schoolId, status: "ACTIVE" } }),
     prisma.holiday.count({ where: { schoolId } }),
+    termToday(schoolId, today),
   ]);
-  return { hasActiveTerm: activeYearId !== null, classCount, subjectCount, activeStudentCount, holidayCount };
+  return { today, hasActiveTerm: activeYearId !== null, ...term, classCount, subjectCount, activeStudentCount, holidayCount };
 }
 
-/** Profil sekolah untuk admin sekolah (atau SUPER_ADMIN dengan ?schoolId). */
-export async function getSchoolProfile(scope: SchoolScope): Promise<SchoolProfileDto> {
+/** Profil sekolah untuk admin sekolah (atau SUPER_ADMIN dengan ?schoolId). `now` menentukan "hari ini" lokal sekolah. */
+export async function getSchoolProfile(scope: SchoolScope, now: Date): Promise<SchoolProfileDto> {
   const row = await prisma.school.findUnique({
     where: { id: scope.schoolId },
     include: {
@@ -97,6 +109,6 @@ export async function getSchoolProfile(scope: SchoolScope): Promise<SchoolProfil
   return {
     ...toSchoolDto(row),
     activeTerm,
-    setupChecklist: await setupChecklist(row.id, row.activeTerm?.academicYearId ?? null),
+    setupChecklist: await setupChecklist(row.id, row.activeTerm?.academicYearId ?? null, localParts(now, row.timezone).ymd),
   };
 }

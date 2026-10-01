@@ -7,7 +7,8 @@ import type { SchoolScope } from "@/lib/tenant/scope";
 import { toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { dbRange, toTermDto, toTermInput, toYearSummary } from "./dto";
-import { assertNoViolation, lockAcademicScope } from "./guards";
+import { sealTodayForTermChange } from "@/lib/attendance/auto-alpha-job";
+import { assertNoViolation, lockAcademicCalendarScope, lockAcademicScope } from "./guards";
 import { validateTerm } from "./rules";
 import type { CreateTermInput, SetActiveTermInput, SetActiveTermResult, TermDto, UpdateTermInput } from "./schemas";
 
@@ -26,6 +27,9 @@ async function assertNoAttendanceIn(tx: Tx, schoolId: string, ranges: readonly D
   }
 }
 
+/** Audit mencatat tanggal yang disegel (ditutup tanpa ALPHA karena semester baru mencakupnya setelah absen tutup). */
+const withSeal = (dto: TermDto, sealed: string | null): TermDto & { sealedAttendanceDate?: string } => (sealed ? { ...dto, sealedAttendanceDate: sealed } : dto);
+
 async function findTerm(tx: Tx, scope: SchoolScope, id: string) {
   const term = await tx.term.findFirst({
     where: { id, schoolId: scope.schoolId },
@@ -37,7 +41,7 @@ async function findTerm(tx: Tx, scope: SchoolScope, id: string) {
 
 export async function createTerm(scope: SchoolScope, academicYearId: string, input: CreateTermInput, ctx: ActionContext): Promise<TermDto> {
   return withTx(async (tx) => {
-    const school = await lockAcademicScope(tx, scope);
+    const school = await lockAcademicCalendarScope(tx, scope);
     const year = await tx.academicYear.findFirst({ where: { id: academicYearId, schoolId: scope.schoolId }, include: { terms: true } });
     if (!year) throw notFound("Tahun ajaran tidak ditemukan.");
     if (year.terms.some((term) => term.semester === input.semester)) {
@@ -55,14 +59,15 @@ export async function createTerm(scope: SchoolScope, academicYearId: string, inp
       },
     });
     const dto = toTermDto(row, year.name, school.activeTermId);
-    await writeAudit(tx, { action: "term.create", entityType: "Term", entityId: row.id, schoolId: scope.schoolId, after: dto }, ctx);
+    const sealed = await sealTodayForTermChange(tx, scope.schoolId, { before: null, after: dbRange(row) }, ctx.now);
+    await writeAudit(tx, { action: "term.create", entityType: "Term", entityId: row.id, schoolId: scope.schoolId, after: withSeal(dto, sealed) }, ctx);
     return dto;
   });
 }
 
 export async function updateTerm(scope: SchoolScope, id: string, patch: UpdateTermInput, ctx: ActionContext): Promise<TermDto> {
   return withTx(async (tx) => {
-    const school = await lockAcademicScope(tx, scope);
+    const school = await lockAcademicCalendarScope(tx, scope);
     const term = await findTerm(tx, scope, id);
     const before = dbRange(term);
     const next = { semester: term.semester, startDate: patch.startDate ?? before.startDate, endDate: patch.endDate ?? before.endDate };
@@ -71,7 +76,8 @@ export async function updateTerm(scope: SchoolScope, id: string, patch: UpdateTe
     await assertNoAttendanceIn(tx, scope.schoolId, removedRanges(before, next));
     const row = await tx.term.update({ where: { id }, data: { startDate: toDbDate(next.startDate), endDate: toDbDate(next.endDate) } });
     const dto = toTermDto(row, term.academicYear.name, school.activeTermId);
-    await writeAudit(tx, { action: "term.update", entityType: "Term", entityId: id, schoolId: scope.schoolId, before, after: dto }, ctx);
+    const sealed = await sealTodayForTermChange(tx, scope.schoolId, { before, after: next }, ctx.now);
+    await writeAudit(tx, { action: "term.update", entityType: "Term", entityId: id, schoolId: scope.schoolId, before, after: withSeal(dto, sealed) }, ctx);
     return dto;
   });
 }

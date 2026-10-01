@@ -1,4 +1,5 @@
 import { formatMinute, type SchoolTz } from "@/lib/time/zone";
+import type { EducationLevel } from "./education-level";
 
 /**
  * Aturan murni konfigurasi sekolah (tanpa Prisma). `validateSchoolConfig` mencerminkan PERSIS
@@ -59,6 +60,7 @@ export interface SchoolConfig {
 /** Semua kolom School yang bisa diubah (konfigurasi + identitas). */
 export interface SchoolSnapshot extends SchoolConfig {
   readonly name: string;
+  readonly educationLevel: EducationLevel | null;
   readonly address: string | null;
   readonly provinceCode: string;
   readonly cityCode: string;
@@ -180,6 +182,7 @@ export type SchoolChangeGroup = "IDENTITY" | "REGION" | "LOCATION" | "TIMEZONE" 
 
 const FIELD_GROUPS: ReadonlyArray<readonly [SchoolField, SchoolChangeGroup]> = [
   ["name", "IDENTITY"],
+  ["educationLevel", "IDENTITY"],
   ["npsn", "IDENTITY"],
   ["address", "IDENTITY"],
   ["provinceCode", "REGION"],

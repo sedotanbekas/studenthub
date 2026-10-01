@@ -5,7 +5,7 @@ import type { DateRange } from "@/lib/calendar/ranges";
 import type { Tx } from "@/lib/db";
 import { fromDbDate, localParts, toDbDate, type LocalDate } from "@/lib/time/zone";
 import { CLOSE_SCHOOL_SELECT, closeDayLocked, markDayClosed, type CloseSchool } from "./auto-alpha-job";
-import { AUTO_ALPHA_JOB, chunk, holidayDates, reopenDates, staleCloseDates } from "./auto-alpha-rules";
+import { AUTO_ALPHA_JOB, chunk, holidayDates, isSealedClose, reopenDates, staleCloseDates } from "./auto-alpha-rules";
 
 /**
  * Perubahan kalender (libur sekolah/nasional) yang memengaruhi data absensi.
@@ -80,10 +80,13 @@ async function deleteDerivedRows(tx: Tx, schoolId: string | null, dates: readonl
   return deleted;
 }
 
+/** Hari yang disegel (semester dibuat setelah absen tutup) TIDAK dibuka ulang: siswa memang tidak pernah sempat absen. */
 async function deleteRuns(tx: Tx, schoolIds: readonly string[], dates: readonly LocalDate[]): Promise<number> {
   if (schoolIds.length === 0 || dates.length === 0) return 0;
-  const { count } = await tx.jobRun.deleteMany({ where: { job: AUTO_ALPHA_JOB, scopeKey: { in: [...schoolIds] }, runKey: { in: [...dates] } } });
-  return count;
+  const runs = await tx.jobRun.findMany({ where: { job: AUTO_ALPHA_JOB, scopeKey: { in: [...schoolIds] }, runKey: { in: [...dates] } }, select: { id: true, result: true } });
+  const ids = runs.filter((run) => !isSealedClose(run.result)).map((run) => run.id);
+  if (ids.length === 0) return 0;
+  return (await tx.jobRun.deleteMany({ where: { id: { in: ids } } })).count;
 }
 
 const unionDates = (lists: ReadonlyArray<readonly LocalDate[]>): LocalDate[] => [...new Set(lists.flat())].sort();

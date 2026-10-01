@@ -17,6 +17,7 @@ const isoOrNull = (value: Date | null): string | null => (value ? value.toISOStr
 export function toSnapshot(row: SchoolRow): SchoolSnapshot {
   return {
     name: row.name,
+    educationLevel: row.educationLevel,
     npsn: row.npsn,
     address: row.address,
     provinceCode: row.provinceCode,
@@ -43,6 +44,7 @@ export function toSchoolDto(row: SchoolRow): SchoolDto {
     id: row.id,
     npsn: row.npsn,
     name: row.name,
+    educationLevel: row.educationLevel,
     address: row.address,
     province: { code: row.province.code, name: row.province.name },
     city: { code: row.city.code, name: row.city.name },

@@ -129,7 +129,13 @@ test("roundCoordinate membulatkan ke 7 desimal (Decimal(10,7))", () => {
   assert.equal(roundCoordinate(107.12345678), 107.1234568);
 });
 
-const SNAPSHOT: SchoolSnapshot = { ...BASE, name: "SMP Uji", address: null, provinceCode: "32", cityCode: "32.73" };
+const SNAPSHOT: SchoolSnapshot = { ...BASE, name: "SMP Uji", educationLevel: null, address: null, provinceCode: "32", cityCode: "32.73" };
+
+test("describeSchoolChanges: pengisian jenjang = perubahan identitas", () => {
+  const level = describeSchoolChanges(SNAPSHOT, { ...SNAPSHOT, educationLevel: "SMP" });
+  assert.deepEqual(level.changedFields, ["educationLevel"]);
+  assert.deepEqual(level.groups, ["IDENTITY"]);
+});
 
 test("describeSchoolChanges: geofence, zona waktu, rekening, jadwal", () => {
   const none = describeSchoolChanges(SNAPSHOT, { ...SNAPSHOT });
