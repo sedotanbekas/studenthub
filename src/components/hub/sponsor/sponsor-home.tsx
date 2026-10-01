@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { SponsorOnboarding } from "./sponsor-onboarding";
 import type { AdDto, AdPerformanceDto, AnalyticsSeries, AnalyticsSummary, SponsorBalanceDto, SponsorDto } from "@/lib/frontend/ad-types";
 import { compareLabel, firstName, liveByClicks, longDate, rangeLabel } from "@/lib/frontend/sponsor-insights-rules";
 import { useHub } from "../context";
@@ -37,6 +38,7 @@ export function SponsorHome() {
   return <div className="dashboard brand-home">
     <div className="page-heading"><div><h1>Selamat datang, {firstName(me.user.name)}</h1><p>{longDate(new Date())}{companyName && ` · ${companyName}`}</p></div></div>
     <AccountNoticeBanner profile={profile.data} />
+    <SponsorOnboarding profile={profile.data} balance={balance.data} ads={ads.data} />
     <LoadError message={firstError(profile, balance, ads, summary, series, perf)} onRetry={() => setVersion(v => v + 1)} />
     <BalanceHero balance={balance.data} weekSpend={summary.data?.kpis.spend.value ?? null} />
     <WeekKpis summary={summary} series={series} />

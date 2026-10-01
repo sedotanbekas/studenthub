@@ -30,6 +30,13 @@ export const EDUCATION_LEVEL_NAMES: Readonly<Record<EducationLevel, string>> = {
   MAK: "Madrasah Aliyah Kejuruan",
 };
 
+/** Pengelompokan untuk pemilih jenjang (kartu per kelompok). */
+export const EDUCATION_LEVEL_GROUPS: readonly (readonly [string, readonly EducationLevel[]])[] = [
+  ["Pendidikan dasar · kelas 1–6", ["SD", "MI"]],
+  ["Menengah pertama · kelas 7–9", ["SMP", "MTS"]],
+  ["Menengah atas · kelas 10–12", ["SMA", "MA", "SMK", "MAK"]],
+];
+
 export interface GradeSpan {
   readonly first: number;
   readonly last: number;

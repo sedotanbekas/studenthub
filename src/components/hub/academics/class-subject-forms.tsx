@@ -2,15 +2,9 @@
 import { useEffect, useState } from "react";
 import { isValidSubjectCode, normalizeName, normalizeSubjectCode } from "@/lib/academics/rules";
 import { currentYear, gradeIssue, type ClassView, type SubjectView } from "@/lib/frontend/academics-rules";
-import { EDUCATION_LEVEL_LABELS, EDUCATION_LEVEL_NAMES, gradeLabel, gradeOptions, isGradeInLevel, type EducationLevel } from "@/lib/schools/education-level";
+import { EDUCATION_LEVEL_GROUPS, EDUCATION_LEVEL_LABELS, EDUCATION_LEVEL_NAMES, gradeLabel, gradeOptions, isGradeInLevel, type EducationLevel } from "@/lib/schools/education-level";
 import { DeleteButton, FormError, FormFooter, FormFrame, Why, type FormVariant } from "./form-kit";
 import { useAcademics, useSaving } from "./use-academics";
-
-const LEVEL_GROUPS: readonly (readonly [string, readonly EducationLevel[]])[] = [
-  ["Pendidikan dasar · kelas 1–6", ["SD", "MI"]],
-  ["Menengah pertama · kelas 7–9", ["SMP", "MTS"]],
-  ["Menengah atas · kelas 10–12", ["SMA", "MA", "SMK", "MAK"]],
-];
 
 interface Props { readonly variant: FormVariant; readonly onDone: () => void; readonly onCancel?: () => void }
 
@@ -29,7 +23,7 @@ export function LevelForm({ variant, onDone, onCancel }: Props) {
     onDone();
   });
   return <FormFrame variant={variant} onSubmit={submit} footer={<FormFooter busy={saving.busy} disabled={!canManage || locked || !level} onCancel={onCancel} submitLabel={variant === "inline" ? "Simpan & lanjut" : "Simpan jenjang"} />}>
-    {LEVEL_GROUPS.map(([title, levels]) => <fieldset key={title} className="level-group" disabled={locked}>
+    {EDUCATION_LEVEL_GROUPS.map(([title, levels]) => <fieldset key={title} className="level-group" disabled={locked}>
       <legend>{title}</legend>
       <div className="level-options">{levels.map((value) => <label key={value} className={`level-card${level === value ? " selected" : ""}`}>
         <input type="radio" name="educationLevel" value={value} checked={level === value} onChange={() => setLevel(value)} />

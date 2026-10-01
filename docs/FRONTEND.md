@@ -24,6 +24,17 @@ Daftar mendukung filter, pencarian dan paginasi sesuai kemampuan endpoint. Klik 
 
 Impor siswa menyediakan pratinjau sebelum penyimpanan. Kata sandi sementara hasil pembuatan/reset ditampilkan pada hasil tindakan dan harus disimpan sebelum dialog ditutup. Kesalahan API ditampilkan sebagai kesalahan; aplikasi tidak menggantinya dengan data demo.
 
+## Panduan (wizard) dan kartu persiapan
+
+Tindakan yang berlangkah dibuka sebagai wizard di dalam dialog, bukan formulir generik (`src/components/hub/wizards/registry.tsx`): **Impor siswa** (templat → unggah & periksa → simpan → kata sandi awal, unduh CSV/cetak), **Tagihan SPP massal** (periode & nominal → penerima → pratinjau dry-run → terbitkan), **Rapor** (semester & kelas → mapel kelas → isi nilai per mapel → terbitkan yang lengkap), dan **Daftarkan sekolah** untuk super admin (identitas & jenjang → wilayah + titik di peta OpenStreetMap yang melompat ke ibu kota provinsi → rekening SPP → admin utama). Setiap langkah memuat satu kalimat sebab-akibat; tautan "formulir lengkap" tetap membuka formulir generik untuk kebutuhan lanjutan. Aturan murninya di `src/lib/frontend/wizard-rules.ts`.
+
+- Langkah yang hasilnya sudah tersimpan terkunci (mis. setelah impor tersimpan, sekolah sudah dibuat) agar tidak tersimpan ganda atau berubah diam-diam.
+- Menutup wizard yang akan menghilangkan sesuatu (kata sandi sekali tampil belum diunduh/dicetak, akun admin utama belum dibuat) memunculkan peringatan di dalam dialog lebih dulu (`useCloseGuard`).
+- Semua `<dialog>` hanya menutup oleh `cancel` miliknya sendiri (Esc): `cancel` dari pemilih berkas yang dibatalkan ikut menggelembung dan dulu menutup formulir (`src/lib/frontend/dialog-events.ts`).
+- Mode demo membaca data contoh dan menolak penyimpanan dengan pesan jelas.
+
+Beranda admin sekolah menampilkan kartu **Siapkan sekolahmu** (akademik, jam absensi, siswa, libur, rekening) selama langkah wajib belum selesai, plus pemberitahuan semester bila siswa belum bisa absen hari ini. Beranda sponsor baru menampilkan langkah persetujuan → saldo → kampanye → tayang. Keduanya hilang sendiri setelah selesai (`src/lib/frontend/onboarding-rules.ts`).
+
 ## Sesi web
 
 - Browser berkomunikasi melalui `/api/web/*`. Proxy meneruskan permintaan ke `/api/v1/*` tanpa mengubah service domain.
