@@ -5,6 +5,7 @@ import { ACCURACY_TOLERANCE_CAP_M } from "@/lib/attendance/constants";
 import { haversineMeters } from "@/lib/attendance/geo";
 import { api, ApiError } from "@/lib/frontend/api";
 import { accuracyAdvice, fixAgeOk, simulateDemoFix, webDeviceId } from "@/lib/frontend/attendance";
+import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { useHub } from "../context";
 import { Icon } from "../icon";
 import { AccessGate } from "./access-gate";
@@ -60,7 +61,7 @@ export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClo
   const inside = live && school && distance !== null ? distance <= school.radiusM + Math.min(live.coords.accuracy, ACCURACY_TOLERANCE_CAP_M) : null;
   const steps: Step[] = ["location", "face", "review"];
   const title = !access.ready ? "Izinkan perangkat" : step === "location" ? "Cek lokasi" : step === "face" ? "Foto wajah" : step === "review" ? "Periksa & kirim" : "Absensi tercatat";
-  return <dialog ref={screen} className="checkin-screen" aria-labelledby="checkin-title" onCancel={e => { e.preventDefault(); onClose(); }}>
+  return <dialog ref={screen} className="checkin-screen" aria-labelledby="checkin-title" onCancel={e => { if (!isOwnDialogCancel(e)) return; e.preventDefault(); onClose(); }}>
     <header className="checkin-header"><button className="icon-button" aria-label="Tutup absensi" onClick={onClose}><Icon name="close" /></button><h1 id="checkin-title" ref={heading} tabIndex={-1}>{title}</h1><span className="step-count">{access.ready && step !== "done" ? `${steps.indexOf(step) + 1}/3` : ""}</span></header>
     {access.ready && step !== "done" && <ol className="step-bar" aria-hidden="true">{steps.map((s, i) => <li key={s} className={i <= steps.indexOf(step) ? "on" : ""} />)}</ol>}
     <div className="checkin-content">

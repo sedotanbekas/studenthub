@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { SEARCH_MAX, shownOfTotal } from "@/lib/frontend/review-rules";
+import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { Icon } from "../icon";
 import { useModalDialog } from "./review-dialog-focus";
 import type { ReviewQueue } from "./review-hooks";
@@ -47,7 +48,7 @@ function ReviewSheet({ label, itemId, onClose, children }: { label: string; item
   };
   // Browser dapat menutup dialog tanpa event cancel (Escape berulang); samakan state induk.
   const onNativeClose = () => { if (dialog.current && !dialog.current.open) onClose(); };
-  return <dialog ref={dialog} className="action-dialog review-sheet" aria-label={label} onCancel={e => { e.preventDefault(); onClose(); }} onClose={onNativeClose} onPointerDown={onPointerDown} onClick={onBackdrop}>
+  return <dialog ref={dialog} className="action-dialog review-sheet" aria-label={label} onCancel={e => { if (!isOwnDialogCancel(e)) return; e.preventDefault(); onClose(); }} onClose={onNativeClose} onPointerDown={onPointerDown} onClick={onBackdrop}>
     <div className="review-sheet-bar">
       <span className="review-grabber" aria-hidden="true" />
       <span className="eyebrow">{label}</span>

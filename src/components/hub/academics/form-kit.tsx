@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, type ReactNode } from "react";
+import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { Icon } from "../icon";
 
 /**
@@ -11,7 +12,7 @@ export type FormVariant = "dialog" | "inline";
 export function Modal({ eyebrow, title, onClose, busy = false, children }: { eyebrow: string; title: string; onClose: () => void; busy?: boolean; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); const el = ref.current; return () => el?.close(); }, []);
-  return <dialog ref={ref} className="action-dialog acad-dialog" aria-labelledby="acad-dialog-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>
+  return <dialog ref={ref} className="action-dialog acad-dialog" aria-labelledby="acad-dialog-title" onCancel={e => { if (!isOwnDialogCancel(e)) return; e.preventDefault(); if (!busy) onClose(); }}>
     <div className="dialog-heading"><div><span className="eyebrow">{eyebrow}</span><h2 id="acad-dialog-title">{title}</h2></div><button type="button" className="icon-button" aria-label="Tutup" disabled={busy} onClick={onClose}><Icon name="close" /></button></div>
     {children}
   </dialog>;

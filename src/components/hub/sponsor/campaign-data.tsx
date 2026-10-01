@@ -1,11 +1,12 @@
 "use client";
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type SyntheticEvent } from "react";
 import { api, ApiError } from "@/lib/frontend/api";
 import type { AdDto, AdPerformanceDto, SponsorBalanceDto, SponsorDto } from "@/lib/frontend/ad-types";
 import {
   STALE_RELOAD_FAILED, appendById, applyDemoAction, campaignFailure, isStaleCampaign, type ApiFailure, type CampaignField, type Failure, type TransitionKey,
 } from "@/lib/frontend/campaign-rules";
 import { demoAdPerformance, demoBalance, demoSponsorAd, demoSponsorAds, demoSponsorProfile } from "@/lib/frontend/demo-ads";
+import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { useHub } from "../context";
 
 /**
@@ -131,6 +132,6 @@ export function useModal(onClose: () => void, busy: boolean) {
     element.addEventListener("close", handle);
     return () => { element.removeEventListener("close", handle); element.close(); };
   }, []);
-  const onCancel = (event: { preventDefault: () => void }) => { event.preventDefault(); if (!busy) onClose(); };
+  const onCancel = (event: SyntheticEvent<HTMLDialogElement>) => { if (!isOwnDialogCancel(event)) return; event.preventDefault(); if (!busy) onClose(); };
   return { ref, onCancel };
 }
