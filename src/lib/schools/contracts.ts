@@ -127,9 +127,10 @@ export const updateSchoolSettingsContract = defineContract({
   method: "PATCH",
   path: "/api/v1/school/settings",
   tag: SCHOOL_TAG,
-  summary: "Ubah jadwal absensi & hari sekolah",
+  summary: "Ubah jadwal absensi, hari sekolah, & jenjang",
   description: [
-    "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `schoolDaysMask`.",
+    "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `schoolDaysMask`, dan `educationLevel`.",
+    "Jenjang boleh diisi admin sekolah SEKALI selama masih kosong; mengganti jenjang yang sudah terisi -> 409 `EDUCATION_LEVEL_LOCKED` (super admin tetap boleh).",
     "Lokasi, geofence, zona waktu, dan rekening SPP HANYA dapat diubah super admin (kunci lain -> 400 `VALIDATION_FAILED`).",
     "Hasil merge harus memenuhi 0 <= buka < masuk <= tutup, tutup + 5 menit <= akhir hari < 1440, dan masuk + toleransi < tutup (422",
     "`SCHOOL_CONFIG_INVALID`). Baris absensi yang SUDAH tercatat tidak ditulis ulang; aturan baru berlaku untuk hari/check-in berikutnya.",
@@ -139,7 +140,7 @@ export const updateSchoolSettingsContract = defineContract({
   query: schoolScopeQuery,
   body: updateSchoolSettingsBody,
   response: schoolSchema,
-  errors: ["SCHOOL_CONFIG_INVALID"],
+  errors: ["SCHOOL_CONFIG_INVALID", "EDUCATION_LEVEL_LOCKED"],
 });
 
 const THEME_SCOPE_NOTE = [

@@ -7,7 +7,8 @@ import { classLockKey, classYearLockKey } from "@/lib/lock-keys";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { lockKey, withTx } from "@/lib/tx";
 import { CLASS_SELECT, toClassDto } from "./dto";
-import { requireSchool } from "./guards";
+import { gradeLevelViolation } from "@/lib/schools/education-level";
+import { assertNoViolation, requireSchool } from "./guards";
 import { normalizeName } from "./rules";
 import type { ClassDto, CreateClassInput, UpdateClassInput } from "./schemas";
 
@@ -59,7 +60,8 @@ export async function createClass(scope: SchoolScope, input: CreateClassInput, c
   const name = normalizeName(input.name);
   return withTx(async (tx) => {
     await lockKey(tx, classYearLockKey(input.academicYearId));
-    await requireSchool(tx, scope);
+    const school = await requireSchool(tx, scope);
+    assertNoViolation(gradeLevelViolation(school.educationLevel, input.gradeLevel));
     const year = await tx.academicYear.findFirst({ where: { id: input.academicYearId, schoolId: scope.schoolId }, select: { id: true } });
     if (!year) throw notFound("Tahun ajaran tidak ditemukan.");
     await assertNameFree(tx, year.id, name, null);
@@ -94,6 +96,8 @@ export async function updateClass(scope: SchoolScope, id: string, patch: UpdateC
   const academicYearId = await resolveClassYearId(scope, id);
   return withTx(async (tx) => {
     const current = await lockClass(tx, scope, id, academicYearId);
+    // Hanya tingkat yang BERUBAH yang diperiksa: kelas lama di luar jenjang tetap bisa diganti nama/dinonaktifkan.
+    if (patch.gradeLevel !== undefined && patch.gradeLevel !== current.gradeLevel) assertNoViolation(gradeLevelViolation((await requireSchool(tx, scope)).educationLevel, patch.gradeLevel));
     const name = patch.name === undefined ? undefined : normalizeName(patch.name);
     if (name !== undefined && name !== current.name) await assertNameFree(tx, current.academicYearId, name, id);
     if (patch.isActive === false && current.isActive) await assertCanDeactivate(tx, id);

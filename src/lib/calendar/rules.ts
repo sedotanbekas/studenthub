@@ -60,6 +60,22 @@ export function checkSchoolDay(date: LocalDate, ctx: CalendarContext): DayCheck 
   return { date, isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null };
 }
 
+/**
+ * Semester yang dibuat/diperpanjang sehingga HARI INI baru tercakup setelah jam tutup absen: siswa tidak
+ * pernah sempat absen, jadi hari ini harus ditutup tanpa ALPHA ("disegel"). Mengembalikan tanggal itu,
+ * atau null bila absen masih buka / hari ini sudah tercakup sebelumnya / rentang baru tidak mencakupnya.
+ */
+export function termCoverageSealDate(input: {
+  readonly today: LocalDate;
+  readonly minuteOfDay: number;
+  readonly checkInCloseMinute: number;
+  readonly before: DateRange | null;
+  readonly after: DateRange;
+}): LocalDate | null {
+  if (input.minuteOfDay < input.checkInCloseMinute || !covers(input.after, input.today)) return null;
+  return input.before && covers(input.before, input.today) ? null : input.today;
+}
+
 /** Status setiap tanggal dalam rentang inklusif (kosong bila rentang terbalik). */
 export function describeDays(from: LocalDate, to: LocalDate, ctx: CalendarContext): DayCheck[] {
   return eachDate(from, to).map((date) => checkSchoolDay(date, ctx));

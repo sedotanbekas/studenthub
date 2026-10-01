@@ -101,6 +101,17 @@ test("todayHeadline merangkum status absen hari ini dengan nada tindakan", () =>
   assert.equal(todayHeadline(early).note, "Absen dibuka pukul 06:00.");
 });
 
+test("todayHeadline membedakan alasan bukan hari sekolah: semester belum diatur vs hari libur mingguan", () => {
+  const outsideTerm = { ...baseToday, canCheckIn: false, blockReason: "NOT_SCHOOL_DAY", schoolDay: { isSchoolDay: false, reason: "OUTSIDE_TERM", holidayName: null } };
+  assert.deepEqual(todayHeadline(outsideTerm), {
+    tone: "neutral",
+    title: "Absensi belum tersedia",
+    note: "Hari ini di luar masa semester. Bila seharusnya hari sekolah, hubungi admin sekolah.",
+  });
+  const dayOff = { ...outsideTerm, schoolDay: { isSchoolDay: false, reason: "DAY_OFF", holidayName: null } };
+  assert.deepEqual(todayHeadline(dayOff), { tone: "neutral", title: "Hari ini bukan hari sekolah", note: "Tidak ada absensi hari ini." });
+});
+
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1";
 const sample = (accuracy: number, timestamp: number) => ({ accuracy, timestamp });
 

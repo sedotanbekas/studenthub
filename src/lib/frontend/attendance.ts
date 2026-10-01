@@ -133,13 +133,22 @@ function recordHeadline(record: NonNullable<TodayView["record"]>): Headline {
   return { tone: "neutral", title: "Kehadiran sudah tercatat", note: RECORD_NOTES[record.status] ?? "Dicatat oleh sekolah." };
 }
 
+/**
+ * OUTSIDE_TERM bisa berarti libur antar-semester ATAU semester belum diatur sekolah; server tidak membedakannya,
+ * jadi kalimatnya netral tetapi tetap memberi jalan keluar (hubungi admin) — bukan sekadar "bukan hari sekolah".
+ */
+function nonSchoolDayHeadline(day: TodayView["schoolDay"]): Headline {
+  if (day.holidayName) return { tone: "neutral", title: `Libur: ${day.holidayName}`, note: "Tidak ada absensi hari ini." };
+  if (day.reason === "OUTSIDE_TERM") {
+    return { tone: "neutral", title: "Absensi belum tersedia", note: "Hari ini di luar masa semester. Bila seharusnya hari sekolah, hubungi admin sekolah." };
+  }
+  return { tone: "neutral", title: "Hari ini bukan hari sekolah", note: "Tidak ada absensi hari ini." };
+}
+
 export function todayHeadline(today: TodayView): Headline {
   const { window } = today;
   if (today.record && today.blockReason !== null) return recordHeadline(today.record);
-  if (!today.schoolDay.isSchoolDay) {
-    const title = today.schoolDay.holidayName ? `Libur: ${today.schoolDay.holidayName}` : "Bukan hari sekolah";
-    return { tone: "neutral", title, note: "Tidak ada absensi hari ini." };
-  }
+  if (!today.schoolDay.isSchoolDay) return nonSchoolDayHeadline(today.schoolDay);
   if (today.blockReason === "CHECKIN_NOT_OPEN") return { tone: "neutral", title: "Absensi belum dibuka", note: `Absen dibuka pukul ${window.opensAt}.` };
   if (today.blockReason === "CHECKIN_CLOSED") return { tone: "neutral", title: "Absensi sudah ditutup", note: `Absensi ditutup pukul ${window.closesAt}.` };
   return { tone: "action", title: "Kamu belum absen", note: `Absen dibuka ${window.opensAt}–${window.closesAt}. Tepat waktu sampai ${window.lateAfter}.` };

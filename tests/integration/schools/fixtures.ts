@@ -52,6 +52,7 @@ export function uniqNpsn(): string {
 export function newSchoolBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     name: `SMP ${uniq("n")}`,
+    educationLevel: "SMP",
     provinceCode: "32",
     cityCode: "32.73",
     latitude: -6.9147,

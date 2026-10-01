@@ -11,6 +11,7 @@ import "../styles/monitor.css";
 import "../styles/campaigns.css";
 import "../styles/review.css";
 import "../styles/school-charts.css";
+import "../styles/academics.css";
 import "../styles/glass.css";
 import "../styles/transitions.css";
 import "../styles/print.css";

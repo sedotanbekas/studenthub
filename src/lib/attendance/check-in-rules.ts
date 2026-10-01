@@ -214,7 +214,7 @@ export function rejectionLocation(fix: GeoPoint & { readonly accuracyM: number |
 const NON_SCHOOL_DAY_MESSAGES: Readonly<Record<DayReason, string>> = {
   SCHOOL_DAY: "Hari ini hari sekolah.",
   DAY_OFF: "Hari ini bukan hari sekolah. Tidak ada absensi.",
-  OUTSIDE_TERM: "Hari ini di luar masa semester. Tidak ada absensi.",
+  OUTSIDE_TERM: "Hari ini di luar masa semester, jadi absensi belum tersedia. Bila seharusnya hari sekolah, hubungi admin sekolah.",
   HOLIDAY: "Hari ini libur. Tidak ada absensi.",
 };
 

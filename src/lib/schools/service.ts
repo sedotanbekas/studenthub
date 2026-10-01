@@ -9,6 +9,7 @@ import { schoolSettingsChangedEvent } from "@/lib/notifications/templates/school
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { lockKey, withTx } from "@/lib/tx";
 import { SCHOOL_INCLUDE, toSnapshot } from "./dto";
+import { educationLevelChangeViolation } from "./education-level";
 import { getPlatformSchoolDetail, getSchoolDto, SCHOOL_NOT_FOUND_MESSAGE } from "./queries";
 import {
   DEFAULT_SCHOOL_CONFIG,
@@ -72,6 +73,7 @@ function snapshotFromCreate(input: CreateSchoolInput): SchoolSnapshot {
     npsn: null,
     address: null,
     name: rounded.name,
+    educationLevel: rounded.educationLevel,
     provinceCode: rounded.provinceCode,
     cityCode: rounded.cityCode,
     latitude: rounded.latitude,
@@ -109,12 +111,16 @@ function changeData(after: SchoolSnapshot, changes: SchoolChanges, now: Date): P
 
 type Applied = { schoolId: string; schoolName: string; before: SchoolSnapshot; after: SchoolSnapshot; changes: SchoolChanges };
 
-/** Kunci -> baca -> merge -> validasi -> tulis perubahan saja. null bila tidak ada yang berubah. */
-async function applySchoolPatch(tx: Tx, schoolId: string, patch: Partial<SchoolSnapshot>, now: Date): Promise<Applied | null> {
+/**
+ * Kunci -> baca -> (guard) -> merge -> validasi -> tulis perubahan saja. null bila tidak ada yang berubah.
+ * `guard` memeriksa aturan yang bergantung pada nilai sekarang (dibaca di bawah kunci).
+ */
+async function applySchoolPatch(tx: Tx, schoolId: string, patch: Partial<SchoolSnapshot>, now: Date, guard?: (before: SchoolSnapshot) => void): Promise<Applied | null> {
   await lockKey(tx, schoolConfigLockKey(schoolId));
   const row = await tx.school.findUnique({ where: { id: schoolId }, include: SCHOOL_INCLUDE });
   if (!row) throw notFound(SCHOOL_NOT_FOUND_MESSAGE);
   const before = toSnapshot(row);
+  guard?.(before);
   const after = mergeSchoolPatch(before, withRoundedCoordinates(patch));
   assertValidSchoolConfig(after);
   const changes = describeSchoolChanges(before, after);
@@ -160,13 +166,24 @@ export async function updateSchool(schoolId: string, patch: UpdateSchoolInput, c
   return getPlatformSchoolDetail(schoolId);
 }
 
+/** 409 EDUCATION_LEVEL_LOCKED bila admin sekolah mengganti jenjang yang sudah terisi. */
+function educationLevelGuard(next: UpdateSchoolSettingsInput["educationLevel"], ctx: ActionContext): ((before: SchoolSnapshot) => void) | undefined {
+  if (next === undefined) return undefined;
+  const isSuperAdmin = ctx.principal?.role === "SUPER_ADMIN";
+  return (before) => {
+    const violation = educationLevelChangeViolation({ current: before.educationLevel, next, isSuperAdmin });
+    if (violation) throw conflict(violation.code, violation.message);
+  };
+}
+
 /**
- * Admin sekolah (atau SUPER_ADMIN dengan ?schoolId) mengubah jadwal & hari sekolah saja. Baris
- * absensi yang sudah ada TIDAK ditulis ulang; aturan baru berlaku untuk check-in berikutnya.
+ * Admin sekolah (atau SUPER_ADMIN dengan ?schoolId) mengubah jadwal & hari sekolah, dan mengisi jenjang
+ * selama masih kosong. Baris absensi yang sudah ada TIDAK ditulis ulang; aturan baru berlaku untuk
+ * check-in berikutnya.
  */
 export async function updateSchoolSettings(scope: SchoolScope, patch: UpdateSchoolSettingsInput, ctx: ActionContext): Promise<SchoolDto> {
   await withTx(async (tx) => {
-    const applied = await applySchoolPatch(tx, scope.schoolId, patch, ctx.now);
+    const applied = await applySchoolPatch(tx, scope.schoolId, patch, ctx.now, educationLevelGuard(patch.educationLevel, ctx));
     if (applied) await auditChange(tx, "school.settings_update", applied, ctx);
   });
   return getSchoolDto(scope.schoolId);

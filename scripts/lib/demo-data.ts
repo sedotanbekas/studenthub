@@ -7,6 +7,7 @@
 import type { Gender, SchoolTimezone, Semester } from "@prisma/client";
 import { checkPasswordPolicy, PASSWORD_VIOLATION_MESSAGES } from "../../src/lib/auth/password";
 import type { FamilyData } from "../../src/lib/students/family";
+import type { EducationLevel } from "../../src/lib/schools/education-level";
 import type { ThemePresetKey } from "../../src/lib/schools/theme-store-rules";
 import type { LocalDate } from "../../src/lib/time/zone";
 import { parseDatabaseUrl } from "../deploy/db-url";
@@ -45,6 +46,7 @@ export interface DemoStudentSpec extends FamilyData {
 export interface DemoSchoolSpec {
   readonly npsn: string;
   readonly name: string;
+  readonly educationLevel: EducationLevel;
   readonly slug: string;
   readonly address: string;
   readonly provinceCode: string;
@@ -200,6 +202,7 @@ const SMA_CLASSES: readonly DemoClassSpec[] = [
 const SMP_SCHOOL: DemoSchoolSpec = {
   npsn: "99990001",
   name: "SMP Negeri 1 Harapan Jaya (Demo)",
+  educationLevel: "SMP",
   slug: "smpn1-harapan-jaya",
   address: "Jl. Asia Afrika No. 1, Kota Bandung, Jawa Barat",
   provinceCode: "32",
@@ -239,6 +242,7 @@ const SMP_SCHOOL: DemoSchoolSpec = {
 const SMA_SCHOOL: DemoSchoolSpec = {
   npsn: "99990002",
   name: "SMA Demo Nusantara Timur",
+  educationLevel: "SMA",
   slug: "sma-nusantara-timur",
   address: "Jl. Percetakan Negara No. 10, Kota Jayapura, Papua",
   provinceCode: "91",

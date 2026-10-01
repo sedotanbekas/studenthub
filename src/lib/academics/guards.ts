@@ -1,12 +1,13 @@
 import type { SchoolTimezone } from "@prisma/client";
+import type { EducationLevel } from "@/lib/schools/education-level";
 import { requirePrincipal, type ActionContext } from "@/lib/auth/principal";
 import type { Tx } from "@/lib/db";
 import { conflict, notFound, unprocessable } from "@/lib/http/errors";
 import type { RuleViolation } from "@/lib/calendar/ranges";
-import { subjectsLockKey } from "@/lib/lock-keys";
+import { holidaysLockKey, subjectsLockKey } from "@/lib/lock-keys";
 import { resolveSchoolScope, type SchoolScope } from "@/lib/tenant/scope";
 import { localParts, type LocalDate } from "@/lib/time/zone";
-import { lockKey } from "@/lib/tx";
+import { lockKey, lockKeyShared } from "@/lib/tx";
 
 /** Baris sekolah minimal yang dibutuhkan domain akademik & kalender. */
 export interface ScopedSchool {
@@ -14,6 +15,7 @@ export interface ScopedSchool {
   readonly timezone: SchoolTimezone;
   readonly activeTermId: string | null;
   readonly schoolDaysMask: number;
+  readonly educationLevel: EducationLevel | null;
 }
 
 /** Cakupan sekolah dari principal + ?schoolId (403/400 ditangani resolveSchoolScope). */
@@ -25,7 +27,7 @@ export function schoolScopeOf(ctx: ActionContext, schoolId: string | undefined):
 export async function requireSchool(db: Tx, scope: SchoolScope): Promise<ScopedSchool> {
   const school = await db.school.findUnique({
     where: { id: scope.schoolId },
-    select: { id: true, timezone: true, activeTermId: true, schoolDaysMask: true },
+    select: { id: true, timezone: true, activeTermId: true, schoolDaysMask: true, educationLevel: true },
   });
   if (!school) throw notFound("Sekolah tidak ditemukan.");
   return school;
@@ -45,6 +47,18 @@ export const academicLockKey = (schoolId: string): string => `academic:${schoolI
 /** Ambil kunci `academic:<schoolId>` (AppLock, urutan kunci global pertama) lalu baca sekolahnya. */
 export async function lockAcademicScope(tx: Tx, scope: SchoolScope): Promise<ScopedSchool> {
   await lockKey(tx, academicLockKey(scope.schoolId));
+  return requireSchool(tx, scope);
+}
+
+/**
+ * Mutasi rentang semester: `academic:<id>` lalu kunci libur (bersama nasional + EKSKLUSIF sekolah, sama seperti
+ * penulis libur sekolah) sebelum membaca apa pun. Menahan penutupan hari auto-ALPHA (kunci bersama) selama
+ * semester berubah, sehingga penyegelan hari ini (sealTodayForTermChange) tidak berselisih dengan tick.
+ */
+export async function lockAcademicCalendarScope(tx: Tx, scope: SchoolScope): Promise<ScopedSchool> {
+  await lockKey(tx, academicLockKey(scope.schoolId));
+  await lockKeyShared(tx, holidaysLockKey(null));
+  await lockKey(tx, holidaysLockKey(scope.schoolId));
   return requireSchool(tx, scope);
 }
 

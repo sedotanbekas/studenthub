@@ -93,6 +93,7 @@ export async function ensureSuperAdmin(
 export async function ensureSchool(tx: Tx, spec: DemoSchoolSpec): Promise<string> {
   const data = {
     name: spec.name,
+    educationLevel: spec.educationLevel,
     address: spec.address,
     provinceCode: spec.provinceCode,
     cityCode: spec.cityCode,

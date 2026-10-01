@@ -10,6 +10,8 @@ import {
   firstEligibleDate,
   holidayDates,
   isEligibleOn,
+  isSealedClose,
+  sealedCloseResult,
   isSettledRun,
   lookbackRunKeys,
   planDayClose,
@@ -204,4 +206,13 @@ test("recloseViolation: hanya hari yang sudah ditutup dan tidak sebelum sekolah 
 test("closureTrackedFrom: status tutup hanya diketahui sejak sekolah terdaftar dan dalam retensi JobRun auto-alpha (400 hari)", () => {
   assert.equal(closureTrackedFrom("2026-09-21", "2026-01-05"), "2026-01-05");
   assert.equal(closureTrackedFrom("2026-09-21", "2024-01-01"), "2025-08-18", "today - 399: JobRun tanggal lebih lama sudah dihapus retensi");
+});
+
+test("segel penutupan hari: dikenali dari hasil JobRun", () => {
+  const sealed = sealedCloseResult("2026-10-01");
+  assert.deepEqual(sealed, { date: "2026-10-01", skipped: "NON_SCHOOL_DAY", reason: "OUTSIDE_TERM", sealed: "SCHOOL_DAY_AFTER_CLOSE" });
+  assert.equal(isSealedClose(sealed), true);
+  assert.equal(isSealedClose({ date: "2026-10-01", skipped: "NON_SCHOOL_DAY", reason: "OUTSIDE_TERM" }), false);
+  assert.equal(isSealedClose(null), false);
+  assert.equal(isSealedClose("x"), false);
 });

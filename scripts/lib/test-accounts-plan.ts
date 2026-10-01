@@ -59,6 +59,7 @@ function testStudent([name, gender, className, fatherName, motherName, birthDate
 export const TEST_SCHOOL: DemoSchoolSpec = {
   npsn: "99990100",
   name: "SMA Uji studenthub.id",
+  educationLevel: "SMA",
   slug: "sma-uji",
   adminEmail: `admin@${TEST_EMAIL_DOMAIN}`,
   address: "Jl. Uji Coba No. 1, Kota Jakarta Timur, DKI Jakarta",

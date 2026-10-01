@@ -11,8 +11,9 @@
  *    daftar di bawah; beberapa kunci sejenis diambil dengan id terurut naik.
  * 3. Kunci aplikasi selalu mendahului `lockRows()`/FOR UPDATE baris data (urutan kunci global di tx.ts).
  *
- * Urutan (kasar -> halus): superAdmins -> holidays -> subjects -> classYear -> class -> nisnRelease -> user
- * -> attendance. Terpisah: banner (selalu sebelum baris Sponsor/Ad).
+ * Urutan (kasar -> halus): superAdmins -> academic (academicLockKey, src/lib/academics/guards.ts) -> holidays
+ * -> subjects -> classYear -> class -> nisnRelease -> user -> attendance. Terpisah: banner (selalu sebelum
+ * baris Sponsor/Ad).
  */
 
 /** Mutasi yang dapat mengubah jumlah super admin aktif (cegah menonaktifkan SA terakhir). */
