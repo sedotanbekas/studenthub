@@ -32,7 +32,7 @@ try {
     await page.waitForTimeout(350);
     await capture(name);
     if (route === "students") {
-      await page.getByRole("button", { name: "Tambah siswa" }).click();
+      await page.getByRole("button", { name: "Siswa baru" }).click();
       await page.getByRole("dialog").waitFor();
       await capture("04-formulir-siswa-desktop");
       await page.keyboard.press("Escape");
@@ -49,7 +49,7 @@ try {
   await page.getByRole("heading", { name: /Selamat datang/ }).waitFor();
   await capture("08-dashboard-mobile");
   await page.goto(`${base}/hub/students`);
-  await page.getByRole("button", { name: "Tambah siswa" }).click();
+  await page.getByRole("button", { name: "Siswa baru" }).click();
   await page.getByRole("dialog").waitFor();
   await capture("09-formulir-mobile");
   if (errors.length) throw new Error(errors.join("\n"));

@@ -26,7 +26,7 @@ test("demo: navigasi, pencarian, detail, formulir, dan penolakan simpan", async 
   await expect(page.locator("tbody tr")).toHaveCount(1);
   await page.getByRole("button", { name: "Lihat detail Alya Putri Ramadhani" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "Edit data", exact: true }).click();
+  await page.getByRole("button", { name: "Ubah", exact: true }).click();
   await expect(page.getByLabel("Nama", { exact: true })).toHaveValue("Alya Putri Ramadhani");
   await page.getByRole("button", { name: "Simpan & lanjutkan" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Mode demo digunakan" })).toBeVisible();
@@ -43,7 +43,7 @@ test("mobile: login, dasbor, menu, dan formulir tanpa luapan horizontal", async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Buka navigasi" }).click();
   await page.getByRole("navigation").getByRole("link", { name: "Data siswa" }).click();
-  await page.getByRole("button", { name: "Tambah siswa" }).click();
+  await page.getByRole("button", { name: "Siswa baru" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(await page.getByRole("dialog").evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -67,7 +67,7 @@ test("formulir siswa mengirim body sesuai kontrak dan menampilkan kredensial per
     await route.fulfill({ status: 201, json: envelope({ student: body, temporaryPassword: "TempSiswa123", tempPasswordExpiresAt: "2026-10-06T00:00:00Z" }) });
   });
   await page.goto("/hub/students");
-  await page.getByRole("button", { name: "Tambah siswa" }).click();
+  await page.getByRole("button", { name: "Siswa baru" }).click();
   await page.getByLabel("NISN", { exact: false }).first().fill("0012345678");
   await page.getByLabel(/^NIS \*/).fill("S-001");
   await page.getByLabel(/^Nama \*/).fill("Siswa Pengujian");
@@ -88,7 +88,7 @@ test("lembar nilai menyimpan perubahan melalui kontrak entries", async ({ page }
   let payload: unknown;
   await page.route("**/api/web/school/report-cards/grades", r => { payload = r.request().postDataJSON(); return r.fulfill({ json: envelope({ updated: 1 }) }); });
   await page.goto("/hub/reports");
-  await page.getByLabel("Pilih tampilan").selectOption("getReportCardGradeSheet");
+  await page.getByRole("tab", { name: "Lembar nilai" }).click();
   await page.getByLabel(/^Semester/).selectOption("term1");
   await page.getByLabel(/^Kelas/).selectOption("class1");
   await page.getByLabel(/^Mata pelajaran/).selectOption("subject1");

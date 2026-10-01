@@ -3,11 +3,16 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { resolveSchema } from "@/lib/frontend/catalog";
 import type { Operation, Row, Schema } from "@/lib/frontend/types";
+import { ACTION_LABELS } from "@/lib/frontend/workspace-rules";
 import { useHub } from "./context";
 import { Fields, defaults } from "./fields";
 import { Details } from "./data-view";
 import { Icon } from "./icon";
 
+/** Teks tombol/judul yang menyebut objeknya (src/lib/frontend/workspace-rules.ts), cadangan: judul operasi. */
+export function actionLabel(op: Operation): string {
+  return ACTION_LABELS[op.id]?.label ?? actionTitle(op);
+}
 export function actionTitle(op: Operation) {
   const endings: Record<string, string> = { activate: "Aktifkan", deactivate: "Nonaktifkan", approve: "Setujui", reject: "Tolak", cancel: "Batalkan", publish: "Terbitkan", unpublish: "Tarik penerbitan", pause: "Jeda", resume: "Lanjutkan", submit: "Ajukan tinjauan", withdraw: "Tarik pengajuan", archive: "Arsipkan", void: "Batalkan", restore: "Pulihkan", "reset-password": "Reset kata sandi", "revoke-sessions": "Cabut semua sesi", "read-all": "Tandai semua dibaca", read: "Tandai sudah dibaca" };
   return endings[op.path.split("/").pop()!] ?? op.title.replace(/\s*\([^)]*\)/g, "").replace(/ \+ /g, " & ").replace("multipart", "").replace("DRAFT", "draf").replace("Ledger", "Riwayat");
@@ -77,10 +82,10 @@ export function ActionDialog({ op, initial = {}, onClose, onDone }: DialogProps)
     finally { setBusy(false); }
   }
   const editableParams = parameterSchema({ ...op, parameters: op.parameters.filter(p => !(p.in === "path" && initial[p.name])) });
-  return <dialog ref={dialog} className="action-dialog" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><div className="dialog-heading"><div><span className="eyebrow">{op.method === "GET" ? "LIHAT INFORMASI" : "KELOLA DATA"}</span><h2>{actionTitle(op)}</h2></div><button className="icon-button" aria-label="Tutup dialog" disabled={busy} onClick={onClose}><Icon name="close" /></button></div>
+  return <dialog ref={dialog} className="action-dialog" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><div className="dialog-heading"><div><span className="eyebrow">{op.method === "GET" ? "LIHAT INFORMASI" : "KELOLA DATA"}</span><h2>{actionLabel(op)}</h2></div><button className="icon-button" aria-label="Tutup dialog" disabled={busy} onClick={onClose}><Icon name="close" /></button></div>
     {result !== undefined ? <><div className="dialog-body"><div className="success-message"><Icon name="check" size={19} />{op.method === "GET" ? "Informasi berhasil dimuat." : "Berhasil. Perubahanmu sudah tersimpan."}</div><Details value={result} /></div><div className="dialog-footer"><button className="button secondary" onClick={() => window.print()}><Icon name="download" size={15} />Cetak / PDF</button><button className="button primary" onClick={onClose}>Selesai</button></div></> : <form onSubmit={submit}><div className="dialog-body">{demo && <div className="info-message">Kamu sedang melihat formulir demo. Masuk dengan akun untuk menyimpan data.</div>}{op.id === "importSchoolStudents" && <div className="info-message">Mulai dengan pratinjau untuk memeriksa berkas. Setelah hasilnya sesuai, nonaktifkan pratinjau untuk menyimpan.</div>}{op.id === "setupMyTotp" && <p>Siapkan aplikasi autentikator. Kunci rahasia akan ditampilkan satu kali; tambahkan kunci ke aplikasi, lalu gunakan tindakan “Konfirmasi pendaftaran TOTP” untuk memasukkan kodenya.</p>}
       <Fields schema={editableParams} value={params} onChange={setParams} />{op.body && <Fields schema={op.body} value={values} onChange={setValues} />}
-      {!op.body && Object.keys(editableParams.properties ?? {}).length === 0 && <p>Jalankan tindakan <strong>{actionTitle(op).toLowerCase()}</strong>{initial.name ? ` untuk ${String(initial.name)}` : ""}?</p>}
+      {!op.body && Object.keys(editableParams.properties ?? {}).length === 0 && <p>Jalankan tindakan <strong>{actionLabel(op).toLowerCase()}</strong>{initial.name ? ` untuk ${String(initial.name)}` : ""}?</p>}
       {danger && <label className="check-field danger-confirm"><input type="checkbox" required /><span>Saya memahami dampaknya dan ingin melanjutkan tindakan ini.</span></label>}
       {error && <div className="error-message" role="alert">{error}</div>}{errorDetails !== undefined && <Details value={errorDetails} />}</div><div className="dialog-footer"><button type="button" className="button secondary" disabled={busy} onClick={onClose}>Batal</button><button className={`button ${danger ? "danger" : "primary"}`} disabled={busy}>{busy ? "Memproses…" : op.method === "GET" ? "Tampilkan" : "Simpan & lanjutkan"}<Icon name="arrow" size={16} /></button></div></form>}
   </dialog>;
