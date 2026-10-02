@@ -180,7 +180,8 @@ describe("reset kata sandi", () => {
     });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     const data = res.body?.data;
-    assert.ok(data && data.temporaryPassword.length === 10);
+    assert.ok(data);
+    assert.equal(data.temporaryPassword, "studenthubid", "reset admin = kata sandi awal bawaan (keputusan pemilik 2026-10-02)");
     assert.equal(data.mustChangePassword, true);
     assert.equal(data.revokedSessions, 1);
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, omit: { passwordHash: false } });

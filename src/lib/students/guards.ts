@@ -1,4 +1,5 @@
-import { generateTempPassword, hashPassword, TEMP_PASSWORD_BCRYPT_COST, TEMP_PASSWORD_TTL_MS } from "@/lib/auth/password";
+import { hashPassword, TEMP_PASSWORD_BCRYPT_COST, TEMP_PASSWORD_TTL_MS } from "@/lib/auth/password";
+import { DEFAULT_STUDENT_PASSWORD } from "./constants";
 import type { Tx } from "@/lib/db";
 import { conflict, unprocessable, type AppError } from "@/lib/http/errors";
 import type { SchoolScope } from "@/lib/tenant/scope";
@@ -70,9 +71,9 @@ export interface TemporaryCredential {
   readonly expiresAt: Date;
 }
 
-/** Kata sandi sementara hasil generate (cost 8, kedaluwarsa 14 hari). Di-hash SEBELUM transaksi. */
+/** Kata sandi awal bawaan DEFAULT_STUDENT_PASSWORD (cost 8, kedaluwarsa 14 hari, wajib diganti). Di-hash SEBELUM transaksi. */
 export async function issueTemporaryPassword(now: Date): Promise<TemporaryCredential> {
-  const plain = generateTempPassword();
+  const plain = DEFAULT_STUDENT_PASSWORD;
   const hash = await hashPassword(plain, TEMP_PASSWORD_BCRYPT_COST);
   return { plain, hash, expiresAt: new Date(now.getTime() + TEMP_PASSWORD_TTL_MS) };
 }

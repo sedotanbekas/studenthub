@@ -96,6 +96,7 @@ describe("dry-run & commit", () => {
       assert.equal(student?.guardianPhone, "+6281298765432");
       assert.equal(student?.user.mustChangePassword, true);
       assert.ok(student?.user.tempPasswordExpiresAt);
+      assert.equal(cred.temporaryPassword, "studenthubid");
       assert.equal(await verifyPassword(cred.temporaryPassword, student?.user.passwordHash ?? null), true);
     }
     const audit = await prisma.auditLog.findFirst({ where: { action: "student.import", schoolId: a.school.id }, orderBy: { createdAt: "desc" } });

@@ -58,6 +58,7 @@ describe("POST /school/students", () => {
     const row = await prisma.student.findFirst({ where: { id: created.student.id, schoolId: a.school.id }, include: { user: { omit: { passwordHash: false } } } });
     assert.equal(row?.activeNisn, body.nisn);
     assert.equal(row?.user.email, null);
+    assert.equal(created.temporaryPassword, "studenthubid", "kata sandi awal bawaan semua siswa baru");
     assert.equal(await verifyPassword(created.temporaryPassword, row?.user.passwordHash ?? null), true);
     assert.ok(row?.user.passwordHash.startsWith("$2b$08$") || row?.user.passwordHash.startsWith("$2a$08$") || row?.user.passwordHash.startsWith("$2y$08$"));
     const audit = await prisma.auditLog.findFirst({ where: { action: "student.create", entityId: created.student.id } });

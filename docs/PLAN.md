@@ -168,6 +168,9 @@ status transitions (tabel tunggal; MOVED melepas NISN & me-void tagihan masa dep
 hapus hanya DRAFT, pencarian nama/NIS/NISN + filter kelas + paginasi. Klaim NISN saat aktivasi; NISN
 milik siswa LULUS di sekolah lain dilepas + audit di sekolah asal + notifikasi `NISN_RELEASED`.
 **Impor XLSX/CSV** (≤1.000 baris, dry-run lalu commit, all-or-nothing, guard zip-bomb saat inflate).
+**Kata sandi awal siswa (pemilik 2026-10-02):** semua siswa baru (tambah, impor) dan hasil reset admin memakai kata
+sandi bawaan `studenthubid` (bukan acak lagi) agar mudah dibagikan; tetap wajib diganti saat masuk pertama, kedaluwarsa
+14 hari, dan turunannya (`studenthubid1`, ...) ditolak kebijakan kata sandi.
 
 **Kalender & akademik**: tahun ajaran, semester, semester aktif, kelas, mapel + pemetaan kelas–mapel,
 **libur** `/school/holidays` (backdate ≤7 hari untuk admin sekolah) & `/platform/holidays` (nasional;

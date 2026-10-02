@@ -6,14 +6,14 @@ import { FormError } from "../academics/form-kit";
 import { useSaving } from "../academics/use-academics";
 import { useHub } from "../context";
 import { Icon } from "../icon";
-import { DEMO_BLOCKED, saveTextFile, StepActions, StepIntro, useCloseGuard, useWizardApi, WizardDialog, type CustomActionProps } from "./wizard-kit";
+import { DEFAULT_STUDENT_PASSWORD } from "@/lib/students/constants";
+import { DEMO_BLOCKED, saveTextFile, StepActions, StepIntro, useWizardApi, WizardDialog, type CustomActionProps } from "./wizard-kit";
 
 /** Wizard impor siswa: templat -> unggah & periksa (dry-run) -> simpan (semua atau tidak sama sekali) -> kata sandi awal. */
 interface ImportResult { readonly dryRun: boolean; readonly report: ImportReport; readonly created?: number; readonly credentials?: readonly Credential[] }
 
 const STEPS = [{ key: "template", title: "Unduh templat" }, { key: "upload", title: "Unggah & periksa" }, { key: "save", title: "Simpan" }, { key: "passwords", title: "Kata sandi awal" }];
 const IMPORT_PATH = "/school/students/import";
-const UNSAVED_PASSWORDS = "Kata sandi awal belum diunduh atau dicetak, dan tidak bisa ditampilkan lagi. Bila ditutup, kata sandi siswa harus direset satu per satu.";
 
 export function ImportStudentsWizard({ onClose, onDone, onFallback }: CustomActionProps) {
   const { toast } = useHub();
@@ -24,9 +24,7 @@ export function ImportStudentsWizard({ onClose, onDone, onFallback }: CustomActi
   const [releaseNisn, setReleaseNisn] = useState(false);
   const [check, setCheck] = useState<ImportResult | null>(null);
   const [saved, setSaved] = useState<ImportResult | null>(null);
-  const [kept, setKept] = useState(false);
   const saving = useSaving();
-  const guard = useCloseGuard(onClose, saved?.credentials?.length && !kept ? UNSAVED_PASSWORDS : null);
   const reachable = saved ? 3 : check && importSummary(check.report).canSave ? 2 : 1;
   const formData = (dryRun: boolean): FormData => {
     const data = new FormData();
@@ -45,12 +43,12 @@ export function ImportStudentsWizard({ onClose, onDone, onFallback }: CustomActi
     setSaved(result); onDone(); setIndex(3);
     toast(`${result.created ?? 0} siswa tersimpan.`);
   });
-  return <WizardDialog eyebrow="Data siswa" title="Impor siswa dari Excel" steps={STEPS} index={index} reachable={reachable} lockedBefore={saved ? 3 : 0} notice={guard.notice} onStep={setIndex} onClose={guard.request} busy={saving.busy}
+  return <WizardDialog eyebrow="Data siswa" title="Impor siswa dari Excel" steps={STEPS} index={index} reachable={reachable} lockedBefore={saved ? 3 : 0} onStep={setIndex} onClose={onClose} busy={saving.busy}
     fallback={onFallback && !saved ? { label: "Buka formulir impor lengkap", onClick: onFallback } : undefined}>
     {index === 0 && <TemplateStep onNext={() => setIndex(1)} />}
     {index === 1 && <UploadStep file={file} activate={activate} releaseNisn={releaseNisn} check={check} busy={saving.busy} onFile={pick} onActivate={(v) => { setActivate(v); setCheck(null); }} onRelease={(v) => { setReleaseNisn(v); setCheck(null); }} onCheck={runCheck} onBack={() => setIndex(0)} onNext={() => setIndex(2)} />}
     {index === 2 && check && <SaveStep report={check.report} activate={activate} busy={saving.busy} onSave={runSave} onBack={() => setIndex(1)} />}
-    {index === 3 && saved && <PasswordsStep result={saved} activate={activate} onKept={() => setKept(true)} onClose={guard.request} />}
+    {index === 3 && saved && <PasswordsStep result={saved} activate={activate} onClose={onClose} />}
     <FormError text={saving.error} />
   </WizardDialog>;
 }
@@ -114,12 +112,12 @@ function SaveStep({ report, activate, busy, onSave, onBack }: { report: ImportRe
   </>;
 }
 
-function PasswordsStep({ result, activate, onKept, onClose }: { result: ImportResult; activate: boolean; onKept: () => void; onClose: () => void }) {
+function PasswordsStep({ result, activate, onClose }: { result: ImportResult; activate: boolean; onClose: () => void }) {
   const credentials = result.credentials ?? [];
-  const download = () => { saveTextFile(credentialsCsv(credentials), "kata-sandi-awal-siswa.csv"); onKept(); };
-  const print = () => { window.print(); onKept(); };
+  const download = () => saveTextFile(credentialsCsv(credentials), "kata-sandi-awal-siswa.csv");
+  const print = () => window.print();
   return <>
-    <StepIntro title="Kata sandi awal" tone="warning" why={credentials.length ? "Kata sandi awal hanya tampil sekali. Unduh atau cetak sekarang; siswa wajib menggantinya saat masuk pertama." : activate ? "Siswa tersimpan." : "Siswa tersimpan sebagai draf; kata sandi dibuat saat siswa diaktifkan."} />
+    <StepIntro title="Kata sandi awal" tone="warning" why={credentials.length ? `Siswa masuk dengan NISN dan kata sandi awal ${DEFAULT_STUDENT_PASSWORD}; wajib diganti saat masuk pertama (berlaku 14 hari). Unduh atau cetak daftar bila perlu dibagikan.` : activate ? "Siswa tersimpan." : "Siswa tersimpan sebagai draf; kata sandi dibuat saat siswa diaktifkan."} />
     {credentials.length > 0 && <div className="table-scroll wizard-table credentials-table"><table>
       <thead><tr><th scope="col">Nama</th><th scope="col">NISN (untuk masuk)</th><th scope="col">Kelas</th><th scope="col">Kata sandi sementara</th></tr></thead>
       <tbody>{credentials.map((c) => <tr key={c.row}><td>{c.name}</td><td>{c.nisn}</td><td>{c.className ?? "—"}</td><td><code>{c.temporaryPassword}</code></td></tr>)}</tbody>

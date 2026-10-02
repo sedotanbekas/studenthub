@@ -47,6 +47,8 @@ export type PasswordContext = { nisn?: string | null; nis?: string | null; email
 export type PasswordViolation = "TOO_SHORT" | "TOO_LONG" | "NEEDS_LETTER" | "NEEDS_DIGIT" | "CONTAINS_PERSONAL_DATA" | "TOO_COMMON";
 
 const COMMON = new Set(["password1", "password123", "12345678a", "qwerty123", "admin1234", "bismillah1", "indonesia1", "sekolah123", "studenthub1"]);
+/** Turunan kata sandi awal bawaan siswa ("studenthubid" + angka) mudah ditebak siapa pun. */
+const COMMON_PATTERN = /^studenthub(?:id)?\d+$/;
 
 function personalTokens(ctx: PasswordContext): string[] {
   const tokens = [ctx.nisn, ctx.nis, ctx.email?.split("@")[0]];
@@ -67,7 +69,7 @@ export function checkPasswordPolicy(plain: string, ctx: PasswordContext = {}): P
   if (!/\d/.test(plain)) violations.push("NEEDS_DIGIT");
   const lower = plain.toLowerCase();
   if (personalTokens(ctx).some((token) => lower.includes(token))) violations.push("CONTAINS_PERSONAL_DATA");
-  if (COMMON.has(lower)) violations.push("TOO_COMMON");
+  if (COMMON.has(lower) || COMMON_PATTERN.test(lower)) violations.push("TOO_COMMON");
   return violations;
 }
 

@@ -263,7 +263,7 @@ export const studentDetailSchema = z
 export type StudentDetail = z.input<typeof studentDetailSchema>;
 
 const temporaryPasswordFields = {
-  temporaryPassword: z.string().meta({ description: "Kata sandi sementara — HANYA ditampilkan sekali." }),
+  temporaryPassword: z.string().meta({ description: "Kata sandi awal bawaan `studenthubid` (sama untuk semua siswa baru & hasil reset); wajib diganti saat masuk pertama, berlaku 14 hari." }),
   tempPasswordExpiresAt: isoInstant,
 };
 

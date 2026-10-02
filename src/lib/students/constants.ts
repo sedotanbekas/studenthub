@@ -16,6 +16,13 @@ export const STATUS_REASON_MIN = 3;
 export const STATUS_REASON_MAX = 255;
 export const SEARCH_QUERY_MAX = 100;
 
+/**
+ * Kata sandi awal SEMUA siswa baru (tambah, impor) dan hasil reset admin — keputusan pemilik 2026-10-02 agar mudah
+ * dibagikan. Pengaman: wajib diganti saat masuk pertama, kedaluwarsa 14 hari (TEMP_PASSWORD_TTL_MS), dan turunannya
+ * (studenthubid1, ...) ditolak kebijakan kata sandi.
+ */
+export const DEFAULT_STUDENT_PASSWORD = "studenthubid";
+
 export const STUDENT_STATUSES = ["DRAFT", "ACTIVE", "INACTIVE", "GRADUATED", "MOVED"] as const;
 export type StudentStatusValue = (typeof STUDENT_STATUSES)[number];
 export const GENDERS = ["MALE", "FEMALE"] as const;

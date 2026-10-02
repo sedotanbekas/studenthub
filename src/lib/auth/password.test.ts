@@ -33,4 +33,7 @@ test("kebijakan kata sandi", () => {
   assert.ok(checkPasswordPolicy("ab0012345678", { nisn: "0012345678" }).includes("CONTAINS_PERSONAL_DATA"));
   assert.ok(checkPasswordPolicy("lahir21092010x", { birthDate: new Date("2010-09-21T00:00:00Z") }).includes("CONTAINS_PERSONAL_DATA"));
   assert.ok(checkPasswordPolicy("Qwerty123").includes("TOO_COMMON"));
+  // Turunan kata sandi awal bawaan siswa (studenthubid) mudah ditebak siapa pun -> ditolak sebagai kata sandi baru.
+  for (const guess of ["studenthubid1", "Studenthubid123", "studenthubid2026"]) assert.ok(checkPasswordPolicy(guess).includes("TOO_COMMON"), guess);
+  assert.ok(checkPasswordPolicy("studenthubid").includes("NEEDS_DIGIT"), "kata sandi awal sendiri tidak bisa dipakai lagi");
 });
