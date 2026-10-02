@@ -94,3 +94,12 @@ export const recloseDayResponse = z
   .meta({ id: "AttendanceRecloseDayResult" });
 
 export type RecloseDayDto = z.infer<typeof recloseDayResponse>;
+
+export const attendanceTestModeResponse = z
+  .object({
+    enabled: z.boolean().meta({ description: "true = jarak ke sekolah dan jam/hari absen tidak diperiksa untuk semua sekolah." }),
+    since: z.iso.datetime().nullable().meta({ description: "Waktu mode uji dinyalakan; null bila terkunci." }),
+  })
+  .meta({ id: "AttendanceTestMode" });
+
+export type AttendanceTestModeDto = z.infer<typeof attendanceTestModeResponse>;

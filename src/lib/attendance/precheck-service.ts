@@ -23,12 +23,10 @@ function verdictOf(decision: CheckInDecision, wouldBeLate: boolean): Verdict {
       return { ok: false, reason: "ATTENDANCE_ALREADY_RECORDED", message: "Absensi hari ini sudah dicatat sekolah." };
     case "REJECT":
       return { ok: false, reason: decision.rejection.code, message: rejectMessage(decision.rejection) };
-    case "ACCEPT":
-      return {
-        ok: true,
-        reason: null,
-        message: wouldBeLate ? "Lokasi valid. Check-in sekarang akan tercatat Terlambat." : "Lokasi valid. Silakan ambil selfie untuk absen.",
-      };
+    case "ACCEPT": {
+      const prefix = decision.testModeBypass ? "Mode uji: lokasi/jam di luar ketentuan tetap diterima." : "Lokasi valid.";
+      return { ok: true, reason: null, message: `${prefix} ${wouldBeLate ? "Check-in sekarang akan tercatat Terlambat." : "Silakan ambil selfie untuk absen."}` };
+    }
   }
 }
 

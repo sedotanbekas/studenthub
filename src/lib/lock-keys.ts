@@ -60,3 +60,6 @@ export const attendanceLockKey = (studentId: string): string => `attendance:${st
  * terakhir yang memakai banner itu diturunkan/ditolak/diarsipkan. Diambil PALING AWAL, sebelum Sponsor/Ad.
  */
 export const bannerLockKey = (fileId: string): string => `banner:${fileId}`;
+
+/** Sakelar mode uji absensi (baris tunggal PlatformSetting): satu buka/kunci pada satu waktu agar audit tidak ganda. Tidak pernah diambil bersama kunci lain. */
+export const attendanceTestModeLockKey = (): string => "attendance-test-mode";

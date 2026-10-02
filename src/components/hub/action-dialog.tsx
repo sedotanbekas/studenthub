@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { resolveSchema } from "@/lib/frontend/catalog";
 import type { Operation, Row, Schema } from "@/lib/frontend/types";
-import { ACTION_LABELS } from "@/lib/frontend/workspace-rules";
+import { ACTION_LABELS, isDangerAction } from "@/lib/frontend/workspace-rules";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { useHub } from "./context";
 import { Fields, defaults } from "./fields";
@@ -67,7 +67,7 @@ export function ActionDialog({ op, initial = {}, onClose, onDone }: DialogProps)
   const [error, setError] = useState("");
   const [result, setResult] = useState<unknown>(undefined);
   const [errorDetails, setErrorDetails] = useState<unknown>(undefined);
-  const danger = op.method === "DELETE" || /void|deactivate|reset-password|revoke|takedown|logout-all/.test(op.path);
+  const danger = isDangerAction(op);
   useEffect(() => { dialog.current?.showModal(); const element = dialog.current; return () => element?.close(); }, []);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setErrorDetails(undefined);
@@ -86,7 +86,7 @@ export function ActionDialog({ op, initial = {}, onClose, onDone }: DialogProps)
   return <dialog ref={dialog} className="action-dialog" onCancel={e => { if (!isOwnDialogCancel(e)) return; e.preventDefault(); if (!busy) onClose(); }}><div className="dialog-heading"><div><span className="eyebrow">{op.method === "GET" ? "LIHAT INFORMASI" : "KELOLA DATA"}</span><h2>{actionLabel(op)}</h2></div><button className="icon-button" aria-label="Tutup dialog" disabled={busy} onClick={onClose}><Icon name="close" /></button></div>
     {result !== undefined ? <><div className="dialog-body"><div className="success-message"><Icon name="check" size={19} />{op.method === "GET" ? "Informasi berhasil dimuat." : "Berhasil. Perubahanmu sudah tersimpan."}</div><Details value={result} /></div><div className="dialog-footer"><button className="button secondary" onClick={() => window.print()}><Icon name="download" size={15} />Cetak / PDF</button><button className="button primary" onClick={onClose}>Selesai</button></div></> : <form onSubmit={submit}><div className="dialog-body">{demo && <div className="info-message">Kamu sedang melihat formulir demo. Masuk dengan akun untuk menyimpan data.</div>}{op.id === "importSchoolStudents" && <div className="info-message">Mulai dengan pratinjau untuk memeriksa berkas. Setelah hasilnya sesuai, nonaktifkan pratinjau untuk menyimpan.</div>}{op.id === "setupMyTotp" && <p>Siapkan aplikasi autentikator. Kunci rahasia akan ditampilkan satu kali; tambahkan kunci ke aplikasi, lalu gunakan tindakan “Konfirmasi pendaftaran TOTP” untuk memasukkan kodenya.</p>}
       <Fields schema={editableParams} value={params} onChange={setParams} />{op.body && <Fields schema={op.body} value={values} onChange={setValues} />}
-      {!op.body && Object.keys(editableParams.properties ?? {}).length === 0 && <p>Jalankan tindakan <strong>{actionLabel(op).toLowerCase()}</strong>{initial.name ? ` untuk ${String(initial.name)}` : ""}?</p>}
+      {!op.body && Object.keys(editableParams.properties ?? {}).length === 0 && <><p>Jalankan tindakan <strong>{actionLabel(op).toLowerCase()}</strong>{initial.name ? ` untuk ${String(initial.name)}` : ""}?</p>{ACTION_LABELS[op.id]?.hint && <p className="field-hint">{ACTION_LABELS[op.id]?.hint}</p>}</>}
       {danger && <label className="check-field danger-confirm"><input type="checkbox" required /><span>Saya memahami dampaknya dan ingin melanjutkan tindakan ini.</span></label>}
       {error && <div className="error-message" role="alert">{error}</div>}{errorDetails !== undefined && <Details value={errorDetails} />}</div><div className="dialog-footer"><button type="button" className="button secondary" disabled={busy} onClick={onClose}>Batal</button><button className={`button ${danger ? "danger" : "primary"}`} disabled={busy}>{busy ? "Memproses…" : op.method === "GET" ? "Tampilkan" : "Simpan & lanjutkan"}<Icon name="arrow" size={16} /></button></div></form>}
   </dialog>;

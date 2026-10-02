@@ -15149,6 +15149,302 @@
         }
       }
     },
+    "/api/v1/platform/attendance/test-mode": {
+      "get": {
+        "operationId": "getAttendanceTestMode",
+        "tags": [
+          "Absensi (Super Admin)"
+        ],
+        "summary": "Status mode uji absensi (longgarkan lokasi & jam absen)",
+        "description": "Mode uji absensi (SEMENTARA, untuk uji coba): selama aktif, jarak ke sekolah (geofence) dan jam/hari absen TIDAK diperiksa untuk SEMUA sekolah; lokasi (0,0), lokasi palsu, data lokasi basi, akurasi GPS, selfie, dan sesi HP tetap wajib. Check-in yang lolos hanya karena mode ini diberi flag TEST_MODE (tampil di antrean anomali admin sekolah).\n\nAksi POLICY: `attendance.test_mode`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceTestMode"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "enableAttendanceTestMode",
+        "tags": [
+          "Absensi (Super Admin)"
+        ],
+        "summary": "Nyalakan mode uji absensi (absen dari mana saja, kapan saja)",
+        "description": "Mode uji absensi (SEMENTARA, untuk uji coba): selama aktif, jarak ke sekolah (geofence) dan jam/hari absen TIDAK diperiksa untuk SEMUA sekolah; lokasi (0,0), lokasi palsu, data lokasi basi, akurasi GPS, selfie, dan sesi HP tetap wajib. Check-in yang lolos hanya karena mode ini diberi flag TEST_MODE (tampil di antrean anomali admin sekolah). Idempoten; perubahan diaudit (platform.attendance_test_mode.enable).\n\nAksi POLICY: `attendance.test_mode`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceTestMode"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "disableAttendanceTestMode",
+        "tags": [
+          "Absensi (Super Admin)"
+        ],
+        "summary": "Kunci kembali lokasi & jam absen (matikan mode uji)",
+        "description": "Absensi kembali memeriksa jarak ke sekolah serta jam dan hari absen. Idempoten; perubahan diaudit (platform.attendance_test_mode.disable).\n\nAksi POLICY: `attendance.test_mode`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceTestMode"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/school/attendance/stats/today": {
       "get": {
         "operationId": "monitorAttendanceToday",
@@ -35626,6 +35922,10 @@
               }
             ],
             "description": "Null bila canCheckIn = true."
+          },
+          "testMode": {
+            "type": "boolean",
+            "description": "Mode uji absensi (sementara) aktif: jarak ke sekolah dan jam/hari absen tidak diperiksa."
           }
         },
         "required": [
@@ -35639,7 +35939,8 @@
           "record",
           "pendingLeave",
           "canCheckIn",
-          "blockReason"
+          "blockReason",
+          "testMode"
         ],
         "additionalProperties": false
       },
@@ -36569,6 +36870,33 @@
         ],
         "additionalProperties": false
       },
+      "AttendanceTestMode": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "true = jarak ke sekolah dan jam/hari absen tidak diperiksa untuk semua sekolah."
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Waktu mode uji dinyalakan; null bila terkunci."
+          }
+        },
+        "required": [
+          "enabled",
+          "since"
+        ],
+        "additionalProperties": false
+      },
       "MonitorTodayStats": {
         "type": "object",
         "properties": {
@@ -36782,6 +37110,7 @@
                 "PERFECT_ACCURACY",
                 "SHARED_DEVICE",
                 "STALE_FIX",
+                "TEST_MODE",
                 "TIME_INCONSISTENT",
                 "WEB_CHECKIN"
               ]
@@ -36979,6 +37308,7 @@
                       "PERFECT_ACCURACY",
                       "SHARED_DEVICE",
                       "STALE_FIX",
+                      "TEST_MODE",
                       "TIME_INCONSISTENT",
                       "WEB_CHECKIN"
                     ]
@@ -38432,6 +38762,7 @@
                     "PERFECT_ACCURACY",
                     "SHARED_DEVICE",
                     "STALE_FIX",
+                    "TEST_MODE",
                     "TIME_INCONSISTENT",
                     "WEB_CHECKIN"
                   ]

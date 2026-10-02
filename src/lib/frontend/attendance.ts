@@ -117,6 +117,8 @@ export interface TodayView {
   readonly record: { readonly status: string; readonly checkInTimeLocal: string | null; readonly lateMinutes: number | null } | null;
   readonly canCheckIn: boolean;
   readonly blockReason: string | null;
+  /** Mode uji absensi (sementara): jarak & jam/hari absen tidak diperiksa server. */
+  readonly testMode?: boolean;
 }
 export interface Headline {
   readonly tone: "action" | "success" | "warning" | "neutral";
@@ -124,6 +126,7 @@ export interface Headline {
   readonly note: string;
 }
 
+export const TEST_MODE_NOTE = "Mode uji aktif: absen bisa dari mana saja dan kapan saja. Akurasi GPS dan foto wajah tetap wajib.";
 const RECORD_NOTES: Record<string, string> = { IZIN: "Tercatat izin.", SAKIT: "Tercatat sakit.", ALPHA: "Tercatat alpa." };
 
 function recordHeadline(record: NonNullable<TodayView["record"]>): Headline {
@@ -148,6 +151,7 @@ function nonSchoolDayHeadline(day: TodayView["schoolDay"]): Headline {
 export function todayHeadline(today: TodayView): Headline {
   const { window } = today;
   if (today.record && today.blockReason !== null) return recordHeadline(today.record);
+  if (today.testMode && today.canCheckIn) return { tone: "action", title: "Kamu belum absen", note: TEST_MODE_NOTE };
   if (!today.schoolDay.isSchoolDay) return nonSchoolDayHeadline(today.schoolDay);
   if (today.blockReason === "CHECKIN_NOT_OPEN") return { tone: "neutral", title: "Absensi belum dibuka", note: `Absen dibuka pukul ${window.opensAt}.` };
   if (today.blockReason === "CHECKIN_CLOSED") return { tone: "neutral", title: "Absensi sudah ditutup", note: `Absensi ditutup pukul ${window.closesAt}.` };

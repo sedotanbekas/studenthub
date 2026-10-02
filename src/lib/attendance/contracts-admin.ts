@@ -1,5 +1,5 @@
 import { defineContract, type AnyContract } from "@/lib/http/contract";
-import { correctionBody, correctionParams, correctionQuery, correctionResponse, recloseDayBody, recloseDayResponse } from "./admin-schemas";
+import { attendanceTestModeResponse, correctionBody, correctionParams, correctionQuery, correctionResponse, recloseDayBody, recloseDayResponse } from "./admin-schemas";
 import { CORRECTION_WINDOW_DAYS } from "./correction-rules";
 
 /** Kontrak route absensi bagian "admin": koreksi manual catatan absensi & tutup-ulang hari (super admin). */
@@ -43,4 +43,44 @@ export const recloseDayContract = defineContract({
   errors: ["SCHOOL_NOT_FOUND", "DAY_NOT_CLOSED", "DATE_BEFORE_SCHOOL_START"],
 });
 
-export const attendanceAdminContracts: readonly AnyContract[] = [correctAttendanceContract, recloseDayContract];
+const TEST_MODE_PATH = "/api/v1/platform/attendance/test-mode";
+const TEST_MODE_EFFECT =
+  "Mode uji absensi (SEMENTARA, untuk uji coba): selama aktif, jarak ke sekolah (geofence) dan jam/hari absen TIDAK diperiksa untuk SEMUA sekolah; " +
+  "lokasi (0,0), lokasi palsu, data lokasi basi, akurasi GPS, selfie, dan sesi HP tetap wajib. Check-in yang lolos hanya karena mode ini diberi flag TEST_MODE (tampil di antrean anomali admin sekolah).";
+
+export const getAttendanceTestModeContract = defineContract({
+  id: "getAttendanceTestMode",
+  method: "GET",
+  path: TEST_MODE_PATH,
+  tag: "Absensi (Super Admin)",
+  summary: "Status mode uji absensi (longgarkan lokasi & jam absen)",
+  description: TEST_MODE_EFFECT,
+  action: "attendance.test_mode",
+  response: attendanceTestModeResponse,
+});
+
+export const enableAttendanceTestModeContract = defineContract({
+  id: "enableAttendanceTestMode",
+  method: "POST",
+  path: TEST_MODE_PATH,
+  tag: "Absensi (Super Admin)",
+  summary: "Nyalakan mode uji absensi (absen dari mana saja, kapan saja)",
+  description: `${TEST_MODE_EFFECT} Idempoten; perubahan diaudit (platform.attendance_test_mode.enable).`,
+  action: "attendance.test_mode",
+  response: attendanceTestModeResponse,
+});
+
+export const disableAttendanceTestModeContract = defineContract({
+  id: "disableAttendanceTestMode",
+  method: "DELETE",
+  path: TEST_MODE_PATH,
+  tag: "Absensi (Super Admin)",
+  summary: "Kunci kembali lokasi & jam absen (matikan mode uji)",
+  description: "Absensi kembali memeriksa jarak ke sekolah serta jam dan hari absen. Idempoten; perubahan diaudit (platform.attendance_test_mode.disable).",
+  action: "attendance.test_mode",
+  response: attendanceTestModeResponse,
+});
+
+export const attendanceAdminContracts: readonly AnyContract[] = [
+  correctAttendanceContract, recloseDayContract, getAttendanceTestModeContract, enableAttendanceTestModeContract, disableAttendanceTestModeContract,
+];

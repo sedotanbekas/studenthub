@@ -42,7 +42,7 @@ function fixAt(meters: number, overrides: Partial<LocationFix> = {}): LocationFi
 const SCHOOL_DAY = { isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null } as const;
 
 function input(overrides: Partial<CheckInDecisionInput> = {}): CheckInDecisionInput {
-  return { existingSource: null, day: SCHOOL_DAY, minuteOfDay: 400, schedule: SCHEDULE, geofence: SCHOOL, fix: fixAt(20), ...overrides };
+  return { existingSource: null, day: SCHOOL_DAY, minuteOfDay: 400, schedule: SCHEDULE, geofence: SCHOOL, fix: fixAt(20), testMode: false, ...overrides };
 }
 
 test("classifyExisting: tanpa baris CREATE, CHECKIN REPLAY, ADMIN/AUTO_ALPHA CONFLICT, LEAVE CONVERT", () => {
@@ -178,24 +178,71 @@ test("decideCheckIn: jendela diperiksa sebelum lokasi", () => {
 
 test("decideCheckIn: terima HADIR / TERLAMBAT dengan jarak & toleransi", () => {
   assert.deepEqual(decideCheckIn(input({ minuteOfDay: 435 })), {
-    kind: "ACCEPT", mode: "CREATE", status: "HADIR", lateMinutes: null, distanceM: 20, usedTolerance: false,
+    kind: "ACCEPT", mode: "CREATE", status: "HADIR", lateMinutes: null, distanceM: 20, usedTolerance: false, testModeBypass: false,
   });
   assert.deepEqual(decideCheckIn(input({ minuteOfDay: 450, fix: fixAt(170, { accuracyM: 30 }) })), {
-    kind: "ACCEPT", mode: "CREATE", status: "TERLAMBAT", lateMinutes: 30, distanceM: 170, usedTolerance: true,
+    kind: "ACCEPT", mode: "CREATE", status: "TERLAMBAT", lateMinutes: 30, distanceM: 170, usedTolerance: true, testModeBypass: false,
   });
 });
 
 test("todayBlockReason mengikuti urutan keputusan check-in", () => {
   const open = "OPEN" as const;
-  assert.equal(todayBlockReason({ existingSource: null, day: SCHOOL_DAY, window: open }), null);
-  assert.equal(todayBlockReason({ existingSource: "LEAVE", day: SCHOOL_DAY, window: open }), null);
-  assert.equal(todayBlockReason({ existingSource: "CHECKIN", day: SCHOOL_DAY, window: "CLOSED" }), "ALREADY_CHECKED_IN");
-  assert.equal(todayBlockReason({ existingSource: "ADMIN", day: SCHOOL_DAY, window: open }), "ATTENDANCE_ALREADY_RECORDED");
+  assert.equal(todayBlockReason({ testMode: false, existingSource: null, day: SCHOOL_DAY, window: open }), null);
+  assert.equal(todayBlockReason({ testMode: false, existingSource: "LEAVE", day: SCHOOL_DAY, window: open }), null);
+  assert.equal(todayBlockReason({ testMode: false, existingSource: "CHECKIN", day: SCHOOL_DAY, window: "CLOSED" }), "ALREADY_CHECKED_IN");
+  assert.equal(todayBlockReason({ testMode: false, existingSource: "ADMIN", day: SCHOOL_DAY, window: open }), "ATTENDANCE_ALREADY_RECORDED");
   const dayOff = { isSchoolDay: false, reason: "DAY_OFF", holidayName: null } as const;
-  assert.equal(todayBlockReason({ existingSource: null, day: dayOff, window: open }), "NOT_SCHOOL_DAY");
-  assert.equal(todayBlockReason({ existingSource: null, day: SCHOOL_DAY, window: "BEFORE_OPEN" }), "CHECKIN_NOT_OPEN");
-  assert.equal(todayBlockReason({ existingSource: null, day: SCHOOL_DAY, window: "CLOSED" }), "CHECKIN_CLOSED");
+  assert.equal(todayBlockReason({ testMode: false, existingSource: null, day: dayOff, window: open }), "NOT_SCHOOL_DAY");
+  assert.equal(todayBlockReason({ testMode: false, existingSource: null, day: SCHOOL_DAY, window: "BEFORE_OPEN" }), "CHECKIN_NOT_OPEN");
+  assert.equal(todayBlockReason({ testMode: false, existingSource: null, day: SCHOOL_DAY, window: "CLOSED" }), "CHECKIN_CLOSED");
 });
+
+// ---- Mode uji absensi (sementara): jarak & jam/hari absen tidak diperiksa; pemeriksaan lain tetap.
+const DAY_OFF = { isSchoolDay: false, reason: "DAY_OFF", holidayName: null } as const;
+
+test("mode uji: di luar area, di luar jam, dan di hari libur tetap diterima dan ditandai testModeBypass", () => {
+  assert.deepEqual(decideCheckIn(input({ testMode: true, fix: fixAt(5000), minuteOfDay: 900 })), {
+    kind: "ACCEPT", mode: "CREATE", status: "TERLAMBAT", lateMinutes: 480, distanceM: 5000, usedTolerance: false, testModeBypass: true,
+  });
+  const early = decideCheckIn(input({ testMode: true, minuteOfDay: 300 }));
+  assert.equal(early.kind === "ACCEPT" && early.status, "HADIR");
+  assert.equal(early.kind === "ACCEPT" && early.testModeBypass, true);
+  const holiday = decideCheckIn(input({ testMode: true, day: DAY_OFF }));
+  assert.equal(holiday.kind === "ACCEPT" && holiday.testModeBypass, true);
+});
+
+test("mode uji: check-in yang memang lolos aturan normal tidak ditandai", () => {
+  const normal = decideCheckIn(input({ testMode: true, minuteOfDay: 435, fix: fixAt(170, { accuracyM: 30 }) }));
+  assert.equal(normal.kind === "ACCEPT" && normal.testModeBypass, false);
+  assert.equal(normal.kind === "ACCEPT" && normal.usedTolerance, true);
+});
+
+test("mode uji tetap menolak akurasi rendah, lokasi palsu, data basi, (0,0), dan tidak menimpa baris yang ada", () => {
+  const far = { testMode: true, minuteOfDay: 900 } as const;
+  assert.equal(rejectionCode(decideCheckIn(input({ ...far, fix: fixAt(5000, { accuracyM: 100.1 }) }))), "GPS_ACCURACY_TOO_LOW");
+  assert.equal(rejectionCode(decideCheckIn(input({ ...far, fix: fixAt(5000, { mocked: true }) }))), "MOCK_LOCATION");
+  assert.equal(rejectionCode(decideCheckIn(input({ ...far, fix: fixAt(5000, { locationTimestampMs: NOW - 181_000 }) }))), "LOCATION_STALE");
+  assert.equal(rejectionCode(decideCheckIn(input({ ...far, fix: fixAt(0, { latitude: 0, longitude: 0 }) }))), "INVALID_LOCATION");
+  assert.deepEqual(decideCheckIn(input({ ...far, existingSource: "AUTO_ALPHA" })), { kind: "CONFLICT", source: "AUTO_ALPHA" });
+  assert.deepEqual(decideCheckIn(input({ ...far, existingSource: "CHECKIN" })), { kind: "REPLAY" });
+});
+
+test("evaluateLocation mode uji: di luar area lolos dengan outsideGeofence, toleransi akurasi tetap terbaca", () => {
+  assert.deepEqual(evaluateLocation(fixAt(5000), SCHOOL, true), { ok: true, distanceM: 5000, usedTolerance: false, outsideGeofence: true });
+  assert.deepEqual(evaluateLocation(fixAt(170, { accuracyM: 30 }), SCHOOL, true), { ok: true, distanceM: 170, usedTolerance: true, outsideGeofence: false });
+  assert.equal(evaluateLocation(fixAt(5000), SCHOOL).ok, false);
+});
+
+test("todayBlockReason mode uji: hari libur & di luar jam tidak memblokir; sudah absen / dicatat sekolah tetap", () => {
+  assert.equal(todayBlockReason({ testMode: true, existingSource: null, day: DAY_OFF, window: "CLOSED" }), null);
+  assert.equal(todayBlockReason({ testMode: true, existingSource: null, day: SCHOOL_DAY, window: "BEFORE_OPEN" }), null);
+  assert.equal(todayBlockReason({ testMode: true, existingSource: "CHECKIN", day: SCHOOL_DAY, window: "OPEN" }), "ALREADY_CHECKED_IN");
+  assert.equal(todayBlockReason({ testMode: true, existingSource: "AUTO_ALPHA", day: SCHOOL_DAY, window: "CLOSED" }), "ATTENDANCE_ALREADY_RECORDED");
+});
+
+function rejectionCode(decision: ReturnType<typeof decideCheckIn>): string | null {
+  return decision.kind === "REJECT" ? decision.rejection.code : null;
+}
 
 test("isLocationRejection hanya untuk alasan lokasi (yang dicatat untuk admin)", () => {
   for (const code of ["INVALID_LOCATION", "MOCK_LOCATION", "LOCATION_STALE", "GPS_ACCURACY_TOO_LOW", "OUTSIDE_GEOFENCE"] as const) {

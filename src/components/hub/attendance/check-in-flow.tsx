@@ -4,7 +4,7 @@ import type { CheckInResultDto, PrecheckResultDto, TodayDto } from "@/lib/attend
 import { ACCURACY_TOLERANCE_CAP_M } from "@/lib/attendance/constants";
 import { haversineMeters } from "@/lib/attendance/geo";
 import { api, ApiError } from "@/lib/frontend/api";
-import { accuracyAdvice, fixAgeOk, simulateDemoFix, webDeviceId } from "@/lib/frontend/attendance";
+import { accuracyAdvice, fixAgeOk, simulateDemoFix, TEST_MODE_NOTE, webDeviceId } from "@/lib/frontend/attendance";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { useHub } from "../context";
 import { Icon } from "../icon";
@@ -66,6 +66,7 @@ export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClo
     {access.ready && step !== "done" && <ol className="step-bar" aria-hidden="true">{steps.map((s, i) => <li key={s} className={i <= steps.indexOf(step) ? "on" : ""} />)}</ol>}
     <div className="checkin-content">
       {demo && <p className="info-message">Mode demo: area sekolah dan akurasi GPS disimulasikan di sekitarmu; absensi tidak disimpan.</p>}
+      {today.testMode && !demo && <p className="warning-message" role="status">{TEST_MODE_NOTE}</p>}
       {!access.ready ? <AccessGate access={access} />
         : step === "location" ? <LocationStep today={today} school={school} live={live} distance={distance} inside={inside} verdict={verdict} onVerdict={setVerdict} onNext={() => setStep("face")} />
         : step === "face" && access.stream ? <section className="checkin-step-body"><div className="step-intro"><h2>Hadapkan wajah ke kamera</h2><p>Lepas masker/kacamata hitam dan pastikan wajahmu terang. Tombol foto aktif setelah wajah terdeteksi.</p></div><FaceCamera stream={access.stream} onCapture={blob => { setPhoto({ blob, url: URL.createObjectURL(blob) }); setStep("review"); }} /></section>

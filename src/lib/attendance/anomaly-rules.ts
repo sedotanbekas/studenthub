@@ -1,5 +1,6 @@
 import { hammingDistance, NEAR_DUPLICATE_MAX_DISTANCE } from "@/lib/storage/phash";
 import {
+  ACCURACY_TOLERANCE_CAP_M,
   CLOCK_SKEW_FLAG_S,
   FIX_AGE_FLAG_S,
   FIX_FUTURE_TOLERANCE_S,
@@ -24,6 +25,7 @@ export const ANOMALY_CODES = [
   "PERFECT_ACCURACY",
   "SHARED_DEVICE",
   "STALE_FIX",
+  "TEST_MODE",
   "TIME_INCONSISTENT",
   "WEB_CHECKIN",
 ] as const;
@@ -40,6 +42,7 @@ export const ANOMALY_SEVERITY: Readonly<Record<AnomalyCode, AnomalySeverity>> = 
   PERFECT_ACCURACY: "MEDIUM",
   SHARED_DEVICE: "HIGH",
   STALE_FIX: "LOW",
+  TEST_MODE: "MEDIUM",
   TIME_INCONSISTENT: "MEDIUM",
   WEB_CHECKIN: "LOW",
 });
@@ -54,6 +57,7 @@ export const ANOMALY_LABELS: Readonly<Record<AnomalyCode, string>> = Object.free
   PERFECT_ACCURACY: "Akurasi GPS terlalu sempurna (indikasi lokasi palsu)",
   SHARED_DEVICE: "Perangkat yang sama dipakai siswa lain hari ini",
   STALE_FIX: "Data lokasi agak lama",
+  TEST_MODE: "Diterima karena mode uji absensi (di luar area atau jam absen)",
   TIME_INCONSISTENT: "Waktu lokasi lebih baru dari waktu kirim",
   WEB_CHECKIN: "Absen dari browser HP (deteksi lokasi palsu terbatas)",
 });
@@ -80,6 +84,8 @@ export interface AnomalyInput {
   readonly sharedDevice: boolean;
   /** Sesi WEB (browser HP): browser tidak melaporkan lokasi palsu seperti aplikasi mobile. */
   readonly webSession: boolean;
+  /** Diterima hanya karena mode uji absensi (decideCheckIn testModeBypass). */
+  readonly testModeBypass: boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -120,7 +126,8 @@ function isNewDevice(input: AnomalyInput): boolean {
 function locationFlags(input: AnomalyInput): AnomalyCode[] {
   const fixAgeS = (input.clientTimeMs - input.locationTimestampMs) / 1000;
   const checks: ReadonlyArray<readonly [AnomalyCode, boolean]> = [
-    ["GEOFENCE_TOLERANCE", input.distanceM > input.radiusM],
+    ["GEOFENCE_TOLERANCE", input.distanceM > input.radiusM && input.distanceM <= input.radiusM + Math.min(input.accuracyM, ACCURACY_TOLERANCE_CAP_M)],
+    ["TEST_MODE", input.testModeBypass],
     ["LOW_ACCURACY", input.accuracyM > LOW_ACCURACY_FLAG_M],
     ["PERFECT_ACCURACY", input.accuracyM <= SUSPICIOUS_ACCURACY_M],
     ["STALE_FIX", fixAgeS > FIX_AGE_FLAG_S],

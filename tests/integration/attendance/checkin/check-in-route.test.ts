@@ -31,6 +31,7 @@ interface Today {
   pendingLeave: { id: string; type: string; startDate: string; endDate: string } | null;
   canCheckIn: boolean;
   blockReason: string | null;
+  testMode: boolean;
 }
 interface CheckInResult {
   attendance: { id: string; status: string; lateMinutes: number | null; date: string; source: string; checkInTimeLocal: string };
@@ -107,6 +108,7 @@ test("today -> check-in HADIR (201) -> today tercatat -> replay 200", async () =
     pendingLeave: null,
     canCheckIn: true,
     blockReason: null,
+    testMode: false,
   });
 
   const created = await postCheckIn(st.token, checkInForm(now, await solidSelfie()));
