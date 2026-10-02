@@ -16,6 +16,9 @@ import { haversineMeters, isNullIsland, roundCoord, type GeoPoint } from "./geo"
  * precheck, dan layar "hari ini" agar ketiganya selalu sepakat. Urutan (berhenti di aturan pertama):
  * baris yang ada -> hari sekolah -> jendela [buka, tutup) -> lokasi ((0,0) -> mocked -> umur fix ->
  * akurasi -> geofence) -> TERIMA (HADIR/TERLAMBAT).
+ *
+ * Mode uji absensi (SEMENTARA, keputusan pemilik 2026-10-02; lihat test-mode.ts): hari sekolah, jendela, dan
+ * geofence tidak menolak; (0,0), lokasi palsu, data basi, akurasi, dan baris yang ada tetap diperiksa.
  */
 export type AttendanceSourceCode = "CHECKIN" | "LEAVE" | "AUTO_ALPHA" | "ADMIN";
 export type CheckInMode = "CREATE" | "CONVERT_LEAVE" | "REPLAY" | "CONFLICT";
@@ -66,7 +69,7 @@ export type CheckInRejection =
 export type CheckInRejectCode = CheckInRejection["code"];
 
 export type LocationResult =
-  | { readonly ok: true; readonly distanceM: number; readonly usedTolerance: boolean }
+  | { readonly ok: true; readonly distanceM: number; readonly usedTolerance: boolean; readonly outsideGeofence: boolean }
   | { readonly ok: false; readonly rejection: CheckInRejection };
 
 export interface Lateness {
@@ -87,6 +90,8 @@ export type CheckInDecision =
       readonly distanceM: number;
       /** Diterima hanya berkat toleransi akurasi (jarak > radius). */
       readonly usedTolerance: boolean;
+      /** Diterima hanya karena mode uji (di luar area, di luar jam, atau bukan hari sekolah). */
+      readonly testModeBypass: boolean;
     };
 
 export interface CheckInDecisionInput {
@@ -97,6 +102,8 @@ export interface CheckInDecisionInput {
   readonly schedule: SchedulePolicy;
   readonly geofence: GeofencePolicy;
   readonly fix: LocationFix;
+  /** Mode uji absensi aktif (PlatformSetting). */
+  readonly testMode: boolean;
 }
 
 /** Baris absensi (siswa, tanggal) yang sudah ada menentukan jalur check-in. */
@@ -141,15 +148,17 @@ function preGeofenceRejection(fix: LocationFix): CheckInRejection | null {
   return null;
 }
 
-export function evaluateLocation(fix: LocationFix, geofence: GeofencePolicy): LocationResult {
+/** testMode = mode uji: di luar area tetap lolos (outsideGeofence), pemeriksaan sebelum geofence tetap berlaku. */
+export function evaluateLocation(fix: LocationFix, geofence: GeofencePolicy, testMode = false): LocationResult {
   const rejection = preGeofenceRejection(fix);
   if (rejection) return { ok: false, rejection };
   const distance = haversineMeters(fix, geofence);
   const tolerance = Math.min(fix.accuracyM ?? 0, ACCURACY_TOLERANCE_CAP_M);
-  if (distance > geofence.radiusM + tolerance) {
+  const outside = distance > geofence.radiusM + tolerance;
+  if (outside && !testMode) {
     return { ok: false, rejection: { code: "OUTSIDE_GEOFENCE", details: { distanceM: Math.round(distance), radiusM: geofence.radiusM } } };
   }
-  return { ok: true, distanceM: Math.round(distance), usedTolerance: distance > geofence.radiusM };
+  return { ok: true, distanceM: Math.round(distance), usedTolerance: !outside && distance > geofence.radiusM, outsideGeofence: outside };
 }
 
 function calendarRejection(day: DayStatus, minuteOfDay: number, schedule: SchedulePolicy): CheckInRejection | null {
@@ -165,20 +174,22 @@ export function decideCheckIn(input: CheckInDecisionInput): CheckInDecision {
   if (mode === "REPLAY") return { kind: "REPLAY" };
   if (mode === "CONFLICT") return { kind: "CONFLICT", source: input.existingSource === "ADMIN" ? "ADMIN" : "AUTO_ALPHA" };
   const calendar = calendarRejection(input.day, input.minuteOfDay, input.schedule);
-  if (calendar) return { kind: "REJECT", rejection: calendar };
-  const location = evaluateLocation(input.fix, input.geofence);
+  if (calendar && !input.testMode) return { kind: "REJECT", rejection: calendar };
+  const location = evaluateLocation(input.fix, input.geofence, input.testMode);
   if (!location.ok) return { kind: "REJECT", rejection: location.rejection };
   const lateness = computeLateness(input.minuteOfDay, input.schedule);
-  return { kind: "ACCEPT", mode, ...lateness, distanceM: location.distanceM, usedTolerance: location.usedTolerance };
+  const testModeBypass = calendar !== null || location.outsideGeofence;
+  return { kind: "ACCEPT", mode, ...lateness, distanceM: location.distanceM, usedTolerance: location.usedTolerance, testModeBypass };
 }
 
 export type BlockReason = "ALREADY_CHECKED_IN" | "ATTENDANCE_ALREADY_RECORDED" | "NOT_SCHOOL_DAY" | "CHECKIN_NOT_OPEN" | "CHECKIN_CLOSED";
 
 /** Alasan tombol check-in dinonaktifkan di layar "hari ini" (null = boleh check-in). */
-export function todayBlockReason(input: { existingSource: AttendanceSourceCode | null; day: DayStatus; window: WindowState }): BlockReason | null {
+export function todayBlockReason(input: { testMode: boolean; existingSource: AttendanceSourceCode | null; day: DayStatus; window: WindowState }): BlockReason | null {
   const mode = classifyExisting(input.existingSource);
   if (mode === "REPLAY") return "ALREADY_CHECKED_IN";
   if (mode === "CONFLICT") return "ATTENDANCE_ALREADY_RECORDED";
+  if (input.testMode) return null;
   if (!input.day.isSchoolDay) return "NOT_SCHOOL_DAY";
   if (input.window === "BEFORE_OPEN") return "CHECKIN_NOT_OPEN";
   if (input.window === "CLOSED") return "CHECKIN_CLOSED";

@@ -10,6 +10,7 @@ import { localParts, toDbDate, type LocalDate, type LocalParts } from "@/lib/tim
 import type { CheckInDecisionInput, GeofencePolicy, LocationFix, SchedulePolicy } from "./check-in-rules";
 import { DUPLICATE_SELFIE_LOOKBACK_DAYS, DUPLICATE_SELFIE_MAX_CANDIDATES, NEW_DEVICE_WINDOW_DAYS } from "./constants";
 import { ATTENDANCE_ROW_SELECT, type AttendanceRow } from "./student-dto";
+import { isAttendanceTestMode } from "./test-mode";
 
 /**
  * Pemuat konteks check-in (baca saja): siswa & sekolah dari principal (id TIDAK PERNAH dari body),
@@ -43,6 +44,8 @@ export interface CheckInContext extends StudentSchool {
   readonly local: LocalParts;
   readonly day: DayCheck;
   readonly existing: AttendanceRow | null;
+  /** Mode uji absensi (sementara) aktif untuk semua sekolah. */
+  readonly testMode: boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -111,11 +114,12 @@ export async function loadCheckInContext(ctx: ActionContext): Promise<CheckInCon
   const base = await loadStudentSchool(ctx);
   if (base.student.status !== "ACTIVE") throw forbidden("STUDENT_NOT_ACTIVE", "Akun siswa tidak aktif untuk absensi.");
   const local = localParts(ctx.now, base.school.timezone);
-  const [calendar, existing] = await Promise.all([
+  const [calendar, existing, testMode] = await Promise.all([
     loadCalendarContext(prisma, { id: base.school.id, schoolDaysMask: base.school.schoolDaysMask }, { from: local.ymd, to: local.ymd }),
     findAttendance(prisma, base.student, local.ymd),
+    isAttendanceTestMode(prisma),
   ]);
-  return { ...base, local, day: checkSchoolDay(local.ymd, calendar), existing };
+  return { ...base, local, day: checkSchoolDay(local.ymd, calendar), existing, testMode };
 }
 
 export function decisionInputOf(context: CheckInContext, fix: LocationFix): CheckInDecisionInput {
@@ -126,6 +130,7 @@ export function decisionInputOf(context: CheckInContext, fix: LocationFix): Chec
     schedule: context.school.schedule,
     geofence: context.school.geofence,
     fix,
+    testMode: context.testMode,
   };
 }
 

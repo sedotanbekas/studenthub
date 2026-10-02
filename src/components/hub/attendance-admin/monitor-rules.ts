@@ -105,6 +105,7 @@ const ANOMALY_SHORT_LABELS: Readonly<Record<AnomalyCode, string>> = {
   PERFECT_ACCURACY: "Akurasi GPS terlalu sempurna",
   SHARED_DEVICE: "HP dipakai siswa lain",
   STALE_FIX: "Data lokasi agak lama",
+  TEST_MODE: "Mode uji (di luar area/jam)",
   TIME_INCONSISTENT: "Waktu lokasi janggal",
   WEB_CHECKIN: "Absen lewat browser",
 };

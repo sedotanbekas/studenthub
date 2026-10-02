@@ -147,6 +147,7 @@ export const todaySchema = z
       .meta({ description: "Pengajuan izin/sakit PENDING yang mencakup hari ini." }),
     canCheckIn: z.boolean(),
     blockReason: z.enum(BLOCK_REASONS).nullable().meta({ description: "Null bila canCheckIn = true." }),
+    testMode: z.boolean().meta({ description: "Mode uji absensi (sementara) aktif: jarak ke sekolah dan jam/hari absen tidak diperiksa." }),
   })
   .meta({ id: "AttendanceToday" });
 export type TodayDto = z.infer<typeof todaySchema>;

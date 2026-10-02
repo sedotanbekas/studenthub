@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { operations } from "./catalog";
 import type { Operation } from "./types";
 import { modulesFor } from "./modules";
-import { ACTION_LABELS, detailBase, HIDDEN_VIEWS, isHiddenField, NESTED_DETAIL_BASES, pageActions, splitActions, VIEW_LABELS, viewsFor } from "./workspace-rules";
+import { ACTION_LABELS, detailBase, HIDDEN_VIEWS, isDangerAction, isHiddenField, NESTED_DETAIL_BASES, pageActions, splitActions, VIEW_LABELS, viewsFor } from "./workspace-rules";
 
 const op = (id: string, method: string, path: string): Operation => ({ id, method, path, title: id, action: "", parameters: [], multipart: false });
 
@@ -29,6 +29,26 @@ test("aksi halaman tanpa buat di tampilan aktif: tidak ada tombol utama palsu", 
   const actions = pageActions(ops, "/school/payment-submissions");
   assert.equal(actions.create, undefined);
   assert.deepEqual(actions.secondary.map((a) => a.id), ["createSchoolInvoice"]);
+});
+
+test("aksi milik tampilan yang dibuka didahulukan agar tidak terselip di menu Lainnya", () => {
+  const ops = [
+    op("getAdSettings", "GET", "/platform/settings/ads"), op("updateAdSettings", "PATCH", "/platform/settings/ads"),
+    op("recloseAttendanceDay", "POST", "/platform/attendance/close-day"), op("getAttendanceTestMode", "GET", "/platform/attendance/test-mode"),
+    op("enableAttendanceTestMode", "POST", "/platform/attendance/test-mode"), op("disableAttendanceTestMode", "DELETE", "/platform/attendance/test-mode"),
+  ];
+  const testMode = pageActions(ops, "/platform/attendance/test-mode");
+  assert.equal(testMode.create?.id, "enableAttendanceTestMode");
+  assert.deepEqual(splitActions(testMode.secondary).visible.map((a) => a.id), ["disableAttendanceTestMode", "updateAdSettings"]);
+  assert.deepEqual(pageActions(ops, "/platform/settings/ads").secondary.map((a) => a.id)[0], "updateAdSettings");
+});
+
+test("konfirmasi bahaya: hapus/nonaktifkan/reset; membuka mode uji absensi berbahaya, menguncinya kembali tidak", () => {
+  assert.equal(isDangerAction(op("deleteHoliday", "DELETE", "/school/holidays/{id}")), true);
+  assert.equal(isDangerAction(op("resetPassword", "POST", "/school/students/{id}/reset-password")), true);
+  assert.equal(isDangerAction(op("createSchoolClass", "POST", "/school/classes")), false);
+  assert.equal(isDangerAction(op("enableAttendanceTestMode", "POST", "/platform/attendance/test-mode")), true);
+  assert.equal(isDangerAction(op("disableAttendanceTestMode", "DELETE", "/platform/attendance/test-mode")), false);
 });
 
 test("aksi sekunder: maks 2 tampil sebagai tombol, sisanya ke menu Lainnya", () => {

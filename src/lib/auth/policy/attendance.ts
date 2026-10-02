@@ -15,6 +15,8 @@ export const attendancePolicy = {
   "attendance.correct": { roles: ADMINS },
   /** Super admin: tutup ulang satu hari sekolah (auto-ALPHA manual) untuk hari lampau. */
   "attendance.reclose": { roles: ["SUPER_ADMIN"] },
+  /** Super admin: mode uji absensi sementara (longgarkan lokasi & jam absen semua sekolah). */
+  "attendance.test_mode": { roles: ["SUPER_ADMIN"] },
   /** Admin: tinjau (setujui/tolak) izin & sakit, input izin atas nama siswa. */
   "leave.review": { roles: ADMINS },
 } as const satisfies Record<string, PolicyRule>;

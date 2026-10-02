@@ -101,6 +101,13 @@ test("todayHeadline merangkum status absen hari ini dengan nada tindakan", () =>
   assert.equal(todayHeadline(early).note, "Absen dibuka pukul 06:00.");
 });
 
+test("todayHeadline mode uji: hari libur / di luar jam tetap mengajak absen dan menjelaskan pelonggarannya", () => {
+  const holiday = { ...baseToday, testMode: true, schoolDay: { isSchoolDay: false, reason: "HOLIDAY", holidayName: "Maulid Nabi" }, window: { ...baseToday.window, state: "CLOSED" } };
+  assert.deepEqual(todayHeadline(holiday), { tone: "action", title: "Kamu belum absen", note: "Mode uji aktif: absen bisa dari mana saja dan kapan saja. Akurasi GPS dan foto wajah tetap wajib." });
+  const done = { ...holiday, canCheckIn: false, blockReason: "ALREADY_CHECKED_IN", record: { status: "HADIR", checkInTimeLocal: "19:02", lateMinutes: null } };
+  assert.equal(todayHeadline(done).title, "Sudah absen pukul 19:02");
+});
+
 test("todayHeadline membedakan alasan bukan hari sekolah: semester belum diatur vs hari libur mingguan", () => {
   const outsideTerm = { ...baseToday, canCheckIn: false, blockReason: "NOT_SCHOOL_DAY", schoolDay: { isSchoolDay: false, reason: "OUTSIDE_TERM", holidayName: null } };
   assert.deepEqual(todayHeadline(outsideTerm), {

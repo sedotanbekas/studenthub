@@ -175,6 +175,11 @@ Cek "kelas di tahun ajaran aktif" hanya saat aktivasi / ganti kelas (bukan tiap 
 - Flag anomali v1 (tidak memblokir): GEOFENCE_TOLERANCE, LOW_ACCURACY, PERFECT_ACCURACY,
   DEVICE_SESSION_MISMATCH, STALE_FIX, CLOCK_SKEW, NEW_DEVICE, SHARED_DEVICE (sweep tutup hari),
   DUPLICATE_SELFIE (dHash vs selfie sendiri 60 hari).
+- **Mode uji absensi (SEMENTARA, keputusan pemilik 2026-10-02)** untuk uji coba aplikasi: super admin membuka
+  dan mengunci lewat `POST`/`DELETE /platform/attendance/test-mode` (halaman Pengaturan platform; diaudit;
+  default terkunci). Selama terbuka, geofence serta jam & hari absen tidak diperiksa untuk SEMUA sekolah;
+  (0,0), lokasi palsu, data basi, akurasi GPS, selfie, sesi HP, dan satu absen per hari tetap berlaku.
+  Check-in yang lolos hanya karena mode ini diberi flag `TEST_MODE` (MEDIUM, tampil di antrean anomali admin sekolah). Dihapus setelah masa uji selesai.
 - Izin/Sakit: backdate ≤7 hari, maju ≤30, rentang ≤14; SAKIT ≥3 hari sekolah wajib lampiran foto;
   approve → baris IZIN/SAKIT tiap hari sekolah (tidak menimpa CHECKIN/ADMIN); reject wajib alasan.
 - Auto-ALPHA per sekolah setelah `dayEndMinute` lokal (tiga zona waktu), catch-up 7 hari, idempoten

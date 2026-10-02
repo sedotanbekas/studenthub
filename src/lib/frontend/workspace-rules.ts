@@ -43,6 +43,8 @@ export const ACTION_LABELS: Readonly<Record<string, ActionText>> = {
   confirmMyTotp: { label: "Konfirmasi kode verifikasi", hint: "Masukkan kode 6 digit pertama dari aplikasi autentikator." },
   updateAdSettings: { label: "Ubah pengaturan iklan" },
   recloseAttendanceDay: { label: "Tutup ulang hari absensi", hint: "Jalankan ulang penutupan (alpa otomatis) untuk satu tanggal." },
+  enableAttendanceTestMode: { label: "Longgarkan absensi (mode uji)", hint: "Sementara: siswa semua sekolah bisa absen dari mana saja dan kapan saja. Akurasi GPS & foto wajah tetap wajib." },
+  disableAttendanceTestMode: { label: "Kunci kembali absensi", hint: "Absensi kembali wajib di area sekolah dan pada jam absen." },
   updateOwnSponsorProfile: { label: "Ubah kontak perusahaan" },
   upsertReportCardGrades: { label: "Isi nilai per kelas", hint: "Masukkan nilai satu mapel untuk satu kelas sekaligus." },
   publishReportCards: { label: "Terbitkan rapor kelas", hint: "Rapor yang nilainya lengkap terbit dan bisa dilihat siswa." },
@@ -103,6 +105,7 @@ export const VIEW_LABELS: Readonly<Record<string, string>> = {
   listSponsors: "Daftar sponsor",
   listNationalHolidays: "Libur nasional",
   getAdSettings: "Pengaturan iklan",
+  getAttendanceTestMode: "Mode uji absensi",
   listPlatformAuditLogs: "Audit platform",
   getOwnSponsorProfile: "Profil perusahaan",
   listOwnLeaveRequests: "Pengajuan saya",
@@ -139,7 +142,9 @@ export function viewsFor(available: readonly Operation[], primaryId: string | un
 export function pageActions(available: readonly Operation[], viewPath: string | undefined): { create: Operation | undefined; secondary: Operation[] } {
   const pageLevel = available.filter((op) => !isRowLevel(op) && (op.method !== "GET" || isTemplate(op) || hasPathParams(op)));
   const create = pageLevel.find((op) => op.method === "POST" && op.path === viewPath);
-  return { create, secondary: pageLevel.filter((op) => op !== create) };
+  const rest = pageLevel.filter((op) => op !== create);
+  // Aksi milik tampilan yang dibuka (mis. "Kunci kembali absensi" di tab Mode uji) didahulukan agar tidak terselip di "Lainnya".
+  return { create, secondary: [...rest.filter((op) => op.path === viewPath), ...rest.filter((op) => op.path !== viewPath)] };
 }
 
 /** Path dasar jendela detail baris sebuah tampilan (baris harian absensi = catatan /school/attendance/{id}). */
@@ -147,6 +152,14 @@ export const detailBase = (viewPath: string | undefined): string | undefined => 
 
 /** Tabel bersarang di jendela detail (pembayaran & bukti transfer di detail tagihan) membuka detailnya sendiri. */
 export const NESTED_DETAIL_BASES: readonly string[] = ["/school/payments", "/school/payment-submissions", "/student/payments", "/student/payment-submissions"];
+
+/** Pengecualian aturan umum: membuka mode uji melonggarkan absensi semua sekolah; menguncinya kembali aman. */
+const DANGER_OVERRIDES: Readonly<Record<string, boolean>> = { enableAttendanceTestMode: true, disableAttendanceTestMode: false };
+
+/** Tindakan yang wajib dikonfirmasi ("Saya memahami dampaknya"): hapus, nonaktifkan, reset, cabut, keluar semua. */
+export function isDangerAction(op: Operation): boolean {
+  return DANGER_OVERRIDES[op.id] ?? (op.method === "DELETE" || /void|deactivate|reset-password|revoke|takedown|logout-all/.test(op.path));
+}
 
 export const MAX_VISIBLE_ACTIONS = 2;
 

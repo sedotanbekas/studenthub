@@ -160,7 +160,7 @@ async function acceptCheckIn(
 
 function anomalyBase(
   context: CheckInContext,
-  request: { fix: LocationFix; body: CheckInBody },
+  request: { fix: LocationFix; body: CheckInBody; decision: AcceptDecision },
   processed: ProcessedImage,
   evidence: AnomalyEvidence,
   now: Date,
@@ -180,6 +180,7 @@ function anomalyBase(
     selfiePhash: processed.phash,
     recentSelfiePhashes: evidence.recentSelfiePhashes,
     webSession: context.principal.platform === "WEB",
+    testModeBypass: request.decision.testModeBypass,
   };
 }
 

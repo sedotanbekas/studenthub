@@ -32,6 +32,7 @@ function input(overrides: Partial<AnomalyInput> = {}): AnomalyInput {
     recentSelfiePhashes: [],
     sharedDevice: false,
     webSession: false,
+    testModeBypass: false,
     ...overrides,
   };
 }
@@ -40,6 +41,12 @@ const flagsOf = (overrides: Partial<AnomalyInput>) => detectAnomalies(input(over
 
 test("check-in bersih tanpa flag", () => {
   assert.deepEqual(detectAnomalies(input()), []);
+});
+
+test("TEST_MODE: check-in yang lolos hanya karena mode uji ditandai (MEDIUM: masuk antrean anomali admin, bukan toleransi geofence)", () => {
+  assert.deepEqual(flagsOf({ testModeBypass: true, distanceM: 5000 }), ["TEST_MODE"]);
+  assert.deepEqual(flagsOf({ testModeBypass: true }), ["TEST_MODE"]);
+  assert.equal(hasReportableAnomaly(["TEST_MODE"]), true);
 });
 
 test("GEOFENCE_TOLERANCE hanya bila jarak > radius", () => {

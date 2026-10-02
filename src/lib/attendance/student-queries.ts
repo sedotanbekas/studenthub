@@ -52,7 +52,7 @@ export async function getTodayAttendance(ctx: ActionContext): Promise<TodayDto> 
   const context = await loadCheckInContext(ctx);
   const { school, local, day, existing } = context;
   const window = todayWindow(context);
-  const blockReason = todayBlockReason({ existingSource: existing?.source ?? null, day, window: window.state });
+  const blockReason = todayBlockReason({ testMode: context.testMode, existingSource: existing?.source ?? null, day, window: window.state });
   return {
     date: local.ymd,
     serverTime: ctx.now.toISOString(),
@@ -65,6 +65,7 @@ export async function getTodayAttendance(ctx: ActionContext): Promise<TodayDto> 
     pendingLeave: await pendingLeaveCovering(context.student, local.ymd),
     canCheckIn: blockReason === null,
     blockReason,
+    testMode: context.testMode,
   };
 }
 

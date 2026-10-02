@@ -9,7 +9,7 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   user: "Pengguna", trustedDevice: "Perangkat tepercaya", token: "Token", expiresAt: "Berlaku sampai", revoked: "Dicabut", revokedCount: "Sesi dicabut",
   totpEnabled: "Verifikasi 2 langkah aktif", totpEnrollmentRequired: "Wajib daftar verifikasi 2 langkah", permissions: "Hak akses", changed: "Diubah",
   otherSessionsRevoked: "Sesi lain dicabut", registered: "Terdaftar", removed: "Dihapus", issuer: "Penerbit", accountName: "Nama akun", algorithm: "Algoritma",
-  digits: "Jumlah digit", period: "Periode", enabled: "Aktif", enabledAt: "Diaktifkan pada", passwordChangedAt: "Kata sandi diubah pada", activeSessionCount: "Sesi aktif",
+  digits: "Jumlah digit", period: "Periode", enabled: "Aktif", enabledAt: "Diaktifkan pada", since: "Aktif sejak", testMode: "Mode uji absensi", passwordChangedAt: "Kata sandi diubah pada", activeSessionCount: "Sesi aktif",
   // Tema sekolah
   theme: "Tema", preset: "Preset tema", primaryColor: "Warna utama", secondaryColor: "Warna kedua", bannerColor: "Warna banner", animationColor: "Warna animasi",
   logoColor: "Warna logo", isCustom: "Tema khusus",
