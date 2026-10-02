@@ -26,5 +26,5 @@ export async function getMe(ctx: ActionContext): Promise<MeDto> {
     },
   });
   if (!user) throw notFound("Akun tidak ditemukan.");
-  return toMe(user, listAllowedActions(principal));
+  return toMe(user, listAllowedActions(principal), principal.totpEnrollmentRequired);
 }

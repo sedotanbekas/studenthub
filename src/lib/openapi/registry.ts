@@ -15,6 +15,7 @@ import { announcementsContracts } from "@/lib/announcements/contracts";
 import { dashboardContracts } from "@/lib/dashboard/contracts";
 import { sponsorsContracts } from "@/lib/sponsors/contracts";
 import { adsContracts } from "@/lib/ads/contracts";
+import { loginHistoryContracts } from "@/lib/login-history/contracts";
 
 /** Semua kontrak route /api/v1. Setiap domain WAJIB terdaftar di sini (dicek guard test). */
 export const ALL_CONTRACTS: readonly AnyContract[] = [
@@ -23,6 +24,7 @@ export const ALL_CONTRACTS: readonly AnyContract[] = [
   ...authContracts,
   ...schoolsContracts,
   ...usersContracts,
+  ...loginHistoryContracts,
   ...calendarContracts,
   ...academicsContracts,
   ...studentsContracts,

@@ -1,7 +1,6 @@
 import type { ClientPlatform, SchoolTimezone, SponsorStatus, StudentStatus, UserRole } from "@prisma/client";
 import { toSchoolThemeDto, type SchoolThemeRow } from "@/lib/schools/theme-dto";
 import type { AuthTokens, MeDto, SessionItem } from "./auth-schemas";
-import { requiresTotpEnrollment } from "./totp-rules";
 
 /** Pemetaan baris Prisma -> DTO respons auth (tanpa hash/token mentah dari DB). */
 
@@ -76,7 +75,8 @@ export interface MeRow {
   readonly sponsor: { readonly id: string; readonly companyName: string; readonly status: SponsorStatus } | null;
 }
 
-export function toMe(row: MeRow, permissions: readonly string[]): MeDto {
+/** `totpEnrollmentRequired` diambil dari Principal (sudah memperhitungkan sakelar SUPER_ADMIN_TOTP). */
+export function toMe(row: MeRow, permissions: readonly string[], totpEnrollmentRequired: boolean): MeDto {
   return {
     user: {
       id: row.id,
@@ -86,7 +86,7 @@ export function toMe(row: MeRow, permissions: readonly string[]): MeDto {
       role: row.role,
       mustChangePassword: row.mustChangePassword,
       totpEnabled: row.totpEnabledAt !== null,
-      totpEnrollmentRequired: requiresTotpEnrollment(row.role, row.totpEnabledAt),
+      totpEnrollmentRequired,
       lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
     },
     school: row.school

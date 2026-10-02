@@ -10,6 +10,10 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   totpEnabled: "Verifikasi 2 langkah aktif", totpEnrollmentRequired: "Wajib daftar verifikasi 2 langkah", permissions: "Hak akses", changed: "Diubah",
   otherSessionsRevoked: "Sesi lain dicabut", registered: "Terdaftar", removed: "Dihapus", issuer: "Penerbit", accountName: "Nama akun", algorithm: "Algoritma",
   digits: "Jumlah digit", period: "Periode", enabled: "Aktif", enabledAt: "Diaktifkan pada", since: "Aktif sejak", testMode: "Mode uji absensi", passwordChangedAt: "Kata sandi diubah pada", activeSessionCount: "Sesi aktif",
+  // Riwayat masuk super admin
+  occurredAt: "Waktu", failureReason: "Alasan gagal", device: "Perangkat & browser", isNewDevice: "Perangkat baru", location: "Perkiraan lokasi",
+  isp: "Penyedia internet (ISP)", deviceType: "Jenis perangkat", browser: "Browser", os: "Sistem operasi", deviceModel: "Model perangkat",
+  countryCode: "Kode negara", userAgent: "User-agent",
   // Tema sekolah
   theme: "Tema", preset: "Preset tema", primaryColor: "Warna utama", secondaryColor: "Warna kedua", bannerColor: "Warna banner", animationColor: "Warna animasi",
   logoColor: "Warna logo", isCustom: "Tema khusus",

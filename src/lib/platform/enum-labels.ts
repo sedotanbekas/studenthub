@@ -25,6 +25,12 @@ export const ENUM_LABELS = {
   AdStatus: { DRAFT: "Draf", PENDING_REVIEW: "Menunggu review", APPROVED: "Disetujui", REJECTED: "Ditolak", PAUSED: "Dijeda", ARCHIVED: "Diarsipkan" },
   AdTargetScope: { ALL: "Semua sekolah", PROVINCE: "Provinsi", CITY: "Kabupaten/Kota", SCHOOL: "Sekolah tertentu" },
   DeviceType: { MOBILE: "Mobile", TABLET: "Tablet", DESKTOP: "Desktop" },
+  ClientPlatform: { ANDROID: "Aplikasi Android", IOS: "Aplikasi iOS", WEB: "Web" },
+  LoginStatus: { SUCCESS: "Berhasil", FAILED: "Gagal" },
+  LoginFailureCode: {
+    WRONG_PASSWORD: "Kata sandi salah", TOTP_INVALID: "Kode autentikator salah",
+    ACCOUNT_INACTIVE: "Akun nonaktif", TEMP_PASSWORD_EXPIRED: "Kata sandi sementara kedaluwarsa", OTHER: "Lainnya",
+  },
   LedgerEntryType: { TOPUP: "Top up", CLICK_CHARGE: "Biaya klik", ADJUSTMENT: "Penyesuaian" },
   AdDisplayStatus: {
     DRAFT: "Draf", PENDING_REVIEW: "Menunggu review", REJECTED: "Ditolak", ARCHIVED: "Diarsipkan", ENDED: "Berakhir", PAUSED: "Dijeda",

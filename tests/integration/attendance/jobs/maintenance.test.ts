@@ -11,7 +11,7 @@ import { processImage } from "@/lib/storage/image";
 import { toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { disconnect, prisma, uniq } from "../../helpers/db";
-import { createSchool, createSchoolAdmin, createStudent } from "../../helpers/factories";
+import { createSchool, createSchoolAdmin, createStudent, createSuperAdmin } from "../../helpers/factories";
 import { createTempStorage, type TempStorage } from "../../helpers/storage";
 import { jobCtx } from "./fixtures";
 
@@ -154,6 +154,16 @@ test("notifikasi > 365 hari dihapus; JobRun > 90 hari dihapus kecuali auto-alpha
   assert.deepEqual(remaining, [recentGeneric.id, keptAlpha.id].sort());
 });
 
+test("riwayat masuk super admin > 365 hari dihapus, yang lebih baru tetap", async () => {
+  const sa = await createSuperAdmin({ totp: false });
+  const event = (createdAt: Date) => prisma.loginEvent.create({ data: { userId: sa.id, succeeded: false, failureCode: "WRONG_PASSWORD", platform: "WEB", createdAt } });
+  await event(daysAgo(366));
+  const kept = await event(daysAgo(364));
+  const result = await runMaintenanceDaily(jobCtx(NOW, { schoolIds: [], userIds: [sa.id] }));
+  assert.deepEqual(result.loginEvents, { deleted: 1 });
+  assert.deepEqual((await prisma.loginEvent.findMany({ where: { userId: sa.id }, select: { id: true } })).map((r) => r.id), [kept.id]);
+});
+
 interface ExplainRow {
   readonly type: string;
   readonly key: string | null;
@@ -163,6 +173,7 @@ test("query retensi tabel besar memakai indeks (EXPLAIN bukan type=ALL / tanpa k
   const cutoff = daysAgo(365);
   const plans: ExplainRow[][] = [
     await prisma.$queryRaw`EXPLAIN SELECT id FROM Notification WHERE createdAt < ${cutoff} ORDER BY createdAt ASC LIMIT 5000`,
+    await prisma.$queryRaw`EXPLAIN SELECT id FROM LoginEvent WHERE createdAt < ${cutoff} ORDER BY createdAt ASC LIMIT 5000`,
     await prisma.$queryRaw`EXPLAIN SELECT id FROM AuthSession WHERE revokedAt < ${cutoff} LIMIT 5000`,
     await prisma.$queryRaw`EXPLAIN SELECT id FROM AuthSession WHERE expiresAt < ${cutoff} LIMIT 5000`,
     await prisma.$queryRaw`EXPLAIN DELETE FROM CheckInRejection WHERE createdAt < ${cutoff} LIMIT 5000`,
@@ -177,5 +188,5 @@ test("query retensi tabel besar memakai indeks (EXPLAIN bukan type=ALL / tanpa k
 
 test("anggaran waktu habis -> semua bagian dilewati", async () => {
   const result = await runMaintenanceDaily({ ...jobCtx(NOW, { schoolIds: [], userIds: [] }), deadline: Date.now() - 1 });
-  assert.deepEqual(result, { skipped: ["selfies", "leaveAttachments", "checkInRejections", "auth", "notifications", "jobRuns"] });
+  assert.deepEqual(result, { skipped: ["selfies", "leaveAttachments", "checkInRejections", "auth", "notifications", "loginEvents", "jobRuns"] });
 });

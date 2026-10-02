@@ -76,6 +76,7 @@ model User {
   ledgerEntries         SponsorLedgerEntry[]
   filesUploaded         StoredFile[]
   auditLogs             AuditLog[]
+  loginEvents           LoginEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -152,4 +153,43 @@ model RefreshToken {
   @@index([sessionId])
   @@index([rotatedAt])
   @@index([expiresAt])
+}
+
+/// Riwayat masuk akun yang dipantau (LOGIN_HISTORY_ROLES di src/lib/login-history/rules.ts; kini SUPER_ADMIN):
+/// pembeda SIAPA yang memakai akun — keputusan pemilik 2026-10-02 saat TOTP super admin dimatikan. Berhasil
+/// ditulis di transaksi login; gagal (kata sandi salah dsb.) ditulis setelah respons. Lokasi & ISP = perkiraan
+/// dari IP (berkas DB-IP Lite lokal), bukan GPS.
+model LoginEvent {
+  id          String         @id @default(cuid())
+  userId      String
+  succeeded   Boolean
+  /// Kode kegagalan (WRONG_PASSWORD, TOTP_REQUIRED, TOTP_INVALID, ACCOUNT_INACTIVE, ...); NULL bila berhasil.
+  failureCode String?        @db.VarChar(32)
+  /// Sesi yang dibuka login ini (tanpa relasi: sesi lama dibersihkan maintenance).
+  sessionId   String?        @db.VarChar(30)
+  platform    ClientPlatform
+  ipAddress   String?        @db.VarChar(45)
+  userAgent   String?        @db.VarChar(255)
+  /// Id perangkat kiriman klien (app: deviceId; web: id browser) — dasar penanda perangkat baru.
+  deviceId    String?        @db.VarChar(100)
+  deviceName  String?        @db.VarChar(100)
+  deviceType  DeviceType?
+  browser     String?        @db.VarChar(60)
+  os          String?        @db.VarChar(60)
+  deviceModel String?        @db.VarChar(60)
+  /// Login BERHASIL pertama akun ini dari perangkat tersebut.
+  isNewDevice Boolean        @default(false)
+  city        String?        @db.VarChar(100)
+  region      String?        @db.VarChar(100)
+  countryCode String?        @db.Char(2)
+  asn         Int?           @db.UnsignedInt
+  isp         String?        @db.VarChar(150)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, deviceId])
+  @@index([createdAt])
 }

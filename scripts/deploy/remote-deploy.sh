@@ -8,7 +8,8 @@
 #
 # Urutan: preflight (user, folder, .env, alat, disk) -> pnpm install --frozen-lockfile -> penjaga
 # nama database -> backup database -> prisma migrate deploy -> (staging) seed demo -> build di bawah
-# kunci build VPS -> pm2 startOrReload -> poll /api/health sampai melaporkan sha yang dipasang.
+# kunci build VPS -> pm2 startOrReload -> poll /api/health sampai melaporkan sha yang dipasang -> data
+# lokasi IP (pnpm geoip:update, tidak fatal).
 #
 # Variabel opsional: NODE_BIN_DIR (bin Node aaPanel), BACKUP_ROOT (bawaan /home/studenthub/backups),
 # BACKUP_KEEP (bawaan 14), DEPLOY_MIN_FREE_MB (bawaan 3072).
@@ -160,6 +161,12 @@ wait_for_health() {
   return 1
 }
 
+# Data perkiraan lokasi IP (DB-IP Lite, riwayat masuk super admin) di <STORAGE_ROOT>/geoip. Tidak fatal:
+# tanpa berkas ini riwayat masuk tetap tercatat, hanya kolom lokasi/ISP kosong.
+update_geoip() {
+  pnpm geoip:update || sh_warn "pembaruan data lokasi IP (DB-IP) gagal — riwayat masuk tercatat tanpa lokasi"
+}
+
 run_step() {
   CURRENT_STEP="$1"
   shift
@@ -189,6 +196,7 @@ main() {
   run_step "build $APP_VERSION" build_app
   run_step "pm2 startOrReload $PM2_NAME" reload_app
   run_step "health check :$PORT" wait_for_health
+  run_step "data lokasi IP" update_geoip
   CURRENT_STEP="selesai"
   sh_log "deploy $TARGET selesai: versi $APP_VERSION"
 }

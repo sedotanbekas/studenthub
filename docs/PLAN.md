@@ -148,6 +148,12 @@ Buat akun admin sekolah & super admin, cari/nonaktifkan user (super admin terakh
 dinonaktifkan), reset password, sponsor (create → PENDING/APPROVED/SUSPENDED), platform settings,
 audit log, job runs, libur nasional. Super admin pertama via CLI `pnpm db:super-admin`.
 **TOTP 2FA wajib untuk SUPER_ADMIN** (fase P5).
+**Diubah pemilik 2026-10-02:** TOTP super admin DIMATIKAN sementara (env `SUPER_ADMIN_TOTP`, bawaan `off`;
+rahasia yang terdaftar tetap tersimpan, nyalakan lagi = `on` + restart). Penggantinya **riwayat masuk super admin**
+(`LoginEvent`, `GET /platform/login-history`, menu "Riwayat masuk"): setiap login berhasil & percobaan gagal mencatat
+perangkat/browser (user-agent), id perangkat + penanda perangkat baru, IP, serta perkiraan kota/provinsi/negara & ISP
+dari berkas DB-IP Lite lokal (`<STORAGE_ROOT>/geoip`, `pnpm geoip:update` di akhir setiap deploy, CC BY 4.0 → atribusi
+"IP Geolocation by DB-IP" di halaman). Lokasi IP hanya perkiraan, bukan GPS.
 
 **Siswa** (satu pemilik `src/lib/students`, `/school/students*`): create (default `activate=true`,
 atomik, 422 + daftar kekurangan bila data wajib belum lengkap; `activate=false` → DRAFT), activate,

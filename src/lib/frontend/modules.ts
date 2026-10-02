@@ -21,6 +21,7 @@ const platform: Module[] = [
   moduleOf("national-calendar", "Libur nasional", "Satu kalender bersama untuk seluruh sekolah.", "calendar", "PLATFORM", ["/platform/holidays"], "listNationalHolidays"),
   moduleOf("platform-settings", "Pengaturan platform", "Atur tarif iklan, rekening, dan penutupan absensi.", "settings", "LAINNYA", ["/platform/settings", "/platform/attendance"], "getAdSettings"),
   moduleOf("platform-audit", "Audit platform", "Telusuri aktivitas pengelolaan platform.", "history", "LAINNYA", ["/platform/audit-logs"], "listPlatformAuditLogs"),
+  moduleOf("login-history", "Riwayat masuk", "Siapa yang masuk ke akun super admin: perangkat, IP, dan perkiraan lokasi.", "key", "LAINNYA", ["/platform/login-history"], "listLoginHistory"),
 ];
 const sponsor: Module[] = [
   moduleOf("campaigns", "Kampanye saya", "Ide baik layak menjangkau lebih banyak orang.", "megaphone", "SPONSOR", ["/sponsor/ads", "/sponsor/banners", "/sponsor/targeting"], "listOwnAds"),
@@ -38,7 +39,9 @@ const student: Module[] = [
 ];
 const common: Module[] = [
   moduleOf("notifications", "Notifikasi", "Semua kabar terbaru, tersimpan di sini.", "bell", "LAINNYA", ["/notifications"], "listNotifications"),
-  moduleOf("security", "Keamanan akun", "Kelola kata sandi, autentikasi, dan perangkat aktif.", "shield", "LAINNYA", ["/auth/change-password", "/auth/logout-all", "/me/sessions", "/me/totp"], "listMySessions"),
+  moduleOf("security", "Keamanan akun", "Kelola kata sandi, autentikasi, dan perangkat aktif.", "shield", "LAINNYA", ["/auth/change-password", "/auth/logout-all", "/me/sessions"], "listMySessions"),
+  // /me/totp sengaja tidak di menu: TOTP super admin mati sejak 2026-10-02 (SUPER_ADMIN_TOTP); bila dinyalakan,
+  // pendaftaran wajib tampil lewat kartu TotpTask di Keamanan akun (security-panel.tsx).
 ];
 export function modulesFor(role: Role): Module[] {
   return [...(role === "SUPER_ADMIN" ? [...platform, ...school] : role === "SPONSOR" ? sponsor : role === "STUDENT" ? student : school), ...common];

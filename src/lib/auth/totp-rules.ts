@@ -115,7 +115,15 @@ export function buildOtpauthUri(input: OtpauthInput): string {
   return `otpauth://totp/${label}?${params.join("&")}`;
 }
 
-/** SUPER_ADMIN wajib TOTP: selama belum aktif, hanya aksi yang diizinkan saat pendaftaran TOTP. */
-export function requiresTotpEnrollment(role: UserRole, totpEnabledAt: Date | null): boolean {
-  return role === "SUPER_ADMIN" && totpEnabledAt === null;
+/**
+ * SUPER_ADMIN wajib TOTP: selama belum aktif, hanya aksi yang diizinkan saat pendaftaran TOTP.
+ * `enforced` = sakelar env SUPER_ADMIN_TOTP (superAdminTotpEnforced); mati -> tidak ada yang wajib mendaftar.
+ */
+export function requiresTotpEnrollment(role: UserRole, totpEnabledAt: Date | null, enforced = true): boolean {
+  return enforced && role === "SUPER_ADMIN" && totpEnabledAt === null;
+}
+
+/** Login super admin ber-TOTP aktif meminta kode — hanya selama sakelar TOTP menyala. */
+export function requiresTotpCode(role: UserRole, totpEnabledAt: Date | null, enforced = true): boolean {
+  return enforced && role === "SUPER_ADMIN" && totpEnabledAt !== null;
 }

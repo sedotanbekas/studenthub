@@ -6,6 +6,7 @@ import {
   buildOtpauthUri,
   hotp,
   isTotpCodeFormat,
+  requiresTotpCode,
   requiresTotpEnrollment,
   TOTP_PERIOD_SECONDS,
   totpCodeAt,
@@ -120,4 +121,18 @@ test("requiresTotpEnrollment: hanya SUPER_ADMIN tanpa totpEnabledAt", () => {
   assert.equal(requiresTotpEnrollment("SCHOOL_ADMIN", null), false);
   assert.equal(requiresTotpEnrollment("STUDENT", null), false);
   assert.equal(requiresTotpEnrollment("SPONSOR", null), false);
+});
+
+test("requiresTotpEnrollment: sakelar TOTP mati -> tidak ada yang wajib mendaftar", () => {
+  assert.equal(requiresTotpEnrollment("SUPER_ADMIN", null, false), false);
+  assert.equal(requiresTotpEnrollment("SUPER_ADMIN", null, true), true);
+});
+
+test("requiresTotpCode: hanya SUPER_ADMIN ber-TOTP aktif, dan hanya saat sakelar TOTP menyala", () => {
+  const enabledAt = new Date();
+  assert.equal(requiresTotpCode("SUPER_ADMIN", enabledAt), true);
+  assert.equal(requiresTotpCode("SUPER_ADMIN", enabledAt, true), true);
+  assert.equal(requiresTotpCode("SUPER_ADMIN", enabledAt, false), false, "TOTP terdaftar diabaikan selama sakelar mati");
+  assert.equal(requiresTotpCode("SUPER_ADMIN", null, true), false);
+  assert.equal(requiresTotpCode("SCHOOL_ADMIN", enabledAt, true), false);
 });

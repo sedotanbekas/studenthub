@@ -31,7 +31,8 @@
     "openapi:export": "tsx scripts/openapi-export.ts",
     "openapi:check": "tsx scripts/openapi-export.ts --check",
     "jobs:run": "tsx scripts/run-job.ts",
-    "holidays:import": "tsx scripts/import-national-holidays.ts"
+    "holidays:import": "tsx scripts/import-national-holidays.ts",
+    "geoip:update": "tsx scripts/geoip-update.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1",
@@ -39,11 +40,13 @@
     "@prisma/adapter-mariadb": "7.10.0",
     "@prisma/client": "7.10.0",
     "@scalar/nextjs-api-reference": "0.12.0",
+    "bowser": "2.14.1",
     "exceljs": "4.4.0",
     "expo-server-sdk": "7.2.0",
     "file-type": "22.1.1",
     "jose": "6.2.12",
     "leaflet": "1.9.4",
+    "mmdb-lib": "3.0.3",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",

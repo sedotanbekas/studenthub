@@ -110,6 +110,16 @@ export function me(accessToken: string): Promise<ApiResult<MeBody>> {
   return callRoute<Envelope<MeBody>>(meRoute, { method: "GET", url: "/api/v1/auth/me", bearer: accessToken });
 }
 
+/** Percobaan masuk gagal super admin dicatat setelah respons tanpa ditunggu: tunggu barisnya muncul. */
+export async function waitForLoginFailures(userId: string, count: number): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if ((await prisma.loginEvent.count({ where: { userId, succeeded: false } })) >= count) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`riwayat masuk gagal untuk ${userId} tidak muncul`);
+}
+
 // ----------------------------------------------------------------------------- balapan deterministik
 
 export interface HeldTransaction {

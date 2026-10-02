@@ -60,3 +60,11 @@ test("totpEnrollmentRequired: SUPER_ADMIN tanpa totpEnabledAt -> true; sudah akt
   const student = evaluatePrincipal(row(), CLAIMS, NOW);
   assert.equal(student.ok && student.principal.totpEnrollmentRequired, false);
 });
+
+test("totpEnrollmentRequired: sakelar TOTP mati -> super admin tanpa TOTP tetap bebas memakai fitur", () => {
+  const sa = { role: "SUPER_ADMIN" as const, schoolId: null, school: null, student: null, totpEnabledAt: null };
+  const off = evaluatePrincipal(row({}, sa), CLAIMS, NOW, { totpEnforced: false });
+  const on = evaluatePrincipal(row({}, sa), CLAIMS, NOW, { totpEnforced: true });
+  assert.equal(off.ok && off.principal.totpEnrollmentRequired, false);
+  assert.equal(on.ok && on.principal.totpEnrollmentRequired, true);
+});

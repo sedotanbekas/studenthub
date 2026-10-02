@@ -11,6 +11,7 @@ import { log } from "./log";
  *   (banner) -> AdTarget -> AdClick -> SponsorLedgerEntry -> AdDailyStat. Setiap perubahan saldo (klik, top-up,
  *   penyesuaian) mengunci baris Sponsor PALING AWAL (src/lib/sponsors/ledger.ts).
  *   Notification & AuditLog selalu ditulis TERAKHIR.
+ *   Login: AppLock user -> Student -> User -> AuthSession -> LoginEvent (riwayat masuk super admin).
  * JANGAN pernah `FOR UPDATE` baris School/SchoolClass sebagai mutex (baris induk sibuk karena cek FK);
  * pakai lockKey() dengan kunci bernama. Kunci aplikasi (src/lib/lock-keys.ts) diambil PALING AWAL,
  * sebelum membaca apa pun.

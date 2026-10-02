@@ -48,11 +48,17 @@ export function checkLoginEligibility(input: EligibilityInput): { ok: true } | {
 
 export type PrincipalFailure = { ok: false; code: "SESSION_INVALID" | "ACCOUNT_INACTIVE" };
 
+/** `totpEnforced` = sakelar env SUPER_ADMIN_TOTP (getAuth memakai superAdminTotpEnforced()). */
+export interface PrincipalOptions {
+  readonly totpEnforced: boolean;
+}
+
 /** Evaluasi murni: sesi hidup + akun layak -> Principal beku. */
 export function evaluatePrincipal(
   row: SessionRow | null,
   claims: { sub: string; sid: string },
   now: Date,
+  options: PrincipalOptions = { totpEnforced: true },
 ): { ok: true; principal: Principal } | PrincipalFailure {
   if (!row || row.revokedAt !== null || row.expiresAt.getTime() <= now.getTime() || row.userId !== claims.sub) {
     return { ok: false, code: "SESSION_INVALID" };
@@ -76,7 +82,7 @@ export function evaluatePrincipal(
     studentStatus: user.student?.status ?? null,
     sponsorStatus: user.sponsor?.status ?? null,
     mustChangePassword: user.mustChangePassword,
-    totpEnrollmentRequired: requiresTotpEnrollment(user.role, user.totpEnabledAt),
+    totpEnrollmentRequired: requiresTotpEnrollment(user.role, user.totpEnabledAt, options.totpEnforced),
     platform: row.platform,
     deviceId: row.deviceId,
   });

@@ -156,6 +156,20 @@ const deleteNotifications: Section = async (ctx, cutoffs) => {
   return { deleted };
 };
 
+/** Riwayat masuk super admin > 365 hari (indeks createdAt / userId+createdAt). */
+const deleteLoginEvents: Section = async (ctx, cutoffs) => {
+  const userIds = scopeOf(ctx, "userIds");
+  if (isEmptyScope(userIds)) return { deleted: 0 };
+  const old = { createdAt: { lt: cutoffs.loginEvent } };
+  const where = { ...old, ...(userIds ? { userId: { in: [...userIds] } } : {}) };
+  const deleted = await drainByIds(
+    ctx,
+    () => prisma.loginEvent.findMany({ where, select: { id: true }, orderBy: { createdAt: "asc" }, take: DELETE_CHUNK }),
+    async (ids) => (await prisma.loginEvent.deleteMany({ where: { id: { in: ids }, ...old } })).count,
+  );
+  return { deleted };
+};
+
 const deleteJobRuns: Section = async (ctx, cutoffs) => {
   const scopeKeys = scopeOf(ctx, "schoolIds");
   if (isEmptyScope(scopeKeys)) return { deleted: 0 };
@@ -181,6 +195,7 @@ const SECTIONS: ReadonlyArray<readonly [string, Section]> = [
   ["checkInRejections", deleteRejections],
   ["auth", cleanupAuth],
   ["notifications", deleteNotifications],
+  ["loginEvents", deleteLoginEvents],
   ["jobRuns", deleteJobRuns],
 ];
 

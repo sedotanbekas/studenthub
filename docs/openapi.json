@@ -5802,6 +5802,173 @@
         }
       }
     },
+    "/api/v1/platform/login-history": {
+      "get": {
+        "operationId": "listLoginHistory",
+        "tags": [
+          "Log Audit"
+        ],
+        "summary": "Riwayat masuk super admin (terbaru dulu)",
+        "description": "Setiap login berhasil dan percobaan gagal (kata sandi salah dsb.) ke akun super admin: perangkat & browser, IP, perkiraan lokasi + ISP dari IP (DB-IP Lite, bukan GPS — wajib atribusi \"IP Geolocation by DB-IP\"), dan penanda perangkat baru. Pembeda pemakai akun sejak TOTP super admin dimatikan (2026-10-02).\n\nAksi POLICY: `audit.login.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "description": "Nomor halaman (mulai 1).",
+              "example": 1,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "description": "Nomor halaman (mulai 1)."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "description": "Jumlah baris per halaman (maks 100).",
+              "example": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Jumlah baris per halaman (maks 100)."
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "description": "Filter satu akun super admin.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Filter satu akun super admin."
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "SUCCESS = berhasil masuk, FAILED = percobaan gagal.",
+              "type": "string",
+              "enum": [
+                "SUCCESS",
+                "FAILED"
+              ]
+            },
+            "description": "SUCCESS = berhasil masuk, FAILED = percobaan gagal."
+          },
+          {
+            "in": "query",
+            "name": "isNewDevice",
+            "schema": {
+              "description": "true = hanya login pertama dari perangkat baru.",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "true = hanya login pertama dari perangkat baru."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LoginEvent"
+                      }
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/school/holidays": {
       "get": {
         "operationId": "listSchoolHolidays",
@@ -34202,6 +34369,183 @@
           "before",
           "after",
           "ipAddress"
+        ],
+        "additionalProperties": false
+      },
+      "LoginEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SUCCESS",
+              "FAILED"
+            ]
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "WRONG_PASSWORD",
+                  "TOTP_INVALID",
+                  "ACCOUNT_INACTIVE",
+                  "TEMP_PASSWORD_EXPIRED",
+                  "OTHER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hanya untuk status FAILED."
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "email"
+            ],
+            "additionalProperties": false
+          },
+          "device": {
+            "type": "string",
+            "description": "Ringkasan perangkat, mis. `Chrome 141 · Windows 10/11 · Komputer`."
+          },
+          "isNewDevice": {
+            "type": "boolean",
+            "description": "Login berhasil pertama akun ini dari perangkat tersebut."
+          },
+          "location": {
+            "description": "Perkiraan lokasi dari IP (DB-IP Lite), bukan GPS.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isp": {
+            "description": "Penyedia internet + nomor AS.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ipAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ANDROID",
+              "IOS",
+              "WEB"
+            ]
+          },
+          "deviceType": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "MOBILE",
+                  "TABLET",
+                  "DESKTOP"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "browser": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "os": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deviceModel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deviceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deviceId": {
+            "description": "Id perangkat/browser kiriman klien.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "countryCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "userAgent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "status",
+          "failureReason",
+          "user",
+          "device",
+          "isNewDevice",
+          "location",
+          "isp",
+          "ipAddress",
+          "platform",
+          "deviceType",
+          "browser",
+          "os",
+          "deviceModel",
+          "deviceName",
+          "deviceId",
+          "countryCode",
+          "userAgent"
         ],
         "additionalProperties": false
       },

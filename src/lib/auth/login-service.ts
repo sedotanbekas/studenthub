@@ -3,6 +3,8 @@ import { prisma, type Tx } from "@/lib/db";
 import { rateLimitKeyForIp } from "@/lib/http/client-ip";
 import { badRequest, forbidden, isAppError, unauthorized, unprocessable } from "@/lib/http/errors";
 import { assertRateLimit, getLimiter } from "@/lib/http/rate-limits";
+import { shouldRecordLogin } from "@/lib/login-history/rules";
+import { describeAttempt, recordLoginFailure, recordLoginSuccess, type LoginAttempt, type LoginEventBase } from "@/lib/login-history/service";
 import { withTx } from "@/lib/tx";
 import { signAccessToken } from "./access-token";
 import type { AuthTokens, LoginBody } from "./auth-schemas";
@@ -14,7 +16,9 @@ import { verifyPassword } from "./password";
 import type { ActionContext } from "./principal";
 import { checkLoginEligibility, type IneligibleReason } from "./principal-rules";
 import { lockUserSessions, openSession, retryOnUniqueConflict, type NewSessionInput } from "./session-service";
+import { requiresTotpCode } from "./totp-rules";
 import { checkLoginTotpCode, consumeTotpStep, totpInvalid } from "./totp-service";
+import { superAdminTotpEnforced } from "./totp-switch";
 import { isTrustedDevice, issueTrustedDevice, type IssuedTrustedDevice } from "./trusted-device";
 
 /**
@@ -184,7 +188,8 @@ async function rejectCredentials(startedAt: number): Promise<never> {
  * TOTP yang dikonsumsi di transaksi login (null = akun tanpa TOTP).
  */
 async function checkSecondFactor(account: LoginAccount, body: LoginBody, keys: LimiterKeys, ctx: ActionContext, startedAt: number): Promise<number | null> {
-  if (account.role !== "SUPER_ADMIN" || account.totpEnabledAt === null) return null;
+  // Sakelar SUPER_ADMIN_TOTP mati (bawaan sejak 2026-10-02): TOTP yang terdaftar tidak diminta.
+  if (!requiresTotpCode(account.role, account.totpEnabledAt, superAdminTotpEnforced())) return null;
   // Perangkat tepercaya ("Ingat perangkat ini", 30 hari): kode TOTP tidak diminta.
   if (await isTrustedDevice(account.userId, body.trustedDeviceToken, ctx.now)) return null;
   if (!body.totpCode) {
@@ -300,9 +305,15 @@ interface LoginResult {
 
 /**
  * Satu transaksi: kunci user (PERTAMA) -> baca ulang & periksa ulang akun -> ikat perangkat siswa
- * (Student) -> lastLoginAt CAS (User) -> sesi.
+ * (Student) -> lastLoginAt CAS (User) -> sesi -> riwayat masuk (akun yang dipantau).
  */
-function createLoginSession(verified: LoginAccount, body: LoginBody, ctx: ActionContext, totpStep: number | null): Promise<LoginResult> {
+function createLoginSession(
+  verified: LoginAccount,
+  body: LoginBody,
+  ctx: ActionContext,
+  totpStep: number | null,
+  history: LoginEventBase | null,
+): Promise<LoginResult> {
   return retryOnUniqueConflict(() =>
     withTx(async (tx) => {
       await lockUserSessions(tx, verified.userId);
@@ -311,11 +322,48 @@ function createLoginSession(verified: LoginAccount, body: LoginBody, ctx: Action
       await bindStudentDevice(tx, account, body, ctx);
       await touchLastLogin(tx, account, ctx.now);
       const session = await openSession(tx, sessionInput(account, body, ctx));
+      if (history) await recordLoginSuccess(tx, history, session.sessionId);
       const remember = totpStep !== null && body.rememberDevice === true;
       const trusted = remember ? await issueTrustedDevice(tx, { userId: account.userId, userAgent: ctx.userAgent, ip: ctx.ip, now: ctx.now }) : null;
       return { session, account, trusted };
     }),
   );
+}
+
+interface LoginRun {
+  readonly body: LoginBody;
+  readonly ctx: ActionContext;
+  readonly keys: LimiterKeys;
+  readonly startedAt: number;
+  /** Terisi bila peran akun dipantau riwayat masuk (shouldRecordLogin). */
+  readonly attempt: LoginAttempt | null;
+}
+
+function attemptOf(account: LoginAccount, body: LoginBody, ctx: ActionContext): LoginAttempt | null {
+  if (!shouldRecordLogin(account.role)) return null;
+  const device = { deviceId: body.deviceId ?? null, deviceName: body.deviceName ?? null };
+  return { userId: account.userId, platform: body.platform, ...device, ip: ctx.ip, userAgent: ctx.userAgent };
+}
+
+/** Setelah akun ditemukan: kata sandi -> faktor kedua -> kelayakan -> transaksi sesi (belum token). */
+async function completeLogin(found: LoginAccount, passwordOk: boolean, run: LoginRun): Promise<LoginResult> {
+  const { body, ctx, keys, startedAt } = run;
+  if (!passwordOk) return rejectCredentials(startedAt);
+  const totpStep = await checkSecondFactor(found, body, keys, ctx, startedAt);
+  refundAttempt(keys);
+  assertAccountUsable(found, ctx.now);
+  const history = run.attempt ? await describeAttempt(run.attempt) : null;
+  return createLoginSession(found, body, ctx, totpStep, history).catch(async (error: unknown) => {
+    // Kode TOTP kalah balapan (dipakai login paralel) -> tetap dipadatkan seperti kegagalan lain.
+    if (isAppError(error) && error.code === "TOTP_INVALID") await padFailure(startedAt);
+    throw error;
+  });
+}
+
+async function issueTokens({ session, account, trusted }: LoginResult, ctx: ActionContext): Promise<AuthTokens> {
+  const access = await signAccessToken({ sub: account.userId, sid: session.sessionId }, ctx.now);
+  const tokens = toAuthTokens(access, session, { ...account, id: account.userId });
+  return trusted ? { ...tokens, trustedDevice: { token: trusted.token, expiresAt: trusted.expiresAt.toISOString() } } : tokens;
 }
 
 export async function login(body: LoginBody, ctx: ActionContext): Promise<AuthTokens> {
@@ -326,16 +374,12 @@ export async function login(body: LoginBody, ctx: ActionContext): Promise<AuthTo
   reserveAttempt(keys);
   const found = await findLoginAccount(identifier);
   const passwordOk = await verifyPassword(body.password, found?.passwordHash ?? null);
-  if (!found || !passwordOk) return rejectCredentials(startedAt);
-  const totpStep = await checkSecondFactor(found, body, keys, ctx, startedAt);
-  refundAttempt(keys);
-  assertAccountUsable(found, ctx.now);
-  const { session, account, trusted } = await createLoginSession(found, body, ctx, totpStep).catch(async (error: unknown) => {
-    // Kode TOTP kalah balapan (dipakai login paralel) -> tetap dipadatkan seperti kegagalan lain.
-    if (isAppError(error) && error.code === "TOTP_INVALID") await padFailure(startedAt);
+  if (!found) return rejectCredentials(startedAt);
+  const attempt = attemptOf(found, body, ctx);
+  const result = await completeLogin(found, passwordOk, { body, ctx, keys, startedAt, attempt }).catch((error: unknown) => {
+    // Hanya kegagalan SEBELUM sesi tersimpan; dicatat tanpa ditunggu agar respons gagal tidak bertambah lama.
+    if (attempt) void recordLoginFailure(attempt, error);
     throw error;
   });
-  const access = await signAccessToken({ sub: account.userId, sid: session.sessionId }, ctx.now);
-  const tokens = toAuthTokens(access, session, { ...account, id: account.userId });
-  return trusted ? { ...tokens, trustedDevice: { token: trusted.token, expiresAt: trusted.expiresAt.toISOString() } } : tokens;
+  return issueTokens(result, ctx);
 }
