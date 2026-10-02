@@ -17,6 +17,7 @@ function viewer(role: UserRole, over: Partial<Principal> = {}): Principal {
     sponsorStatus: role === "SPONSOR" ? "APPROVED" : null,
     mustChangePassword: false,
     totpEnrollmentRequired: false,
+    isPrimarySchoolAdmin: false,
     platform: "WEB",
     deviceId: null,
     ...over,

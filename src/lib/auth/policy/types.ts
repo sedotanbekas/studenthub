@@ -4,7 +4,7 @@ import type { SponsorStatus, StudentStatus, UserRole } from "@prisma/client";
  * Aturan satu aksi. Default aman: aksi STUDENT hanya untuk status ACTIVE dan aksi SPONSOR
  * hanya untuk status APPROVED kecuali dinyatakan lain; saat mustChangePassword semua aksi
  * ditolak kecuali allowDuringPasswordChange; SUPER_ADMIN tanpa TOTP aktif ditolak kecuali
- * allowDuringTotpEnrollment.
+ * allowDuringTotpEnrollment; primarySchoolAdminOnly menolak admin sekolah selain admin UTAMA (PRIMARY_ADMIN_ONLY).
  */
 export interface PolicyRule {
   readonly roles: readonly UserRole[];
@@ -13,6 +13,8 @@ export interface PolicyRule {
   readonly allowDuringPasswordChange?: boolean;
   /** Tetap boleh bagi SUPER_ADMIN yang belum mengaktifkan TOTP (default: ditolak TOTP_ENROLLMENT_REQUIRED). */
   readonly allowDuringTotpEnrollment?: boolean;
+  /** SCHOOL_ADMIN wajib admin utama sekolahnya (Principal.isPrimarySchoolAdmin); peran lain tidak terpengaruh. */
+  readonly primarySchoolAdminOnly?: boolean;
 }
 
 export const ALL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"];

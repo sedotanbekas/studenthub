@@ -18,6 +18,8 @@ export interface SessionRow {
     mustChangePassword: boolean;
     totpEnabledAt: Date | null;
     schoolId: string | null;
+    /** Terisi hanya untuk admin utama (= schoolId). */
+    primarySchoolId: string | null;
     sponsorId: string | null;
     school: { isActive: boolean } | null;
     student: { id: string; status: StudentStatus } | null;
@@ -83,6 +85,7 @@ export function evaluatePrincipal(
     sponsorStatus: user.sponsor?.status ?? null,
     mustChangePassword: user.mustChangePassword,
     totpEnrollmentRequired: requiresTotpEnrollment(user.role, user.totpEnabledAt, options.totpEnforced),
+    isPrimarySchoolAdmin: user.role === "SCHOOL_ADMIN" && user.primarySchoolId !== null && user.primarySchoolId === user.schoolId,
     platform: row.platform,
     deviceId: row.deviceId,
   });

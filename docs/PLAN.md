@@ -154,6 +154,13 @@ rahasia yang terdaftar tetap tersimpan, nyalakan lagi = `on` + restart). Penggan
 perangkat/browser (user-agent), id perangkat + penanda perangkat baru, IP, serta perkiraan kota/provinsi/negara & ISP
 dari berkas DB-IP Lite lokal (`<STORAGE_ROOT>/geoip`, `pnpm geoip:update` di akhir setiap deploy, CC BY 4.0 → atribusi
 "IP Geolocation by DB-IP" di halaman). Lokasi IP hanya perkiraan, bukan GPS.
+**Akun admin untuk guru/wali kelas (pemilik 2026-10-02):** sementara belum ada peran guru, setiap guru/wali kelas
+memakai akun ADMIN SEKOLAH TAMBAHAN miliknya sendiri (jangan berbagi akun). ADMIN UTAMA sekolah (login NPSN)
+membuat & mengelola akun itu sendiri lewat `/school/admins*` (menu "Admin & guru": buat, ubah, nonaktif/aktifkan,
+reset kata sandi, cabut sesi); admin tambahan hanya melihat daftar (`schoolAdmins.read`), kelola =
+`schoolAdmins.manage` + `primarySchoolAdminOnly` (403 `PRIMARY_ADMIN_ONLY`). Admin utama sendiri hanya diubah super
+admin (403 `PRIMARY_ADMIN_PROTECTED`); super admin cukup membuat admin utama. Batas 100 akun admin per sekolah.
+Peran guru/wali kelas sungguhan (dibatasi per kelas) = fase berikutnya, menunggu jawaban sekolah.
 
 **Siswa** (satu pemilik `src/lib/students`, `/school/students*`): create (default `activate=true`,
 atomik, 422 + daftar kekurangan bila data wajib belum lengkap; `activate=false` → DRAFT), activate,

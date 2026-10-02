@@ -8,6 +8,7 @@ const school: Module[] = [
   moduleOf("billing", "Tagihan & pembayaran", "Kelola SPP dan verifikasi pembayaran dengan mudah.", "wallet", "MANAJEMEN", ["/school/invoices", "/school/payment-submissions", "/school/payments"], "listSchoolInvoices"),
   moduleOf("announcements", "Pengumuman", "Informasi yang tepat, untuk semua yang membutuhkan.", "megaphone", "MANAJEMEN", ["/school/announcements"], "listSchoolAnnouncements"),
   moduleOf("calendar", "Kalender sekolah", "Rencanakan hari belajar dan hari libur bersama.", "calendar", "MANAJEMEN", ["/school/holidays"], "listSchoolHolidays"),
+  moduleOf("school-admins", "Admin & guru", "Akun masuk untuk guru dan wali kelas yang ikut mengelola sekolah.", "key", "MANAJEMEN", ["/school/admins"], "listSchoolAdmins"),
   moduleOf("school-settings", "Pengaturan sekolah", "Profil, jadwal kehadiran, dan kesiapan sekolah.", "settings", "LAINNYA", ["/school/profile", "/school/settings"], "getSchoolProfile"),
   moduleOf("school-theme", "Tema sekolah", "Warna aplikasi sesuai identitas sekolahmu.", "palette", "LAINNYA", ["/school/theme"], "getSchoolTheme"),
   moduleOf("audit", "Riwayat aktivitas", "Jejak perubahan untuk pengelolaan yang transparan.", "history", "LAINNYA", ["/school/audit-logs"], "listSchoolAuditLogs"),

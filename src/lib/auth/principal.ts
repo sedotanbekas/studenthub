@@ -17,6 +17,8 @@ export interface Principal {
   readonly mustChangePassword: boolean;
   /** SUPER_ADMIN yang belum mengaktifkan TOTP: semua aksi ditolak kecuali allowDuringTotpEnrollment. */
   readonly totpEnrollmentRequired: boolean;
+  /** Admin UTAMA sekolahnya (User.primarySchoolId = schoolId): boleh mengelola akun admin tambahan. */
+  readonly isPrimarySchoolAdmin: boolean;
   readonly platform: ClientPlatform;
   readonly deviceId: string | null;
 }

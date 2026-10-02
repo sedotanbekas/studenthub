@@ -53,3 +53,13 @@ test("auth.totp: hanya SUPER_ADMIN, dan ditolak selama wajib ganti kata sandi", 
   assert.equal(codeOf(() => authorize(mustChange, "auth.totp")), "PASSWORD_CHANGE_REQUIRED");
   assert.equal(codeOf(() => authorize(makePrincipal({ role: "SUPER_ADMIN", schoolId: null }), "auth.totp")), null);
 });
+
+test("schoolAdmins.manage: hanya admin UTAMA (dan super admin); admin tambahan cukup schoolAdmins.read", () => {
+  const extra = makePrincipal({ role: "SCHOOL_ADMIN", isPrimarySchoolAdmin: false });
+  assert.equal(codeOf(() => authorize(extra, "schoolAdmins.manage")), "PRIMARY_ADMIN_ONLY");
+  assert.equal(codeOf(() => authorize(extra, "schoolAdmins.read")), null);
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SCHOOL_ADMIN", isPrimarySchoolAdmin: true }), "schoolAdmins.manage")), null);
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SUPER_ADMIN", schoolId: null }), "schoolAdmins.manage")), null);
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "STUDENT", studentStatus: "ACTIVE" }), "schoolAdmins.read")), "FORBIDDEN");
+  assert.ok(!listAllowedActions(extra).includes("schoolAdmins.manage"));
+});
