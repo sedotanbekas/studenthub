@@ -33,6 +33,7 @@ function input(overrides: Partial<AnomalyInput> = {}): AnomalyInput {
     sharedDevice: false,
     webSession: false,
     testModeBypass: false,
+    faceCheck: null,
     ...overrides,
   };
 }
@@ -145,4 +146,12 @@ test("check-in dari browser HP ditandai WEB_CHECKIN (LOW, tidak menjadi anomali 
   assert.equal(ANOMALY_SEVERITY.WEB_CHECKIN, "LOW");
   assert.equal(hasReportableAnomaly(flags), false);
   assert.deepEqual(flagsOf({ webSession: false }), []);
+});
+
+test("FACE_NOT_DETECTED: foto diambil tanpa wajah terdeteksi (deteksi opsional, MEDIUM -> ditinjau admin)", () => {
+  assert.deepEqual(flagsOf({ faceCheck: "NOT_DETECTED" }), ["FACE_NOT_DETECTED"]);
+  assert.deepEqual(flagsOf({ faceCheck: "UNAVAILABLE" }), ["FACE_NOT_DETECTED"]);
+  assert.deepEqual(flagsOf({ faceCheck: "DETECTED" }), []);
+  assert.deepEqual(flagsOf({ faceCheck: null }), [], "klien lama/app mobile yang tidak mengirim faceCheck tidak ditandai");
+  assert.equal(hasReportableAnomaly(["FACE_NOT_DETECTED"]), true);
 });

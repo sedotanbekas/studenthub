@@ -193,6 +193,10 @@ Cek "kelas di tahun ajaran aktif" hanya saat aktivasi / ganti kelas (bukan tiap 
   default terkunci). Selama terbuka, geofence serta jam & hari absen tidak diperiksa untuk SEMUA sekolah;
   (0,0), lokasi palsu, data basi, akurasi GPS, selfie, sesi HP, dan satu absen per hari tetap berlaku.
   Check-in yang lolos hanya karena mode ini diberi flag `TEST_MODE` (MEDIUM, tampil di antrean anomali admin sekolah). Dihapus setelah masa uji selesai.
+- **Deteksi wajah opsional (pemilik 2026-10-02):** tombol foto di web tidak menunggu pendeteksi wajah (masih dimuat,
+  gagal, atau belum menemukan wajah) agar absen tidak lama. Hasilnya dikirim sebagai `faceCheck` opsional
+  (DETECTED / NOT_DETECTED / UNAVAILABLE); selain DETECTED diberi flag `FACE_NOT_DETECTED` (MEDIUM, antrean
+  "Perlu ditinjau") untuk diperiksa manual admin sekolah — tidak pernah menolak absen. Selfie tetap wajib.
 - Izin/Sakit: backdate ≤7 hari, maju ≤30, rentang ≤14; SAKIT ≥3 hari sekolah wajib lampiran foto;
   approve → baris IZIN/SAKIT tiap hari sekolah (tidak menimpa CHECKIN/ADMIN); reject wajib alasan.
 - Auto-ALPHA per sekolah setelah `dayEndMinute` lokal (tiga zona waktu), catch-up 7 hari, idempoten

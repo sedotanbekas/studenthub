@@ -283,6 +283,20 @@ test("sesi WEB / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY (today, precheck
   assert.equal((await postCheckIn(mobile.token, checkInForm(now, await solidSelfie()))).status, 201, "sesi mobile ber-deviceId tetap boleh");
 });
 
+test("deteksi wajah opsional: faceCheck NOT_DETECTED tetap diterima + flag FACE_NOT_DETECTED untuk ditinjau admin; nilai asing 400", async () => {
+  const now = setLocalTime(430);
+  const st = await addStudent(world);
+  const web = await createSessionToken(st.user.id, { platform: "WEB", deviceId: "web-browser-0002" });
+  const selfieForm = async (faceCheck: string) => checkInForm(now, await solidSelfie(), { deviceId: "web-browser-0002", extra: { faceCheck } });
+  const bad = await postCheckIn(web.token, await selfieForm("MUNGKIN"), ANDROID_CHROME);
+  assert.equal(bad.status, 400);
+  const created = await postCheckIn(web.token, await selfieForm("NOT_DETECTED"), ANDROID_CHROME);
+  assert.equal(created.status, 201, JSON.stringify(created.body?.error));
+  const row = await prisma.attendance.findFirstOrThrow({ where: { studentId: st.student.id }, select: { anomalyFlags: true, hasAnomaly: true } });
+  assert.deepEqual(row.anomalyFlags, ["FACE_NOT_DETECTED", "WEB_CHECKIN"]);
+  assert.equal(row.hasAnomaly, true, "masuk antrean Perlu ditinjau admin sekolah");
+});
+
 test("sesi WEB ber-deviceId: browser desktop 403 CHECKIN_MOBILE_ONLY; browser HP boleh absen + flag WEB_CHECKIN", async () => {
   const now = setLocalTime(430);
   const st = await addStudent(world);

@@ -99,6 +99,7 @@ const ANOMALY_SHORT_LABELS: Readonly<Record<AnomalyCode, string>> = {
   CLOCK_SKEW: "Jam HP tidak sinkron",
   DEVICE_SESSION_MISMATCH: "Perangkat beda dari saat login",
   DUPLICATE_SELFIE: "Selfie mirip sebelumnya",
+  FACE_NOT_DETECTED: "Wajah tak terdeteksi — cek foto",
   GEOFENCE_TOLERANCE: "Di luar radius (toleransi GPS)",
   LOW_ACCURACY: "Akurasi GPS rendah",
   NEW_DEVICE: "Perangkat baru",

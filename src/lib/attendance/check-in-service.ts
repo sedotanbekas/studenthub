@@ -181,6 +181,7 @@ function anomalyBase(
     recentSelfiePhashes: evidence.recentSelfiePhashes,
     webSession: context.principal.platform === "WEB",
     testModeBypass: request.decision.testModeBypass,
+    faceCheck: request.body.faceCheck,
   };
 }
 

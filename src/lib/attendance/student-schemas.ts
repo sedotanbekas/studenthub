@@ -3,6 +3,7 @@ import { z } from "zod";
 import { dateOutSchema, entityIdSchema } from "@/lib/academics/schema-common";
 import { DEVICE_ID_PATTERN } from "@/lib/auth/constants";
 import { DAY_REASONS } from "@/lib/calendar/rules";
+import { FACE_CHECKS } from "./anomaly-rules";
 import { LOCATION_REJECT_CODES } from "./check-in-rules";
 
 /** Skema zod v4 endpoint absensi siswa: hari ini, precheck, check-in, riwayat bulanan, ringkasan semester. */
@@ -71,6 +72,14 @@ export const checkInBody = z
       .string()
       .regex(DEVICE_ID_PATTERN, "deviceId harus 8-100 karakter [A-Za-z0-9._:-].")
       .meta({ description: "Id perangkat yang sama dengan saat login (Android: getAndroidId, iOS: getIosIdForVendorAsync)." }),
+    faceCheck: z
+      .enum(FACE_CHECKS, "faceCheck harus DETECTED, NOT_DETECTED, atau UNAVAILABLE.")
+      .optional()
+      .transform((value) => value ?? null)
+      .meta({
+        description:
+          "Opsional: hasil deteksi wajah di perangkat saat foto diambil. NOT_DETECTED/UNAVAILABLE TIDAK menolak absen, hanya memberi flag FACE_NOT_DETECTED agar fotonya diperiksa admin sekolah.",
+      }),
   })
   .meta({ id: "AttendanceCheckInInput" });
 export type CheckInBody = z.output<typeof checkInBody>;

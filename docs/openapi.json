@@ -32171,6 +32171,15 @@
             "type": "string",
             "pattern": "^[A-Za-z0-9._:-]{8,100}$",
             "description": "Id perangkat yang sama dengan saat login (Android: getAndroidId, iOS: getIosIdForVendorAsync)."
+          },
+          "faceCheck": {
+            "description": "Opsional: hasil deteksi wajah di perangkat saat foto diambil. NOT_DETECTED/UNAVAILABLE TIDAK menolak absen, hanya memberi flag FACE_NOT_DETECTED agar fotonya diperiksa admin sekolah.",
+            "type": "string",
+            "enum": [
+              "DETECTED",
+              "NOT_DETECTED",
+              "UNAVAILABLE"
+            ]
           }
         },
         "required": [
@@ -38848,6 +38857,7 @@
                 "CLOCK_SKEW",
                 "DEVICE_SESSION_MISMATCH",
                 "DUPLICATE_SELFIE",
+                "FACE_NOT_DETECTED",
                 "GEOFENCE_TOLERANCE",
                 "LOW_ACCURACY",
                 "NEW_DEVICE",
@@ -39046,6 +39056,7 @@
                       "CLOCK_SKEW",
                       "DEVICE_SESSION_MISMATCH",
                       "DUPLICATE_SELFIE",
+                      "FACE_NOT_DETECTED",
                       "GEOFENCE_TOLERANCE",
                       "LOW_ACCURACY",
                       "NEW_DEVICE",
@@ -40500,6 +40511,7 @@
                     "CLOCK_SKEW",
                     "DEVICE_SESSION_MISMATCH",
                     "DUPLICATE_SELFIE",
+                    "FACE_NOT_DETECTED",
                     "GEOFENCE_TOLERANCE",
                     "LOW_ACCURACY",
                     "NEW_DEVICE",
