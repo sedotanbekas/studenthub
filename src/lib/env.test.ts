@@ -29,6 +29,12 @@ test("parseEnv: TOTP_ENC_KEY hilang, salah panjang, atau sama dengan rahasia lai
   assert.throws(() => parseEnv({ ...BASE, TOTP_ENC_KEY: "ab".repeat(32), JOB_SECRET: "ab".repeat(32) }), /harus berbeda/);
 });
 
+test("parseEnv: SUPER_ADMIN_TOTP bawaan off (keputusan pemilik 2026-10-02); hanya on/off", () => {
+  assert.equal(parseEnv(BASE).SUPER_ADMIN_TOTP, "off");
+  assert.equal(parseEnv({ ...BASE, SUPER_ADMIN_TOTP: "on" }).SUPER_ADMIN_TOTP, "on");
+  assert.throws(() => parseEnv({ ...BASE, SUPER_ADMIN_TOTP: "ya" }), /SUPER_ADMIN_TOTP/);
+});
+
 test("parseEnv: produksi wajib DOCS_BASIC_AUTH", () => {
   assert.throws(() => parseEnv({ ...BASE, NODE_ENV: "production" }), /DOCS_BASIC_AUTH wajib/);
 });

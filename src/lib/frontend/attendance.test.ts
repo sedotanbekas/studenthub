@@ -7,6 +7,9 @@ import {
   cameraErrorMessage,
   preferFix,
   simulateDemoFix,
+  cameraHint,
+  canShoot,
+  faceCheckOf,
   faceVerdict,
   fixAgeOk,
   geolocationErrorMessage,
@@ -153,4 +156,26 @@ test("simulateDemoFix membaca koordinat browser asli (getter di prototype, bukan
   const coords = Object.create({ get latitude() { return -6.2; }, get longitude() { return 106.8; }, get accuracy() { return 100000; } }) as { latitude: number; longitude: number; accuracy: number };
   assert.deepEqual(Object.keys(coords), [], "seperti GeolocationCoordinates");
   assert.deepEqual(simulateDemoFix(coords), { latitude: -6.2, longitude: 106.8, accuracy: DEMO_ACCURACY_M });
+});
+
+test("faceCheckOf: hasil deteksi wajah saat foto diambil (dasar flag tinjauan admin)", () => {
+  assert.equal(faceCheckOf("ready", true), "DETECTED");
+  assert.equal(faceCheckOf("ready", false), "NOT_DETECTED");
+  assert.equal(faceCheckOf("loading", false), "UNAVAILABLE");
+  assert.equal(faceCheckOf("failed", false), "UNAVAILABLE");
+});
+
+test("canShoot: deteksi wajah opsional — cukup video sudah tampil dan tidak sedang memotret", () => {
+  assert.equal(canShoot({ videoReady: true, busy: false }), true);
+  assert.equal(canShoot({ videoReady: false, busy: false }), false);
+  assert.equal(canShoot({ videoReady: true, busy: true }), false);
+});
+
+test("cameraHint: wajah belum/tidak terdeteksi tetap boleh memotret, dengan catatan diperiksa admin", () => {
+  const ok = { ok: true, message: "Wajah terdeteksi. Tahan posisi lalu ambil foto." };
+  const notYet = { ok: false, message: "Dekatkan wajah ke kamera." };
+  assert.equal(cameraHint("ready", ok, true), ok.message);
+  assert.equal(cameraHint("ready", notYet, false), "Dekatkan wajah ke kamera. Foto tetap bisa diambil; admin sekolah akan memeriksanya.");
+  assert.match(cameraHint("loading", notYet, false), /^Menyiapkan pendeteksi wajah… Foto tetap bisa diambil/);
+  assert.match(cameraHint("failed", notYet, false), /^Pendeteksi wajah tidak tersedia. Foto tetap bisa diambil/);
 });

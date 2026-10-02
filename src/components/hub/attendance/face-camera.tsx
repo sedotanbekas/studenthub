@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { FaceDetector } from "@mediapipe/tasks-vision";
-import { faceVerdict, type FaceBox, type FaceVerdict } from "@/lib/frontend/attendance";
+import { cameraHint, canShoot, faceCheckOf, faceVerdict, type DetectorState, type FaceBox, type FaceCheck, type FaceVerdict } from "@/lib/frontend/attendance";
 import { Icon } from "../icon";
 
 /**
  * Kamera depan langsung (tanpa unggah galeri) + deteksi wajah di perangkat (MediaPipe BlazeFace, WASM
- * dilayani dari domain sendiri). Tombol jepret aktif hanya bila tepat satu wajah jelas terdeteksi
- * beberapa bingkai berturut-turut. Tidak ada data wajah yang dikirim selain foto hasil jepretan.
+ * dilayani dari domain sendiri). Deteksi wajah OPSIONAL (pemilik 2026-10-02): tombol jepret aktif begitu video
+ * tampil walau pendeteksi masih dimuat/gagal/belum menemukan wajah, agar absen tidak lama; hasilnya (faceCheck)
+ * dikirim bersama foto dan foto tanpa wajah terdeteksi diperiksa manual oleh admin sekolah. Tidak ada data
+ * wajah yang dikirim selain foto hasil jepretan.
  */
 const WASM_BASE = "/vendor/mediapipe";
 const MODEL = "/models/blaze_face_short_range.tflite";
@@ -42,8 +44,6 @@ function capture(video: HTMLVideoElement): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Foto belum dapat diambil.")), "image/jpeg", JPEG_QUALITY));
 }
 
-type DetectorState = "loading" | "ready" | "failed";
-
 function useFaceDetection(video: React.RefObject<HTMLVideoElement | null>, attempt: number) {
   const [state, setState] = useState<DetectorState>("loading");
   const [verdict, setVerdict] = useState<FaceVerdict>({ ok: false, message: "Menyiapkan pendeteksi wajah…" });
@@ -71,10 +71,11 @@ function useFaceDetection(video: React.RefObject<HTMLVideoElement | null>, attem
   return { state, verdict, stable };
 }
 
-export function FaceCamera({ stream, onCapture }: { stream: MediaStream; onCapture: (photo: Blob) => void }) {
+export function FaceCamera({ stream, onCapture }: { stream: MediaStream; onCapture: (photo: Blob, faceCheck: FaceCheck) => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const [error, setError] = useState("");
   const { state, verdict, stable } = useFaceDetection(video, attempt);
   useEffect(() => {
@@ -82,20 +83,20 @@ export function FaceCamera({ stream, onCapture }: { stream: MediaStream; onCaptu
     if (!el) return;
     el.srcObject = stream;
     // AbortError = play() disela pemasangan ulang stream (mis. StrictMode); bukan kegagalan.
-    void el.play().then(() => setError("")).catch((e: DOMException) => { if (e.name !== "AbortError") setError("Video kamera belum dapat diputar. Ketuk layar lalu coba lagi."); });
-    return () => { el.srcObject = null; };
+    void el.play().then(() => { setError(""); setVideoReady(true); }).catch((e: DOMException) => { if (e.name !== "AbortError") setError("Video kamera belum dapat diputar. Ketuk layar lalu coba lagi."); });
+    return () => { el.srcObject = null; setVideoReady(false); };
   }, [stream]);
   async function shoot() {
-    if (!video.current || !stable) return;
+    if (!video.current || !canShoot({ videoReady, busy })) return;
     setBusy(true); setError("");
-    try { onCapture(await capture(video.current)); }
+    try { onCapture(await capture(video.current), faceCheckOf(state, stable)); }
     catch (e) { setError(e instanceof Error ? e.message : "Foto belum dapat diambil."); }
     finally { setBusy(false); }
   }
   return <div className="face-camera">
-    <div className={`camera-frame ${stable ? "ok" : ""}`}><video ref={video} playsInline muted autoPlay aria-label="Pratinjau kamera depan" /><span className="face-guide" aria-hidden="true" /></div>
-    <p className={`camera-hint ${stable ? "ok" : ""}`} role="status" aria-live="polite">{error || verdict.message}</p>
-    {state === "failed" ? <button className="button secondary block" onClick={() => setAttempt(a => a + 1)}><Icon name="refresh" size={18} />Muat ulang pendeteksi wajah</button>
-      : <button className="button primary block large" disabled={!stable || busy} onClick={shoot}><Icon name="camera" size={20} />{busy ? "Mengambil foto…" : "Ambil foto"}</button>}
+    <div className={`camera-frame ${stable ? "ok" : ""}`}><video ref={video} playsInline muted autoPlay aria-label="Pratinjau kamera depan" onPlaying={() => setVideoReady(true)} /><span className="face-guide" aria-hidden="true" /></div>
+    <p className={`camera-hint ${stable ? "ok" : ""}`} role="status" aria-live="polite">{error || cameraHint(state, verdict, stable)}</p>
+    <button className="button primary block large" disabled={!canShoot({ videoReady, busy })} onClick={shoot}><Icon name="camera" size={20} />{busy ? "Mengambil foto…" : "Ambil foto"}</button>
+    {state === "failed" && <button className="button secondary block" onClick={() => setAttempt(a => a + 1)}><Icon name="refresh" size={18} />Muat ulang pendeteksi wajah</button>}
   </div>;
 }

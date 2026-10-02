@@ -14,7 +14,7 @@ const row = (over: Partial<SessionRow> = {}, user: Partial<SessionRow["user"]> =
   ...over,
   user: {
     id: "u1", role: "STUDENT", name: "Siswa", isActive: true, mustChangePassword: false, totpEnabledAt: null,
-    schoolId: "s1", sponsorId: null, school: { isActive: true }, student: { id: "st1", status: "ACTIVE" }, sponsor: null,
+    schoolId: "s1", primarySchoolId: null, sponsorId: null, school: { isActive: true }, student: { id: "st1", status: "ACTIVE" }, sponsor: null,
     ...user,
   },
 });
@@ -59,4 +59,22 @@ test("totpEnrollmentRequired: SUPER_ADMIN tanpa totpEnabledAt -> true; sudah akt
   assert.equal(enrolled.ok && enrolled.principal.totpEnrollmentRequired, false);
   const student = evaluatePrincipal(row(), CLAIMS, NOW);
   assert.equal(student.ok && student.principal.totpEnrollmentRequired, false);
+});
+
+test("totpEnrollmentRequired: sakelar TOTP mati -> super admin tanpa TOTP tetap bebas memakai fitur", () => {
+  const sa = { role: "SUPER_ADMIN" as const, schoolId: null, school: null, student: null, totpEnabledAt: null };
+  const off = evaluatePrincipal(row({}, sa), CLAIMS, NOW, { totpEnforced: false });
+  const on = evaluatePrincipal(row({}, sa), CLAIMS, NOW, { totpEnforced: true });
+  assert.equal(off.ok && off.principal.totpEnrollmentRequired, false);
+  assert.equal(on.ok && on.principal.totpEnrollmentRequired, true);
+});
+
+test("isPrimarySchoolAdmin: hanya admin sekolah yang primarySchoolId = sekolahnya", () => {
+  const admin = { role: "SCHOOL_ADMIN" as const, student: null };
+  const primary = evaluatePrincipal(row({}, { ...admin, primarySchoolId: "s1" }), CLAIMS, NOW);
+  const extra = evaluatePrincipal(row({}, admin), CLAIMS, NOW);
+  assert.equal(primary.ok && primary.principal.isPrimarySchoolAdmin, true);
+  assert.equal(extra.ok && extra.principal.isPrimarySchoolAdmin, false);
+  const student = evaluatePrincipal(row(), CLAIMS, NOW);
+  assert.equal(student.ok && student.principal.isPrimarySchoolAdmin, false);
 });

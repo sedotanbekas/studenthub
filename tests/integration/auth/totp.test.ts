@@ -11,6 +11,9 @@ import { disconnect, prisma } from "../helpers/db";
 import { createSchool, createSchoolAdmin, createSuperAdmin, TEST_TOTP_SECRET, type TestUser } from "../helpers/factories";
 import { callRoute, type Envelope } from "../helpers/request";
 import { login, loginOk, me } from "./helpers";
+import { enforceSuperAdminTotp } from "../helpers/totp-switch";
+
+enforceSuperAdminTotp();
 
 before(resetAllLimiters);
 beforeEach(resetAllLimiters);

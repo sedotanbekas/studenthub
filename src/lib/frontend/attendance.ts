@@ -1,3 +1,4 @@
+import type { FaceCheck } from "@/lib/attendance/anomaly-rules";
 import { isMobileBrowserAgent } from "@/lib/auth/device";
 import { TZ_IANA } from "@/lib/time/zone";
 
@@ -37,6 +38,31 @@ export function faceVerdict(faces: readonly FaceBox[], frame: { width: number; h
   const cy = (only.y + only.height / 2) / frame.height;
   if (cx < CENTER_MIN || cx > CENTER_MAX || cy < CENTER_MIN || cy > CENTER_MAX) return { ok: false, message: "Posisikan wajah di tengah bingkai." };
   return { ok: true, message: "Wajah terdeteksi. Tahan posisi lalu ambil foto." };
+}
+
+/**
+ * Deteksi wajah OPSIONAL (keputusan pemilik 2026-10-02): tombol foto tidak menunggu pendeteksi agar absen tidak
+ * lama; hasilnya dikirim ke server sebagai `faceCheck` dan foto tanpa wajah terdeteksi ditandai FACE_NOT_DETECTED
+ * untuk diperiksa manual oleh admin sekolah.
+ */
+export type DetectorState = "loading" | "ready" | "failed";
+export type { FaceCheck };
+export const MANUAL_REVIEW_NOTE = "Foto tetap bisa diambil; admin sekolah akan memeriksanya.";
+
+export function faceCheckOf(detector: DetectorState, stable: boolean): FaceCheck {
+  if (stable) return "DETECTED";
+  return detector === "ready" ? "NOT_DETECTED" : "UNAVAILABLE";
+}
+
+export function canShoot(camera: { readonly videoReady: boolean; readonly busy: boolean }): boolean {
+  return camera.videoReady && !camera.busy;
+}
+
+export function cameraHint(detector: DetectorState, verdict: FaceVerdict, stable: boolean): string {
+  if (stable) return verdict.message;
+  if (detector === "failed") return `Pendeteksi wajah tidak tersedia. ${MANUAL_REVIEW_NOTE}`;
+  if (detector === "loading") return `Menyiapkan pendeteksi wajah… ${MANUAL_REVIEW_NOTE}`;
+  return `${verdict.message} ${MANUAL_REVIEW_NOTE}`;
 }
 
 /** Kode GeolocationPositionError: 1 ditolak, 2 tidak tersedia (GPS mati), 3 waktu habis. */

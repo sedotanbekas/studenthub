@@ -148,6 +148,19 @@ Buat akun admin sekolah & super admin, cari/nonaktifkan user (super admin terakh
 dinonaktifkan), reset password, sponsor (create → PENDING/APPROVED/SUSPENDED), platform settings,
 audit log, job runs, libur nasional. Super admin pertama via CLI `pnpm db:super-admin`.
 **TOTP 2FA wajib untuk SUPER_ADMIN** (fase P5).
+**Diubah pemilik 2026-10-02:** TOTP super admin DIMATIKAN sementara (env `SUPER_ADMIN_TOTP`, bawaan `off`;
+rahasia yang terdaftar tetap tersimpan, nyalakan lagi = `on` + restart). Penggantinya **riwayat masuk super admin**
+(`LoginEvent`, `GET /platform/login-history`, menu "Riwayat masuk"): setiap login berhasil & percobaan gagal mencatat
+perangkat/browser (user-agent), id perangkat + penanda perangkat baru, IP, serta perkiraan kota/provinsi/negara & ISP
+dari berkas DB-IP Lite lokal (`<STORAGE_ROOT>/geoip`, `pnpm geoip:update` di akhir setiap deploy, CC BY 4.0 → atribusi
+"IP Geolocation by DB-IP" di halaman). Lokasi IP hanya perkiraan, bukan GPS.
+**Akun admin untuk guru/wali kelas (pemilik 2026-10-02):** sementara belum ada peran guru, setiap guru/wali kelas
+memakai akun ADMIN SEKOLAH TAMBAHAN miliknya sendiri (jangan berbagi akun). ADMIN UTAMA sekolah (login NPSN)
+membuat & mengelola akun itu sendiri lewat `/school/admins*` (menu "Admin & guru": buat, ubah, nonaktif/aktifkan,
+reset kata sandi, cabut sesi); admin tambahan hanya melihat daftar (`schoolAdmins.read`), kelola =
+`schoolAdmins.manage` + `primarySchoolAdminOnly` (403 `PRIMARY_ADMIN_ONLY`). Admin utama sendiri hanya diubah super
+admin (403 `PRIMARY_ADMIN_PROTECTED`); super admin cukup membuat admin utama. Batas 100 akun admin per sekolah.
+Peran guru/wali kelas sungguhan (dibatasi per kelas) = fase berikutnya, menunggu jawaban sekolah.
 
 **Siswa** (satu pemilik `src/lib/students`, `/school/students*`): create (default `activate=true`,
 atomik, 422 + daftar kekurangan bila data wajib belum lengkap; `activate=false` → DRAFT), activate,
@@ -180,6 +193,10 @@ Cek "kelas di tahun ajaran aktif" hanya saat aktivasi / ganti kelas (bukan tiap 
   default terkunci). Selama terbuka, geofence serta jam & hari absen tidak diperiksa untuk SEMUA sekolah;
   (0,0), lokasi palsu, data basi, akurasi GPS, selfie, sesi HP, dan satu absen per hari tetap berlaku.
   Check-in yang lolos hanya karena mode ini diberi flag `TEST_MODE` (MEDIUM, tampil di antrean anomali admin sekolah). Dihapus setelah masa uji selesai.
+- **Deteksi wajah opsional (pemilik 2026-10-02):** tombol foto di web tidak menunggu pendeteksi wajah (masih dimuat,
+  gagal, atau belum menemukan wajah) agar absen tidak lama. Hasilnya dikirim sebagai `faceCheck` opsional
+  (DETECTED / NOT_DETECTED / UNAVAILABLE); selain DETECTED diberi flag `FACE_NOT_DETECTED` (MEDIUM, antrean
+  "Perlu ditinjau") untuk diperiksa manual admin sekolah — tidak pernah menolak absen. Selfie tetap wajib.
 - Izin/Sakit: backdate ≤7 hari, maju ≤30, rentang ≤14; SAKIT ≥3 hari sekolah wajib lampiran foto;
   approve → baris IZIN/SAKIT tiap hari sekolah (tidak menimpa CHECKIN/ADMIN); reject wajib alasan.
 - Auto-ALPHA per sekolah setelah `dayEndMinute` lokal (tiga zona waktu), catch-up 7 hari, idempoten

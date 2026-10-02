@@ -19,6 +19,8 @@ export const EXPIRED_REFRESH_TOKEN_DAYS = 1;
 /** AuthSession dicabut/kedaluwarsa lebih dari 90 hari lalu (RefreshToken ikut terhapus kaskade). */
 export const DEAD_SESSION_DAYS = 90;
 export const NOTIFICATION_RETENTION_DAYS = 365;
+/** Riwayat masuk super admin (jejak keamanan; percobaan gagal juga dicatat, jadi wajib dibatasi). */
+export const LOGIN_EVENT_RETENTION_DAYS = 365;
 export const JOB_RUN_RETENTION_DAYS = 90;
 export const AUTO_ALPHA_RUN_RETENTION_DAYS = 400;
 /** Banner yang tidak pernah dirujuk iklan dianggap yatim setelah 24 jam. */
@@ -37,6 +39,7 @@ export interface RetentionCutoffs {
   readonly expiredRefreshToken: Date;
   readonly deadSession: Date;
   readonly notification: Date;
+  readonly loginEvent: Date;
   readonly jobRun: Date;
   readonly autoAlphaRun: Date;
 }
@@ -53,6 +56,7 @@ export function retentionCutoffs(now: Date): RetentionCutoffs {
     expiredRefreshToken: daysAgo(now, EXPIRED_REFRESH_TOKEN_DAYS),
     deadSession: daysAgo(now, DEAD_SESSION_DAYS),
     notification: daysAgo(now, NOTIFICATION_RETENTION_DAYS),
+    loginEvent: daysAgo(now, LOGIN_EVENT_RETENTION_DAYS),
     jobRun: daysAgo(now, JOB_RUN_RETENTION_DAYS),
     autoAlphaRun: daysAgo(now, AUTO_ALPHA_RUN_RETENTION_DAYS),
   };

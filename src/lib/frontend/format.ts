@@ -24,6 +24,8 @@ function numeric(value: number, key: string): string {
 const CLOCK_MINUTE_FIELDS: ReadonlySet<string> = new Set(["checkInOpenMinute", "startMinute", "checkInCloseMinute", "dayEndMinute"]);
 export const isClockMinuteField = (key: string): boolean => CLOCK_MINUTE_FIELDS.has(key);
 export const clockText = (minutes: number): string => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+/** Kolom waktu kejadian yang perlu jam, bukan hanya tanggal (mis. riwayat masuk). */
+const DATETIME_FIELDS: ReadonlySet<string> = new Set(["occurredAt"]);
 export function display(value: unknown, key = ""): string {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "Ya" : "Tidak";
@@ -33,6 +35,6 @@ export function display(value: unknown, key = ""): string {
     const row = value as Record<string, unknown>;
     return display(row.name ?? row.title ?? row.label ?? row.companyName ?? row.className ?? row.status ?? "Lihat detail");
   }
-  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(String(value))) return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(String(value)));
+  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(String(value))) return new Intl.DateTimeFormat("id-ID", DATETIME_FIELDS.has(key) ? { dateStyle: "medium", timeStyle: "short" } : { dateStyle: "medium" }).format(new Date(String(value)));
   return labels[String(value)] ?? String(value);
 }

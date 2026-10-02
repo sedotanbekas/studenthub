@@ -19,6 +19,7 @@ export const ANOMALY_CODES = [
   "CLOCK_SKEW",
   "DEVICE_SESSION_MISMATCH",
   "DUPLICATE_SELFIE",
+  "FACE_NOT_DETECTED",
   "GEOFENCE_TOLERANCE",
   "LOW_ACCURACY",
   "NEW_DEVICE",
@@ -36,6 +37,7 @@ export const ANOMALY_SEVERITY: Readonly<Record<AnomalyCode, AnomalySeverity>> = 
   CLOCK_SKEW: "LOW",
   DEVICE_SESSION_MISMATCH: "MEDIUM",
   DUPLICATE_SELFIE: "HIGH",
+  FACE_NOT_DETECTED: "MEDIUM",
   GEOFENCE_TOLERANCE: "LOW",
   LOW_ACCURACY: "LOW",
   NEW_DEVICE: "MEDIUM",
@@ -51,6 +53,7 @@ export const ANOMALY_LABELS: Readonly<Record<AnomalyCode, string>> = Object.free
   CLOCK_SKEW: "Jam perangkat berbeda jauh dari jam server",
   DEVICE_SESSION_MISMATCH: "Perangkat berbeda dengan perangkat saat login",
   DUPLICATE_SELFIE: "Selfie sangat mirip dengan selfie sebelumnya",
+  FACE_NOT_DETECTED: "Wajah tidak terdeteksi otomatis saat foto diambil — periksa fotonya",
   GEOFENCE_TOLERANCE: "Di luar radius, diterima karena toleransi akurasi GPS",
   LOW_ACCURACY: "Akurasi GPS rendah",
   NEW_DEVICE: "Perangkat baru (berganti dalam 7 hari terakhir)",
@@ -61,6 +64,13 @@ export const ANOMALY_LABELS: Readonly<Record<AnomalyCode, string>> = Object.free
   TIME_INCONSISTENT: "Waktu lokasi lebih baru dari waktu kirim",
   WEB_CHECKIN: "Absen dari browser HP (deteksi lokasi palsu terbatas)",
 });
+
+/**
+ * Hasil deteksi wajah di perangkat saat foto diambil (deteksi OPSIONAL sejak 2026-10-02: tombol foto tidak
+ * menunggu pendeteksi). NOT_DETECTED / UNAVAILABLE -> FACE_NOT_DETECTED untuk diperiksa manual admin sekolah.
+ */
+export const FACE_CHECKS = ["DETECTED", "NOT_DETECTED", "UNAVAILABLE"] as const;
+export type FaceCheck = (typeof FACE_CHECKS)[number];
 
 export interface AnomalyInput {
   /** Jam server (epoch ms). */
@@ -86,6 +96,8 @@ export interface AnomalyInput {
   readonly webSession: boolean;
   /** Diterima hanya karena mode uji absensi (decideCheckIn testModeBypass). */
   readonly testModeBypass: boolean;
+  /** null = klien tidak mengirim (aplikasi lama / app mobile) -> tanpa flag. */
+  readonly faceCheck: FaceCheck | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -144,6 +156,7 @@ function identityFlags(input: AnomalyInput): AnomalyCode[] {
     ["DUPLICATE_SELFIE", isDuplicateSelfie(input.selfiePhash, input.recentSelfiePhashes)],
     ["SHARED_DEVICE", input.sharedDevice],
     ["WEB_CHECKIN", input.webSession],
+    ["FACE_NOT_DETECTED", input.faceCheck === "NOT_DETECTED" || input.faceCheck === "UNAVAILABLE"],
   ];
   return checks.filter(([, hit]) => hit).map(([code]) => code);
 }

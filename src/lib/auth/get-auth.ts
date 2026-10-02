@@ -3,6 +3,7 @@ import { unauthorized } from "@/lib/http/errors";
 import { verifyAccessToken } from "./access-token";
 import type { Principal } from "./principal";
 import { evaluatePrincipal, type SessionRow } from "./principal-rules";
+import { superAdminTotpEnforced } from "./totp-switch";
 
 /**
  * Autentikasi request: hanya `Authorization: Bearer <access token>`. Skema lain (mis. Basic dari
@@ -16,7 +17,7 @@ export async function getAuth(req: Request, now: Date = new Date()): Promise<Pri
   if (token.length === 0) throw unauthorized("UNAUTHENTICATED", "Token tidak valid.");
   const claims = await verifyAccessToken(token, now);
   const row = await loadSession(claims.sid);
-  const result = evaluatePrincipal(row, claims, now);
+  const result = evaluatePrincipal(row, claims, now, { totpEnforced: superAdminTotpEnforced() });
   if (!result.ok) {
     const message = result.code === "SESSION_INVALID" ? "Sesi tidak berlaku. Silakan login ulang." : "Akun tidak aktif.";
     throw unauthorized(result.code, message);
@@ -43,6 +44,7 @@ async function loadSession(sessionId: string): Promise<SessionRow | null> {
           mustChangePassword: true,
           totpEnabledAt: true,
           schoolId: true,
+          primarySchoolId: true,
           sponsorId: true,
           school: { select: { isActive: true } },
           student: { select: { id: true, status: true } },

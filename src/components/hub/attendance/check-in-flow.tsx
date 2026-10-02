@@ -4,7 +4,7 @@ import type { CheckInResultDto, PrecheckResultDto, TodayDto } from "@/lib/attend
 import { ACCURACY_TOLERANCE_CAP_M } from "@/lib/attendance/constants";
 import { haversineMeters } from "@/lib/attendance/geo";
 import { api, ApiError } from "@/lib/frontend/api";
-import { accuracyAdvice, fixAgeOk, simulateDemoFix, TEST_MODE_NOTE, webDeviceId } from "@/lib/frontend/attendance";
+import { accuracyAdvice, fixAgeOk, simulateDemoFix, TEST_MODE_NOTE, webDeviceId, type FaceCheck } from "@/lib/frontend/attendance";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { useHub } from "../context";
 import { Icon } from "../icon";
@@ -41,7 +41,7 @@ export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClo
   const access = useDeviceAccess();
   const [step, setStep] = useState<Step>("location");
   const [verdict, setVerdict] = useState<Verdict | null>(null);
-  const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
+  const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [result, setResult] = useState<CheckInResultDto | null>(null);
   const watched = useLivePosition(access.ready, access.fix, access.blockLocation);
   // Mode demo: sekolah disimulasikan di dekat pengguna, akurasi GPS juga disimulasikan (laptop tidak punya GPS).
@@ -69,7 +69,7 @@ export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClo
       {today.testMode && !demo && <p className="warning-message" role="status">{TEST_MODE_NOTE}</p>}
       {!access.ready ? <AccessGate access={access} />
         : step === "location" ? <LocationStep today={today} school={school} live={live} distance={distance} inside={inside} verdict={verdict} onVerdict={setVerdict} onNext={() => setStep("face")} />
-        : step === "face" && access.stream ? <section className="checkin-step-body"><div className="step-intro"><h2>Hadapkan wajah ke kamera</h2><p>Lepas masker/kacamata hitam dan pastikan wajahmu terang. Tombol foto aktif setelah wajah terdeteksi.</p></div><FaceCamera stream={access.stream} onCapture={blob => { setPhoto({ blob, url: URL.createObjectURL(blob) }); setStep("review"); }} /></section>
+        : step === "face" && access.stream ? <section className="checkin-step-body"><div className="step-intro"><h2>Hadapkan wajah ke kamera</h2><p>Lepas masker/kacamata hitam dan pastikan wajahmu terang. Foto tetap bisa diambil walau wajah belum terdeteksi; admin sekolah akan memeriksanya.</p></div><FaceCamera stream={access.stream} onCapture={(blob, faceCheck) => { setPhoto({ blob, url: URL.createObjectURL(blob), faceCheck }); setStep("review"); }} /></section>
         : step === "review" && photo ? <ReviewStep maxAccuracyM={today.geofence.maxAccuracyM} photo={photo} distance={distance} verdict={verdict} onRetake={() => setStep("face")} onLocationError={message => { setVerdict({ ok: false, message, wouldBeLate: false }); setStep("location"); }} onImageError={() => setStep("face")} onDone={done => { setResult(done); setStep("done"); }} />
         : result ? <DoneStep result={result} onFinish={() => { onDone(); onClose(); }} /> : null}
     </div>
@@ -106,7 +106,8 @@ function LocationStep({ today, school, live, distance, inside, verdict, onVerdic
   </section>;
 }
 
-interface ReviewProps { maxAccuracyM: number; photo: { blob: Blob; url: string }; distance: number | null; verdict: Verdict | null; onRetake: () => void; onLocationError: (message: string) => void; onImageError: () => void; onDone: (result: CheckInResultDto) => void }
+interface CapturedPhoto { blob: Blob; url: string; faceCheck: FaceCheck }
+interface ReviewProps { maxAccuracyM: number; photo: CapturedPhoto; distance: number | null; verdict: Verdict | null; onRetake: () => void; onLocationError: (message: string) => void; onImageError: () => void; onDone: (result: CheckInResultDto) => void }
 
 function ReviewStep({ maxAccuracyM, photo, distance, verdict, onRetake, onLocationError, onImageError, onDone }: ReviewProps) {
   const { demo } = useHub();
@@ -120,6 +121,7 @@ function ReviewStep({ maxAccuracyM, photo, distance, verdict, onRetake, onLocati
       if (!fixAgeOk(position.timestamp, Date.now())) throw new ApiError("Data lokasi sudah kedaluwarsa. Periksa ulang lokasi.", "LOCATION_STALE");
       const form = new FormData();
       for (const [key, value] of Object.entries({ ...fixBody(position), deviceId: webDeviceId(localStorage, () => crypto.randomUUID()) })) form.set(key, String(value));
+      form.set("faceCheck", photo.faceCheck);
       form.set("selfie", new File([photo.blob], "selfie.jpg", { type: "image/jpeg" }));
       const response = await api("/student/attendance/check-in", { method: "POST", body: form });
       onDone(response.data as CheckInResultDto);

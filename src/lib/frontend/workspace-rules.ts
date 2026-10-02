@@ -22,6 +22,7 @@ export const ACTION_LABELS: Readonly<Record<string, ActionText>> = {
   createNationalHoliday: { label: "Libur nasional baru" },
   createPlatformSchool: { label: "Sekolah baru" },
   createPlatformUser: { label: "Pengguna baru" },
+  createSchoolAdmin: { label: "Akun admin baru", hint: "Untuk guru/wali kelas; masuk dengan email, kata sandi sementara tampil sekali." },
   createSponsor: { label: "Sponsor baru" },
   createReportCard: { label: "Rapor baru", hint: "Rapor kosong untuk satu siswa; nilai diisi lewat Isi nilai per kelas." },
   createOwnLeaveRequest: { label: "Ajukan izin/sakit" },
@@ -72,6 +73,11 @@ export const ACTION_LABELS: Readonly<Record<string, ActionText>> = {
   activatePlatformUser: { label: "Aktifkan akun" },
   revokePlatformUserSessions: { label: "Keluarkan dari semua perangkat" },
   resetPlatformUserPassword: { label: "Reset kata sandi" },
+  deactivateSchoolAdmin: { label: "Nonaktifkan akun" },
+  activateSchoolAdmin: { label: "Aktifkan akun" },
+  revokeSchoolAdminSessions: { label: "Keluarkan dari semua perangkat" },
+  resetSchoolAdminPassword: { label: "Reset kata sandi" },
+  updateSchoolAdmin: { label: "Ubah nama/email" },
   approveSponsor: { label: "Setujui sponsor" },
   suspendSponsor: { label: "Tangguhkan sponsor" },
   reactivateSponsor: { label: "Aktifkan kembali" },
@@ -98,6 +104,7 @@ export const VIEW_LABELS: Readonly<Record<string, string>> = {
   listSchoolHolidays: "Kalender libur",
   getSchoolProfile: "Profil & kesiapan sekolah",
   listSchoolAuditLogs: "Riwayat aktivitas",
+  listSchoolAdmins: "Admin & guru",
   listNotifications: "Notifikasi",
   listMySessions: "Perangkat yang masuk",
   listPlatformSchools: "Daftar sekolah",
@@ -107,6 +114,7 @@ export const VIEW_LABELS: Readonly<Record<string, string>> = {
   getAdSettings: "Pengaturan iklan",
   getAttendanceTestMode: "Mode uji absensi",
   listPlatformAuditLogs: "Audit platform",
+  listLoginHistory: "Riwayat masuk",
   getOwnSponsorProfile: "Profil perusahaan",
   listOwnLeaveRequests: "Pengajuan saya",
   listOwnReportCards: "Rapor saya",
@@ -175,6 +183,20 @@ export function isHiddenField(key: string): boolean {
   return !/FileId$/.test(key) && !MEANINGFUL_IDS.has(key) && /^id$|Ids?$/.test(key);
 }
 
+/** Catatan kecil di bawah tabel sebuah tampilan (mis. atribusi sumber data yang diwajibkan lisensinya). */
+export interface ViewNote {
+  readonly text: string;
+  readonly link?: { readonly href: string; readonly label: string };
+}
+
+export const VIEW_NOTES: Readonly<Record<string, ViewNote>> = {
+  // Lisensi DB-IP Lite (CC BY 4.0) mewajibkan tautan balik di halaman yang menampilkan hasilnya.
+  "/platform/login-history": {
+    text: "Lokasi & ISP diperkirakan dari alamat IP (bukan GPS); IP seluler sering terbaca kota gerbang operator.",
+    link: { href: "https://db-ip.com", label: "IP Geolocation by DB-IP" },
+  },
+};
+
 /** Kolom tabel paling berguna per tampilan (isi lengkap tetap ada di jendela detail). */
 export const VIEW_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   "/student/invoices": ["invoiceNo", "title", "amount", "remaining", "dueDate", "displayStatus"],
@@ -188,7 +210,9 @@ export const VIEW_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   "/school/attendance/anomalies": ["date", "student", "attendance"],
   "/school/attendance/rejections": ["date", "timeLocal", "student", "reasonLabel", "distanceM"],
   "/school/audit-logs": ["createdAt", "actor", "action", "entityType"],
+  "/school/admins": ["name", "email", "isPrimary", "isActive", "lastLoginAt"],
   "/platform/audit-logs": ["createdAt", "actor", "action", "entityType"],
+  "/platform/login-history": ["occurredAt", "user", "status", "device", "isp", "location", "ipAddress"],
   "/platform/schools": ["name", "npsn", "city", "activeStudentCount", "isActive"],
   "/platform/users": ["name", "email", "role", "school", "isActive", "lastLoginAt"],
   "/platform/sponsors": ["companyName", "contactEmail", "status", "balance", "pendingAdReviews"],

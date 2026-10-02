@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { downloadApiFile, scoped } from "@/lib/frontend/api";
 import type { Operation } from "@/lib/frontend/types";
-import { ACTION_LABELS, splitActions, VIEW_LABELS } from "@/lib/frontend/workspace-rules";
+import { ACTION_LABELS, splitActions, VIEW_LABELS, type ViewNote } from "@/lib/frontend/workspace-rules";
 import { actionLabel, actionTitle } from "./action-dialog";
 import { useHub } from "./context";
 import { Icon } from "./icon";
@@ -76,4 +76,10 @@ function ActionMenu({ actions, disabled, onSelect }: { actions: readonly Operati
       <button type="button" onClick={() => { setOpen(false); onSelect(op); }}><strong>{actionLabel(op)}</strong>{ACTION_LABELS[op.id]?.hint && <small>{ACTION_LABELS[op.id]!.hint}</small>}</button>
     </li>)}</ul>}
   </div>;
+}
+
+/** Catatan kecil di bawah tabel (mis. atribusi sumber data yang diwajibkan lisensinya). */
+export function ViewNoteLine({ note }: { note: ViewNote | undefined }) {
+  if (!note) return null;
+  return <p className="view-note">{note.text}{note.link && <> <a className="text-link" href={note.link.href} target="_blank" rel="noreferrer">{note.link.label}</a></>}</p>;
 }

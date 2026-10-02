@@ -124,6 +124,7 @@ export function checkInBodyAt(now: Date, selfie: Buffer, options: FixOptions = {
     latitude: point.latitude,
     longitude: point.longitude,
     accuracy: options.accuracy ?? 12,
+    faceCheck: null,
     mocked: options.mocked === undefined ? false : options.mocked,
     locationTimestamp: now.getTime() - (options.fixAgeMs ?? 5_000),
     clientTime: now.getTime(),

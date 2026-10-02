@@ -9,7 +9,10 @@ import { parseTotpResetArgs } from "../../../scripts/totp-reset";
 import { createSessionToken } from "../helpers/auth";
 import { disconnect, prisma } from "../helpers/db";
 import { createSchool, createSchoolAdmin, createSuperAdmin, TEST_TOTP_SECRET } from "../helpers/factories";
-import { login, me } from "./helpers";
+import { login, me, waitForLoginFailures } from "./helpers";
+import { enforceSuperAdminTotp } from "../helpers/totp-switch";
+
+enforceSuperAdminTotp();
 
 beforeEach(resetAllLimiters);
 after(disconnect);
@@ -62,6 +65,9 @@ test("rahasia TOTP tak terbaca (kunci diganti) -> login 500 INTERNAL_ERROR tanpa
   const res = await login(sa.email ?? "", { totpCode: totpCodeAt(TEST_TOTP_SECRET, totpStep(new Date())) });
   assert.equal(res.status, 500);
   assert.equal(res.body?.error?.code, "INTERNAL_ERROR");
+  // Riwayat masuk mencatat kegagalan ini (OTHER) setelah respons; ditunggu agar tidak menyusul test berikutnya.
+  await waitForLoginFailures(sa.id, 1);
+  assert.equal((await prisma.loginEvent.findFirstOrThrow({ where: { userId: sa.id } })).failureCode, "OTHER");
 });
 
 test("CLI db:totp-reset: argumen salah exit 2; email tak dikenal exit 1", () => {

@@ -15,6 +15,7 @@ test("tenggat retensi dihitung dari now (keputusan klien: selfie 180 hari)", () 
   assert.equal(c.expiredRefreshToken.toISOString(), daysBefore(1));
   assert.equal(c.deadSession.toISOString(), daysBefore(90));
   assert.equal(c.notification.toISOString(), daysBefore(365));
+  assert.equal(c.loginEvent.toISOString(), daysBefore(365));
   assert.equal(c.jobRun.toISOString(), daysBefore(90));
   assert.equal(c.autoAlphaRun.toISOString(), daysBefore(400));
 });

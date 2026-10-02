@@ -5802,6 +5802,1497 @@
         }
       }
     },
+    "/api/v1/platform/login-history": {
+      "get": {
+        "operationId": "listLoginHistory",
+        "tags": [
+          "Log Audit"
+        ],
+        "summary": "Riwayat masuk super admin (terbaru dulu)",
+        "description": "Setiap login berhasil dan percobaan gagal (kata sandi salah dsb.) ke akun super admin: perangkat & browser, IP, perkiraan lokasi + ISP dari IP (DB-IP Lite, bukan GPS — wajib atribusi \"IP Geolocation by DB-IP\"), dan penanda perangkat baru. Pembeda pemakai akun sejak TOTP super admin dimatikan (2026-10-02).\n\nAksi POLICY: `audit.login.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "description": "Nomor halaman (mulai 1).",
+              "example": 1,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "description": "Nomor halaman (mulai 1)."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "description": "Jumlah baris per halaman (maks 100).",
+              "example": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Jumlah baris per halaman (maks 100)."
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "description": "Filter satu akun super admin.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Filter satu akun super admin."
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "SUCCESS = berhasil masuk, FAILED = percobaan gagal.",
+              "type": "string",
+              "enum": [
+                "SUCCESS",
+                "FAILED"
+              ]
+            },
+            "description": "SUCCESS = berhasil masuk, FAILED = percobaan gagal."
+          },
+          {
+            "in": "query",
+            "name": "isNewDevice",
+            "schema": {
+              "description": "true = hanya login pertama dari perangkat baru.",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "true = hanya login pertama dari perangkat baru."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LoginEvent"
+                      }
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/admins": {
+      "get": {
+        "operationId": "listSchoolAdmins",
+        "tags": [
+          "Admin Sekolah - Akun admin & guru"
+        ],
+        "summary": "Daftar akun admin sekolah (admin utama dulu)",
+        "description": "Aksi POLICY: `schoolAdmins.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "description": "Nomor halaman (mulai 1).",
+              "example": 1,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "description": "Nomor halaman (mulai 1)."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "description": "Jumlah baris per halaman (maks 100).",
+              "example": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Jumlah baris per halaman (maks 100)."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Cari nama atau email.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "Cari nama atau email."
+          },
+          {
+            "in": "query",
+            "name": "isActive",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SchoolAdmin"
+                      }
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSchoolAdmin",
+        "tags": [
+          "Admin Sekolah - Akun admin & guru"
+        ],
+        "summary": "Buat akun admin tambahan untuk guru/wali kelas",
+        "description": "Hanya admin utama sekolah (403 `PRIMARY_ADMIN_ONLY`) atau super admin dengan `?schoolId=`. Masuk dengan email (unik, 409 `EMAIL_TAKEN`). `initialPassword` opsional (422 `PASSWORD_POLICY`); bila kosong sistem membuat kata sandi sementara 14 hari yang dikembalikan SEKALI. Akun baru wajib ganti kata sandi saat login pertama. Maksimal 100 akun admin per sekolah (409 `SCHOOL_ADMIN_LIMIT`). Sekolah tanpa admin utama -> 409 `PRIMARY_ADMIN_MISSING` (admin utama dibuat super admin lewat /platform/users).\n\nAksi POLICY: `schoolAdmins.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 100,
+                    "description": "Nama guru/staf, boleh disertai jabatan, mis. `Bu Rina (Wali kelas X-1)`."
+                  },
+                  "email": {
+                    "description": "Dipakai untuk masuk (admin tambahan selalu masuk dengan email).",
+                    "type": "string",
+                    "maxLength": 191
+                  },
+                  "initialPassword": {
+                    "description": "Opsional; bila kosong sistem membuat kata sandi sementara (14 hari).",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "name",
+                  "email"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "admin": {
+                          "$ref": "#/components/schemas/SchoolAdmin"
+                        },
+                        "temporaryPassword": {
+                          "description": "Hanya bila dibuat sistem; ditampilkan SEKALI.",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "admin"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON, SCHOOL_ID_REQUIRED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, PRIMARY_ADMIN_ONLY.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: SCHOOL_INACTIVE, EMAIL_TAKEN, SCHOOL_ADMIN_LIMIT, PRIMARY_ADMIN_MISSING.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: PASSWORD_POLICY.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/admins/{id}": {
+      "get": {
+        "operationId": "getSchoolAdmin",
+        "tags": [
+          "Admin Sekolah - Akun admin & guru"
+        ],
+        "summary": "Detail akun admin sekolah",
+        "description": "Aksi POLICY: `schoolAdmins.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID akun admin."
+            },
+            "required": true,
+            "description": "ID akun admin."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SchoolAdmin"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateSchoolAdmin",
+        "tags": [
+          "Admin Sekolah - Akun admin & guru"
+        ],
+        "summary": "Ubah nama atau email akun admin tambahan",
+        "description": "Hanya admin utama sekolah (403 `PRIMARY_ADMIN_ONLY`) atau super admin dengan `?schoolId=`. Akun di luar sekolah / bukan admin sekolah -> 404; admin utama -> 403 `PRIMARY_ADMIN_PROTECTED` (diubah super admin).\n\nAksi POLICY: `schoolAdmins.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID akun admin."
+            },
+            "required": true,
+            "description": "ID akun admin."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 100
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 191
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SchoolAdmin"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON, SCHOOL_ID_REQUIRED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, PRIMARY_ADMIN_ONLY, PRIMARY_ADMIN_PROTECTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: EMAIL_TAKEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/admins/{id}/deactivate": {
+      "post": {
+        "operationId": "deactivateSchoolAdmin",
+        "tags": [
+          "Admin Sekolah - Akun admin & guru"
+        ],
+        "summary": "Nonaktifkan akun admin tambahan (semua sesinya dicabut)",
+        "description": "Hanya admin utama sekolah (403 `PRIMARY_ADMIN_ONLY`) atau super admin dengan `?schoolId=`. Akun di luar sekolah / bukan admin sekolah -> 404; admin utama -> 403 `PRIMARY_ADMIN_PROTECTED` (diubah super admin).\n\nAksi POLICY: `schoolAdmins.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID akun admin."
+            },
+            "required": true,
+            "description": "ID akun admin."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 255,
+                    "description": "Alasan penonaktifan (dicatat di riwayat aktivitas)."
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "revokedSessions": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "isActive",
+                        "revokedSessions"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON, SCHOOL_ID_REQUIRED, CANNOT_TARGET_SELF.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, PRIMARY_ADMIN_ONLY, PRIMARY_ADMIN_PROTECTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: USER_ALREADY_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/admins/{id}/activate": {
+      "post": {
+        "operationId": "activateSchoolAdmin",
+        "tags": [
+          "Admin Sekolah - Akun admin & guru"
+        ],
+        "summary": "Aktifkan kembali akun admin tambahan",
+        "description": "Hanya admin utama sekolah (403 `PRIMARY_ADMIN_ONLY`) atau super admin dengan `?schoolId=`. Akun di luar sekolah / bukan admin sekolah -> 404; admin utama -> 403 `PRIMARY_ADMIN_PROTECTED` (diubah super admin).\n\nAksi POLICY: `schoolAdmins.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID akun admin."
+            },
+            "required": true,
+            "description": "ID akun admin."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "isActive"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, SCHOOL_ID_REQUIRED, CANNOT_TARGET_SELF.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, PRIMARY_ADMIN_ONLY, PRIMARY_ADMIN_PROTECTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: USER_ALREADY_ACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/admins/{id}/reset-password": {
+      "post": {
+        "operationId": "resetSchoolAdminPassword",
+        "tags": [
+          "Admin Sekolah - Akun admin & guru"
+        ],
+        "summary": "Reset kata sandi akun admin tambahan",
+        "description": "Hanya admin utama sekolah (403 `PRIMARY_ADMIN_ONLY`) atau super admin dengan `?schoolId=`. Akun di luar sekolah / bukan admin sekolah -> 404; admin utama -> 403 `PRIMARY_ADMIN_PROTECTED` (diubah super admin). Kata sandi sementara (14 hari) dikembalikan SEKALI bila `newPassword` kosong; semua sesi dicabut.\n\nAksi POLICY: `schoolAdmins.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID akun admin."
+            },
+            "required": true,
+            "description": "ID akun admin."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "newPassword": {
+                    "description": "Opsional; bila kosong sistem membuat kata sandi sementara (14 hari).",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "mustChangePassword": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "temporaryPassword": {
+                          "description": "Hanya bila dibuat sistem; ditampilkan SEKALI.",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "mustChangePassword"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON, SCHOOL_ID_REQUIRED, USE_CHANGE_PASSWORD.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, PRIMARY_ADMIN_ONLY, PRIMARY_ADMIN_PROTECTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: PASSWORD_POLICY.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/admins/{id}/revoke-sessions": {
+      "post": {
+        "operationId": "revokeSchoolAdminSessions",
+        "tags": [
+          "Admin Sekolah - Akun admin & guru"
+        ],
+        "summary": "Paksa keluar semua perangkat akun admin tambahan",
+        "description": "Hanya admin utama sekolah (403 `PRIMARY_ADMIN_ONLY`) atau super admin dengan `?schoolId=`. Akun di luar sekolah / bukan admin sekolah -> 404; admin utama -> 403 `PRIMARY_ADMIN_PROTECTED` (diubah super admin).\n\nAksi POLICY: `schoolAdmins.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID akun admin."
+            },
+            "required": true,
+            "description": "ID akun admin."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "revokedCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "revokedCount"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, SCHOOL_ID_REQUIRED, CANNOT_TARGET_SELF.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, PRIMARY_ADMIN_ONLY, PRIMARY_ADMIN_PROTECTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/school/holidays": {
       "get": {
         "operationId": "listSchoolHolidays",
@@ -30680,6 +32171,15 @@
             "type": "string",
             "pattern": "^[A-Za-z0-9._:-]{8,100}$",
             "description": "Id perangkat yang sama dengan saat login (Android: getAndroidId, iOS: getIosIdForVendorAsync)."
+          },
+          "faceCheck": {
+            "description": "Opsional: hasil deteksi wajah di perangkat saat foto diambil. NOT_DETECTED/UNAVAILABLE TIDAK menolak absen, hanya memberi flag FACE_NOT_DETECTED agar fotonya diperiksa admin sekolah.",
+            "type": "string",
+            "enum": [
+              "DETECTED",
+              "NOT_DETECTED",
+              "UNAVAILABLE"
+            ]
           }
         },
         "required": [
@@ -34205,6 +35705,259 @@
         ],
         "additionalProperties": false
       },
+      "LoginEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SUCCESS",
+              "FAILED"
+            ]
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "WRONG_PASSWORD",
+                  "TOTP_INVALID",
+                  "ACCOUNT_INACTIVE",
+                  "TEMP_PASSWORD_EXPIRED",
+                  "OTHER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hanya untuk status FAILED."
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "email"
+            ],
+            "additionalProperties": false
+          },
+          "device": {
+            "type": "string",
+            "description": "Ringkasan perangkat, mis. `Chrome 141 · Windows 10/11 · Komputer`."
+          },
+          "isNewDevice": {
+            "type": "boolean",
+            "description": "Login berhasil pertama akun ini dari perangkat tersebut."
+          },
+          "location": {
+            "description": "Perkiraan lokasi dari IP (DB-IP Lite), bukan GPS.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isp": {
+            "description": "Penyedia internet + nomor AS.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ipAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ANDROID",
+              "IOS",
+              "WEB"
+            ]
+          },
+          "deviceType": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "MOBILE",
+                  "TABLET",
+                  "DESKTOP"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "browser": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "os": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deviceModel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deviceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deviceId": {
+            "description": "Id perangkat/browser kiriman klien.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "countryCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "userAgent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "status",
+          "failureReason",
+          "user",
+          "device",
+          "isNewDevice",
+          "location",
+          "isp",
+          "ipAddress",
+          "platform",
+          "deviceType",
+          "browser",
+          "os",
+          "deviceModel",
+          "deviceName",
+          "deviceId",
+          "countryCode",
+          "userAgent"
+        ],
+        "additionalProperties": false
+      },
+      "SchoolAdmin": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "loginNpsn": {
+            "description": "NPSN bila akun ini admin utama (masuk dengan NPSN).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Admin utama: dikelola super admin, tidak bisa diubah lewat endpoint ini."
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          },
+          "tempPasswordExpiresAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastLoginAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "loginNpsn",
+          "isPrimary",
+          "isActive",
+          "mustChangePassword",
+          "tempPasswordExpiresAt",
+          "lastLoginAt",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
       "CalendarHoliday": {
         "type": "object",
         "properties": {
@@ -37104,6 +38857,7 @@
                 "CLOCK_SKEW",
                 "DEVICE_SESSION_MISMATCH",
                 "DUPLICATE_SELFIE",
+                "FACE_NOT_DETECTED",
                 "GEOFENCE_TOLERANCE",
                 "LOW_ACCURACY",
                 "NEW_DEVICE",
@@ -37302,6 +39056,7 @@
                       "CLOCK_SKEW",
                       "DEVICE_SESSION_MISMATCH",
                       "DUPLICATE_SELFIE",
+                      "FACE_NOT_DETECTED",
                       "GEOFENCE_TOLERANCE",
                       "LOW_ACCURACY",
                       "NEW_DEVICE",
@@ -38756,6 +40511,7 @@
                     "CLOCK_SKEW",
                     "DEVICE_SESSION_MISMATCH",
                     "DUPLICATE_SELFIE",
+                    "FACE_NOT_DETECTED",
                     "GEOFENCE_TOLERANCE",
                     "LOW_ACCURACY",
                     "NEW_DEVICE",

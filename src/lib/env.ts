@@ -20,6 +20,12 @@ const envSchema = z
       .string({ error: "TOTP_ENC_KEY wajib diisi" })
       .trim()
       .refine((v) => parseTotpKey(v) !== null, "TOTP_ENC_KEY harus 32 byte: hex 64 karakter (openssl rand -hex 32) atau base64"),
+    /**
+     * Sakelar TOTP super admin. Bawaan "off" (keputusan pemilik 2026-10-02: dimatikan sementara karena
+     * merepotkan; pembeda pemakai akun = riwayat masuk). Rahasia yang sudah terdaftar tetap tersimpan, jadi
+     * menyalakan kembali cukup SUPER_ADMIN_TOTP=on lalu restart.
+     */
+    SUPER_ADMIN_TOTP: z.enum(["on", "off"], { error: "SUPER_ADMIN_TOTP harus on atau off" }).default("off"),
     APP_ORIGIN: z.url().transform((v) => v.replace(/\/+$/, "")),
     PUBLIC_MEDIA_BASE_URL: z.url().transform((v) => v.replace(/\/+$/, "")),
     STORAGE_ROOT: z.string().min(1),

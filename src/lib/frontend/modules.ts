@@ -8,6 +8,7 @@ const school: Module[] = [
   moduleOf("billing", "Tagihan & pembayaran", "Kelola SPP dan verifikasi pembayaran dengan mudah.", "wallet", "MANAJEMEN", ["/school/invoices", "/school/payment-submissions", "/school/payments"], "listSchoolInvoices"),
   moduleOf("announcements", "Pengumuman", "Informasi yang tepat, untuk semua yang membutuhkan.", "megaphone", "MANAJEMEN", ["/school/announcements"], "listSchoolAnnouncements"),
   moduleOf("calendar", "Kalender sekolah", "Rencanakan hari belajar dan hari libur bersama.", "calendar", "MANAJEMEN", ["/school/holidays"], "listSchoolHolidays"),
+  moduleOf("school-admins", "Admin & guru", "Akun masuk untuk guru dan wali kelas yang ikut mengelola sekolah.", "key", "MANAJEMEN", ["/school/admins"], "listSchoolAdmins"),
   moduleOf("school-settings", "Pengaturan sekolah", "Profil, jadwal kehadiran, dan kesiapan sekolah.", "settings", "LAINNYA", ["/school/profile", "/school/settings"], "getSchoolProfile"),
   moduleOf("school-theme", "Tema sekolah", "Warna aplikasi sesuai identitas sekolahmu.", "palette", "LAINNYA", ["/school/theme"], "getSchoolTheme"),
   moduleOf("audit", "Riwayat aktivitas", "Jejak perubahan untuk pengelolaan yang transparan.", "history", "LAINNYA", ["/school/audit-logs"], "listSchoolAuditLogs"),
@@ -21,6 +22,7 @@ const platform: Module[] = [
   moduleOf("national-calendar", "Libur nasional", "Satu kalender bersama untuk seluruh sekolah.", "calendar", "PLATFORM", ["/platform/holidays"], "listNationalHolidays"),
   moduleOf("platform-settings", "Pengaturan platform", "Atur tarif iklan, rekening, dan penutupan absensi.", "settings", "LAINNYA", ["/platform/settings", "/platform/attendance"], "getAdSettings"),
   moduleOf("platform-audit", "Audit platform", "Telusuri aktivitas pengelolaan platform.", "history", "LAINNYA", ["/platform/audit-logs"], "listPlatformAuditLogs"),
+  moduleOf("login-history", "Riwayat masuk", "Siapa yang masuk ke akun super admin: perangkat, IP, dan perkiraan lokasi.", "key", "LAINNYA", ["/platform/login-history"], "listLoginHistory"),
 ];
 const sponsor: Module[] = [
   moduleOf("campaigns", "Kampanye saya", "Ide baik layak menjangkau lebih banyak orang.", "megaphone", "SPONSOR", ["/sponsor/ads", "/sponsor/banners", "/sponsor/targeting"], "listOwnAds"),
@@ -38,7 +40,9 @@ const student: Module[] = [
 ];
 const common: Module[] = [
   moduleOf("notifications", "Notifikasi", "Semua kabar terbaru, tersimpan di sini.", "bell", "LAINNYA", ["/notifications"], "listNotifications"),
-  moduleOf("security", "Keamanan akun", "Kelola kata sandi, autentikasi, dan perangkat aktif.", "shield", "LAINNYA", ["/auth/change-password", "/auth/logout-all", "/me/sessions", "/me/totp"], "listMySessions"),
+  moduleOf("security", "Keamanan akun", "Kelola kata sandi, autentikasi, dan perangkat aktif.", "shield", "LAINNYA", ["/auth/change-password", "/auth/logout-all", "/me/sessions"], "listMySessions"),
+  // /me/totp sengaja tidak di menu: TOTP super admin mati sejak 2026-10-02 (SUPER_ADMIN_TOTP); bila dinyalakan,
+  // pendaftaran wajib tampil lewat kartu TotpTask di Keamanan akun (security-panel.tsx).
 ];
 export function modulesFor(role: Role): Module[] {
   return [...(role === "SUPER_ADMIN" ? [...platform, ...school] : role === "SPONSOR" ? sponsor : role === "STUDENT" ? student : school), ...common];
