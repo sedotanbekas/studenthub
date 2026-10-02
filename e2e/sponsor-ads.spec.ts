@@ -2,10 +2,9 @@ import { spawnSync } from "node:child_process";
 import { randomInt } from "node:crypto";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import sharp from "sharp";
-import { base32Decode, totpCodeAt, totpStep } from "../src/lib/auth/totp-rules";
 
 /**
- * Alur P4 lewat HTTP (server nyata): super admin (CLI, daftar TOTP) -> sekolah + siswa aktif -> sponsor (dibuat, disetujui) ->
+ * Alur P4 lewat HTTP (server nyata): super admin (CLI; TOTP mati -> riwayat masuk) -> sekolah + siswa aktif -> sponsor (dibuat, disetujui) ->
  * banner -> iklan -> review -> top-up + bukti -> persetujuan -> siswa melihat slider, impresi, klik -> analitik &
  * kartu saldo sponsor. Siswa baru aktif (< 7 hari) sehingga kliknya SUSPECT (dicatat, TIDAK ditagih) — saldo tetap
  * utuh; jalur klik ditagih + 20 klik paralel diuji integration test (tests/integration/ads). Butuh DATABASE_URL
@@ -44,19 +43,16 @@ async function firstLogin(request: APIRequestContext, identifier: string, tempor
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 /**
- * Super admin baru wajib TOTP (P5): sebelum mendaftar, aksi /platform/* ditolak; daftar lewat setup -> confirm
- * (kode dihitung dari rahasia yang dikembalikan), lalu login ulang tanpa kode -> TOTP_REQUIRED.
+ * TOTP super admin dimatikan (env SUPER_ADMIN_TOTP bawaan off, keputusan pemilik 2026-10-02): super admin baru
+ * langsung memakai /platform/* tanpa mendaftar TOTP, dan setiap login berhasilnya tercatat di riwayat masuk.
+ * Perilaku TOTP saat sakelar menyala diuji integration test (tests/integration/auth/totp*.test.ts).
  */
-async function enrollTotp(request: APIRequestContext, email: string, token: string): Promise<void> {
-  const blocked = await request.get("/api/v1/platform/audit-logs", { headers: auth(token) });
-  expect(blocked.status()).toBe(403);
-  expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe("TOTP_ENROLLMENT_REQUIRED");
-  const { secret } = await data<{ secret: string }>(await request.post("/api/v1/me/totp/setup", { headers: auth(token) }));
-  const code = totpCodeAt(base32Decode(secret), totpStep(new Date()));
-  await data(await request.post("/api/v1/me/totp/confirm", { headers: auth(token), data: { code } }));
-  const relogin = await request.post("/api/v1/auth/login", { data: { identifier: email, password: NEW_PASSWORD, platform: "WEB" } });
-  expect(relogin.status()).toBe(401);
-  expect(((await relogin.json()) as { error: { code: string } }).error.code).toBe("TOTP_REQUIRED");
+async function expectTotpOffWithLoginHistory(request: APIRequestContext, email: string, token: string): Promise<void> {
+  await data(await request.get("/api/v1/platform/audit-logs", { headers: auth(token) }));
+  const history = await data<Array<{ status: string; user: { email: string | null } }>>(
+    await request.get("/api/v1/platform/login-history?limit=100", { headers: auth(token) }),
+  );
+  expect(history.some((row) => row.status === "SUCCESS" && row.user.email === email)).toBe(true);
 }
 async function setupSchool(request: APIRequestContext, sa: string): Promise<{ schoolId: string; nisn: string; temporaryPassword: string }> {
   const school = await data<{ id: string }>(await request.post("/api/v1/platform/schools", {
@@ -92,7 +88,7 @@ test("P4: sponsor -> iklan -> top-up -> tayang -> klik -> analitik & saldo", asy
   test.setTimeout(120_000);
   const saEmail = `e2e-sa-${uid}@studenthub.test`;
   const sa = await firstLogin(request, saEmail, createSuperAdmin(saEmail));
-  await enrollTotp(request, saEmail, sa);
+  await expectTotpOffWithLoginHistory(request, saEmail, sa);
   const { schoolId, nisn, temporaryPassword } = await setupSchool(request, sa);
 
   const spEmail = `e2e-sponsor-${uid}@studenthub.test`;
