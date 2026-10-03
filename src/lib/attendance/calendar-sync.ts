@@ -6,6 +6,7 @@ import type { Tx } from "@/lib/db";
 import { fromDbDate, localParts, toDbDate, type LocalDate } from "@/lib/time/zone";
 import { CLOSE_SCHOOL_SELECT, closeDayLocked, markDayClosed, type CloseSchool } from "./auto-alpha-job";
 import { AUTO_ALPHA_JOB, chunk, holidayDates, isSealedClose, reopenDates, staleCloseDates } from "./auto-alpha-rules";
+import { retractDayNotices } from "./day-notices";
 
 /**
  * Perubahan kalender (libur sekolah/nasional) yang memengaruhi data absensi.
@@ -62,22 +63,23 @@ async function loadHolidays(tx: Tx, schoolId: string | null, range: Range): Prom
 /**
  * Hapus baris AUTO_ALPHA/LEAVE pada tanggal yang (kini) ditutup libur. Libur nasional: SEMUA sekolah, tetapi
  * per potongan schoolId (desain 02 §3.8.6) agar DELETE memakai indeks [schoolId, date, ...] dan hanya
- * mengunci baris tanggal itu — bukan scan (dan kunci) seluruh tabel Attendance lintas sekolah.
+ * mengunci baris tanggal itu — bukan scan (dan kunci) seluruh tabel Attendance lintas sekolah. Notifikasi Alpa &
+ * rekap harian tanggal itu ditarik per potongan yang sama (N4; Notification tetap ditulis terakhir per potongan).
  */
-async function deleteDerivedRows(tx: Tx, schoolId: string | null, dates: readonly LocalDate[]): Promise<number> {
-  if (dates.length === 0) return 0;
+async function deleteDerivedRows(tx: Tx, schoolId: string | null, dates: readonly LocalDate[]): Promise<{ deleted: number; retracted: number }> {
+  if (dates.length === 0) return { deleted: 0, retracted: 0 };
   const schoolIds = schoolId ? [schoolId] : (await tx.school.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((row) => row.id);
   const where = { date: { in: dates.map(toDbDate) }, source: { in: [...DERIVED_SOURCES] } };
   let deleted = 0;
+  let retracted = 0;
   for (const part of chunk(schoolIds, SCHOOL_DELETE_CHUNK)) {
     // Pilih id lewat indeks dulu (baca biasa di READ COMMITTED tanpa kunci), lalu DELETE per primary key:
     // hanya baris target yang dikunci, apa pun rencana query optimizer (DB kecil bisa memilih full scan).
-    const rows = await tx.attendance.findMany({ where: { schoolId: { in: part }, ...where }, select: { id: true } });
-    if (rows.length === 0) continue;
-    const ids = rows.map((row) => row.id);
-    deleted += (await tx.attendance.deleteMany({ where: { id: { in: ids }, source: { in: [...DERIVED_SOURCES] } } })).count;
+    const rows = await tx.attendance.findMany({ where: { schoolId: { in: part }, ...where }, select: { id: true, studentId: true } });
+    if (rows.length > 0) deleted += (await tx.attendance.deleteMany({ where: { id: { in: rows.map((row) => row.id) }, source: { in: [...DERIVED_SOURCES] } } })).count;
+    retracted += await retractDayNotices(tx, part, rows.map((row) => row.studentId), dates);
   }
-  return deleted;
+  return { deleted, retracted };
 }
 
 /** Hari yang disegel (semester dibuat setelah absen tutup) TIDAK dibuka ulang: siswa memang tidak pernah sempat absen. */
@@ -137,7 +139,8 @@ async function restoreUncoveredDays(tx: Tx, schoolId: string | null, ranges: rea
 /**
  * Dipanggil domain kalender DI DALAM transaksi yang sama dengan penulisan libur (setelah libur ditulis,
  * kunci `holidays:*` sudah dipegang). Desain 02 §3.8.6:
- * - ADDED/CHANGED: baris AUTO_ALPHA & LEAVE pada tanggal yang kini libur dihapus (CHECKIN/ADMIN tetap).
+ * - ADDED/CHANGED: baris AUTO_ALPHA & LEAVE pada tanggal yang kini libur dihapus (CHECKIN/ADMIN tetap); notifikasi
+ *   Alpa & rekap harian tanggal itu ditarik (N4).
  * - REMOVED/CHANGED: tanggal lampau yang tidak lagi libur dipulihkan — JobRun 7 hari terakhir dihapus
  *   (tick menutup ulang), tanggal yang lebih lama ditutup ulang langsung (ALPHA/LEAVE kembali).
  * Semua perubahan satu panggilan WAJIB ber-schoolId sama (impor nasional = satu panggilan per impor).
@@ -153,10 +156,10 @@ export async function onCalendarChanges(tx: Tx, changes: readonly CalendarChange
   const covered = new Set(holidayDates(span.from, span.to, holidays));
   const coveredIn = (range: Range) => [...covered].filter((date) => range.from <= date && date <= range.to);
   const deleting = unionDates(changes.flatMap((change, i) => (change.kind === "REMOVED" ? [] : [coveredIn(ranges[i] as Range)])));
-  const affected = await deleteDerivedRows(tx, schoolId, deleting);
+  const { deleted: affected, retracted } = await deleteDerivedRows(tx, schoolId, deleting);
   const restoring = ranges.filter((_, i) => changes[i]?.kind !== "ADDED");
   const restored: Restored = restoring.length > 0 ? await restoreUncoveredDays(tx, schoolId, restoring, covered, ctx) : { reopened: 0, reclosedDays: 0, reclosedRows: 0 };
-  await auditSync(tx, schoolId, changes, span, { affected, ...restored }, ctx);
+  await auditSync(tx, schoolId, changes, span, { affected, retracted, ...restored }, ctx);
   return { affected };
 }
 
@@ -170,10 +173,10 @@ async function auditSync(
   schoolId: string | null,
   changes: readonly CalendarChange[],
   span: Range,
-  counts: Restored & { readonly affected: number },
+  counts: Restored & { readonly affected: number; readonly retracted: number },
   ctx: ActionContext,
 ): Promise<void> {
-  if (counts.affected === 0 && counts.reopened === 0 && counts.reclosedDays === 0) return;
+  if (counts.affected === 0 && counts.retracted === 0 && counts.reopened === 0 && counts.reclosedDays === 0) return;
   const kinds = [...new Set(changes.map((change) => change.kind))];
   await writeAudit(
     tx,
@@ -191,6 +194,7 @@ async function auditSync(
         reopenedDays: counts.reopened,
         reclosedDays: counts.reclosedDays,
         reclosedRows: counts.reclosedRows,
+        retractedNotices: counts.retracted,
       },
     },
     ctx,

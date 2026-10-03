@@ -60,7 +60,7 @@ test("GET tanpa baris: terima semua; PUT duplikat menyimpan satu baris + audit; 
   const { school, A } = await schoolWithAdmins();
   const empty = await getPrefs(A.id);
   assert.equal(empty.status, 200, JSON.stringify(empty.body?.error));
-  assert.deepEqual(empty.body?.data, { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS"], updatedAt: null, updatedBy: null });
+  assert.deepEqual(empty.body?.data, { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS", "ATTENDANCE"], updatedAt: null, updatedBy: null });
   const saved = await putPrefs(A.id, { mutedCategories: ["FINANCE", "FINANCE"] });
   assert.equal(saved.status, 200, JSON.stringify(saved.body?.error));
   assert.deepEqual([saved.body?.data.mutedCategories, saved.body?.data.updatedBy?.id], [["FINANCE"], A.id]);

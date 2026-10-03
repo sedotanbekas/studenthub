@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ADMIN_MUTABLE_CATEGORIES,
+  assertDedupKey,
+  NOTIFICATION_DEDUP_KEY_MAX,
   CATEGORY_BY_TYPE,
   SCHOOL_ADMIN_BROADCAST_TYPES,
   diffMutedCategories,
@@ -18,6 +20,19 @@ test("resolveCategory memakai peta tipe atau kategori eksplisit untuk pengumuman
   assert.equal(resolveCategory("PAYMENT_APPROVED"), "FINANCE");
   assert.equal(resolveCategory("ANNOUNCEMENT", "EVENT"), "EVENT");
   assert.throws(() => resolveCategory("ANNOUNCEMENT"));
+});
+
+test("notifikasi absensi (N4) berkategori Kehadiran; koreksi absensi tetap Kesiswaan", () => {
+  assert.equal(resolveCategory("ATTENDANCE_ALPHA"), "ATTENDANCE");
+  assert.equal(resolveCategory("ATTENDANCE_DAY_SUMMARY"), "ATTENDANCE");
+  assert.equal(resolveCategory("ATTENDANCE_CORRECTED"), "STUDENT_AFFAIRS");
+});
+
+test("assertDedupKey: 1..64 karakter; tanpa kunci boleh", () => {
+  assert.doesNotThrow(() => assertDedupKey(undefined));
+  assert.doesNotThrow(() => assertDedupKey("x".repeat(NOTIFICATION_DEDUP_KEY_MAX)));
+  assert.throws(() => assertDedupKey("x".repeat(NOTIFICATION_DEDUP_KEY_MAX + 1)), RangeError);
+  assert.throws(() => assertDedupKey(""), RangeError);
 });
 
 test("push hanya untuk siswa", () => {
@@ -78,7 +93,7 @@ test("isReachableAdmin: pernah masuk dan kata sandi sementara belum kedaluwarsa"
 });
 
 test("normalizeMutedCategories & diffMutedCategories", () => {
-  assert.deepEqual(normalizeMutedCategories(["STUDENT_AFFAIRS", "FINANCE", "FINANCE", "SYSTEM", "ACADEMIC"]), ["FINANCE", "STUDENT_AFFAIRS"]);
+  assert.deepEqual(normalizeMutedCategories(["ATTENDANCE", "STUDENT_AFFAIRS", "FINANCE", "FINANCE", "SYSTEM", "ACADEMIC"]), ["FINANCE", "STUDENT_AFFAIRS", "ATTENDANCE"]);
   assert.deepEqual(diffMutedCategories(["FINANCE"], ["FINANCE"]), { added: [], removed: [] });
   assert.deepEqual(diffMutedCategories(["SYSTEM"], []), { added: [], removed: ["SYSTEM"] });
   assert.deepEqual(diffMutedCategories(["FINANCE"], ["STUDENT_AFFAIRS"]), { added: ["STUDENT_AFFAIRS"], removed: ["FINANCE"] });

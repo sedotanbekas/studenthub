@@ -24,7 +24,9 @@ export const listNotificationsContract = defineContract({
   summary: "Inbox notifikasi milik pengguna (feed cursor)",
   description:
     "Urut terbaru dulu (createdAt desc, id desc). Beranda \"Pemberitahuan\" memakai kind=announcement; tab Notifikasi memakai kind=all. " +
-    "Lanjutkan dengan `cursor` = `meta.nextCursor`.",
+    "Lanjutkan dengan `cursor` = `meta.nextCursor`. Notifikasi absensi (kategori ATTENDANCE): `data.screen` attendance-alpha " +
+    "(id = tanggal Alpa; tawarkan ajukan izin/sakit selama tanggal >= hari ini - 7), leave-request (id = pengajuan), attendance-day " +
+    "(id = tanggal, rekap admin).",
   action: "notification.self",
   query: listInboxQuerySchema,
   response: inboxListSchema,
@@ -85,7 +87,8 @@ export const markAllNotificationsReadContract = defineContract({
 });
 
 const PREFS_NOTE =
-  "Hanya menyaring siaran ke admin sekolah (Keuangan: bukti transfer SPP; Kesiswaan: pengajuan izin/sakit) saat notifikasi DITULIS — " +
+  "Hanya menyaring siaran ke admin sekolah (Keuangan: bukti transfer SPP; Kesiswaan: pengajuan izin/sakit; Kehadiran: rekap harian) " +
+  "saat notifikasi DITULIS — " +
   "tidak berlaku mundur. Notifikasi pribadi dan kategori Sistem selalu dikirim; bila semua admin mematikan satu kategori, admin utama tetap menerimanya.";
 
 export const getMyNotificationPreferencesContract = defineContract({

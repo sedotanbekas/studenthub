@@ -19,6 +19,7 @@ import type { SheetDto } from "@/lib/report-cards/schemas";
 import { ReportCardDocument, isReportCardDetail } from "./report-card";
 import { NotificationPrefsCard } from "./notification-prefs";
 import { SecurityPanel } from "./security-panel";
+import { useLeaveIntent } from "./use-url-intent";
 
 /** Dialog baris khusus halaman pemilik (mis. detail kehadiran + tinjau anomali); null = dialog generik. */
 export type RecordDialogRenderer = (args: { row: Row; viewPath: string | undefined; onClose: () => void; onChanged: () => void }) => ReactNode | null;
@@ -37,6 +38,7 @@ export function Workspace({ module, embedded = false, recordDialog }: { module: 
   const [error, setError] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [action, setAction] = useState<{ op: Operation; initial?: Row; fallback?: boolean } | null>(null);
+  useLeaveIntent(module.key === "my-leave" && available.some(op => op.id === "createOwnLeaveRequest"), setAction);
   const [selected, setSelected] = useState<{ row: Row; path?: string } | null>(null);
   const selectRow = (row: Row) => setSelected({ row });
   const [version, setVersion] = useState(0);

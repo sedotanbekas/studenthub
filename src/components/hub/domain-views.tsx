@@ -2,10 +2,14 @@
 import { useState } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { display, label } from "@/lib/frontend/format";
+import { notificationCta, type NotificationCta } from "@/lib/frontend/notification-cta";
 import { numericSpec } from "@/lib/frontend/numeric-input-rules";
 import type { Row } from "@/lib/frontend/types";
+import { unreadBadge } from "@/lib/frontend/unread-badge";
 import type { SheetDto } from "@/lib/report-cards/schemas";
+import { todayLocal } from "./attendance-admin/monitor-rules";
 import { useHub } from "./context";
+import { HubLink } from "./hub-link";
 import { Icon } from "./icon";
 import { Status } from "./data-view";
 import { NumericInput } from "./numeric-input";
@@ -14,7 +18,22 @@ import { NumericInput } from "./numeric-input";
 const SCORE_INPUT = numericSpec("score", { minimum: 0 }, "integer")!;
 
 export function FeedView({ rows, onSelect }: { rows: Row[]; onSelect: (row: Row) => void }) {
-  return <div className="feed-grid">{rows.map((row, index) => <button key={String(row.id ?? index)} className="feed-card" onClick={() => onSelect(row)}><span className="feed-top"><span className={`quick-icon tone-${index % 4}`}><Icon name="megaphone" size={22} /></span>{row.status ? <Status value={row.status} /> : <span className="pill">{row.readAt ? "Sudah dibaca" : "Belum dibaca"}</span>}</span><h3>{String(row.title ?? "Informasi sekolah")}</h3><p>{String(row.body ?? row.content ?? "Buka informasi untuk melihat selengkapnya.")}</p><span className="feed-bottom"><small>{display(row.createdAt)}</small><span>Baca selengkapnya <Icon name="arrow" size={15} /></span></span></button>)}</div>;
+  const { me } = useHub();
+  const today = todayLocal(new Date(), me.school?.timezone);
+  return <div className="feed-grid">{rows.map((row, index) => <FeedCard key={String(row.id ?? index)} row={row} tone={index % 4} cta={notificationCta(row, today)} onSelect={onSelect} />)}</div>;
+}
+
+/** Kartu feed; notifikasi dengan tindakan (N4) menaruh tombol tepat di bawah pesannya, bukan di balik detail. */
+function FeedCard({ row, tone, cta, onSelect }: { row: Row; tone: number; cta: NotificationCta | null; onSelect: (row: Row) => void }) {
+  const { demo } = useHub();
+  const head = <><span className="feed-top"><span className={`quick-icon tone-${tone}`}><Icon name={row.category === "ATTENDANCE" ? "check" : "megaphone"} size={22} /></span>{row.status ? <Status value={row.status} /> : <span className="pill">{row.readAt ? "Sudah dibaca" : "Belum dibaca"}</span>}</span><h3>{String(row.title ?? "Informasi sekolah")}</h3><p>{String(row.body ?? row.content ?? "Buka informasi untuk melihat selengkapnya.")}</p></>;
+  if (!cta) return <button className="feed-card" onClick={() => onSelect(row)}>{head}<span className="feed-bottom"><small>{display(row.createdAt)}</small><span>Baca selengkapnya <Icon name="arrow" size={15} /></span></span></button>;
+  // Menekan tindakan = notifikasi sudah ditindaklanjuti -> tandai dibaca (best-effort) lalu segarkan badge (N1).
+  const markRead = () => { if (!demo && !row.readAt && row.id) api(`/notifications/${encodeURIComponent(String(row.id))}/read`, { method: "POST" }).then(() => unreadBadge.refresh()).catch(() => undefined); };
+  return <div className="feed-card has-cta">{head}
+    {cta.kind === "link" ? <><HubLink className="button primary small-button feed-cta" href={cta.href} onClick={markRead}>{cta.label}<Icon name="arrow" size={15} /></HubLink>{cta.hint && <small className="feed-cta-note">{cta.hint}</small>}</> : <p className="feed-cta-note">{cta.text}</p>}
+    <span className="feed-bottom"><small>{display(row.createdAt)}</small><button type="button" className="text-button" onClick={() => onSelect(row)}>Baca selengkapnya <Icon name="arrow" size={15} /></button></span>
+  </div>;
 }
 export function CalendarView({ data, onSelect, monthHint }: { data: unknown; onSelect: (row: Row) => void; monthHint?: string }) {
   const calendar = !Array.isArray(data) && data && typeof data === "object" ? data as Row : {};

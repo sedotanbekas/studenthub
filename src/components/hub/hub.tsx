@@ -7,6 +7,7 @@ import { applyGlassMode, applyTheme, glassModeFor, readGlassPreference } from "@
 import { resolveTheme } from "@/lib/schools/theme-rules";
 import { demoAllowed, type AppEnv } from "@/lib/frontend/app-env";
 import { demoUnreadCount } from "@/lib/frontend/demo";
+import { demoPersonaForUser } from "@/lib/frontend/demo-personas";
 import type { SessionHint } from "@/lib/frontend/session-hint";
 import type { Identity } from "@/lib/frontend/types";
 import { unreadBadge } from "@/lib/frontend/unread-badge";
@@ -50,7 +51,7 @@ function useUnreadBadge(me: Identity | null, demo: boolean): number {
     unreadBadge.start({ userId, role });
     return () => unreadBadge.stop();
   }, [userId, role, demo, restricted]);
-  return demo ? demoUnreadCount() : live;
+  return demo ? demoUnreadCount(userId ? demoPersonaForUser(userId) : undefined) : live;
 }
 
 /** Tema sekolah milik identitas aktif (keluar/ganti akun -> bawaan) + mode kaca pilihan perangkat, juga di halaman masuk. */

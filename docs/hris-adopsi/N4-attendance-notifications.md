@@ -1,5 +1,32 @@
 # N4 — Notifikasi peristiwa absensi (spec)
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `N4-attendance-notifications.critique.md` + keputusan lintas fitur `00-integration.md` §2. Semua temuan diterima;
+yang mengubah desain:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | **Alpa massal ditahan.** `holdAlphaNotices({checkins, alpha})` (`day-notice-rules.ts`): tanggal tanpa satu pun baris ber-`checkInAt` -> notifikasi Alpa ke siswa TIDAK dikirim (libur belum dicatat, sekolah belum memakai absen aplikasi, gangguan; push tidak bisa ditarik). Rekap admin tetap dikirim dengan kalimat `ALPHA_HOLD_LINE` ("… notifikasi Alpa ke siswa ditahan. Libur? Tambahkan di Kalender."). Ambang di atas 0 = pertanyaan pemilik 6. |
+| 2 | **Kategori baru `ATTENDANCE` ("Kehadiran")** untuk `ATTENDANCE_ALPHA` dan `ATTENDANCE_DAY_SUMMARY` (00-integration keputusan 1; `ATTENDANCE_CORRECTED` tetap Kesiswaan). Ditambahkan di migrasi N4 (N2 sudah terbit): MODIFY `Notification.category`, `Announcement.category`, `NotificationMute.category` (di ujung, INSTANT). `ADMIN_MUTABLE_CATEGORIES` += ATTENDANCE, `SCHOOL_ADMIN_BROADCAST_TYPES` += ATTENDANCE_DAY_SUMMARY, `CATEGORY_HINTS.ATTENDANCE` = "Rekap kehadiran harian: Alpa, terlambat, anomali.", label enum "Kehadiran". Mematikan Kesiswaan tidak lagi membuang rekap. Pengumuman tetap dibatasi zod ke kategori lama (skema keluaran pengumuman memuat enum lengkap). |
+| 3 | **Penarikan per potongan sekolah** (`retractDayNotices(tx, schoolIds, studentIds, dates)` dipanggil di tiap potongan 50 sekolah `deleteDerivedRows`): Alpa milik siswa yang baris turunannya (AUTO_ALPHA **atau LEAVE**) dihapus, dan rekap harian SEMUA admin sekolah di potongan itu — walau sekolah itu tidak punya baris turunan. Hanya hitungan yang dikembalikan; audit `attendance.calendar_sync.after.retractedNotices` (audit juga ditulis bila hanya ada penarikan). |
+| 4 | Kueri ulang AUTO_ALPHA hanya membuang pemenang check-in/izin/koreksi; penutup bersamaan diredam indeks unik `(userId, dedupKey)`. `NOTIFICATION_DEDUP_KEY_MAX = 64` + `assertDedupKey` (kunci kosong / > 64 -> RangeError, test unit & integrasi). Kedua tipe dibaca balik lewat `toInboxItemDto` di test integrasi. Indeks: `ADD UNIQUE INDEX …, ALGORITHM=INPLACE, LOCK=NONE`; kolom: `ALGORITHM=INSTANT`. Penerima diurut `userId` (urutan sisip deterministik). |
+| 5 | Hitungan "perlu ditinjau" = `{ schoolId, date, ...PENDING_ANOMALY_REVIEW_WHERE }` (indeks B1 `[schoolId, hasAnomaly, anomalyReviewedAt, date]`), tanpa cabang cadangan. Fixture `checkInRow` sudah punya `hasAnomaly` (B1); test menyetel `lastLoginAt` siswa. |
+| 6 | Test admin memakai `pushStatus === initialPushStatus("SCHOOL_ADMIN")` (tahan perubahan N3). `demoUnreadCount(viewer?)` menghitung kotak masuk persona yang sama dengan daftar (hook badge mengirim persona). Pemetaan layar push (`attendance-alpha` -> `/hub/my-leave`, `attendance-day` -> `/hub/attendance`) dicatat untuk N3 (00-integration keputusan 7); N5 memakai `dedupKey` (keputusan 9). |
+| 7 | Judul Alpa bertanggal: **"Alpa pada Selasa, 18 Maret"** (isi tetap lengkap dengan tahun & tenggat). Rekap: "**3 perlu ditinjau.**" (kosakata B1). Teks kontrak: "notifikasi Alpa ke siswa (≤ 3 hari) & rekap ke admin (≤ 1 hari)". Tanggal demo = hari sekolah demo sebelumnya (`previousDemoSchoolDay`, melewati Minggu). CTA memakai `earliestLeaveStart(today, "STUDENT")` (bukan angka 7) dan membawa petunjuk "Sudah mengajukan? Lihat di menu Izin & sakit." untuk kasus `LEAVE_OVERLAP`. Alpa vs Alpha tetap pertanyaan pemilik (§10.5). |
+
+Catatan implementasi:
+- `notifyDayClosed` dipanggil di `closeDayLocked` setelah sapuan SHARED_DEVICE; jalur siswa langsung memakai `userId`
+  dari kueri ulang (`notifyRecipients`), tanpa kueri Student kedua. Hitungan "check-in" = baris ber-`checkInAt`
+  (koreksi admin atas baris check-in tetap terhitung).
+- Intent URL `?ajukan=` / `?tanggal=` lewat `useUrlDateIntent` (`src/components/hub/use-url-intent.ts`): parameter
+  dibuang saat intent dijalankan (setelah transisi halaman), sehingga efek ganda StrictMode tidak menghilangkannya.
+- Kartu bertindakan menandai notifikasi dibaca (best-effort) lalu menyegarkan badge N1.
+
+Jawaban default §10 dipakai, kecuali §10.1 (diputuskan: kategori baru ATTENDANCE). Pertanyaan pemilik tambahan:
+6. **Ambang penahanan Alpa massal.** *Default:* tahan hanya bila 0 check-in pada tanggal itu.
+
+
 Order: after B1 and N2 (it uses both) and before N5, which appends its enum value after N4's. Migration prefix `20261003040000`.
 
 ## 1. Goal & non-goals

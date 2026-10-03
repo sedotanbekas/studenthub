@@ -25,10 +25,20 @@ export const CATEGORY_BY_TYPE: Readonly<Record<NotificationType, NotificationCat
   PAYMENT_VOIDED: "FINANCE",
   NISN_RELEASED: "SYSTEM",
   SCHOOL_SETTINGS_CHANGED: "SYSTEM",
+  ATTENDANCE_ALPHA: "ATTENDANCE",
+  ATTENDANCE_DAY_SUMMARY: "ATTENDANCE",
 };
 
 export const NOTIFICATION_PREVIEW_MAX = 500;
 export const NOTIFICATION_TITLE_MAX = 150;
+/** Panjang kolom Notification.dedupKey. Kunci lebih panjang DITOLAK (INSERT IGNORE akan memotongnya diam-diam). */
+export const NOTIFICATION_DEDUP_KEY_MAX = 64;
+
+export function assertDedupKey(key: string | undefined): void {
+  if (key !== undefined && (key.length === 0 || key.length > NOTIFICATION_DEDUP_KEY_MAX)) {
+    throw new RangeError(`dedupKey notifikasi harus 1..${NOTIFICATION_DEDUP_KEY_MAX} karakter: ${key.slice(0, 80)}`);
+  }
+}
 
 export function resolveCategory(type: NotificationType, explicit?: NotificationCategory): NotificationCategory {
   const mapped = CATEGORY_BY_TYPE[type];
@@ -58,14 +68,20 @@ export function previewText(body: string, max: number = NOTIFICATION_PREVIEW_MAX
  * Tipe notifikasi yang disiarkan ke SEMUA admin sekolah (notifySchoolAdmins hanya menerima tipe ini — dicek tsc).
  * Menambah siaran admin baru = tambahkan di sini, lalu putuskan apakah kategorinya boleh dimatikan.
  */
-export const SCHOOL_ADMIN_BROADCAST_TYPES = ["PAYMENT_SUBMITTED", "LEAVE_SUBMITTED", "SCHOOL_SETTINGS_CHANGED", "NISN_RELEASED"] as const satisfies readonly NotificationType[];
+export const SCHOOL_ADMIN_BROADCAST_TYPES = [
+  "PAYMENT_SUBMITTED",
+  "LEAVE_SUBMITTED",
+  "SCHOOL_SETTINGS_CHANGED",
+  "NISN_RELEASED",
+  "ATTENDANCE_DAY_SUMMARY",
+] as const satisfies readonly NotificationType[];
 export type SchoolAdminBroadcastType = (typeof SCHOOL_ADMIN_BROADCAST_TYPES)[number];
 
 /**
  * Kategori siaran admin sekolah yang boleh dimatikan per akun (urutan = urutan tampilan) = kategori tipe siaran di
  * atas selain SYSTEM (dijaga test). SYSTEM (pengaturan/rekening sekolah, NISN dilepas) tidak pernah.
  */
-export const ADMIN_MUTABLE_CATEGORIES = ["FINANCE", "STUDENT_AFFAIRS"] as const satisfies readonly NotificationCategory[];
+export const ADMIN_MUTABLE_CATEGORIES = ["FINANCE", "STUDENT_AFFAIRS", "ATTENDANCE"] as const satisfies readonly NotificationCategory[];
 export type AdminMutableCategory = (typeof ADMIN_MUTABLE_CATEGORIES)[number];
 
 export const isAdminMutableCategory = (category: NotificationCategory): category is AdminMutableCategory =>

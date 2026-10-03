@@ -58,7 +58,8 @@ export const recloseDayContract = defineContract({
     "Penutupan idempoten yang sama dengan job auto-ALPHA: siswa wajib absen tanpa catatan -> ALPHA, atau IZIN/SAKIT bila izin disetujui " +
     "mencakup tanggal; catatan yang ada tidak diubah; bukan hari sekolah -> isSchoolDay=false tanpa baris. JobRun tanggal itu ditulis " +
     "SUCCEEDED dan tindakan diaudit (attendance.reclose_day). Tanggal harus sudah ditutup (422 DAY_NOT_CLOSED) dan tidak sebelum sekolah " +
-    "terdaftar (422 DATE_BEFORE_SCHOOL_START); sekolah tak dikenal -> 404.",
+    "terdaftar (422 DATE_BEFORE_SCHOOL_START); sekolah tak dikenal -> 404. Seperti tick, penutupan memberi notifikasi Alpa ke siswa " +
+    "(tanggal <= 3 hari lalu) & rekap ke admin (<= 1 hari), sekali per tanggal per penerima — tutup ulang tidak menggandakannya.",
   action: "attendance.reclose",
   body: recloseDayBody,
   response: recloseDayResponse,

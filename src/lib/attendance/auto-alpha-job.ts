@@ -24,6 +24,7 @@ import {
   type AttendanceDraft,
 } from "./auto-alpha-rules";
 import { lockCalendarShared } from "./calendar-locks";
+import { notifyDayClosed } from "./day-notices";
 import { hasTimeLeft } from "./retention";
 import { sweepSharedDevice } from "./sweep";
 
@@ -31,7 +32,8 @@ import { sweepSharedDevice } from "./sweep";
  * Handler job "attendance-auto-alpha" (tipe antrean, dipanggil tiap tick). Untuk setiap sekolah aktif,
  * setiap tanggal kandidat (hari ini setelah dayEndMinute + catch-up 7 hari) ditutup TEPAT SEKALI lewat
  * runKeyedJob("auto-alpha", schoolId, tanggal): siswa ACTIVE tanpa baris -> ALPHA (atau LEAVE bila izin
- * DISETUJUI mencakup tanggal), lalu sapuan SHARED_DEVICE.
+ * DISETUJUI mencakup tanggal), lalu sapuan SHARED_DEVICE, lalu notifikasi (N4): Alpa ke siswa (tanggal <= 3 hari
+ * lalu) & rekap ke admin (<= 1 hari), sekali per tanggal per penerima (dedupKey) — lihat day-notices.ts.
  *
  * Penutupan satu hari = satu transaksi yang lebih dulu mengambil kunci BERSAMA libur nasional lalu libur
  * sekolah (lockCalendarShared, urutan sama seperti mutasi libur) sehingga penambahan libur tidak bisa
@@ -132,8 +134,8 @@ export type DayCloseResult =
 /**
  * Tutup satu hari sekolah DI DALAM transaksi pemanggil yang SUDAH memegang kunci kalender (lockCalendarShared
  * atau kunci libur eksklusif): hari non-sekolah dilewati; siswa wajib absen tanpa baris -> ALPHA/LEAVE; sapuan
- * SHARED_DEVICE. Idempoten (anti-join + INSERT IGNORE). Dipakai tick, tutup-ulang manual super admin, dan
- * sinkronisasi kalender untuk tanggal di luar jendela lookback.
+ * SHARED_DEVICE; notifikasi hari ditutup (N4) ditulis terakhir. Idempoten (anti-join + INSERT IGNORE + dedupKey).
+ * Dipakai tick, tutup-ulang manual super admin, dan sinkronisasi kalender untuk tanggal di luar jendela lookback.
  */
 export async function closeDayLocked(tx: Tx, school: CloseSchool, date: LocalDate, ctx: Pick<JobContext, "now" | "requestId">): Promise<DayCloseResult> {
   if (await isDaySealed(tx, school.id, date)) return sealedCloseResult(date);
@@ -145,6 +147,11 @@ export async function closeDayLocked(tx: Tx, school: CloseSchool, date: LocalDat
     log.warn("auto-alpha: sebagian baris sudah ditulis proses lain", { schoolId: school.id, date, planned: drafts.length, inserted, requestId: ctx.requestId });
   }
   const anomaliesSwept = await sweepSharedDevice(tx, school.id, date, ctx.now);
+  const alphaIds = drafts.filter((draft) => draft.source === "AUTO_ALPHA").map((draft) => draft.studentId);
+  const notices = await notifyDayClosed(tx, school, date, alphaIds, ctx.now);
+  if (notices.students + notices.admins > 0 || notices.held) {
+    log.info("auto-alpha: notifikasi hari ditutup", { schoolId: school.id, date, ...notices, requestId: ctx.requestId });
+  }
   const { alpha, leave } = summarizeDrafts(drafts);
   return { date, planned: drafts.length, inserted, alphaPlanned: alpha, leavePlanned: leave, anomaliesSwept };
 }

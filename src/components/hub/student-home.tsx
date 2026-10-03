@@ -14,7 +14,7 @@ import { Icon } from "./icon";
 
 /**
  * Beranda siswa: kartu identitas (nama, kelas, jam sekolah berjalan, status absen), grid menu besar,
- * dan pengumuman terbaru. Sengaja sedikit elemen agar cepat dipahami di layar HP.
+ * dan kabar terbaru (pengumuman + notifikasi pribadi, mis. Alpa). Sengaja sedikit elemen agar cepat dipahami di layar HP.
  */
 const TILES = [
   { href: "/hub/my-attendance?absen=1", icon: "location", title: "Absen", tone: "blue" },
@@ -33,7 +33,7 @@ function useStudentHome() {
   useEffect(() => {
     let active = true;
     if (demo) {
-      Promise.resolve().then(() => { if (!active) return; const persona = demoPersonaForUser(me.user.id); setClassName(persona?.className ?? null); setHeadline(todayHeadline(demoTodayFor(persona?.key ?? "STUDENT"))); setNews((demoRows("/notifications") as Row[]).slice(0, 3)); });
+      Promise.resolve().then(() => { if (!active) return; const persona = demoPersonaForUser(me.user.id); setClassName(persona?.className ?? null); setHeadline(todayHeadline(demoTodayFor(persona?.key ?? "STUDENT"))); setNews((demoRows("/notifications", persona) as Row[]).slice(0, 3)); });
       return () => { active = false; };
     }
     api("/student/profile").then(r => { if (active) setClassName((r.data as { className: string | null }).className); }).catch(() => {});
@@ -64,9 +64,9 @@ export function StudentHome() {
     </section>
     <nav className="tile-grid" aria-label="Menu siswa">{TILES.map(t => <Link key={t.href} href={t.href} className={`tile tone-${t.tone}`}><span className="tile-icon"><Icon name={t.icon} size={26} /></span><strong>{t.title}</strong></Link>)}</nav>
     <SponsorSlot />
-    <section aria-labelledby="news-title"><div className="section-label"><h2 id="news-title">Pengumuman</h2><Link className="text-link" href="/hub/notifications">Lihat semua</Link></div>
-      <div className="panel news-panel">{news === null ? <div className="skeleton" /> : news.length === 0 ? <p className="empty-line"><Icon name="megaphone" size={22} />Tidak ada pengumuman baru.</p>
-        : <ul className="news-list">{news.map(n => <li key={String(n.id)}><Link href="/hub/notifications"><strong>{String(n.title ?? "Pengumuman")}</strong><small>{display(n.createdAt)}{n.readAt ? "" : " · Baru"}</small></Link></li>)}</ul>}</div>
+    <section aria-labelledby="news-title"><div className="section-label"><h2 id="news-title">Kabar terbaru</h2><Link className="text-link" href="/hub/notifications">Lihat semua</Link></div>
+      <div className="panel news-panel">{news === null ? <div className="skeleton" /> : news.length === 0 ? <p className="empty-line"><Icon name="megaphone" size={22} />Belum ada kabar baru.</p>
+        : <ul className="news-list">{news.map(n => <li key={String(n.id)}><Link href="/hub/notifications"><strong>{String(n.title ?? "Kabar sekolah")}</strong><small>{display(n.createdAt)}{n.readAt ? "" : " · Baru"}</small></Link></li>)}</ul>}</div>
     </section>
   </div>;
 }

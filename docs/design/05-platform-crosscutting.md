@@ -200,6 +200,8 @@ N1. **Event table.** `categoryForType` is a total `Record<NotificationType, …>
 | AD_APPROVED, AD_REJECTED | the sponsor's member users | SYSTEM | `ad` | no |
 | TOPUP_APPROVED, TOPUP_REJECTED | the sponsor's member users | SYSTEM | `topup` | no |
 | LOW_BALANCE | the sponsor's member users | SYSTEM | `balance` | no |
+| ATTENDANCE_ALPHA (N4) | student newly Alpa when the day closes (active, has logged in, date ≤ 3 days old; held when the date has 0 check-ins) | ATTENDANCE | `attendance-alpha` (id = date) or `leave-request` (PENDING leave covers the date) | no; `dedupKey` |
+| ATTENDANCE_DAY_SUMMARY (N4) | active SCHOOL_ADMINs of the school minus ATTENDANCE mutes (N12), date ≤ 1 day old, only when alpa + late + pending anomalies > 0 | ATTENDANCE | `attendance-day` (id = date) | no; `dedupKey` |
 
 `data = {screen, id, count?}`. Titles and bodies come from `templates.ts` (Indonesian, pure). Rejections include the `reviewNote`. Money is formatted as "Rp 1.250.000".
 
@@ -236,6 +238,14 @@ temporary password), the primary admin also receives it, or every candidate when
 Personal notifications and super-admin broadcasts are never filtered. `/me/notification-preferences` (any admin,
 own account) and `/school/admins/{id}/notification-preferences` (primary admin for extra admins; primary itself
 → 403 PRIMARY_ADMIN_PROTECTED) replace the set under `AppLock user`, audit `user.notification_mutes`.
+
+N13. **Dedup key — job-generated notices (N4, owner decision 2026-10-03).** `Notification.dedupKey` (≤ 64 chars,
+`NOTIFICATION_DEDUP_KEY_MAX`; longer or empty keys throw before writing) + unique `(userId, dedupKey)`; rows with a key
+are inserted with INSERT IGNORE (`skipDuplicates`). NULL keys never collide, so other types behave as before. Keys:
+`attendance-alpha:<date>`, `attendance-summary:<date>` (N5: `attendance-reminder:<date>`). A re-run, stale-RUNNING
+takeover, concurrent tick + super-admin re-close, or re-close after a calendar change yields at most one row per
+recipient per date. Recipients are inserted in `userId` order. Retraction (holiday added retroactively) deletes by the
+same keys per school chunk; a delivered push cannot be recalled, hence the 0-check-in hold.
 
 N11. **Retention.** `maintenance-daily` deletes notifications older than `NOTIFICATION_RETENTION_DAYS` in `DELETE … LIMIT 5000` loops. Their PushTickets are deleted by cascade.
 

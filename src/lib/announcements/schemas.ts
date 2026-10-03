@@ -115,7 +115,7 @@ export const announcementIdParams = z.object({ id: entityIdSchema.meta({ descrip
 
 const instant = z.string().meta({ format: "date-time" });
 /** Respons memakai enum kategori lengkap (defensif); input tetap menolak SYSTEM. */
-const categoryOutSchema = z.enum(["ACADEMIC", "FINANCE", "EVENT", "CALENDAR", "STUDENT_AFFAIRS", "SYSTEM"] as const satisfies readonly NotificationCategory[]);
+const categoryOutSchema = z.enum(["ACADEMIC", "FINANCE", "EVENT", "CALENDAR", "STUDENT_AFFAIRS", "SYSTEM", "ATTENDANCE"] as const satisfies readonly NotificationCategory[]);
 const authorSchema = z.object({ id: z.string(), name: z.string() }).meta({ id: "AnnouncementAuthor" });
 
 const listItemShape = {

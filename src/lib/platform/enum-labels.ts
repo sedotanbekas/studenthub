@@ -21,7 +21,7 @@ export const ENUM_LABELS = {
   },
   PaymentMethod: { TRANSFER: "Transfer", CASH: "Tunai" },
   NotificationCategory: {
-    ACADEMIC: "Akademik", FINANCE: "Keuangan", EVENT: "Kegiatan", CALENDAR: "Kalender", STUDENT_AFFAIRS: "Kesiswaan", SYSTEM: "Sistem",
+    ACADEMIC: "Akademik", FINANCE: "Keuangan", EVENT: "Kegiatan", CALENDAR: "Kalender", STUDENT_AFFAIRS: "Kesiswaan", SYSTEM: "Sistem", ATTENDANCE: "Kehadiran",
   },
   AnnouncementAudience: { ALL: "Semua siswa", CLASSES: "Kelas tertentu", STUDENTS: "Siswa tertentu" },
   AnnouncementStatus: { DRAFT: "Draf", PUBLISHED: "Terbit", CANCELLED: "Ditarik" },

@@ -277,7 +277,7 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
    - If an APPROVED LeaveRequest covers D, draft `{status: type, source: LEAVE, leaveRequestId}`.
    - Otherwise draft `{status: ALPHA, source: AUTO_ALPHA}`. `classId` is the snapshot of `currentClassId`.
    - A PENDING leave does not protect the student: they get ALPHA, and approving the leave later converts it.
-6. **Insert** with `createMany({skipDuplicates: true})` in chunks of 500. The unique key (studentId, date) makes this safe to re-run. Then run the §3.4 sweep and mark the JobRun SUCCEEDED with `{alphaCreated, leaveCreated, anomaliesSwept}`.
+6. **Insert** with `createMany({skipDuplicates: true})` in chunks of 500. The unique key (studentId, date) makes this safe to re-run. Then run the §3.4 sweep, then the day-closed notices (§3.14, N4) as the last writes of the same transaction, and mark the JobRun SUCCEEDED with `{alphaCreated, leaveCreated, anomaliesSwept}`.
 7. **Failure:** mark the JobRun FAILED with the error text. The next cron run retries it.
 8. **Manual re-run** (SU): `POST /api/v1/platform/attendance/close-day {schoolId, date}` (action `attendance.reclose`). The date must already be closed (`422 DAY_NOT_CLOSED`) and not before the school was created (`422 DATE_BEFORE_SCHOOL_START`); outside term or on a holiday it returns `isSchoolDay=false` without rows. It runs the same idempotent close (shared holiday locks, anti-join, INSERT IGNORE, sweep), writes the JobRun as SUCCEEDED and the audit `attendance.reclose_day` in one transaction.
 
@@ -311,7 +311,7 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
 4. **Reject:** the note is required. Lock the Student, compare-and-set PENDING → REJECTED, notify `LEAVE_REJECTED`. Attendance is not touched.
 5. **Admin enters a leave for a student:** same validation, but backdating up to 30 days is allowed. It is created APPROVED and materialised in one transaction.
 6. **Calendar changes.** The school domain calls `onCalendarChanged(schoolId|null, from, to, kind)`.
-   - **Holiday added:** delete rows with `source IN (AUTO_ALPHA, LEAVE)` in the range and write an audit entry. CHECKIN and ADMIN rows are kept.
+   - **Holiday added:** delete rows with `source IN (AUTO_ALPHA, LEAVE)` in the range and write an audit entry. CHECKIN and ADMIN rows are kept. Per 50-school chunk, the day notices of those dates are retracted (§3.14): Alpa notices of students whose derived rows were deleted, and the admin day summaries of every school in the chunk; audit `after.retractedNotices`.
    - **Holiday removed or shortened:** within the lookback window, delete the auto-alpha JobRun rows for those dates, so the next cron run closes them again and restores LEAVE rows. Past days **older** than the lookback window are closed again synchronously in the same transaction (the holiday locks are already held; ALPHA/LEAVE restored, JobRun upserted SUCCEEDED), because the tick never goes back that far.
    - A national holiday loops over every school: the derived-row DELETE runs per chunk of 50 `schoolId`s so it range-scans `[schoolId, date, …]` and only locks rows of those dates (an unfiltered `date IN … AND source IN …` has no usable index and scans/locks the whole table). The national import collects all created/updated ranges and syncs once at the end, still under `holidays:national`.
    - Lock modes: national holiday writers take `holidays:national` exclusively; school holiday writers take `holidays:national` shared then `holidays:<school>` exclusively.
@@ -430,6 +430,24 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
 - **Export:** `assertRateLimit("EXPORT", "export:<userId>")` before, `hit` after the workbook is built (failed
   downloads do not use quota; 30 per 10 minutes). AuditLog `attendance.recap_export` `{month, classCount,
   studentCount, isFinal}` in its own short transaction (AuditLog only).
+
+### 3.14 Day-closed notices (N4, owner decision 2026-10-03; implemented 2026-10-03, PLAN wins on conflict)
+
+- **Where:** `notifyDayClosed(tx, school, date, alphaDraftIds, now)` (`day-notices.ts`) at the end of `closeDayLocked`,
+  so the tick, super-admin re-close and calendar-sync re-close all notify the same way; Notification rows are the last
+  writes of the close transaction. Pure rules in `day-notice-rules.ts`.
+- **Students** (`ATTENDANCE_ALPHA`, category ATTENDANCE, push): only when the date is ≤ 3 days old in the school's zone
+  (`ALPHA_NOTICE_MAX_AGE_DAYS` < student backdate 7, so the CTA always works). Re-query the drafted ids that really
+  became AUTO_ALPHA (check-in/leave/correction winners dropped) for active users who have logged in at least once. A
+  PENDING leave covering the date → "…karena pengajuan <sakit|izin> kamu belum disetujui…" + `leave-request` link;
+  otherwise "Alpa pada <hari, tanggal>" with the deadline `date + 7` and an `attendance-alpha` link.
+- **Hold:** the date has 0 rows with `checkInAt` → no student notices (a missing holiday, a school not yet using app
+  check-in, an outage; a push cannot be recalled). The admin summary says so (`ALPHA_HOLD_LINE`).
+- **Admins** (`ATTENDANCE_DAY_SUMMARY`, broadcast through `notifySchoolAdmins`, mutable category ATTENDANCE): only when
+  the date is ≤ 1 day old and alpa + late + pending anomalies (`PENDING_ANOMALY_REVIEW_WHERE`) > 0. Body
+  "Alpa a · Terlambat t · Izin i · Sakit s. n perlu ditinjau." (+ hold line).
+- **Exactly once:** every row carries `dedupKey` (`attendance-alpha:<date>` / `attendance-summary:<date>`), unique per
+  recipient, INSERT IGNORE (design 05 N13). Retraction on a retroactive holiday: §3.8 step 6.
 
 ## 4. Service modules and pure modules
 
@@ -698,7 +716,10 @@ Back-relations: add `checkInRejections CheckInRejection[]` to both `School` and 
 
 **SCR-4: `StoredFile` retention.** Add `purgedAt DateTime?` and `@@index([kind, createdAt])`. The selfie bytes are deleted but the row stays, so the Attendance foreign key survives.
 
-**SCR-5: `NotificationType`.** Append `ATTENDANCE_CORRECTED` at the **end** of the enum.
+**SCR-5: `NotificationType`.** Append `ATTENDANCE_CORRECTED` at the **end** of the enum. N4 (2026-10-03) appends
+`ATTENDANCE_ALPHA`, `ATTENDANCE_DAY_SUMMARY` at the end, `NotificationCategory` += `ATTENDANCE` at the end (Notification,
+Announcement, NotificationMute), and `Notification.dedupKey` + unique `(userId, dedupKey)`
+(`20261003040000_attendance_notifications`).
 
 **SCR-6: raw SQL CHECK constraints** in the init migration, each verified in CI:
 

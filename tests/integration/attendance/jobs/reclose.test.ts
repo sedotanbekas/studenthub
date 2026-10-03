@@ -64,6 +64,23 @@ test("super admin menutup ulang hari lampau: ALPHA + LEAVE ditulis, catatan lain
   assert.equal(again.body?.data.inserted, 0, "idempoten");
 });
 
+test("tutup ulang tanggal 10 hari lalu: baris Alpa ditulis tanpa notifikasi ke siswa maupun admin (N4: hanya <= 3 / <= 1 hari)", async () => {
+  const today = wibToday();
+  const date = await pastSchoolDate([10, 11, 12, 13]);
+  const school = await pastSchool();
+  const activatedAt = instantAtLocal(addDays(today, -90), 0, "WIB");
+  const [absent, present] = [await createStudent(school.id, { activatedAt }), await createStudent(school.id, { activatedAt })];
+  const admin = await createSchoolAdmin(school.id);
+  await prisma.user.updateMany({ where: { id: { in: [absent.user.id, admin.id] } }, data: { lastLoginAt: new Date() } });
+  await prisma.user.update({ where: { id: admin.id }, data: { primarySchoolId: school.id } });
+  await checkInRow({ schoolId: school.id, studentId: present.student.id, userId: present.user.id, date, deviceId: uniq("dev") });
+
+  const res = await reclose({ schoolId: school.id, date });
+  assert.equal(res.status, 200, JSON.stringify(res.body?.error));
+  assert.equal(res.body?.data.alphaPlanned, 1);
+  assert.equal(await prisma.notification.count({ where: { userId: { in: [absent.user.id, admin.id] }, type: { in: ["ATTENDANCE_ALPHA", "ATTENDANCE_DAY_SUMMARY"] } } }), 0);
+});
+
 test("hari libur -> isSchoolDay false tanpa baris; tanggal belum ditutup / sebelum sekolah terdaftar -> 422; sekolah tak dikenal 404", async () => {
   const today = wibToday();
   const date = await pastSchoolDate([24, 25, 26, 27]);

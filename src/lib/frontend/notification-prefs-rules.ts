@@ -6,6 +6,7 @@ import { ENUM_LABELS } from "@/lib/platform/enum-labels";
 export const CATEGORY_HINTS: Readonly<Record<AdminMutableCategory, string>> = {
   FINANCE: "Bukti transfer SPP baru yang menunggu verifikasi.",
   STUDENT_AFFAIRS: "Pengajuan izin/sakit baru dari siswa.",
+  ATTENDANCE: "Rekap kehadiran harian: Alpa, terlambat, anomali.",
 };
 
 export const PREFS_FOOTNOTE =

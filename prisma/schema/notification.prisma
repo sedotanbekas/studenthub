@@ -6,6 +6,8 @@ enum NotificationCategory {
   CALENDAR
   STUDENT_AFFAIRS
   SYSTEM
+  /// Rekap & notifikasi kehadiran (N4). Tidak ditawarkan untuk pengumuman.
+  ATTENDANCE
 }
 
 enum AnnouncementAudience {
@@ -45,6 +47,8 @@ enum NotificationType {
   PAYMENT_VOIDED
   NISN_RELEASED
   SCHOOL_SETTINGS_CHANGED
+  ATTENDANCE_ALPHA
+  ATTENDANCE_DAY_SUMMARY
 }
 
 enum PushStatus {
@@ -119,6 +123,8 @@ model Notification {
   pushNextAttemptAt DateTime             @default(now())
   pushedAt          DateTime?
   pushError         String?              @db.VarChar(255)
+  /// Kunci idempoten notifikasi job (mis. "attendance-alpha:2031-03-18"); unik per penerima. NULL = tanpa dedup.
+  dedupKey          String?              @db.VarChar(64)
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -127,6 +133,7 @@ model Notification {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, announcementId])
+  @@unique([userId, dedupKey])
   @@index([userId, createdAt])
   /// Retensi 365 hari (maintenance-daily) tanpa scan seluruh tabel.
   @@index([createdAt])

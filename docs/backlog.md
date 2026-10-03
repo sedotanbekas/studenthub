@@ -13,7 +13,7 @@ dengan alasan penundaan dan pemicu untuk mengerjakannya. Urutan tidak menunjukka
 | Unggahan PDF | Hanya foto JPEG/PNG/WebP (di-encode ulang, tanpa EXIF) | Sekolah wajib menerima surat dokter PDF |
 | Tile peta sendiri (proxy/cache tile) | Peta absensi admin & siswa memuat tile langsung dari `tile.openstreetmap.org` (pihak ketiga melihat IP admin + area koordinat check-in; kebijakan OSM membatasi pemakaian berat) | Sebelum trafik produksi besar, atau kebijakan privasi sekolah mensyaratkan tanpa pihak ketiga |
 | Pencarian di riwayat top-up super admin | Tab riwayat top-up hanya berpaginasi (`GET /platform/topups` belum menerima `q`) | Super admin kesulitan menemukan top-up lama |
-| Push receipts Expo & penggabungan notifikasi admin | Push satu arah; status gagal dari tiket saja; inbox tetap sumber kebenaran | Volume push besar / keluhan push tidak sampai |
+| Push receipts Expo & penggabungan notifikasi admin per pengajuan | Push satu arah; status gagal dari tiket saja; inbox tetap sumber kebenaran; absensi sudah satu rekap harian per sekolah (N4) | Volume push besar / keluhan push tidak sampai |
 | Anomali `IMPOSSIBLE_TRAVEL` / `IDENTICAL_COORDINATES` | Flag lain tersimpan; tinjau anomali per catatan (B1) dipakai | Pola kecurangan check-in terbukti di lapangan |
 | REFUND ledger sponsor | Hanya TOPUP / CLICK_CHARGE / ADJUSTMENT | Ada permintaan pengembalian dana sponsor (butuh aturan batas refundable + persetujuan SA kedua, lihat review-security) |
 | Multi-user sponsor | Satu akun login per sponsor | Sponsor korporat butuh beberapa operator |
@@ -70,7 +70,7 @@ Ketukan "Bukan saya" di alur absen tidak dicatat server (hanya logout biasa). Ke
 melihat pola HP pinjaman di luar flag `SHARED_DEVICE`.
 
 ### Notifikasi "hanya kelas saya" & preferensi super admin (N2)
-Mute per akun admin hanya per kategori (Keuangan, Kesiswaan). Kerjakan "hanya kelas saya" bila ada tautan guru ↔ kelas;
+Mute per akun admin hanya per kategori (Keuangan, Kesiswaan, Kehadiran). Kerjakan "hanya kelas saya" bila ada tautan guru ↔ kelas;
 preferensi super admin bila beberapa super admin membagi tugas (semua siaran super admin saat ini SYSTEM).
 
 ### Polling badge notifikasi (N1)
@@ -78,6 +78,15 @@ Satu poller per tab (staf 30 dtk, siswa 60 dtk, hanya saat terlihat). Ditunda: (
 BroadcastChannel — kerjakan bila banyak admin membuka beberapa jendela sekaligus; (b) SSE/push untuk staf — kerjakan
 bila 30 detik terasa lambat setelah Web Push N3 berjalan. Log `request` 2xx unread-count sudah tidak ditulis; tab
 terlihat memutar token tiap 15 menit (±1 transaksi refresh/detik per 1.000 siswa terlihat) — pantau bila beban DB naik.
+
+### Rekap/peringatan kehadiran per kelas untuk wali kelas (N4)
+Rekap harian dikirim per sekolah ke semua admin (bisa dimatikan per akun: kategori Kehadiran). Kerjakan bila ada tautan
+guru ↔ kelas, sehingga wali kelas bisa menerima rekap/peringatan kelasnya saja.
+
+### Jam tenang push & ambang penahanan Alpa massal (N4)
+Tick catch-up malam (server mati lama) dapat mengirim notifikasi Alpa/rekap di luar jam sekolah (maks. 4 Alpa + 2 rekap
+per gangguan). Alpa ke siswa ditahan hanya bila tanggal itu tanpa satu pun check-in. Kerjakan jam tenang bila ada
+keluhan notifikasi malam; ambang persentase check-in bila ada Alpa massal palsu walau sebagian kecil siswa absen.
 
 ### Ekspor PDF rekap kehadiran (A3)
 Rekap bulanan hanya XLSX (dicetak dari Excel: A4 lanskap, satu halaman lebar). Kerjakan bila sekolah meminta cetak

@@ -1,5 +1,5 @@
 "use client";
-import { useState, type KeyboardEvent } from "react";
+import { useCallback, useState, type KeyboardEvent } from "react";
 import type { Module } from "@/lib/frontend/types";
 import { useHub } from "../context";
 import { Icon } from "../icon";
@@ -9,11 +9,12 @@ import { attendanceTargetOf, todayLocal } from "./monitor-rules";
 import { MonitorView } from "./monitor-view";
 import { MonthlyRecapView, type RecapFilterValue } from "./monthly-recap-view";
 import { RecordHost } from "./record-host";
+import { useUrlDateIntent } from "../use-url-intent";
 
 /**
  * Kehadiran admin sekolah: tab "Peta & daftar" (peta check-in berkelompok + daftar siswa), "Rekap bulanan"
  * (matriks satu kelas satu bulan + unduh Excel, A3), dan "Data lengkap" (Workspace generik: harian, izin/sakit,
- * anomali, rekap, koreksi).
+ * anomali, rekap, koreksi). `?tanggal=` (tombol rekap harian, N4) membuka peta pada tanggal itu.
  */
 
 type Tab = "map" | "recap" | "data";
@@ -24,6 +25,14 @@ export function AttendanceMonitorPage({ module }: { module: Module }) {
   const [tab, setTab] = useState<Tab>("map");
   const [filter, setFilter] = useState<MonitorFilterValue>(() => ({ date: todayLocal(new Date(), me.school?.timezone), classId: "", query: "", statuses: [] }));
   const [recap, setRecap] = useState<RecapFilterValue>(() => ({ classId: "", month: todayLocal(new Date(), me.school?.timezone).slice(0, 7) }));
+  // ?tanggal=YYYY-MM-DD dari rekap harian (N4): peta pada tanggal itu; tanggal depan diabaikan.
+  const timezone = me.school?.timezone;
+  const openDate = useCallback((date: string) => {
+    if (date > todayLocal(new Date(), timezone)) return;
+    setFilter(f => ({ ...f, date }));
+    setTab("map");
+  }, [timezone]);
+  useUrlDateIntent("tanggal", openDate);
   return <div className="workspace-page monitor-page">
     <div className="page-heading"><div><h1>{module.title}</h1><p>{module.description}</p></div></div>
     <MonitorTabs tab={tab} onChange={setTab} />

@@ -94,11 +94,20 @@ Keputusan klien 2026-09-25: siswa boleh absen dari **browser HP** (bukan desktop
 
 ## Kabar sekolah per akun admin (N2)
 
-- **Kartu "Kabar sekolah untuk akun ini"** di halaman Notifikasi (admin sekolah): ringkasan ("Semua kabar sekolah dikirim ke akun ini." / "Kabar Keuangan tidak dikirim ke akun ini.") + **Atur** → kotak centang per kategori (**dicentang = diterima**: Keuangan — bukti transfer SPP baru; Kesiswaan — pengajuan izin/sakit) → **Simpan pilihan** (aktif hanya bila ada perubahan). Gagal memuat ditampilkan sebagai galat + Coba lagi, tidak pernah sebagai "semua dikirim". Bila diatur admin utama, kartu menyebut "Diatur oleh … pada …".
+- **Kartu "Kabar sekolah untuk akun ini"** di halaman Notifikasi (admin sekolah): ringkasan ("Semua kabar sekolah dikirim ke akun ini." / "Kabar Keuangan tidak dikirim ke akun ini.") + **Atur** → kotak centang per kategori (**dicentang = diterima**: Keuangan — bukti transfer SPP baru; Kesiswaan — pengajuan izin/sakit; Kehadiran — rekap kehadiran harian, N4) → **Simpan pilihan** (aktif hanya bila ada perubahan). Gagal memuat ditampilkan sebagai galat + Coba lagi, tidak pernah sebagai "semua dikirim". Bila diatur admin utama, kartu menyebut "Diatur oleh … pada …".
 - **Admin & guru → detail akun → Atur notifikasi** (admin utama, untuk admin tambahan): field yang sama; toast memakai kalimat sebab-akibat yang sama. Detail akun menampilkan "Kabar yang dimatikan" (kosong = "Tidak ada — semua kabar sekolah dikirim.").
 - Catatan di bawah centang: berlaku untuk notifikasi baru; notifikasi pribadi & kabar Sistem selalu dikirim; bila semua admin mematikan satu kategori, admin utama tetap menerimanya.
 - Demo: tiga akun admin contoh (Bu Rina mematikan Keuangan); simpan ditolak dengan pesan demo.
 - Kode: `src/components/hub/{notification-prefs,notification-categories-field,security-card}.tsx`, aturan `src/lib/frontend/notification-prefs-rules.ts` & `src/lib/notifications/rules.ts`.
+
+## Notifikasi absensi bertindakan (N4)
+
+- **Kartu notifikasi bisa membawa tombol** tepat di bawah pesannya (`notificationCta`, `src/lib/frontend/notification-cta.ts`; kartu tanpa tindakan tidak berubah). Kartu bertindakan bukan tombol; "Baca selengkapnya" membuka detail. Menekan tombol menandai notifikasi dibaca (best-effort) lalu menyegarkan badge (N1).
+  - Siswa, **"Alpa pada Selasa, 18 Maret"** → **Ajukan izin/sakit** (`/hub/my-leave?ajukan=<tanggal>`) selama tanggal ≥ hari ini − 7 (`earliestLeaveStart`), dengan petunjuk "Sudah mengajukan? Lihat di menu Izin & sakit."; lewat batas → catatan "Batas pengajuan izin sudah lewat (maks. 7 hari ke belakang)." Varian "pengajuan … belum disetujui" → **Lihat pengajuan**.
+  - Admin, **"Rekap kehadiran <tanggal>"** → **Buka kehadiran** (`/hub/attendance?tanggal=<tanggal>`).
+- **Intent URL** (`useUrlDateIntent`, `src/components/hub/use-url-intent.ts`): `?ajukan=YYYY-MM-DD` di Izin & sakit membuka formulir pengajuan dengan tanggal mulai & selesai terisi; `?tanggal=YYYY-MM-DD` di Kehadiran membuka tab Peta pada tanggal itu (tanggal depan diabaikan). Dijalankan setelah transisi halaman; parameter dibuang saat dijalankan; nilai tidak sah dibuang tanpa tindakan. Server tetap memeriksa batas & tumpang-tindih izin.
+- **Beranda siswa**: bagian "Kabar terbaru" (pengumuman + notifikasi pribadi), kosong = "Belum ada kabar baru.".
+- **Demo** (`src/lib/frontend/demo-notifications.ts`, teks dari template server): Alya mendapat Alpa hari sekolah demo sebelumnya (melewati Minggu), admin sekolah mendapat rekap (Alpa 8 · Terlambat 24 · Izin 18 · Sakit 12, 3 perlu ditinjau); persona lain tanpa notifikasi absensi. Badge demo menghitung kotak masuk persona yang sama. Formulir izin terbuka, simpan ditolak pesan demo.
 
 ## Kehadiran admin: rekap bulanan (A3)
 

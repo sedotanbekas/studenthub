@@ -13,6 +13,8 @@ import { log } from "./log";
  *   Notification & AuditLog selalu ditulis TERAKHIR.
  *   Login: AppLock user -> Student -> User -> AuthSession -> LoginEvent (riwayat masuk super admin).
  *   Preferensi notifikasi (N2): AppLock user -> NotificationMute -> AuditLog.
+ *   Tutup hari (auto-alpha, N4): AppLock kalender (bersama) -> Attendance -> Notification (urut userId, dedupKey)
+ *   -> JobRun -> AuditLog. Sinkronisasi libur: hapus Attendance lalu tarik Notification per potongan sekolah.
  * JANGAN pernah `FOR UPDATE` baris School/SchoolClass sebagai mutex (baris induk sibuk karena cek FK);
  * pakai lockKey() dengan kunci bernama. Kunci aplikasi (src/lib/lock-keys.ts) diambil PALING AWAL,
  * sebelum membaca apa pun.

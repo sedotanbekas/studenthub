@@ -233,7 +233,8 @@ Cek "kelas di tahun ajaran aktif" hanya saat aktivasi / ganti kelas (bukan tiap 
 - Izin/Sakit: backdate ≤7 hari, maju ≤30, rentang ≤14; SAKIT ≥3 hari sekolah wajib lampiran foto;
   approve → baris IZIN/SAKIT tiap hari sekolah (tidak menimpa CHECKIN/ADMIN); reject wajib alasan.
 - Auto-ALPHA per sekolah setelah `dayEndMinute` lokal (tiga zona waktu), catch-up 7 hari, idempoten
-  via JobRun; koreksi admin (≤45 hari, alasan wajib, audit + notifikasi).
+  via JobRun; koreksi admin (≤45 hari, alasan wajib, audit + notifikasi) + notifikasi Alpa ke siswa & rekap harian
+  ke admin saat hari ditutup (N4, lihat Pengumuman & notifikasi).
 - Monitoring: kartu hari ini, Data Absensi (filter status/BELUM_ABSEN/anomali), **Peta** (titik
   check-in + daftar `unlocated` untuk Izin/Sakit/Alpha/belum absen), Rekap Kelas, percobaan ditolak,
   anomali. Analitik: % per kelas per bulan, donat + selisih bulan lalu (poin persen), tren kelas &
@@ -253,7 +254,7 @@ PARTIAL) / reject beralasan; pembayaran tunai; void pembayaran; kuitansi `KWT-YY
 tampilan (Belum Bayar, Sebagian, Menunggu Verifikasi, Jatuh Tempo, Lunas, Dibatalkan); bukti
 near-duplikat (dHash) ditandai dalam sekolah yang sama.
 
-**Pengumuman & notifikasi**: kategori Akademik/Keuangan/Kegiatan/Kalender/Kesiswaan; audiens
+**Pengumuman & notifikasi**: kategori pengumuman Akademik/Keuangan/Kegiatan/Kalender/Kesiswaan; audiens
 semua / kelas / siswa tertentu; DRAFT → PUBLISHED (fan-out ke inbox per siswa) → CANCELLED (tarik);
 pratinjau jumlah penerima. Inbox semua peran (`/notifications`, cursor, unread-count, read, read-all).
 Satu jalur tulis `notify*(tx, …)` di dalam transaksi bisnis. Push Expo hanya ke siswa (outbox
@@ -262,6 +263,13 @@ sederhana di `Notification.pushStatus`, dikirim via `after()` + tick, mutex in-p
 Admin sekolah boleh mematikan kategori kabar sekolah (Keuangan, Kesiswaan) untuk akunnya, dan admin utama juga untuk
 akun admin tambahan (keputusan 2026-10-03, N2); hanya siaran ke admin yang disaring, saat ditulis. Notifikasi pribadi
 & Sistem selalu dikirim; bila semua admin (yang pernah masuk) mematikan satu kategori, admin utama tetap menerimanya.
+Saat hari sekolah ditutup (keputusan pemilik 2026-10-03, N4), di transaksi penutupan yang sama: siswa yang menjadi Alpa
+(akun aktif yang pernah masuk, tanggal ≤ 3 hari lalu) menerima "Alpa pada <hari, tanggal>" dengan tombol ajukan
+izin/sakit (atau teks "pengajuan … belum disetujui" bila ada izin PENDING), dan admin menerima satu rekap per hari
+(≤ 1 hari lalu; Alpa/Terlambat/Izin/Sakit + "N perlu ditinjau"; dilewati bila tak ada Alpa/terlambat/anomali).
+Kategori baru **Kehadiran** (ATTENDANCE) — rekap bisa dimatikan per akun admin seperti N2. Tanpa satu pun check-in
+pada tanggal itu, notifikasi Alpa ke siswa ditahan dan rekap admin menyebutnya. Idempoten lewat `Notification.dedupKey`
+(unik per penerima): tutup ulang tidak menggandakan; libur yang ditambah mundur menarik notifikasi tanggal itu.
 
 **Sponsor & iklan** (`/sponsor/*`, `/platform/ads*`, `/platform/topups*`, `/student/ads*`):
 PENDING boleh menyiapkan draft; hanya APPROVED yang bisa submit iklan & top-up; SUSPENDED read-only.
@@ -291,7 +299,8 @@ maintenance harian (cleanup sesi, purge selfie 180 hari, CheckInRejection 90 har
 
 ### Ditunda (YAGNI — dicatat di backlog `docs/backlog.md`)
 Cookie+CSRF web (fase dashboard) · penjadwalan/edit pengumuman terbit · kenaikan kelas massal
-(sebelum Juli 2027) · unggahan PDF · push receipts & penggabungan notifikasi admin · IMPOSSIBLE_TRAVEL /
+(sebelum Juli 2027) · unggahan PDF · push receipts & penggabungan notifikasi admin per pengajuan (rekap absensi harian sudah ada, N4) ·
+IMPOSSIBLE_TRAVEL /
 IDENTICAL_COORDINATES · tandai valid massal · ekspor PDF & rekap rentang bebas/semester · REFUND ledger · multi-user
 sponsor · ringkasan platform iklan · job rekonsiliasi (diganti test invarian) · target jenjang sekolah ·
 X-App-Version gate · sub-peran admin (bendahara/operator) · filter notifikasi per kelas guru · check-in offline · Play Integrity/App Attest.

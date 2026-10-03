@@ -124,6 +124,14 @@ tbody tr:hover { background: color-mix(in srgb, var(--primary) 4%, #fff); }
 .feed-top, .feed-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .feed-bottom small { color: var(--muted); font-weight: 600; }
 .feed-bottom span { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--primary-ink); }
+/* Kartu notifikasi bertindakan (N4): tombol tepat di bawah pesan; kartu sendiri tidak bisa ditekan. */
+.feed-card.has-cta:hover, .feed-card.has-cta:active { transform: none; border-color: var(--line-soft); }
+/* Pesan bertindakan memuat tenggat/angka penting: tidak dipotong (isi <= 500 karakter). */
+.feed-card.has-cta p { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.feed-bottom small, .feed-bottom .text-button { white-space: nowrap; }
+.feed-bottom .text-button { text-decoration: none; padding: 0; }
+.feed-cta { align-self: flex-start; }
+.feed-cta-note { font-size: .875rem; color: var(--muted); }
 .calendar-view { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .calendar-heading { display: flex; align-items: center; justify-content: space-between; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }

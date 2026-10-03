@@ -6,6 +6,7 @@ import type { Row } from "./types";
 import { demoPersona } from "./demo-personas";
 import { demoAdsDetail, demoAdsRows } from "./demo-ads";
 import { demoAnalyticsRows } from "./demo-analytics";
+import { demoAttendanceNotices } from "./demo-notifications";
 import { demoMonitorRows } from "./demo-monitor";
 import { studentDemoDetail, studentDemoRows } from "./demo-student";
 /** Biodata, kontak, & data keluarga demo (tampil di detail siswa admin dan profil siswa). */
@@ -25,8 +26,8 @@ export const demoStudents: Row[] = [
   { id: "s6", name: "Farhan Maulana", nisn: "0098765437", nis: "2026006", gender: "MALE", status: "ACTIVE", class: { name: "XI IPA 1" }, sppAmount: 350000, ...family(6, "Jl. Buah Batu No. 17, Kota Bandung", ["Maulana Ishak", "Buruh"], ["Endang Susilowati", "Ibu rumah tangga"], false) },
 ];
 export const demoSummary = { students: { active: 1284, draft: 12, inactive: 8, graduated: 320, moved: 3 }, attendanceToday: { present: 1198, late: 24, izin: 18, sakit: 12, alpha: 8, notYet: 24, eligible: 1284, presentPct: 95.2, isSchoolDay: true }, billing: { pendingVerification: 8, studentsNotFullyPaid: 126, outstandingAmount: 44100000, period: { collectedAmount: 405300000, billedAmount: 449400000, paid: 1158, invoiced: 1284 } }, reportCards: { published: 1080, activeStudents: 1284, studentsComplete: 1160, term: { label: "Ganjil 2026/2027" } } };
-/** Siapa yang melihat data demo; persona siswa membawa `studentId` miliknya. */
-export interface DemoViewer { readonly studentId?: string }
+/** Siapa yang melihat data demo; persona siswa membawa `studentId` miliknya, persona apa pun membawa perannya. */
+export interface DemoViewer { readonly studentId?: string; readonly identity?: { readonly user: { readonly role: string } } }
 /** Jalur /student/* yang isinya bukan data pribadi (sama untuk semua siswa). */
 const SHARED_STUDENT_PATHS = /^\/student\/(calendar|ads)$/;
 
@@ -41,8 +42,11 @@ const DEMO_INBOX: ReadonlyArray<{ id: string; title: string; body: string; statu
   { id: "n3", title: "Pertemuan orang tua dan wali siswa", body: "Undangan pertemuan orang tua siswa kelas X di aula sekolah.", status: "DRAFT", createdAt: "2026-09-20" },
 ];
 
-/** Badge notifikasi demo (N1): jumlah item contoh yang belum dibaca; tanpa permintaan jaringan. */
-export const demoUnreadCount = (): number => DEMO_INBOX.filter(n => !n.readAt).length;
+/** Kotak masuk demo per persona: notifikasi absensi milik persona (N4) lalu pengumuman contoh. */
+const demoInboxFor = (viewer?: DemoViewer): Row[] => [...demoAttendanceNotices(viewer, localParts(new Date(), "WIB").ymd), ...DEMO_INBOX];
+
+/** Badge notifikasi demo (N1): jumlah item kotak masuk persona yang belum dibaca; tanpa permintaan jaringan. */
+export const demoUnreadCount = (viewer?: DemoViewer): number => demoInboxFor(viewer).filter(n => !n.readAt).length;
 
 /**
  * Data contoh per jalur API. Jalur /student/* hanya berisi data milik persona siswa yang sedang
@@ -52,6 +56,7 @@ export function demoRows(path: string, viewer?: DemoViewer, params: Readonly<Rec
   // Jalur persis milik domain iklan/sponsor & monitoring absensi dicek sebelum pencocokan longgar di bawah.
   const exact = demoAdsRows(path) ?? demoMonitorRows(path, params) ?? demoAnalyticsRows(path);
   if (exact !== undefined) return exact;
+  if (path === "/notifications") return demoInboxFor(viewer);
   if (path.startsWith("/student/") && !SHARED_STUDENT_PATHS.test(path)) {
     const student = studentOf(viewer);
     return student ? studentDemoRows(path, student) : [];
@@ -76,7 +81,7 @@ export const demoSchoolAdmins = [
 ] as const;
 
 function sharedRows(path: string): unknown {
-  if (path === "/me/notification-preferences") return { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS"], updatedAt: null, updatedBy: null };
+  if (path === "/me/notification-preferences") return { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS", "ATTENDANCE"], updatedAt: null, updatedBy: null };
   if (path === "/school/admins") return demoSchoolAdmins;
   if (path === "/school/report-cards/sheet") return { term: { id: "term1", label: "Ganjil 2026/2027" }, class: { id: "c1", name: "X IPA 1" }, subject: { id: "subject1", name: "Matematika", code: "MTK", kkm: 75 }, rows: demoStudents.map((s, i) => ({ studentId: s.id, name: s.name, nis: s.nis, score: 80 + i, predicate: "B", reportCardStatus: "DRAFT", blockedReason: null })) };
   if (path === "/school/academic-years") return [{ id: "year1", name: "2026/2027", terms: [{ id: "term1", label: "Ganjil 2026/2027" }, { id: "term2", label: "Genap 2026/2027" }] }];

@@ -2,6 +2,7 @@ import type { NotificationCategory, NotificationType, Prisma, UserRole } from "@
 import type { Tx } from "@/lib/db";
 import { kickPushDispatch } from "@/lib/push/kick";
 import {
+  assertDedupKey,
   initialPushStatus,
   isAdminMutableCategory,
   isReachableAdmin,
@@ -26,6 +27,11 @@ export interface NotificationEvent {
   /** Deep link untuk app/dashboard, mis. { screen: "invoice", id }. */
   link?: { screen: string; id: string };
   announcementId?: string;
+  /**
+   * Kunci idempoten notifikasi job (<= 64 karakter, mis. "attendance-alpha:2031-03-18"): unik per penerima
+   * (indeks unik userId+dedupKey, INSERT IGNORE) sehingga job yang diulang tidak menggandakan notifikasi.
+   */
+  dedupKey?: string;
 }
 
 export interface NotifyContext {
@@ -37,8 +43,10 @@ type Recipient = { userId: string; role: UserRole };
 const FAN_OUT_CHUNK = 500;
 
 export async function notifyRecipients(tx: Tx, recipients: readonly Recipient[], event: NotificationEvent, ctx: NotifyContext): Promise<number> {
-  const unique = [...new Map(recipients.map((r) => [r.userId, r])).values()];
+  // Urut userId: urutan sisip deterministik -> penulis bersamaan (tutup hari ganda) tidak saling deadlock.
+  const unique = [...new Map(recipients.map((r) => [r.userId, r])).values()].sort((a, b) => (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0));
   if (unique.length === 0) return 0;
+  assertDedupKey(event.dedupKey);
   const category = resolveCategory(event.type, event.category);
   const data: Prisma.InputJsonValue | undefined = event.link ? { screen: event.link.screen, id: event.link.id } : undefined;
   const rows = unique.map((r) => ({
@@ -49,13 +57,14 @@ export async function notifyRecipients(tx: Tx, recipients: readonly Recipient[],
     body: previewText(event.body),
     data,
     announcementId: event.announcementId ?? null,
+    dedupKey: event.dedupKey ?? null,
     pushStatus: initialPushStatus(r.role),
     pushNextAttemptAt: ctx.now,
     createdAt: ctx.now,
   }));
   let created = 0;
   for (let i = 0; i < rows.length; i += FAN_OUT_CHUNK) {
-    const result = await tx.notification.createMany({ data: rows.slice(i, i + FAN_OUT_CHUNK), skipDuplicates: Boolean(event.announcementId) });
+    const result = await tx.notification.createMany({ data: rows.slice(i, i + FAN_OUT_CHUNK), skipDuplicates: Boolean(event.announcementId ?? event.dedupKey) });
     created += result.count;
   }
   if (rows.some((row) => row.pushStatus === "PENDING")) ctx.defer?.(kickPushDispatch);

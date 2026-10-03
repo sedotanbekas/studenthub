@@ -13599,7 +13599,7 @@
           "Notifikasi"
         ],
         "summary": "Inbox notifikasi milik pengguna (feed cursor)",
-        "description": "Urut terbaru dulu (createdAt desc, id desc). Beranda \"Pemberitahuan\" memakai kind=announcement; tab Notifikasi memakai kind=all. Lanjutkan dengan `cursor` = `meta.nextCursor`.\n\nAksi POLICY: `notification.self`.",
+        "description": "Urut terbaru dulu (createdAt desc, id desc). Beranda \"Pemberitahuan\" memakai kind=announcement; tab Notifikasi memakai kind=all. Lanjutkan dengan `cursor` = `meta.nextCursor`. Notifikasi absensi (kategori ATTENDANCE): `data.screen` attendance-alpha (id = tanggal Alpa; tawarkan ajukan izin/sakit selama tanggal >= hari ini - 7), leave-request (id = pengajuan), attendance-day (id = tanggal, rekap admin).\n\nAksi POLICY: `notification.self`.",
         "security": [
           {
             "bearerAuth": []
@@ -13654,7 +13654,8 @@
                 "EVENT",
                 "CALENDAR",
                 "STUDENT_AFFAIRS",
-                "SYSTEM"
+                "SYSTEM",
+                "ATTENDANCE"
               ],
               "description": "Kategori ikon feed."
             }
@@ -14238,7 +14239,7 @@
           "Notifikasi"
         ],
         "summary": "Kabar sekolah yang dikirim ke akun admin ini",
-        "description": "Hanya menyaring siaran ke admin sekolah (Keuangan: bukti transfer SPP; Kesiswaan: pengajuan izin/sakit) saat notifikasi DITULIS — tidak berlaku mundur. Notifikasi pribadi dan kategori Sistem selalu dikirim; bila semua admin mematikan satu kategori, admin utama tetap menerimanya.\n\nAksi POLICY: `notification.preferences`.",
+        "description": "Hanya menyaring siaran ke admin sekolah (Keuangan: bukti transfer SPP; Kesiswaan: pengajuan izin/sakit; Kehadiran: rekap harian) saat notifikasi DITULIS — tidak berlaku mundur. Notifikasi pribadi dan kategori Sistem selalu dikirim; bila semua admin mematikan satu kategori, admin utama tetap menerimanya.\n\nAksi POLICY: `notification.preferences`.",
         "security": [
           {
             "bearerAuth": []
@@ -14336,7 +14337,7 @@
           "Notifikasi"
         ],
         "summary": "Atur kabar sekolah yang dikirim ke akun admin ini",
-        "description": "Hanya menyaring siaran ke admin sekolah (Keuangan: bukti transfer SPP; Kesiswaan: pengajuan izin/sakit) saat notifikasi DITULIS — tidak berlaku mundur. Notifikasi pribadi dan kategori Sistem selalu dikirim; bila semua admin mematikan satu kategori, admin utama tetap menerimanya. Set sama -> tanpa perubahan & tanpa audit; selain itu diaudit user.notification_mutes.\n\nAksi POLICY: `notification.preferences`.",
+        "description": "Hanya menyaring siaran ke admin sekolah (Keuangan: bukti transfer SPP; Kesiswaan: pengajuan izin/sakit; Kehadiran: rekap harian) saat notifikasi DITULIS — tidak berlaku mundur. Notifikasi pribadi dan kategori Sistem selalu dikirim; bila semua admin mematikan satu kategori, admin utama tetap menerimanya. Set sama -> tanpa perubahan & tanpa audit; selain itu diaudit user.notification_mutes.\n\nAksi POLICY: `notification.preferences`.",
         "security": [
           {
             "bearerAuth": []
@@ -17209,7 +17210,7 @@
           "Absensi (Super Admin)"
         ],
         "summary": "Tutup ulang satu hari sekolah (auto-ALPHA manual)",
-        "description": "Untuk hari lampau yang sudah ditutup tetapi datanya hilang/berubah (mis. libur ditambah lalu dihapus, tick mati lebih dari 7 hari). Penutupan idempoten yang sama dengan job auto-ALPHA: siswa wajib absen tanpa catatan -> ALPHA, atau IZIN/SAKIT bila izin disetujui mencakup tanggal; catatan yang ada tidak diubah; bukan hari sekolah -> isSchoolDay=false tanpa baris. JobRun tanggal itu ditulis SUCCEEDED dan tindakan diaudit (attendance.reclose_day). Tanggal harus sudah ditutup (422 DAY_NOT_CLOSED) dan tidak sebelum sekolah terdaftar (422 DATE_BEFORE_SCHOOL_START); sekolah tak dikenal -> 404.\n\nAksi POLICY: `attendance.reclose`.",
+        "description": "Untuk hari lampau yang sudah ditutup tetapi datanya hilang/berubah (mis. libur ditambah lalu dihapus, tick mati lebih dari 7 hari). Penutupan idempoten yang sama dengan job auto-ALPHA: siswa wajib absen tanpa catatan -> ALPHA, atau IZIN/SAKIT bila izin disetujui mencakup tanggal; catatan yang ada tidak diubah; bukan hari sekolah -> isSchoolDay=false tanpa baris. JobRun tanggal itu ditulis SUCCEEDED dan tindakan diaudit (attendance.reclose_day). Tanggal harus sudah ditutup (422 DAY_NOT_CLOSED) dan tidak sebelum sekolah terdaftar (422 DATE_BEFORE_SCHOOL_START); sekolah tak dikenal -> 404. Seperti tick, penutupan memberi notifikasi Alpa ke siswa (tanggal <= 3 hari lalu) & rekap ke admin (<= 1 hari), sekali per tanggal per penerima — tutup ulang tidak menggandakannya.\n\nAksi POLICY: `attendance.reclose`.",
         "security": [
           {
             "bearerAuth": []
@@ -32711,7 +32712,8 @@
               "type": "string",
               "enum": [
                 "FINANCE",
-                "STUDENT_AFFAIRS"
+                "STUDENT_AFFAIRS",
+                "ATTENDANCE"
               ],
               "description": "Kategori kabar sekolah yang bisa dimatikan per akun admin."
             },
@@ -37194,7 +37196,8 @@
               "type": "string",
               "enum": [
                 "FINANCE",
-                "STUDENT_AFFAIRS"
+                "STUDENT_AFFAIRS",
+                "ATTENDANCE"
               ]
             },
             "description": "Kabar sekolah yang TIDAK dikirim ke akun ini (N2); [] = terima semua."
@@ -38325,7 +38328,9 @@
               "INVOICE_VOIDED",
               "PAYMENT_VOIDED",
               "NISN_RELEASED",
-              "SCHOOL_SETTINGS_CHANGED"
+              "SCHOOL_SETTINGS_CHANGED",
+              "ATTENDANCE_ALPHA",
+              "ATTENDANCE_DAY_SUMMARY"
             ]
           },
           "category": {
@@ -38336,7 +38341,8 @@
               "EVENT",
               "CALENDAR",
               "STUDENT_AFFAIRS",
-              "SYSTEM"
+              "SYSTEM",
+              "ATTENDANCE"
             ],
             "description": "Kategori ikon feed."
           },
@@ -38517,7 +38523,9 @@
               "INVOICE_VOIDED",
               "PAYMENT_VOIDED",
               "NISN_RELEASED",
-              "SCHOOL_SETTINGS_CHANGED"
+              "SCHOOL_SETTINGS_CHANGED",
+              "ATTENDANCE_ALPHA",
+              "ATTENDANCE_DAY_SUMMARY"
             ]
           },
           "category": {
@@ -38528,7 +38536,8 @@
               "EVENT",
               "CALENDAR",
               "STUDENT_AFFAIRS",
-              "SYSTEM"
+              "SYSTEM",
+              "ATTENDANCE"
             ],
             "description": "Kategori ikon feed."
           },
@@ -38615,7 +38624,8 @@
               "EVENT",
               "CALENDAR",
               "STUDENT_AFFAIRS",
-              "SYSTEM"
+              "SYSTEM",
+              "ATTENDANCE"
             ],
             "description": "Kategori ikon feed."
           },
@@ -38693,7 +38703,8 @@
               "type": "string",
               "enum": [
                 "FINANCE",
-                "STUDENT_AFFAIRS"
+                "STUDENT_AFFAIRS",
+                "ATTENDANCE"
               ],
               "description": "Kategori kabar sekolah yang bisa dimatikan per akun admin."
             }
@@ -38704,7 +38715,8 @@
               "type": "string",
               "enum": [
                 "FINANCE",
-                "STUDENT_AFFAIRS"
+                "STUDENT_AFFAIRS",
+                "ATTENDANCE"
               ],
               "description": "Kategori kabar sekolah yang bisa dimatikan per akun admin."
             },
@@ -45300,7 +45312,8 @@
               "EVENT",
               "CALENDAR",
               "STUDENT_AFFAIRS",
-              "SYSTEM"
+              "SYSTEM",
+              "ATTENDANCE"
             ]
           },
           "title": {
@@ -45416,7 +45429,8 @@
               "EVENT",
               "CALENDAR",
               "STUDENT_AFFAIRS",
-              "SYSTEM"
+              "SYSTEM",
+              "ATTENDANCE"
             ]
           },
           "title": {

@@ -18,7 +18,7 @@ async function signedIn(page: Page): Promise<{ bodies: unknown[] }> {
     const path = new URL(request.url()).pathname.replace("/api/web", "");
     if (path === "/me/notification-preferences") {
       if (request.method() === "PUT") { const body = request.postDataJSON() as { mutedCategories: string[] }; state.bodies.push(body); state.muted = body.mutedCategories; }
-      return route.fulfill({ json: envelope({ mutedCategories: state.muted, mutableCategories: ["FINANCE", "STUDENT_AFFAIRS"], updatedAt: null, updatedBy: null }) });
+      return route.fulfill({ json: envelope({ mutedCategories: state.muted, mutableCategories: ["FINANCE", "STUDENT_AFFAIRS", "ATTENDANCE"], updatedAt: null, updatedBy: null }) });
     }
     if (path === "/notifications/unread-count") return route.fulfill({ json: envelope({ total: 0, announcements: 0, personal: 0, latestCreatedAt: null }) });
     return route.fulfill({ json: envelope(path === "/auth/me" ? identity : []) });
