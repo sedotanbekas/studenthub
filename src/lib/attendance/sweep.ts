@@ -18,6 +18,7 @@ export const SHARED_DEVICE_FLAG = "SHARED_DEVICE" satisfies AnomalyCode;
 export async function sweepSharedDevice(tx: Tx, schoolId: string, date: LocalDate, now: Date): Promise<number> {
   const day = toDbDate(date);
   const flagJson = JSON.stringify(SHARED_DEVICE_FLAG);
+  await reopenSharedDeviceReviews(tx, schoolId, day, now);
   return tx.$executeRaw`
     UPDATE \`Attendance\` AS a
     JOIN (
@@ -38,4 +39,26 @@ export async function sweepSharedDevice(tx: Tx, schoolId: string, date: LocalDat
         a.\`hasAnomaly\` = 0 OR a.\`anomalyFlags\` IS NULL OR JSON_TYPE(a.\`anomalyFlags\`) <> 'ARRAY'
         OR NOT JSON_CONTAINS(a.\`anomalyFlags\`, ${flagJson})
       )`;
+}
+
+/**
+ * Tinjauan VALID pada baris yang akan MENDAPAT flag SHARED_DEVICE baru dibuka lagi (B1): kolom tinjau dikosongkan
+ * agar catatan kembali ke antrean "Perlu ditinjau". Pernyataan terpisah (dijalankan SEBELUM penandaan) karena
+ * MariaDB tidak menjamin urutan penugasan di UPDATE multi-tabel. Predikat "belum ber-flag" sama dengan penandaan
+ * (flag NULL / bukan array ikut cocok). Tinjauan INVALID tidak dibuka lagi.
+ */
+async function reopenSharedDeviceReviews(tx: Tx, schoolId: string, day: Date, now: Date): Promise<number> {
+  const flagJson = JSON.stringify(SHARED_DEVICE_FLAG);
+  return tx.$executeRaw`
+    UPDATE \`Attendance\` AS a
+    JOIN (
+      SELECT \`deviceId\` FROM \`Attendance\`
+      WHERE \`schoolId\` = ${schoolId} AND \`date\` = ${day} AND \`checkInAt\` IS NOT NULL AND \`deviceId\` IS NOT NULL
+      GROUP BY \`deviceId\`
+      HAVING COUNT(DISTINCT \`studentId\`) > 1
+    ) AS shared ON shared.\`deviceId\` = a.\`deviceId\`
+    SET a.\`anomalyReviewDecision\` = NULL, a.\`anomalyReviewedAt\` = NULL, a.\`anomalyReviewedById\` = NULL, a.\`anomalyReviewNote\` = NULL,
+        a.\`updatedAt\` = ${now}
+    WHERE a.\`schoolId\` = ${schoolId} AND a.\`date\` = ${day} AND a.\`checkInAt\` IS NOT NULL AND a.\`anomalyReviewDecision\` = 'VALID'
+      AND (a.\`anomalyFlags\` IS NULL OR JSON_TYPE(a.\`anomalyFlags\`) <> 'ARRAY' OR NOT JSON_CONTAINS(a.\`anomalyFlags\`, ${flagJson}))`;
 }

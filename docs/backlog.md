@@ -14,7 +14,7 @@ dengan alasan penundaan dan pemicu untuk mengerjakannya. Urutan tidak menunjukka
 | Tile peta sendiri (proxy/cache tile) | Peta absensi admin & siswa memuat tile langsung dari `tile.openstreetmap.org` (pihak ketiga melihat IP admin + area koordinat check-in; kebijakan OSM membatasi pemakaian berat) | Sebelum trafik produksi besar, atau kebijakan privasi sekolah mensyaratkan tanpa pihak ketiga |
 | Pencarian di riwayat top-up super admin | Tab riwayat top-up hanya berpaginasi (`GET /platform/topups` belum menerima `q`) | Super admin kesulitan menemukan top-up lama |
 | Push receipts Expo & penggabungan notifikasi admin | Push satu arah; status gagal dari tiket saja; inbox tetap sumber kebenaran | Volume push besar / keluhan push tidak sampai |
-| Anomali `IMPOSSIBLE_TRAVEL` / `IDENTICAL_COORDINATES` + workflow review anomali | Flag lain tersimpan; koreksi manual admin dipakai | Pola kecurangan check-in terbukti di lapangan |
+| Anomali `IMPOSSIBLE_TRAVEL` / `IDENTICAL_COORDINATES` | Flag lain tersimpan; tinjau anomali per catatan (B1) dipakai | Pola kecurangan check-in terbukti di lapangan |
 | REFUND ledger sponsor | Hanya TOPUP / CLICK_CHARGE / ADJUSTMENT | Ada permintaan pengembalian dana sponsor (butuh aturan batas refundable + persetujuan SA kedua, lihat review-security) |
 | Multi-user sponsor | Satu akun login per sponsor | Sponsor korporat butuh beberapa operator |
 | Ringkasan platform iklan (super admin) | Analitik per sponsor/iklan saja | Super admin butuh dashboard pendapatan |
@@ -68,3 +68,11 @@ koreksi. Kerjakan bila wali kelas meminta mengisi alasan atas nama siswa atau si
 ### Jejak "Bukan saya" (A2)
 Ketukan "Bukan saya" di alur absen tidak dicatat server (hanya logout biasa). Kerjakan bila admin sekolah perlu
 melihat pola HP pinjaman di luar flag `SHARED_DEVICE`.
+
+### Tandai valid massal (B1)
+Tinjau anomali satu catatan per keputusan. Kerjakan bila antrean berisi banyak catatan sejenis yang jelas valid
+(mis. kelompok `TEST_MODE` atau `NEW_DEVICE` setelah sekolah ganti HP massal).
+
+### Tidak valid → Valid / pulihkan status otomatis (B1)
+Tidak valid tidak bisa diubah kembali (409 `ANOMALY_ALREADY_INVALID`); status dipulihkan lewat Koreksi absensi dan
+tag menjadi "Tidak valid · dipulihkan". Kerjakan bila admin sering salah menandai dan meminta pembatalan satu klik.

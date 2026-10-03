@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
 import { lateReasonCountsSchema } from "./late-reason-schemas";
+import { CORRECTION_WINDOW_DAYS } from "./correction-rules";
 import {
   anomaliesQuery,
   anomalyRowSchema,
@@ -60,7 +61,7 @@ export const dailyContract = defineContract({
   path: "/api/v1/school/attendance/daily",
   tag: TAG,
   summary: "Data Absensi satu tanggal (paginasi atas siswa)",
-  description: `Baris tanpa catatan = belum absen (hanya di hari sekolah). status=BELUM_ABSEN menampilkan siswa aktif tanpa catatan; anomaly=any hanya catatan beranomali. Urut kelas lalu nama. ${SCOPE_NOTE}`,
+  description: `Baris tanpa catatan = belum absen (hanya di hari sekolah). status=BELUM_ABSEN menampilkan siswa aktif tanpa catatan; anomaly=any hanya catatan beranomali; anomaly=unreviewed hanya yang belum ditinjau (B1). Urut kelas lalu nama. ${SCOPE_NOTE}`,
   action: ACTION,
   query: dailyQuery,
   response: z.array(dailyRowSchema),
@@ -101,7 +102,7 @@ export const anomaliesContract = defineContract({
   path: "/api/v1/school/attendance/anomalies",
   tag: TAG,
   summary: "Antrean catatan beranomali",
-  description: `Rentang default 7 hari terakhir, maksimal 92 hari (400 bila lebih). Terbaru dulu. ${SCOPE_NOTE}`,
+  description: `review (B1): UNREVIEWED (default) = belum ditinjau, rentang default hari ini + ${CORRECTION_WINDOW_DAYS} hari ke belakang (jendela Tidak valid admin sekolah); VALID / INVALID / ALL_ANOMALIES rentang default 7 hari terakhir. Maksimal 92 hari (400 bila lebih). Terbaru dulu; reviewDecision = hasil tinjauan. ${SCOPE_NOTE}`,
   action: ACTION,
   query: anomaliesQuery,
   response: z.array(anomalyRowSchema),
@@ -212,7 +213,7 @@ export const recordDetailContract = defineContract({
   path: "/api/v1/school/attendance/{id}",
   tag: TAG,
   summary: "Detail satu catatan absensi",
-  description: `Termasuk selfie (url /api/v1/files/{id}; null setelah retensi 180 hari), flag anomali berlabel, percobaan ditolak di hari yang sama, dan 20 entri audit terakhir. ${SCOPE_NOTE}`,
+  description: `Termasuk selfie (url /api/v1/files/{id}; null setelah retensi 180 hari), flag anomali berlabel, tinjauan anomali (review, B1), percobaan ditolak di hari yang sama, dan 20 entri audit terakhir. ${SCOPE_NOTE}`,
   action: ACTION,
   params: recordParams,
   query: monitorScopeQuery,

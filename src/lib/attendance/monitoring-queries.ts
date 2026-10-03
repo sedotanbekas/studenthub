@@ -11,6 +11,7 @@ import { parseStudentSearch } from "@/lib/students/search-rules";
 import { resolveSchoolScope, type SchoolScope } from "@/lib/tenant/scope";
 import { fromDbDate, localParts, toDbDate, type LocalDate, type SchoolTz } from "@/lib/time/zone";
 import { parseFlags } from "./anomaly-rules";
+import { anomalyQueueDefaultDays, type AnomalyReviewFilter } from "./anomaly-review-rules";
 import { eligibilityCutoff } from "./auto-alpha-rules";
 import {
   DETAIL_AUDIT_LIMIT,
@@ -22,7 +23,7 @@ import {
   todayCard,
   type ClassCount,
 } from "./attendance-stats";
-import { decimalToNumber, fileUrl, flagDetails, timeLocal, toAttendanceBrief, toRejectionBrief, toStudentBrief } from "./monitor-dto";
+import { decimalToNumber, fileUrl, flagDetails, timeLocal, toAttendanceBrief, toRejectionBrief, toReviewDto, toStudentBrief } from "./monitor-dto";
 import type {
   AnomaliesQuery,
   AnomalyRowDto,
@@ -43,7 +44,6 @@ import type {
  * Query baca monitoring absensi admin (selalu ber-SchoolScope & ber-take): kartu hari ini, Data Absensi,
  * Peta Lokasi, Rekap Kelas, detail catatan, antrean anomali, percobaan ditolak.
  */
-export const DEFAULT_ANOMALY_RANGE_DAYS = 7;
 
 export interface MonitorSchool {
   readonly id: string;
@@ -150,6 +150,8 @@ export const attendanceBriefSelect = {
   lateReasonCategory: true,
   lateReasonNote: true,
   lateReasonAt: true,
+  anomalyReviewDecision: true,
+  anomalyReviewedAt: true,
 } satisfies Prisma.AttendanceSelect;
 
 // ----------------------------------------------------------------------------- kartu hari ini
@@ -200,6 +202,7 @@ function dailyWhere(school: MonitorSchool, date: LocalDate, isSchoolDay: boolean
     ...(query.classId ? { classId: query.classId } : {}),
     ...(query.status && query.status !== "BELUM_ABSEN" ? { status: query.status } : {}),
     ...(query.anomaly ? { hasAnomaly: true } : {}),
+    ...(query.anomaly === "unreviewed" ? { anomalyReviewedAt: null } : {}),
   };
   const branches = dailyBranches(query, isSchoolDay, { attendances: { some: rowFilter } }, notYetWhere(school, date, query.classId));
   if (branches.length === 0) return null;
@@ -251,6 +254,8 @@ const detailSelect = {
   schoolClass: { select: { name: true } },
   selfieFile: { select: { id: true, deletedAt: true } },
   student: { select: studentBriefSelect },
+  anomalyReviewNote: true,
+  anomalyReviewedBy: { select: { id: true, name: true } },
 } satisfies Prisma.AttendanceSelect;
 
 type DetailRow = Prisma.AttendanceGetPayload<{ select: typeof detailSelect }>;
@@ -310,6 +315,7 @@ function toDetail(row: DetailRow, tz: SchoolTz, extras: Pick<RecordDetailDto, "r
     classId: row.classId,
     className: row.schoolClass?.name ?? null,
     student: toStudentBrief(row.student),
+    review: toReviewDto(row),
     selfie: toSelfie(row.selfieFile),
     ...extras,
     createdAt: row.createdAt.toISOString(),
@@ -345,11 +351,15 @@ export async function getRecordDetail(ctx: ActionContext, id: string, schoolId: 
 
 // ----------------------------------------------------------------------------- anomali & penolakan
 
-/** Antrean anomali (hasAnomaly) dalam rentang <= 92 hari, terbaru dulu. */
+const reviewFilterWhere = (filter: AnomalyReviewFilter): Prisma.AttendanceWhereInput =>
+  filter === "UNREVIEWED" ? { anomalyReviewedAt: null } : filter === "ALL_ANOMALIES" ? {} : { anomalyReviewDecision: filter };
+
+/** Antrean anomali (hasAnomaly) dalam rentang <= 92 hari, terbaru dulu; default belum ditinjau (B1). */
 export async function listAnomalies(ctx: ActionContext, query: AnomaliesQuery): Promise<{ data: AnomalyRowDto[]; meta: PageMeta }> {
   const scope = monitorScope(ctx, query.schoolId);
   const school = await loadMonitorSchool(scope);
-  const range = resolveRange(query.from, query.to, schoolToday(school, ctx.now), DEFAULT_ANOMALY_RANGE_DAYS);
+  const review = query.review ?? "UNREVIEWED";
+  const range = resolveRange(query.from, query.to, schoolToday(school, ctx.now), anomalyQueueDefaultDays(review));
   if (!range) throw badRequest("VALIDATION_FAILED", "Rentang tanggal tidak valid (from <= to, maksimal 92 hari).");
   if (query.classId) await assertClassInSchool(scope, query.classId);
   const where: Prisma.AttendanceWhereInput = {
@@ -357,6 +367,7 @@ export async function listAnomalies(ctx: ActionContext, query: AnomaliesQuery): 
     hasAnomaly: true,
     date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
     ...(query.classId ? { classId: query.classId } : {}),
+    ...reviewFilterWhere(review),
   };
   const [total, rows] = await Promise.all([
     prisma.attendance.count({ where }),
@@ -371,6 +382,7 @@ export async function listAnomalies(ctx: ActionContext, query: AnomaliesQuery): 
     date: fromDbDate(row.date),
     student: toStudentBrief(row.student, row.schoolClass?.name),
     attendance: toAttendanceBrief(row, school.timezone),
+    reviewDecision: row.anomalyReviewDecision,
   }));
   return { data, meta: pageMeta(total, query.page, query.limit) };
 }
@@ -429,6 +441,8 @@ const mapRowSelect = {
   hasAnomaly: true,
   anomalyFlags: true,
   lateReasonCategory: true,
+  anomalyReviewDecision: true,
+  anomalyReviewedAt: true,
   student: { select: mapStudentSelect },
   schoolClass: { select: { name: true } },
 } satisfies Prisma.AttendanceSelect;
@@ -454,6 +468,8 @@ function toMapPoint(row: MapRow, tz: SchoolTz): MapDto["points"][number] {
     hasAnomaly: row.hasAnomaly,
     flags: parseFlags(row.anomalyFlags),
     lateReasonCategory: row.lateReasonCategory,
+    needsReview: row.hasAnomaly && row.anomalyReviewedAt === null,
+    reviewDecision: row.anomalyReviewDecision,
   };
 }
 

@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  INVALID_REASON_CHIPS,
+  attendanceTargetOf,
+  formatReviewedAt,
+  pendingReviewCount,
+  reviewErrorText,
+  reviewSuccessText,
+  reviewTag,
   MONITOR_STATUSES,
   STATUS_META,
   countOf,
@@ -21,7 +28,7 @@ import {
 
 const point = (over: Partial<MapPoint>): MapPoint => ({
   attendanceId: "a1", studentId: "s1", name: "Alya Putri", nis: "2026001", className: "X IPA 1", status: "HADIR",
-  latitude: -6.1754, longitude: 106.8272, accuracyM: 12, distanceM: 30, checkInTimeLocal: "06:40", hasAnomaly: false, flags: [], lateReasonCategory: null, ...over,
+  latitude: -6.1754, longitude: 106.8272, accuracyM: 12, distanceM: 30, checkInTimeLocal: "06:40", hasAnomaly: false, flags: [], lateReasonCategory: null, needsReview: false, reviewDecision: null, ...over,
 });
 const data: MonitorData = {
   date: "2026-09-25", isSchoolDay: true, truncated: false,
@@ -116,4 +123,32 @@ test("scrollToReveal: baris di bawah label sticky ikut digulir; yang sudah terli
   assert.equal(scrollToReveal({ top: 380, bottom: 440 }, view, margin), 148, "di bawah tampilan -> turun secukupnya");
   assert.equal(scrollToReveal({ top: 20, bottom: 80 }, { scrollTop: 60, height: 300 }, margin), 0, "tidak pernah negatif");
   assert.equal(scrollToReveal({ top: 500, bottom: 900 }, view, margin), 456, "baris lebih tinggi dari tampilan -> tepi atasnya yang ditampilkan");
+});
+
+test("tinjau anomali (B1): legenda menghitung yang belum ditinjau; tag daftar sesuai keputusan & status", () => {
+  assert.equal(pendingReviewCount([point({ needsReview: true }), point({ needsReview: false, hasAnomaly: true, reviewDecision: "VALID" })]), 1);
+  assert.deepEqual(reviewTag(point({ needsReview: true })), { text: "Perlu ditinjau", tone: "is-danger" });
+  assert.deepEqual(reviewTag(point({ reviewDecision: "VALID" })), { text: "Valid", tone: "is-ok" });
+  assert.deepEqual(reviewTag(point({ reviewDecision: "INVALID", status: "ALPHA" })), { text: "Tidak valid", tone: "is-neutral" });
+  assert.deepEqual(reviewTag(point({ reviewDecision: "INVALID", status: "HADIR" })), { text: "Tidak valid · dipulihkan", tone: "is-neutral" });
+  assert.equal(reviewTag(point({})), null);
+});
+
+test("tinjau anomali (B1): pesan sukses & galat; chip alasan; jam tinjau di zona sekolah", () => {
+  assert.equal(reviewSuccessText("VALID", false), "Ditandai valid — keluar dari antrean Perlu ditinjau.");
+  assert.equal(reviewSuccessText("INVALID", true), "Ditandai tidak valid — status jadi Alpa, siswa diberi tahu.");
+  assert.equal(reviewSuccessText("INVALID", false), "Ditandai tidak valid — status sudah Alpa.");
+  assert.match(reviewErrorText("NOT_SCHOOL_DAY", "x"), /bukan hari sekolah/);
+  assert.equal(reviewErrorText("CORRECTION_WINDOW_EXPIRED", "Pesan server"), "Pesan server");
+  assert.equal(INVALID_REASON_CHIPS.length, 4);
+  assert.match(formatReviewedAt("2026-10-03T01:05:00.000Z", "WIB"), /08[.:]05/);
+  assert.match(formatReviewedAt("2026-10-03T01:05:00.000Z", "WIT"), /10[.:]05/);
+});
+
+test("attendanceTargetOf: baris anomali membawa tanggalnya; baris harian tanpa tanggal; tanpa catatan -> null", () => {
+  const row = { date: "2026-10-01", student: { name: "Wulan Dari" }, attendance: { id: "att-1" } };
+  assert.deepEqual(attendanceTargetOf(row, "/school/attendance/anomalies"), { id: "att-1", name: "Wulan Dari", date: "2026-10-01" });
+  assert.deepEqual(attendanceTargetOf({ student: { name: "Yoga" }, attendance: { id: "att-2" } }, "/school/attendance/daily"), { id: "att-2", name: "Yoga", date: null });
+  assert.equal(attendanceTargetOf({ student: { name: "Yoga" }, attendance: null }, "/school/attendance/daily"), null);
+  assert.equal(attendanceTargetOf(row, "/school/leave-requests"), null);
 });

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { operations } from "@/lib/frontend/catalog";
 import { demoDetail, demoRows } from "@/lib/frontend/demo";
@@ -19,8 +19,11 @@ import type { SheetDto } from "@/lib/report-cards/schemas";
 import { ReportCardDocument, isReportCardDetail } from "./report-card";
 import { SecurityPanel } from "./security-panel";
 
+/** Dialog baris khusus halaman pemilik (mis. detail kehadiran + tinjau anomali); null = dialog generik. */
+export type RecordDialogRenderer = (args: { row: Row; viewPath: string | undefined; onClose: () => void; onChanged: () => void }) => ReactNode | null;
+
 /** `embedded`: dipasang di dalam halaman khusus yang sudah punya judul -> judul & deskripsi modul disembunyikan. */
-export function Workspace({ module, embedded = false }: { module: Module; embedded?: boolean }) {
+export function Workspace({ module, embedded = false, recordDialog }: { module: Module; embedded?: boolean; recordDialog?: RecordDialogRenderer }) {
   const { me, schoolId, demo } = useHub();
   const available = operations.filter(op => module.paths.some(path => op.path === path || op.path.startsWith(`${path}/`)) && (demo || !op.action || me.permissions.includes(op.action)));
   const views = viewsFor(available, module.primary);
@@ -45,7 +48,7 @@ export function Workspace({ module, embedded = false }: { module: Module; embedd
     const timer = setTimeout(() => {
       setLoading(true); setError("");
       const params = { ...filters, ...(view.parameters.some(p => p.name === "q") && query ? { q: query } : {}) };
-      if (demo) { let rows = demoRows(view.path, demoPersonaForUser(me.user.id)); if (Array.isArray(rows) && query) rows = rows.filter(row => JSON.stringify(row).toLowerCase().includes(query.toLowerCase())); setData(rows); setMeta({ total: Array.isArray(rows) ? rows.length : undefined, page: 1, totalPages: 1 }); setLoading(false); return; }
+      if (demo) { let rows = demoRows(view.path, demoPersonaForUser(me.user.id), params); if (Array.isArray(rows) && query) rows = rows.filter(row => JSON.stringify(row).toLowerCase().includes(query.toLowerCase())); setData(rows); setMeta({ total: Array.isArray(rows) ? rows.length : undefined, page: 1, totalPages: 1 }); setLoading(false); return; }
       api(scoped(buildPath(view, params), schoolId)).then(result => { if (active) { setData(result.data); setMeta(result.meta); } }).catch(e => { if (active) { setError(e.message); setData(undefined); } }).finally(() => { if (active) setLoading(false); });
     }, query ? 300 : 0);
     return () => { active = false; clearTimeout(timer); };
@@ -55,6 +58,8 @@ export function Workspace({ module, embedded = false }: { module: Module; embedd
   // Aksi per baris (ubah, nonaktifkan, setujui, ...) ada di jendela detail baris, bukan di tingkat halaman.
   const rowHint = Boolean(rows?.length) && available.some(op => op.path.startsWith(`${detailBase(view?.path)}/{id}`));
   function changeView(op: Operation) { setView(op); setFilters(defaults(parameterSchema(op, "query"))); setQuery(""); setData(undefined); setMeta(undefined); }
+  // Halaman pemilik boleh mengganti dialog baris (mis. kehadiran: detail + tinjau anomali); null = dialog generik.
+  const customRecord = selected && !selected.path ? recordDialog?.({ row: selected.row, viewPath: view?.path, onClose: () => setSelected(null), onChanged: () => setVersion(v => v + 1) }) : null;
   const filtersSchema = view ? parameterSchema({ ...view, parameters: view.parameters.filter(p => p.name !== "q" && p.name !== "cursor" && p.name !== "page" && p.name !== "limit") }, "query") : {};
   return <div className="workspace-page"><div className={`page-heading${embedded ? " embedded" : ""}`}>{!embedded && <div><h1>{module.title}</h1><p>{module.description}</p></div>}<PageActions create={create} secondary={secondary} disabled={needsSchool} onOpen={op => setAction({ op })} /></div>
     {module.key === "security" && <SecurityPanel />}
@@ -65,7 +70,7 @@ export function Workspace({ module, embedded = false }: { module: Module; embedd
       {needsSchool ? <Empty icon="school" title="Pilih sekolah untuk memulai" text="Gunakan pemilih sekolah di atas untuk membuka data sekolah." /> : requiredMissing ? <Empty icon="calendar" title="Lengkapi pilihan di atas" text="Pilih periode atau data yang ingin kamu tampilkan." /> : loading ? <div className="table-loading" role="status" aria-label="Memuat data">{[1, 2, 3, 4, 5].map(i => <div className="skeleton" key={i} />)}</div> : error ? <div className="empty-state"><span className="empty-icon"><Icon name="refresh" size={28} /></span><h3>Data belum berhasil dimuat</h3><p role="alert">{error}</p><button className="button secondary" onClick={() => setVersion(v => v + 1)}>Coba lagi</button></div> : data !== undefined && /holidays|calendar/.test(view?.path ?? "") ? <CalendarView key={JSON.stringify(filters)} monthHint={typeof filters.month === "string" && filters.month.includes("-") ? filters.month : `${filters.year ?? new Date().getFullYear()}-${String(filters.month ?? new Date().getMonth() + 1).padStart(2, "0")}`} data={data} onSelect={selectRow} /> : view?.id === "getReportCardGradeSheet" && data ? <GradeSheet key={version} sheet={data as SheetDto} onDone={() => setVersion(v => v + 1)} /> : rows ? rows.length ? /announcements|notifications/.test(view?.path ?? "") ? <FeedView rows={rows} onSelect={selectRow} /> : <DataTable rows={rows} onSelect={selectRow} columns={VIEW_COLUMNS[view?.path ?? ""]} /> : <Empty icon={module.icon} title={query || Object.values(filters).some(v => v && v !== 1 && v !== 20) ? "Belum ada data yang cocok" : "Belum ada data"} text={query ? "Coba kata kunci atau filter yang berbeda." : "Data akan tampil di sini setelah ditambahkan."} /> : data !== undefined ? <div className="object-content"><Details value={data} /></div> : <Empty icon={module.icon} title="Siap untuk memulai" text="Pilih tindakan di atas untuk mengelola informasi." />}
       {rows && rows.length > 0 && <div className="pagination"><span>{meta?.total !== undefined ? `${number(meta.total)} data` : `${rows.length} data pada halaman ini`}{meta?.page ? ` · Halaman ${meta.page} dari ${meta.totalPages ?? 1}` : ""}</span><div><button className="button secondary small-button" disabled={loading || Number(filters.page ?? 1) <= 1} onClick={() => setFilters(f => ({ ...f, page: Number(f.page ?? 1) - 1 }))}>Sebelumnya</button><button className="button secondary small-button" disabled={loading || (!meta?.hasMore && Number(filters.page ?? 1) >= (meta?.totalPages ?? 1))} onClick={() => setFilters(f => meta?.nextCursor ? { ...f, cursor: meta.nextCursor } : { ...f, page: Number(f.page ?? 1) + 1 })}>Berikutnya<Icon name="chevron" size={13} /></button></div></div>}
       {view && <ViewNoteLine note={VIEW_NOTES[view.path]} />}
-    </section>{selected && <RecordDialog key={String(selected.row.id ?? selected.path ?? "record")} row={selected.row} view={selected.path && view ? { ...view, path: selected.path } : view} available={available} onNested={(row, path) => setSelected({ row, path })} onClose={() => setSelected(null)} onAction={(op, row) => { setSelected(null); setAction({ op, initial: row }); }} />}{action && renderAction(action, setAction, () => setVersion(v => v + 1))}</div>;
+    </section>{customRecord ?? (selected && <RecordDialog key={String(selected.row.id ?? selected.path ?? "record")} row={selected.row} view={selected.path && view ? { ...view, path: selected.path } : view} available={available} onNested={(row, path) => setSelected({ row, path })} onClose={() => setSelected(null)} onAction={(op, row) => { setSelected(null); setAction({ op, initial: row }); }} />)}{action && renderAction(action, setAction, () => setVersion(v => v + 1))}</div>;
 }
 type ActionState = { op: Operation; initial?: Row; fallback?: boolean };
 /** Operasi berpanduan dibuka sebagai wizard; sisanya (dan "formulir lengkap" dari wizard) memakai formulir generik. */

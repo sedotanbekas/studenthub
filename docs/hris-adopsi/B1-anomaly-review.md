@@ -1,5 +1,29 @@
 # B1 — Tinjau anomali (anomaly review)
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `B1-anomaly-review.critique.md`. Semua temuan diterima; yang mengubah desain:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | Label respons baru di `field-labels.ts`: `decision`, `statusChanged`, `needsReview`, `reviewDecision`, `review`, `reviewer`, `anomaly`, `any`, `unreviewed`, `UNREVIEWED`, `ALL_ANOMALIES`. VALID/INVALID lewat `ENUM_LABELS.AnomalyReviewDecision`. |
+| 2 | Test integrasi `tests/integration/attendance/monitor/anomaly-review.test.ts`: NOT_SCHOOL_DAY diuji lewat libur sekolah + tanggal di luar semester (bukan hari Minggu); kasus CHECK memakai `anomalyReviewedById: fx.admin.id`; akses mencakup 403 `SCOPE_MISMATCH`. `checkInRow` mendapat opsi `hasAnomaly`. |
+| 3 | Body memuat `flags` (kode yang dilihat admin); `sameFlagSet` berbeda → 409 `ANOMALY_FLAGS_CHANGED` "Catatan pemeriksaan berubah sejak dibuka. Periksa lagi, lalu putuskan." tanpa menulis (juga di demo). Bukan `updatedAt`. Test: flag masuk selagi tinjauan menunggu kunci baris → 409. |
+| 4 | `RecordHost`: Koreksi diisi dari detail yang dimuat (`detail.student.id`, `detail.date`), bukan filter halaman. |
+| 5 | Tidak ada "batalkan Tidak valid". Tombol Koreksi hanya bila status masih ALPHA; setelah dipulihkan tag "Tidak valid · dipulihkan". Status yang berwenang (A3/N4 menghitung status, bukan keputusan). Backlog: "Tidak valid → Valid / pulihkan status otomatis". |
+| 6 | Pernyataan pembuka ulang di sapuan memakai predikat yang sama dengan penandaan (`NULL` / bukan array ikut), dijalankan sebagai pernyataan terpisah **sebelum** penandaan. Test di `auto-alpha.test.ts` & `check-in-service.test.ts`. |
+| 7 | `UNREVIEWED_DEFAULT_RANGE_DAYS = CORRECTION_WINDOW_DAYS + 1` (hari ini + 45 hari ke belakang), diikat ke `validateCorrection` lewat unit test; integrasi: today−45 masuk, today−46 tidak. |
+| 8 | Label filter berbahasa Indonesia; filter "semua" bernama `ALL_ANOMALIES` (menghindari bentrok label `ALL`). Deskripsi kontrak daily/anomalies/detail diperbarui; `openapi:export` + `frontend:sync`. |
+| 9 | `reviewViolationStatus` (409 untuk `ANOMALY_ALREADY_INVALID`/`ANOMALY_FLAGS_CHANGED`, selain itu 422) + unit test; baca ulang null → 404; rencana `create` → `Error`. Kontrak `errors` lengkap termasuk `CONFLICT_RETRY`. |
+| 10 | Nama tunggal `PENDING_ANOMALY_REVIEW_WHERE` di `anomaly-review-rules.ts` (`import type` Prisma saja agar aman di klien). Kalimat N3/N4 diperbaiki saat revisi spesifikasinya. |
+| 11 | Pesan catatan per keputusan (VALID "Catatan minimal 5 karakter, atau kosongkan."; INVALID "Tulis alasan minimal 5 karakter — alasan ini dikirim ke siswa."); jendela 45 hari dicek di muka (`invalidBlockedByWindow`) dengan penjelasan di tempat tombol; waktu tinjauan "3 Okt 2026 08.05" di zona sekolah; tanpa aksi generik untuk operasi ini (dialog catatan kustom). Galat yang memuat ulang detail dibawa lewat toast. |
+| 12 | Demo: `demoRows` menerima parameter tampilan; filter Valid/Tidak valid/Semua bekerja; tinjauan sesi disimpan di memori halaman (dicatat di FRONTEND.md sebagai pengecualian). |
+| 13 | Tag "Tidak valid" memakai `.row-tag.is-neutral` milik A1; tanpa "bersama A1" — merge per fitur, jendela 03:00–20:00 UTC (lihat `00-integration.md`); rujukan HRIS hanya latar (repo luar). |
+
+Jawaban default pertanyaan §10 dipakai: (1) tidak ada pemulihan otomatis; (2) semua akun admin sekolah boleh;
+(3) alasan dikutip apa adanya ke siswa; (4) tandai valid massal ke backlog.
+
+
 Owner approved 2026-10-03. Migration `20261003020000_attendance_anomaly_review` runs after A1's `20261003010000`. N4 imports `PENDING_ANOMALY_REVIEW_WHERE` from here.
 
 ## 1. Goal & non-goals

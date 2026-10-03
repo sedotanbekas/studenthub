@@ -28,6 +28,13 @@ enum LateReasonCategory {
   OTHER
 }
 
+/// Keputusan tinjau anomali (B1, pemilik 2026-10-03). INVALID = dikoreksi menjadi ALPHA saat ditinjau; status
+/// catatan tetap yang berwenang (Koreksi absensi sesudahnya boleh memulihkan status tanpa mengubah keputusan).
+enum AnomalyReviewDecision {
+  VALID
+  INVALID
+}
+
 /// Nama sama dengan kode error 422 check-in.
 enum CheckInRejectReason {
   OUTSIDE_GEOFENCE
@@ -39,47 +46,55 @@ enum CheckInRejectReason {
 
 /// Satu baris per siswa per tanggal lokal sekolah. Hanya check-in (tanpa check-out).
 model Attendance {
-  id                 String           @id @default(cuid())
-  schoolId           String
-  studentId          String
+  id                    String                 @id @default(cuid())
+  schoolId              String
+  studentId             String
   /// Snapshot kelas saat dicatat, agar rekap kelas historis tetap benar.
-  classId            String?
-  date               DateTime         @db.Date
-  status             AttendanceStatus
-  source             AttendanceSource
+  classId               String?
+  date                  DateTime               @db.Date
+  status                AttendanceStatus
+  source                AttendanceSource
   /// Instant server (UTC). NULL untuk LEAVE/AUTO_ALPHA.
-  checkInAt          DateTime?
+  checkInAt             DateTime?
   /// Menit setelah startMinute (bel masuk); hanya untuk TERLAMBAT.
-  lateMinutes        Int?             @db.SmallInt
-  latitude           Decimal?         @db.Decimal(10, 7)
-  longitude          Decimal?         @db.Decimal(10, 7)
-  accuracyM          Int?
-  distanceM          Int?
+  lateMinutes           Int?                   @db.SmallInt
+  latitude              Decimal?               @db.Decimal(10, 7)
+  longitude             Decimal?               @db.Decimal(10, 7)
+  accuracyM             Int?
+  distanceM             Int?
   /// Flag `mocked` dari Expo Location (hanya Android yang andal).
-  isMocked           Boolean?
+  isMocked              Boolean?
   /// Timestamp fix GPS dari perangkat (deteksi lokasi basi/replay).
-  locationCapturedAt DateTime?
-  deviceId           String?          @db.VarChar(100)
+  locationCapturedAt    DateTime?
+  deviceId              String?                @db.VarChar(100)
   /// WAJIB untuk source CHECKIN. Unik: satu foto tidak bisa dipakai dua kali.
-  selfieFileId       String?          @unique
+  selfieFileId          String?                @unique
   /// Boolean agar bisa difilter/di-index (JSON di MariaDB tidak difilter).
-  hasAnomaly         Boolean          @default(false)
+  hasAnomaly            Boolean                @default(false)
   /// Array kode flag anomali v1 (lihat src/lib/attendance/anomaly-rules.ts).
-  anomalyFlags       Json?
-  leaveRequestId     String?
-  note               String?          @db.VarChar(255)
+  anomalyFlags          Json?
+  leaveRequestId        String?
+  note                  String?                @db.VarChar(255)
   /// Alasan terlambat dari siswa (A1): hanya baris CHECKIN TERLAMBAT, hari yang sama. Koreksi admin tidak menghapusnya.
-  lateReasonCategory LateReasonCategory?
+  lateReasonCategory    LateReasonCategory?
   /// Keterangan (wajib >= 5 karakter untuk OTHER), spasi dinormalkan.
-  lateReasonNote     String?             @db.VarChar(200)
+  lateReasonNote        String?                @db.VarChar(200)
   /// Instant server terakhir siswa mengisi/mengubah alasan.
-  lateReasonAt       DateTime?
+  lateReasonAt          DateTime?
+  /// Tinjau anomali (B1). NULL = belum ditinjau; decision/reviewedAt/reviewedById diisi bersama
+  /// (chk_attendance_anomaly_review). Dikosongkan lagi bila flag BARU muncul pada catatan VALID.
+  anomalyReviewDecision AnomalyReviewDecision?
+  anomalyReviewedAt     DateTime?
+  anomalyReviewedById   String?
+  /// Wajib untuk INVALID (disalin juga ke `note` & alasan notifikasi siswa).
+  anomalyReviewNote     String?                @db.VarChar(255)
 
-  school       School        @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  student      Student       @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  schoolClass  SchoolClass?  @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  selfieFile   StoredFile?   @relation(fields: [selfieFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  leaveRequest LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  school            School        @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  student           Student       @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  schoolClass       SchoolClass?  @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  selfieFile        StoredFile?   @relation(fields: [selfieFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  leaveRequest      LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  anomalyReviewedBy User?         @relation("AttendanceAnomalyReviewer", fields: [anomalyReviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -87,6 +102,7 @@ model Attendance {
   @@unique([studentId, date])
   @@index([schoolId, date, classId, status])
   @@index([schoolId, hasAnomaly, date])
+  @@index([schoolId, hasAnomaly, anomalyReviewedAt, date])
   @@index([schoolId, date, deviceId])
   @@index([classId, date])
   @@index([leaveRequestId])

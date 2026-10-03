@@ -9,7 +9,7 @@ import { makePrincipal } from "@/lib/auth/test-principal";
 import { toDbDate } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { disconnect, prisma, uniq } from "../../helpers/db";
-import { createClass, createStudent } from "../../helpers/factories";
+import { createClass, createSchoolAdmin, createStudent } from "../../helpers/factories";
 import { checkInRow, createAttendanceSchool, jobCtx, leaveRequest, nationalHolidayDates } from "./fixtures";
 
 /**
@@ -121,6 +121,31 @@ test("sapuan SHARED_DEVICE menandai kedua baris perangkat bersama (tanpa duplika
   const run = await prisma.jobRun.findFirstOrThrow({ where: { job: AUTO_ALPHA_JOB, scopeKey: school.id } });
   assert.equal((run.result as { anomaliesSwept: number }).anomaliesSwept, 2);
   assert.equal(await withTx((tx) => sweepSharedDevice(tx, school.id, D, NOW)), 0, "sapuan ulang tidak mengubah apa pun");
+});
+
+test("sapuan SHARED_DEVICE membuka lagi tinjauan Valid (B1); baris yang sudah ber-flag & tinjauan Tidak valid tidak berubah", async () => {
+  const school = await schoolOnD();
+  const reviewer = await createSchoolAdmin(school.id);
+  const students = [
+    await createStudent(school.id, { activatedAt: ACTIVATED }),
+    await createStudent(school.id, { activatedAt: ACTIVATED }),
+    await createStudent(school.id, { activatedAt: ACTIVATED }),
+  ];
+  const shared = uniq("dev");
+  const rows = [];
+  for (const st of students) rows.push(await checkInRow({ schoolId: school.id, studentId: st.student.id, userId: st.user.id, date: D, deviceId: shared, anomalyFlags: ["NEW_DEVICE"], hasAnomaly: true }));
+  const [validRow, invalidRow, flaggedRow] = rows;
+  const review = { anomalyReviewedAt: NOW, anomalyReviewedById: reviewer.id };
+  await prisma.attendance.update({ where: { id: validRow!.id }, data: { anomalyReviewDecision: "VALID", ...review } });
+  await prisma.attendance.update({ where: { id: invalidRow!.id }, data: { anomalyReviewDecision: "INVALID", anomalyReviewNote: "Foto bukan wajah siswa", status: "ALPHA", source: "ADMIN", note: "Foto bukan wajah siswa", ...review } });
+  await prisma.attendance.update({ where: { id: flaggedRow!.id }, data: { anomalyFlags: ["NEW_DEVICE", "SHARED_DEVICE"], anomalyReviewDecision: "VALID", ...review } });
+
+  assert.equal(await withTx((tx) => sweepSharedDevice(tx, school.id, D, NOW)), 2);
+  const byId = new Map((await rowsOn(school.id)).map((r) => [r.id, r]));
+  assert.deepEqual([byId.get(validRow!.id)?.anomalyFlags, byId.get(validRow!.id)?.anomalyReviewDecision, byId.get(validRow!.id)?.anomalyReviewedById], [["NEW_DEVICE", "SHARED_DEVICE"], null, null]);
+  assert.deepEqual([byId.get(invalidRow!.id)?.anomalyFlags, byId.get(invalidRow!.id)?.anomalyReviewDecision], [["NEW_DEVICE", "SHARED_DEVICE"], "INVALID"]);
+  assert.equal(byId.get(flaggedRow!.id)?.anomalyReviewDecision, "VALID", "flag sudah ada -> tinjauan tidak dibuka lagi");
+  assert.equal(await withTx((tx) => sweepSharedDevice(tx, school.id, D, NOW)), 0);
 });
 
 test("instant yang sama: sekolah WIT sudah lewat dayEnd (ditutup), sekolah WIB belum", async () => {

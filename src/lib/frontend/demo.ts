@@ -38,9 +38,9 @@ function studentOf(viewer?: DemoViewer): Row | undefined {
  * Data contoh per jalur API. Jalur /student/* hanya berisi data milik persona siswa yang sedang
  * dilihat; tanpa persona siswa -> kosong (gagal tertutup, tidak pernah data siswa lain).
  */
-export function demoRows(path: string, viewer?: DemoViewer): unknown {
+export function demoRows(path: string, viewer?: DemoViewer, params: Readonly<Record<string, unknown>> = {}): unknown {
   // Jalur persis milik domain iklan/sponsor & monitoring absensi dicek sebelum pencocokan longgar di bawah.
-  const exact = demoAdsRows(path) ?? demoMonitorRows(path) ?? demoAnalyticsRows(path);
+  const exact = demoAdsRows(path) ?? demoMonitorRows(path, params) ?? demoAnalyticsRows(path);
   if (exact !== undefined) return exact;
   if (path.startsWith("/student/") && !SHARED_STUDENT_PATHS.test(path)) {
     const student = studentOf(viewer);

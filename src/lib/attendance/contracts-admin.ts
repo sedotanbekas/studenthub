@@ -1,5 +1,6 @@
 import { defineContract, type AnyContract } from "@/lib/http/contract";
 import { attendanceTestModeResponse, correctionBody, correctionParams, correctionQuery, correctionResponse, recloseDayBody, recloseDayResponse } from "./admin-schemas";
+import { anomalyReviewBody, anomalyReviewParams, anomalyReviewQuery, anomalyReviewResultSchema } from "./anomaly-review-schemas";
 import { CORRECTION_WINDOW_DAYS } from "./correction-rules";
 
 /** Kontrak route absensi bagian "admin": koreksi manual catatan absensi & tutup-ulang hari (super admin). */
@@ -23,6 +24,27 @@ export const correctAttendanceContract = defineContract({
   body: correctionBody,
   response: correctionResponse,
   errors: ["FUTURE_DATE", "NOT_SCHOOL_DAY", "CORRECTION_WINDOW_EXPIRED", "CONFLICT_RETRY"],
+});
+
+export const reviewAnomalyContract = defineContract({
+  id: "reviewAttendanceAnomaly",
+  method: "POST",
+  path: "/api/v1/school/attendance/{id}/anomaly-review",
+  tag: TAG,
+  summary: "Tinjau anomali satu catatan: Valid / Tidak valid",
+  description:
+    "VALID = absensi tetap, catatan keluar dari antrean 'Perlu ditinjau' (catatan opsional). INVALID = jalur Koreksi absensi menjadi ALPHA " +
+    `(sumber ADMIN, catatan = alasan wajib min. 5 karakter, bukti check-in & flag tetap; admin sekolah hanya ${CORRECTION_WINDOW_DAYS} hari terakhir — ` +
+    "422 CORRECTION_WINDOW_EXPIRED; bukan hari sekolah 422 NOT_SCHOOL_DAY) dan siswa menerima ATTENDANCE_CORRECTED. Keputusan sama -> unchanged=true " +
+    "tanpa audit/notifikasi. INVALID tidak bisa kembali ke VALID (409 ANOMALY_ALREADY_INVALID) — pulihkan status lewat Koreksi absensi; keputusan " +
+    "mencatat tinjauan, status catatan yang berwenang. `flags` = kode flag yang dilihat admin; berbeda dengan yang tersimpan -> 409 ANOMALY_FLAGS_CHANGED. " +
+    "Catatan tanpa anomali -> 422 NO_ANOMALY. Flag baru kelak membuka lagi tinjauan VALID. Diaudit attendance.anomaly_review. Super admin wajib ?schoolId=; catatan sekolah lain -> 404.",
+  action: "attendance.anomaly_review",
+  params: anomalyReviewParams,
+  query: anomalyReviewQuery,
+  body: anomalyReviewBody,
+  response: anomalyReviewResultSchema,
+  errors: ["NO_ANOMALY", "ANOMALY_ALREADY_INVALID", "ANOMALY_FLAGS_CHANGED", "NOT_SCHOOL_DAY", "CORRECTION_WINDOW_EXPIRED", "CONFLICT_RETRY"],
 });
 
 export const recloseDayContract = defineContract({
@@ -82,5 +104,5 @@ export const disableAttendanceTestModeContract = defineContract({
 });
 
 export const attendanceAdminContracts: readonly AnyContract[] = [
-  correctAttendanceContract, recloseDayContract, getAttendanceTestModeContract, enableAttendanceTestModeContract, disableAttendanceTestModeContract,
+  correctAttendanceContract, reviewAnomalyContract, recloseDayContract, getAttendanceTestModeContract, enableAttendanceTestModeContract, disableAttendanceTestModeContract,
 ];

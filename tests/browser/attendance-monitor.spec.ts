@@ -202,3 +202,42 @@ test("alasan terlambat: tag di daftar dan blok di detail (Putra Mahendra · Tran
   await dialog.getByRole("button", { name: "Selesai" }).click();
   await expect(located.getByRole("button", { name: /Citra Ayu Lestari/ })).not.toContainText("Alasan:");
 });
+
+test("tinjau anomali: Tidak valid wajib alasan, lalu Alpa + tag di daftar; tinjauan Valid tampil dengan peninjau", async ({ page }) => {
+  await openAsSchoolAdmin(page);
+  const legend = page.getByRole("list", { name: "Legenda peta" });
+  const pendingBefore = Number(/(\d+) perlu ditinjau/.exec((await legend.textContent()) ?? "")?.[1] ?? 0);
+  expect(pendingBefore).toBeGreaterThan(0);
+  const located = page.getByRole("list", { name: "Siswa dengan lokasi" });
+
+  const reviewed = located.getByRole("button", { name: /Teguh Santoso/ });
+  await expect(reviewed).toContainText("Valid");
+  await reviewed.click();
+  await expect(page.locator(".leaflet-popup-content")).toContainText("Teguh Santoso");
+  await page.locator(".leaflet-popup-content").getByRole("button", { name: "Lihat detail" }).click();
+  const teguh = page.getByRole("dialog", { name: "Teguh Santoso" });
+  await expect(teguh.getByRole("region", { name: "Tinjauan" })).toContainText("Valid · Pak Dodi (Guru BK)");
+  await expect(teguh.getByRole("button", { name: "Ubah jadi tidak valid" })).toBeVisible();
+  await teguh.getByRole("button", { name: "Selesai" }).click();
+
+  const row = located.getByRole("button", { name: /Yoga Pratama/ });
+  await expect(row).toContainText("Perlu ditinjau");
+  await row.click();
+  // Popup Teguh bisa masih terbuka sesaat; tunggu popup Yoga sebelum membuka detail.
+  await expect(page.locator(".leaflet-popup-content")).toContainText("Yoga Pratama");
+  await page.locator(".leaflet-popup-content").getByRole("button", { name: "Lihat detail" }).click();
+  const dialog = page.getByRole("dialog", { name: "Yoga Pratama" });
+  await expect(dialog).toContainText("Wajah tidak terdeteksi otomatis");
+  await dialog.getByRole("button", { name: "Tidak valid" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("Tulis alasan minimal 5 karakter — alasan ini dikirim ke siswa.");
+  await dialog.getByRole("button", { name: "Wajah tidak terlihat jelas" }).click();
+  await expect(dialog.getByRole("textbox", { name: /Catatan peninjauan/ })).toHaveValue("Wajah tidak terlihat jelas");
+  await dialog.getByRole("button", { name: "Tidak valid" }).click();
+  const summary = dialog.getByRole("region", { name: "Tinjauan" });
+  await expect(summary).toContainText("Tidak valid");
+  await expect(dialog).toContainText("Catatan: Wajah tidak terlihat jelas");
+  await expect(summary.getByRole("button", { name: "Koreksi absensi" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Selesai" }).click();
+  await expect(located.getByRole("button", { name: /Yoga Pratama/ })).toContainText("Tidak valid");
+  await expect(legend).toContainText(`${pendingBefore - 1} perlu ditinjau`);
+});

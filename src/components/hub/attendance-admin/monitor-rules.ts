@@ -1,7 +1,7 @@
 import type { AnomalyCode } from "@/lib/attendance/anomaly-rules";
 import type { MapDto } from "@/lib/attendance/monitor-schemas";
 import { compositionSlices } from "@/lib/frontend/map-cluster-rules";
-import { localParts, type SchoolTz } from "@/lib/time/zone";
+import { localParts, TZ_IANA, type SchoolTz } from "@/lib/time/zone";
 
 /**
  * Aturan murni halaman kehadiran admin (peta + daftar): metadata status (label, huruf, warna),
@@ -128,4 +128,51 @@ const SCHOOL_ZONES: readonly SchoolTz[] = ["WIB", "WITA", "WIT"];
 export function todayLocal(now: Date, timezone: string | undefined): string {
   const tz = SCHOOL_ZONES.find(z => z === timezone) ?? "WIB";
   return localParts(now, tz).ymd;
+}
+
+// ----------------------------------------------------------------------------- tinjau anomali (B1)
+
+/** Jumlah "perlu ditinjau" di legenda = beranomali yang belum ditinjau (sama dengan antrean server). */
+export const pendingReviewCount = (points: readonly Pick<MapPoint, "needsReview">[]): number => points.filter(p => p.needsReview).length;
+
+export interface ReviewTag { readonly text: string; readonly tone: "is-danger" | "is-ok" | "is-neutral" }
+
+/** Tag daftar/popup: Perlu ditinjau · Valid · Tidak valid (status yang berwenang: dipulihkan bila bukan ALPHA lagi). */
+export function reviewTag(point: Pick<MapPoint, "needsReview" | "reviewDecision" | "status">): ReviewTag | null {
+  if (point.needsReview) return { text: "Perlu ditinjau", tone: "is-danger" };
+  if (point.reviewDecision === "VALID") return { text: "Valid", tone: "is-ok" };
+  if (point.reviewDecision === "INVALID") return { text: point.status === "ALPHA" ? "Tidak valid" : "Tidak valid · dipulihkan", tone: "is-neutral" };
+  return null;
+}
+
+export function reviewSuccessText(decision: "VALID" | "INVALID", statusChanged: boolean): string {
+  if (decision === "VALID") return "Ditandai valid — keluar dari antrean Perlu ditinjau.";
+  return statusChanged ? "Ditandai tidak valid — status jadi Alpa, siswa diberi tahu." : "Ditandai tidak valid — status sudah Alpa.";
+}
+
+export function reviewErrorText(code: string, message: string): string {
+  if (code === "NOT_SCHOOL_DAY") return "Tanggal ini bukan hari sekolah, jadi tidak bisa dijadikan Alpa — tandai Valid bila sudah diperiksa.";
+  return message;
+}
+
+/** Kode yang berarti keadaan catatan berubah: detail dimuat ulang sebelum admin memutuskan lagi. */
+export const REVIEW_RELOAD_CODES: ReadonlySet<string> = new Set(["ANOMALY_ALREADY_INVALID", "ANOMALY_FLAGS_CHANGED"]);
+
+export const INVALID_REASON_CHIPS = ["Foto bukan wajah siswa", "Wajah tidak terlihat jelas", "HP dipakai siswa lain", "Tidak berada di sekolah"] as const;
+
+/** "3 Okt 2026 08.05" di zona sekolah (bukan zona perangkat admin). */
+export function formatReviewedAt(iso: string, timezone: string | undefined): string {
+  const tz = SCHOOL_ZONES.find(z => z === timezone) ?? "WIB";
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: TZ_IANA[tz] }).format(new Date(iso));
+}
+
+export interface AttendanceTarget { readonly id: string; readonly name: string; readonly date: string | null }
+
+/** Baris "Data lengkap" (harian/anomali) -> catatan kehadiran untuk dialog detail; tanpa catatan -> null. */
+export function attendanceTargetOf(row: Readonly<Record<string, unknown>>, viewPath: string | undefined): AttendanceTarget | null {
+  if (viewPath !== "/school/attendance/daily" && viewPath !== "/school/attendance/anomalies") return null;
+  const attendance = row.attendance as { id?: unknown } | null | undefined;
+  const student = row.student as { name?: unknown } | null | undefined;
+  if (!attendance || typeof attendance.id !== "string") return null;
+  return { id: attendance.id, name: typeof student?.name === "string" ? student.name : "Detail kehadiran", date: typeof row.date === "string" ? row.date : null };
 }

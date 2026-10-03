@@ -12,6 +12,7 @@ import { getStorage, setStorageDriver } from "@/lib/storage/driver";
 import { toDbDate } from "@/lib/time/zone";
 import { holdLock, raceWhileHeld } from "../../academics/helpers";
 import { disconnect, prisma } from "../../helpers/db";
+import { createSchoolAdmin } from "../../helpers/factories";
 import { createTempStorage, type TempStorage } from "../../helpers/storage";
 import {
   actionContext,
@@ -313,6 +314,28 @@ test("SHARED_DEVICE: siswa kedua dengan deviceId sama -> kedua baris ditandai (h
     assert.equal(row.hasAnomaly, true);
   }
   assert.equal(JSON.stringify(b.result).includes("SHARED_DEVICE"), false, "flag tidak pernah dikirim ke siswa");
+});
+
+test("SHARED_DEVICE baru membuka lagi tinjauan Valid (B1); tinjauan Tidak valid tetap", async () => {
+  const device = "device-shared-8888";
+  const [valid, invalid, third] = [await addStudent(world), await addStudent(world), await addStudent(world)];
+  const reviewer = await createSchoolAdmin(world.school.id);
+  const a = await checkIn(checkInBodyAt(at(430), await texturedSelfie(), { deviceId: device }), actionContext(studentPrincipal(valid, device), at(430)));
+  const b = await checkIn(checkInBodyAt(at(431), await texturedSelfie(), { deviceId: device }), actionContext(studentPrincipal(invalid, device), at(431)));
+  const reviewed = (decision: "VALID" | "INVALID") => ({
+    anomalyReviewDecision: decision, anomalyReviewedAt: at(440), anomalyReviewedById: reviewer.id, anomalyReviewNote: decision === "INVALID" ? "Foto bukan wajah siswa" : null,
+  });
+  // Seolah kedua catatan sudah ditinjau sebelum flag baru masuk; flag lama diganti agar SHARED_DEVICE dipasang ulang.
+  await prisma.attendance.updateMany({ where: { id: a.result.attendance.id, schoolId: world.school.id }, data: { anomalyFlags: ["NEW_DEVICE"], ...reviewed("VALID") } });
+  await prisma.attendance.updateMany({ where: { id: b.result.attendance.id, schoolId: world.school.id }, data: { anomalyFlags: ["NEW_DEVICE"], status: "ALPHA", source: "ADMIN", lateMinutes: null, note: "Foto bukan wajah siswa", ...reviewed("INVALID") } });
+  await checkIn(checkInBodyAt(at(432), await texturedSelfie(), { deviceId: device }), actionContext(studentPrincipal(third, device), at(432)));
+  const rows = new Map((await prisma.attendance.findMany({ where: { id: { in: [a.result.attendance.id, b.result.attendance.id] }, schoolId: world.school.id } })).map((r) => [r.id, r]));
+  const reopened = rows.get(a.result.attendance.id);
+  assert.deepEqual(reopened?.anomalyFlags, ["NEW_DEVICE", "SHARED_DEVICE"]);
+  assert.deepEqual([reopened?.anomalyReviewDecision, reopened?.anomalyReviewedAt, reopened?.anomalyReviewedById, reopened?.anomalyReviewNote], [null, null, null, null]);
+  const kept = rows.get(b.result.attendance.id);
+  assert.deepEqual(kept?.anomalyFlags, ["NEW_DEVICE", "SHARED_DEVICE"]);
+  assert.deepEqual([kept?.anomalyReviewDecision, kept?.status], ["INVALID", "ALPHA"]);
 });
 
 test("DEVICE_SESSION_MISMATCH, DUPLICATE_SELFIE, dan NEW_DEVICE", async () => {

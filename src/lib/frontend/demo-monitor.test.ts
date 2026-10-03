@@ -157,3 +157,34 @@ test("alasan terlambat demo konsisten di peta, data lengkap, detail; hitungan 6 
   assert.equal(citra?.lateReasonCategory, null, "Citra belum mengisi alasan");
   assert.equal(demoAttendanceDetail("demo-att-d16", map.date)?.lateReason?.category, "TRANSPORT");
 });
+
+test("tinjau anomali demo (B1): 3 perlu ditinjau; Valid/Tidak valid memakai aturan server; antrean mengikuti filter", async () => {
+  const { applyDemoReview, demoAnomalyRows } = await import("./demo-monitor");
+  const { resetDemoReviews } = await import("./demo-reviews");
+  const { pendingReviewCount } = await import("../../components/hub/attendance-admin/monitor-rules");
+  const admin = { id: "demo:SCHOOL_ADMIN", name: "Adinda Putri" };
+  resetDemoReviews();
+  try {
+    const before = demoAttendanceMap();
+    assert.equal(pendingReviewCount(before.points), 3, "d41, d23, d24");
+    assert.deepEqual(demoAnomalyRows("VALID").map(r => r.student.id), ["d20"], "tinjauan contoh");
+    assert.equal(demoAnomalyRows("ALL_ANOMALIES").length, 4);
+    const yoga = before.points.find(p => p.studentId === "d24")!;
+    assert.throws(() => applyDemoReview(yoga.attendanceId, { decision: "VALID", flags: [] }, admin), /berubah sejak dibuka/);
+    assert.equal(applyDemoReview(yoga.attendanceId, { decision: "VALID", flags: yoga.flags }, admin).unchanged, false);
+    assert.equal(pendingReviewCount(demoAttendanceMap().points), 2);
+    const wulan = before.points.find(p => p.studentId === "d41")!;
+    assert.throws(() => applyDemoReview(wulan.attendanceId, { decision: "INVALID", flags: wulan.flags }, admin), /minimal 5 karakter/);
+    const invalid = applyDemoReview(wulan.attendanceId, { decision: "INVALID", note: "HP dipakai siswa lain.", flags: wulan.flags }, admin);
+    assert.equal(invalid.statusChanged, true);
+    assert.deepEqual([invalid.attendance.status, invalid.attendance.source, invalid.attendance.review?.decision], ["ALPHA", "ADMIN", "INVALID"]);
+    const after = demoAttendanceMap();
+    assert.equal(pendingReviewCount(after.points), 1);
+    assert.equal(after.counts.alpha, before.counts.alpha + 1, "hitungan status ikut berubah");
+    assert.throws(() => applyDemoReview(wulan.attendanceId, { decision: "VALID", flags: wulan.flags }, admin), /sudah ditandai tidak valid/);
+    assert.equal(demoAttendanceDetail(wulan.attendanceId)?.review?.reviewer?.name, "Adinda Putri");
+    assert.deepEqual(demoAnomalyRows().map(r => r.student.id), ["d23"]);
+  } finally {
+    resetDemoReviews();
+  }
+});

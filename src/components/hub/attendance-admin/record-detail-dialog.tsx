@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { lateReasonAdminView } from "@/lib/attendance/late-reason-rules";
 import type { RecordDetailDto } from "@/lib/attendance/monitor-schemas";
 import { display, initials } from "@/lib/frontend/format";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { useHub } from "../context";
 import { Icon } from "../icon";
+import { AnomalyReviewPanel } from "./anomaly-review-panel";
 import { AttPill } from "./att-pill";
 import { formatAccuracy, formatDistance } from "./monitor-rules";
 import { useRecordDetail } from "./use-monitor-data";
@@ -17,7 +18,18 @@ const SEVERITY_LABEL: Record<RecordDetailDto["flags"][number]["severity"], strin
 
 export interface DetailTarget { readonly id: string; readonly name: string }
 
-export function RecordDetailDialog({ target, date, onClose }: { target: DetailTarget; date: string; onClose: () => void }) {
+interface DetailDialogProps {
+  readonly target: DetailTarget;
+  /** Hanya untuk data demo (detail asli dimuat menurut id). */
+  readonly date: string;
+  readonly onClose: () => void;
+  /** Setelah tinjau anomali tersimpan (peta/daftar dimuat ulang). */
+  readonly onReviewed?: () => void;
+  /** Buka Koreksi absensi untuk siswa & tanggal catatan ini (diambil dari detail yang dimuat). */
+  readonly onCorrect?: (detail: RecordDetailDto) => void;
+}
+
+export function RecordDetailDialog({ target, date, onClose, onReviewed, onCorrect }: DetailDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [retry, setRetry] = useState(0);
   const { data, error } = useRecordDetail(target.id, date, retry);
@@ -30,14 +42,14 @@ export function RecordDetailDialog({ target, date, onClose }: { target: DetailTa
     <div className="dialog-heading"><div><span className="eyebrow">Detail kehadiran</span><h2 id="monitor-detail-title">{target.name}</h2>{data && <small className="muted">{[data.className ?? "Tanpa kelas", `NIS ${data.student.nis}`, display(data.date)].join(" · ")}</small>}</div><button className="icon-button" aria-label="Tutup detail" onClick={onClose}><Icon name="close" /></button></div>
     <div className="dialog-body">
       {error ? <div className="error-message" role="alert">{error}<button className="text-button" onClick={() => setRetry(v => v + 1)}>Coba lagi</button></div>
-        : data ? <DetailBody data={data} />
+        : data ? <DetailBody data={data} review={<AnomalyReviewPanel data={data} onReviewed={() => { setRetry(v => v + 1); onReviewed?.(); }} onCorrect={() => onCorrect?.(data)} />} />
         : <div role="status" aria-label="Memuat detail">{[1, 2, 3, 4].map(i => <div className="skeleton" key={i} />)}</div>}
     </div>
     <div className="dialog-footer"><button className="button primary small-button" onClick={onClose}>Selesai</button></div>
   </dialog>;
 }
 
-function DetailBody({ data }: { data: RecordDetailDto }) {
+function DetailBody({ data, review }: { data: RecordDetailDto; review: ReactNode }) {
   const mocked = data.isMocked === null ? "—" : data.isMocked ? "Terdeteksi" : "Tidak terdeteksi";
   const coordinate = data.latitude !== null && data.longitude !== null ? `${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}` : "—";
   const reason = lateReasonAdminView(data);
@@ -55,6 +67,7 @@ function DetailBody({ data }: { data: RecordDetailDto }) {
         <Fact label="Koordinat" value={coordinate} />
       </dl>
       {data.flags.length > 0 && <section aria-labelledby="monitor-flags-title"><h3 id="monitor-flags-title" className="monitor-subhead">Catatan pemeriksaan</h3><ul className="monitor-flags">{data.flags.map(f => <li key={f.code} className={`sev-${f.severity.toLowerCase()}`}><span className="sev">{SEVERITY_LABEL[f.severity]}</span>{f.label}</li>)}</ul></section>}
+      {review}
       {data.note && <p className="monitor-note"><strong>Catatan:</strong> {data.note}</p>}
       {data.rejectionsSameDay.length > 0 && <section aria-labelledby="monitor-rejects-title"><h3 id="monitor-rejects-title" className="monitor-subhead">Percobaan ditolak hari itu</h3><ul className="monitor-rejects">{data.rejectionsSameDay.map(r => <li key={r.id}><strong>{r.timeLocal}</strong> · {r.reasonLabel} · {formatDistance(r.distanceM)}</li>)}</ul></section>}
     </div>

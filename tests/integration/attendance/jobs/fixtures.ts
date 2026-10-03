@@ -112,6 +112,8 @@ export interface CheckInRowInput extends RowInput {
   readonly status?: AttendanceStatus;
   readonly lateMinutes?: number | null;
   readonly anomalyFlags?: string[];
+  /** Default false (flag LOW); isi true untuk flag MEDIUM/HIGH. */
+  readonly hasAnomaly?: boolean;
 }
 
 /** Baris CHECKIN lengkap (lolos chk_attendance_checkin): selfie (metadata saja), koordinat, perangkat. */
@@ -134,7 +136,7 @@ export async function checkInRow(input: CheckInRowInput) {
       distanceM: 30,
       deviceId: input.deviceId,
       selfieFileId: selfie.id,
-      ...(input.anomalyFlags ? { anomalyFlags: input.anomalyFlags, hasAnomaly: false } : {}),
+      ...(input.anomalyFlags ? { anomalyFlags: input.anomalyFlags, hasAnomaly: input.hasAnomaly ?? false } : {}),
     },
   });
 }

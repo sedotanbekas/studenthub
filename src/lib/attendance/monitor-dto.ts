@@ -1,6 +1,7 @@
 import { formatMinute, localParts, type SchoolTz } from "@/lib/time/zone";
 import { ANOMALY_LABELS, ANOMALY_SEVERITY, parseFlags, type AnomalyCode, type AnomalySeverity } from "./anomaly-rules";
 import type { AttendanceStatusValue } from "./attendance-stats";
+import { needsAnomalyReview, type ReviewDecision } from "./anomaly-review-rules";
 import { toLateReasonDto, type LateReasonCode, type LateReasonDto } from "./late-reason-rules";
 
 /**
@@ -81,6 +82,8 @@ export interface AttendanceRowLike {
   readonly lateReasonCategory: LateReasonCode | null;
   readonly lateReasonNote: string | null;
   readonly lateReasonAt: Date | null;
+  readonly anomalyReviewDecision: ReviewDecision | null;
+  readonly anomalyReviewedAt: Date | null;
 }
 
 export interface AttendanceBrief {
@@ -97,6 +100,9 @@ export interface AttendanceBrief {
   readonly note: string | null;
   /** Alasan terlambat dari siswa (A1); tetap dikirim setelah koreksi, UI memberi label "sebelum dikoreksi". */
   readonly lateReason: LateReasonDto | null;
+  /** Beranomali dan belum ditinjau (B1). */
+  readonly needsReview: boolean;
+  readonly reviewDecision: ReviewDecision | null;
 }
 
 export function toAttendanceBrief(row: AttendanceRowLike, tz: SchoolTz): AttendanceBrief {
@@ -113,6 +119,33 @@ export function toAttendanceBrief(row: AttendanceRowLike, tz: SchoolTz): Attenda
     leaveRequestId: row.leaveRequestId,
     note: row.note,
     lateReason: toLateReasonDto(row, tz),
+    needsReview: needsAnomalyReview(row),
+    reviewDecision: row.anomalyReviewDecision,
+  };
+}
+
+export interface ReviewRowLike {
+  readonly anomalyReviewDecision: ReviewDecision | null;
+  readonly anomalyReviewedAt: Date | null;
+  readonly anomalyReviewNote: string | null;
+  readonly anomalyReviewedBy: { readonly id: string; readonly name: string } | null;
+}
+
+export interface ReviewDto {
+  readonly decision: ReviewDecision;
+  readonly note: string | null;
+  readonly reviewedAt: string;
+  readonly reviewer: { readonly id: string; readonly name: string } | null;
+}
+
+/** Hasil tinjau anomali (B1); null bila belum ditinjau. */
+export function toReviewDto(row: ReviewRowLike): ReviewDto | null {
+  if (row.anomalyReviewDecision === null || row.anomalyReviewedAt === null) return null;
+  return {
+    decision: row.anomalyReviewDecision,
+    note: row.anomalyReviewNote,
+    reviewedAt: row.anomalyReviewedAt.toISOString(),
+    reviewer: row.anomalyReviewedBy ? { id: row.anomalyReviewedBy.id, name: row.anomalyReviewedBy.name } : null,
   };
 }
 

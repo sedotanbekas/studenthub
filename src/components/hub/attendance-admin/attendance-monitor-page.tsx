@@ -5,8 +5,9 @@ import { useHub } from "../context";
 import { Icon } from "../icon";
 import { Workspace } from "../workspace";
 import type { MonitorFilterValue } from "./monitor-filters";
-import { todayLocal } from "./monitor-rules";
+import { attendanceTargetOf, todayLocal } from "./monitor-rules";
 import { MonitorView } from "./monitor-view";
+import { RecordHost } from "./record-host";
 
 /**
  * Kehadiran admin sekolah: tab "Peta & daftar" (peta check-in berkelompok + daftar siswa) dan
@@ -24,7 +25,11 @@ export function AttendanceMonitorPage({ module }: { module: Module }) {
     <div className="page-heading"><div><h1>{module.title}</h1><p>{module.description}</p></div></div>
     <MonitorTabs tab={tab} onChange={setTab} />
     <div role="tabpanel" id={`monitor-panel-${tab}`} aria-labelledby={`monitor-tab-${tab}`} className="monitor-tabpanel">
-      {tab === "map" ? <MonitorView filter={filter} onFilter={setFilter} /> : <Workspace module={module} embedded />}
+      {tab === "map" ? <MonitorView filter={filter} onFilter={setFilter} /> : <Workspace module={module} embedded recordDialog={({ row, viewPath, onClose, onChanged }) => {
+        // Baris harian/anomali -> dialog kehadiran (detail + tinjau anomali + Koreksi dari detail); lainnya generik.
+        const target = attendanceTargetOf(row, viewPath);
+        return target && <RecordHost target={target} date={target.date ?? todayLocal(new Date(), me.school?.timezone)} onClose={onClose} onChanged={onChanged} />;
+      }} />}
     </div>
   </div>;
 }

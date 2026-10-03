@@ -11,6 +11,7 @@ import { processImage, type ProcessedImage } from "@/lib/storage/image";
 import { toDbDate, type LocalDate } from "@/lib/time/zone";
 import { lockKey, lockRows, withTx } from "@/lib/tx";
 import { detectAnomalies, hasReportableAnomaly, mergeFlags, parseFlags, type AnomalyCode, type AnomalyInput } from "./anomaly-rules";
+import { reopensOnNewFlag, type ReviewDecision } from "./anomaly-review-rules";
 import {
   classifyExisting,
   decideCheckIn,
@@ -59,7 +60,11 @@ interface WritePlan {
 interface SharedDeviceRow {
   readonly id: string;
   readonly anomalyFlags: Prisma.JsonValue;
+  readonly anomalyReviewDecision: ReviewDecision | null;
 }
+
+/** Flag BARU pada catatan yang sudah ditinjau Valid membuka lagi tinjauannya (B1); Tidak valid tidak dibuka lagi. */
+const REOPENED_REVIEW = { anomalyReviewDecision: null, anomalyReviewedAt: null, anomalyReviewedById: null, anomalyReviewNote: null } as const;
 
 /** Percobaan ulang transaksi saat balapan unik (P2002) / konversi LEAVE bentrok. */
 const RACE_ATTEMPTS = 2;
@@ -313,7 +318,7 @@ async function lockSharedDeviceRows(tx: Tx, plan: WritePlan): Promise<SharedDevi
   });
   if (candidates.length === 0) return [];
   const ids = await lockRows(tx, "Attendance", candidates.map((row) => row.id));
-  return tx.attendance.findMany({ where: { id: { in: ids }, schoolId: student.schoolId }, select: { id: true, anomalyFlags: true } });
+  return tx.attendance.findMany({ where: { id: { in: ids }, schoolId: student.schoolId }, select: { id: true, anomalyFlags: true, anomalyReviewDecision: true } });
 }
 
 async function flagSharedDevice(tx: Tx, schoolId: string, rows: readonly SharedDeviceRow[]): Promise<void> {
@@ -321,7 +326,7 @@ async function flagSharedDevice(tx: Tx, schoolId: string, rows: readonly SharedD
     if (parseFlags(row.anomalyFlags).includes("SHARED_DEVICE")) continue;
     await tx.attendance.updateMany({
       where: { id: row.id, schoolId },
-      data: { anomalyFlags: mergeFlags(row.anomalyFlags, ["SHARED_DEVICE"]), hasAnomaly: true },
+      data: { anomalyFlags: mergeFlags(row.anomalyFlags, ["SHARED_DEVICE"]), hasAnomaly: true, ...(reopensOnNewFlag(row.anomalyReviewDecision) ? REOPENED_REVIEW : {}) },
     });
   }
 }

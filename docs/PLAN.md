@@ -213,6 +213,16 @@ Cek "kelas di tahun ajaran aktif" hanya saat aktivasi / ganti kelas (bukan tiap 
   "Bukan saya" mengeluarkan akun dari perangkat itu (logout biasa) dan halaman masuk menjelaskan akibat masuk di HP
   pinjaman (akun di HP sendiri keluar; absen dua siswa dari HP yang sama ditandai `SHARED_DEVICE`). Hanya frontend,
   tanpa perubahan API; diingat per kunjungan halaman. Mencegah salah akun, bukan kecurangan yang disengaja.
+- **Tinjau anomali (pemilik 2026-10-03, B1):** admin sekolah (atau super admin dengan `?schoolId=`) menandai catatan
+  beranomali (`hasAnomaly`, flag MEDIUM/HIGH) **Valid** (absensi tetap, catatan opsional) atau **Tidak valid** (jalur
+  Koreksi absensi menjadi ALPHA: sumber ADMIN, alasan wajib ≥5 karakter yang dikirim ke siswa lewat
+  `ATTENDANCE_CORRECTED`, jendela 45 hari untuk admin sekolah, bukan hari sekolah 422; bukti check-in & flag tidak
+  pernah dihapus) lewat `POST /school/attendance/{id}/anomaly-review`. Satu audit `attendance.anomaly_review`. Body
+  memuat flag yang dilihat admin; flag tersimpan berbeda → 409 `ANOMALY_FLAGS_CHANGED`. Tidak valid tidak bisa kembali
+  ke Valid (409) — pemulihan lewat Koreksi absensi; **status yang berwenang**, keputusan hanya mencatat tinjauan.
+  Flag `SHARED_DEVICE` baru (check-in siswa lain / sapuan tutup hari) membuka lagi tinjauan Valid. Antrean anomali
+  default "Belum ditinjau" hari ini + 45 hari ke belakang; filter Valid / Tidak valid / Semua; `needsReview` di peta,
+  daftar, Data Absensi (`anomaly=unreviewed`) dan legenda "N perlu ditinjau".
 - Izin/Sakit: backdate ≤7 hari, maju ≤30, rentang ≤14; SAKIT ≥3 hari sekolah wajib lampiran foto;
   approve → baris IZIN/SAKIT tiap hari sekolah (tidak menimpa CHECKIN/ADMIN); reject wajib alasan.
 - Auto-ALPHA per sekolah setelah `dayEndMinute` lokal (tiga zona waktu), catch-up 7 hari, idempoten
@@ -272,7 +282,7 @@ maintenance harian (cleanup sesi, purge selfie 180 hari, CheckInRejection 90 har
 ### Ditunda (YAGNI — dicatat di backlog `docs/backlog.md`)
 Cookie+CSRF web (fase dashboard) · penjadwalan/edit pengumuman terbit · kenaikan kelas massal
 (sebelum Juli 2027) · unggahan PDF · push receipts & penggabungan notifikasi admin · IMPOSSIBLE_TRAVEL /
-IDENTICAL_COORDINATES / workflow review anomali (koreksi manual dipakai) · REFUND ledger · multi-user
+IDENTICAL_COORDINATES · tandai valid massal · REFUND ledger · multi-user
 sponsor · ringkasan platform iklan · job rekonsiliasi (diganti test invarian) · target jenjang sekolah ·
 X-App-Version gate · sub-peran admin (bendahara/operator) · check-in offline · Play Integrity/App Attest.
 

@@ -157,7 +157,8 @@ export function pageActions(available: readonly Operation[], viewPath: string | 
 }
 
 /** Path dasar jendela detail baris sebuah tampilan (baris harian absensi = catatan /school/attendance/{id}). */
-export const detailBase = (viewPath: string | undefined): string | undefined => (viewPath === "/school/attendance/daily" ? "/school/attendance" : viewPath);
+export const detailBase = (viewPath: string | undefined): string | undefined =>
+  viewPath === "/school/attendance/daily" || viewPath === "/school/attendance/anomalies" ? "/school/attendance" : viewPath;
 
 /** Tabel bersarang di jendela detail (pembayaran & bukti transfer di detail tagihan) membuka detailnya sendiri. */
 export const NESTED_DETAIL_BASES: readonly string[] = ["/school/payments", "/school/payment-submissions", "/student/payments", "/student/payment-submissions"];
@@ -208,7 +209,7 @@ export const VIEW_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   "/school/payment-submissions": ["student", "invoice", "amount", "transferDate", "senderName", "status"],
   "/school/report-cards": ["student", "className", "gradedCount", "average", "status", "publishedAt"],
   "/school/leave-requests": ["student", "type", "startDate", "endDate", "schoolDayCount", "status"],
-  "/school/attendance/anomalies": ["date", "student", "attendance"],
+  "/school/attendance/anomalies": ["date", "student", "attendance", "reviewDecision"],
   "/school/attendance/rejections": ["date", "timeLocal", "student", "reasonLabel", "distanceM"],
   "/school/audit-logs": ["createdAt", "actor", "action", "entityType"],
   "/school/admins": ["name", "email", "isPrimary", "isActive", "lastLoginAt"],

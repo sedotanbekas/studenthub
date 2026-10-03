@@ -7,6 +7,7 @@ import {
   rejectReasonLabel,
   timeLocal,
   toAttendanceBrief,
+  toReviewDto,
   toStudentBrief,
 } from "./monitor-dto";
 
@@ -43,6 +44,7 @@ test("toStudentBrief & toAttendanceBrief: kelas snapshot didahulukan, flag diura
       id: "a1", status: "TERLAMBAT", source: "CHECKIN", checkInAt: new Date("2026-09-21T00:20:00Z"), lateMinutes: 20,
       distanceM: 42, accuracyM: 12, hasAnomaly: true, anomalyFlags: ["STALE_FIX", "KODE_TAK_DIKENAL", 7], leaveRequestId: null, note: null,
       lateReasonCategory: "FAMILY", lateReasonNote: null, lateReasonAt: new Date("2026-09-21T00:22:00Z"),
+      anomalyReviewDecision: null, anomalyReviewedAt: null,
     },
     "WIB",
   );
@@ -50,10 +52,19 @@ test("toStudentBrief & toAttendanceBrief: kelas snapshot didahulukan, flag diura
     id: "a1", status: "TERLAMBAT", source: "CHECKIN", checkInTimeLocal: "07:20", lateMinutes: 20, distanceM: 42, accuracyM: 12,
     hasAnomaly: true, flags: ["STALE_FIX"], leaveRequestId: null, note: null,
     lateReason: { category: "FAMILY", note: null, timeLocal: "07:22", updatedAt: "2026-09-21T00:22:00.000Z" },
+    needsReview: true, reviewDecision: null,
   });
 });
 
 test("fileUrl: tautan unduhan relatif /api/v1/files/{id} (id di-encode)", () => {
   assert.equal(fileUrl("abc"), "/api/v1/files/abc");
   assert.equal(fileUrl("a/b"), "/api/v1/files/a%2Fb");
+});
+
+test("toReviewDto: belum ditinjau -> null; peninjau & waktu ISO", () => {
+  assert.equal(toReviewDto({ anomalyReviewDecision: null, anomalyReviewedAt: null, anomalyReviewNote: null, anomalyReviewedBy: null }), null);
+  assert.deepEqual(
+    toReviewDto({ anomalyReviewDecision: "INVALID", anomalyReviewedAt: new Date("2026-09-21T01:00:00Z"), anomalyReviewNote: "Foto bukan wajah siswa", anomalyReviewedBy: { id: "u1", name: "Bu Rina" } }),
+    { decision: "INVALID", note: "Foto bukan wajah siswa", reviewedAt: "2026-09-21T01:00:00.000Z", reviewer: { id: "u1", name: "Bu Rina" } },
+  );
 });

@@ -11,6 +11,7 @@ export const ENUM_LABELS = {
   AttendanceSource: { CHECKIN: "Check-in", LEAVE: "Pengajuan izin/sakit", AUTO_ALPHA: "Alpha otomatis", ADMIN: "Koreksi admin" },
   LeaveType: { IZIN: "Izin", SAKIT: "Sakit" },
   LateReasonCategory: LATE_REASON_LABELS,
+  AnomalyReviewDecision: { VALID: "Valid", INVALID: "Tidak valid" },
   ReviewStatus: { PENDING: "Menunggu", APPROVED: "Disetujui", REJECTED: "Ditolak", CANCELLED: "Dibatalkan" },
   ReportCardStatus: { DRAFT: "Draf", PUBLISHED: "Terbit" },
   InvoiceStatus: { UNPAID: "Belum Bayar", PARTIAL: "Sebagian", PAID: "Lunas", VOID: "Dibatalkan" },

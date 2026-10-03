@@ -55,8 +55,8 @@ function toDto(row: AttendanceRow): CorrectedAttendanceDto {
 
 const studentNotFound = () => notFound("Siswa tidak ditemukan.");
 
-/** Validasi tanggal: masa depan / bukan hari sekolah / di luar jendela 45 hari (admin sekolah) -> 422. */
-async function assertCorrectableDate(tx: Tx, request: CorrectionRequest, now: Date): Promise<void> {
+/** Validasi tanggal: masa depan / bukan hari sekolah / di luar jendela 45 hari (admin sekolah) -> 422. Dipakai juga tinjau anomali (B1). */
+export async function assertCorrectableDate(tx: Tx, request: Pick<CorrectionRequest, "scope" | "date" | "windowLimited">, now: Date): Promise<void> {
   const school = await tx.school.findUnique({ where: { id: request.scope.schoolId }, select: { id: true, timezone: true, schoolDaysMask: true } });
   if (!school) throw studentNotFound();
   const calendar = await loadCalendarContext(tx, school, { from: request.date, to: request.date });

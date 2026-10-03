@@ -1,8 +1,12 @@
 import type { AnomalyCode, AnomalySeverity } from "@/lib/attendance/anomaly-rules";
+import { FLAGS_CHANGED, normalizeReviewNote, planAnomalyReview, reviewNoteProblem, sameFlagSet, type AnomalyReviewFilter } from "@/lib/attendance/anomaly-review-rules";
+import type { AnomalyReviewResultDto } from "@/lib/attendance/anomaly-review-schemas";
 import { countLateReasons, type LateReasonCode, type LateReasonDto } from "@/lib/attendance/late-reason-rules";
 import type { LateReasonCountsDto } from "@/lib/attendance/late-reason-schemas";
-import type { DailyRowDto, MapDto, RecordDetailDto } from "@/lib/attendance/monitor-schemas";
+import type { AnomalyRowDto, DailyRowDto, MapDto, RecordDetailDto } from "@/lib/attendance/monitor-schemas";
 import { formatMinute, instantAtLocal, localParts } from "@/lib/time/zone";
+import { ApiError } from "./api";
+import { reviewOf, saveDemoReview, withReview, type DemoReview } from "./demo-reviews";
 
 /**
  * Data contoh monitoring absensi admin sekolah (peta check-in) untuk mode demo. Bentuk persis DTO
@@ -54,7 +58,9 @@ const LOCATED: readonly LocatedSpec[] = [
   // 18 siswa lain bergerombol di sekitar gedung yang sama.
   ...(["s6", "d07", "d08", "d09", "d10", "d11", "d14", "d15", "d16", "d17", "d19", "d24", "d25", "d26", "d28", "d29", "d30", "d34"] as const).map((id, k): LocatedSpec => {
     const late: Record<string, string> = { d16: "07:18", d29: "07:26" };
-    return [id, late[id] ?? `06:${String(20 + k * 2).padStart(2, "0")}`, nearBuilding(k), 8 + (k % 5) * 3];
+    // Yoga (d24): wajah tidak terdeteksi saat foto diambil -> antrean "Perlu ditinjau" (B1).
+    const flags: Record<string, readonly AnomalyCode[]> = { d24: ["FACE_NOT_DETECTED"] };
+    return [id, late[id] ?? `06:${String(20 + k * 2).padStart(2, "0")}`, nearBuilding(k), 8 + (k % 5) * 3, flags[id]];
   }),
   // Tersebar di area sekolah: gerbang, lapangan, kantin (dua titik berdekatan), perpustakaan.
   ["s3", "07:31", [-95, 10], 14], ["d36", "06:44", [-20, -85], 11], ["d38", "06:53", [5, 72], 9], ["d39", "06:56", [8, 75], 10],
@@ -83,6 +89,8 @@ const REASON_DELAY_MINUTES = 2;
 
 const FLAG_TEXT: Readonly<Partial<Record<AnomalyCode, readonly [string, AnomalySeverity]>>> = {
   DEVICE_SESSION_MISMATCH: ["Perangkat berbeda dengan perangkat saat login", "MEDIUM"],
+  FACE_NOT_DETECTED: ["Wajah tidak terdeteksi otomatis saat foto diambil — periksa fotonya", "MEDIUM"],
+  TEST_MODE: ["Diterima karena mode uji absensi (di luar area atau jam absen)", "MEDIUM"],
   GEOFENCE_TOLERANCE: ["Di luar radius, diterima karena toleransi akurasi GPS", "LOW"],
   LOW_ACCURACY: ["Akurasi GPS rendah", "LOW"],
   NEW_DEVICE: ["Perangkat baru (berganti dalam 7 hari terakhir)", "MEDIUM"],
@@ -116,6 +124,7 @@ function toPoint([id, time, spot, accuracyM, flags = []]: LocatedSpec): MapPoint
     attendanceId: attendanceIdOf(id), studentId: id, name: s.name, nis: s.nis, className: s.className,
     status: time > LATE_AFTER ? "TERLAMBAT" : "HADIR", ...coord, accuracyM, distanceM: distanceFromSchool(coord),
     checkInTimeLocal: time, hasAnomaly: flagsHaveAnomaly(flags), flags: [...flags], lateReasonCategory: LATE_REASONS[id]?.[0] ?? null,
+    needsReview: flagsHaveAnomaly(flags), reviewDecision: null,
   };
 }
 
@@ -144,7 +153,7 @@ export function demoAttendanceMap(options: DemoMapOptions = {}): MapDto {
   const date = options.date ?? todayWib();
   const isSchoolDay = isDemoSchoolDay(date);
   const inClass = (e: { className: string | null }) => !options.className || e.className === options.className;
-  const points = isSchoolDay ? POINTS.filter(inClass) : [];
+  const points = isSchoolDay ? POINTS.map(withReview).filter(inClass) : [];
   const unlocated = isSchoolDay ? ENTRIES.filter(inClass) : [];
   return { date, isSchoolDay, school: { ...SCHOOL }, counts: countStatuses(points, unlocated), points, unlocated, truncated: false };
 }
@@ -153,15 +162,33 @@ export function demoAttendanceMap(options: DemoMapOptions = {}): MapDto {
 export function demoDailyRows(date: string = todayWib()): DailyRowDto[] {
   const map = demoAttendanceMap({ date });
   const brief = (id: string) => { const s = student(id); return { id, nis: s.nis, nisn: s.nisn, name: s.name, className: s.className }; };
-  const located = map.points.map((p): DailyRowDto => ({
-    student: brief(p.studentId),
-    attendance: { id: p.attendanceId, status: p.status, source: "CHECKIN", checkInTimeLocal: p.checkInTimeLocal, lateMinutes: p.status === "TERLAMBAT" ? minuteOf(p.checkInTimeLocal ?? "07:00") - DAY_START_MINUTE : null, distanceM: p.distanceM, accuracyM: p.accuracyM, hasAnomaly: p.hasAnomaly, flags: p.flags, leaveRequestId: null, note: null, lateReason: lateReasonOf(p, date) },
-  }));
+  const located = map.points.map((p): DailyRowDto => ({ student: brief(p.studentId), attendance: pointBrief(p, date) }));
   const others = map.unlocated.map((u): DailyRowDto => {
     const detail = u.attendanceId ? demoAttendanceDetail(u.attendanceId, date) : null;
-    return { student: brief(u.studentId), attendance: detail && { id: detail.id, status: detail.status, source: detail.source, checkInTimeLocal: null, lateMinutes: null, distanceM: null, accuracyM: null, hasAnomaly: false, flags: [], leaveRequestId: detail.leaveRequestId, note: detail.note, lateReason: null } };
+    return { student: brief(u.studentId), attendance: detail && { id: detail.id, status: detail.status, source: detail.source, checkInTimeLocal: null, lateMinutes: null, distanceM: null, accuracyM: null, hasAnomaly: false, flags: [], leaveRequestId: detail.leaveRequestId, note: detail.note, lateReason: null, needsReview: false, reviewDecision: null } };
   });
   return [...located, ...others].sort((a, b) => (a.student.className ?? "").localeCompare(b.student.className ?? "") || a.student.name.localeCompare(b.student.name));
+}
+
+const briefOf = (id: string) => { const s = student(id); return { id, nis: s.nis, nisn: s.nisn, name: s.name, className: s.className }; };
+
+/** Ringkasan catatan check-in (bentuk MonitorAttendanceBrief) setelah tinjauan demo diterapkan. */
+function pointBrief(p: MapPoint, date: string): DailyRowDto["attendance"] & object {
+  const review = reviewOf(p.attendanceId, date);
+  const invalid = review?.decision === "INVALID";
+  return {
+    id: p.attendanceId, status: p.status, source: invalid ? "ADMIN" : "CHECKIN", checkInTimeLocal: p.checkInTimeLocal,
+    lateMinutes: p.status === "TERLAMBAT" ? minuteOf(p.checkInTimeLocal ?? "07:00") - DAY_START_MINUTE : null, distanceM: p.distanceM, accuracyM: p.accuracyM,
+    hasAnomaly: p.hasAnomaly, flags: p.flags, leaveRequestId: null, note: invalid ? review.note : null, lateReason: lateReasonOf(p, date),
+    needsReview: p.needsReview, reviewDecision: p.reviewDecision,
+  };
+}
+
+/** Antrean anomali contoh (GET /school/attendance/anomalies) dari data peta yang SAMA, sesuai filter tinjauan. */
+export function demoAnomalyRows(filter: AnomalyReviewFilter = "UNREVIEWED", date: string = todayWib()): AnomalyRowDto[] {
+  const keep = (p: MapPoint) => filter === "ALL_ANOMALIES" || (filter === "UNREVIEWED" ? p.reviewDecision === null : p.reviewDecision === filter);
+  return demoAttendanceMap({ date }).points.filter(p => p.hasAnomaly && keep(p))
+    .map(p => ({ date, student: briefOf(p.studentId), attendance: pointBrief(p, date), reviewDecision: p.reviewDecision }));
 }
 
 /** Hitungan alasan terlambat contoh dari data peta yang SAMA (6 terlambat: 5 diisi, 1 belum). */
@@ -171,9 +198,14 @@ export function demoLateReasonCounts(date: string = todayWib()): LateReasonCount
   return { from: `${date.slice(0, 7)}-01`, to: date, ...counts };
 }
 
-export function demoMonitorRows(path: string): unknown {
+const REVIEW_FILTERS: readonly AnomalyReviewFilter[] = ["UNREVIEWED", "VALID", "INVALID", "ALL_ANOMALIES"];
+const reviewFilterOf = (value: unknown): AnomalyReviewFilter => REVIEW_FILTERS.find(f => f === value) ?? "UNREVIEWED";
+
+/** Jalur persis monitoring; `params` = filter tampilan (mis. review antrean anomali). */
+export function demoMonitorRows(path: string, params: Readonly<Record<string, unknown>> = {}): unknown {
   if (path === "/school/attendance/map") return demoAttendanceMap();
   if (path === "/school/attendance/daily") return demoDailyRows();
+  if (path === "/school/attendance/anomalies") return demoAnomalyRows(reviewFilterOf(params.review));
   if (path === "/school/attendance/late-reasons") return demoLateReasonCounts();
   return undefined;
 }
@@ -182,7 +214,8 @@ const minuteOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.s
 const isoAt = (date: string, minute: number, secondsBack = 0) => new Date(instantAtLocal(date, minute, "WIB").getTime() - secondsBack * 1000).toISOString();
 
 function lateReasonOf(point: MapPoint, date: string): LateReasonDto | null {
-  const reason = point.status === "TERLAMBAT" ? LATE_REASONS[point.studentId] : undefined;
+  // Alasan tetap dikirim setelah "Tidak valid" (status menjadi ALPHA), seperti server: UI menandai "sebelum dikoreksi".
+  const reason = LATE_REASONS[point.studentId];
   if (!reason) return null;
   const minute = minuteOf(point.checkInTimeLocal ?? "07:00") + REASON_DELAY_MINUTES;
   return { category: reason[0], note: reason[1], timeLocal: formatMinute(minute), updatedAt: isoAt(date, minute) };
@@ -194,20 +227,26 @@ function detailBase(id: string, date: string): Omit<RecordDetailDto, "status" | 
   return {
     id: attendanceIdOf(id), date, checkInAt: null, checkInTimeLocal: null, lateMinutes: null, latitude: null, longitude: null,
     accuracyM: null, distanceM: null, isMocked: null, deviceId: null, locationCapturedAt: null, hasAnomaly: false, flags: [],
-    leaveRequestId: null, note: null, lateReason: null, classId: null, className: s.className, student: { id, nis: s.nis, nisn: s.nisn, name: s.name, className: s.className },
+    leaveRequestId: null, note: null, lateReason: null, needsReview: false, reviewDecision: null, review: null, classId: null, className: s.className, student: { id, nis: s.nis, nisn: s.nisn, name: s.name, className: s.className },
     selfie: null, rejectionsSameDay: [], audit: [], createdAt: created, updatedAt: created,
   };
 }
 
+function reviewDto(review: DemoReview | null): RecordDetailDto["review"] {
+  return review && { decision: review.decision, note: review.note, reviewedAt: review.reviewedAt, reviewer: review.reviewer };
+}
+
 function pointDetail(point: MapPoint, date: string): RecordDetailDto {
+  const brief = pointBrief(point, date);
   const minute = minuteOf(point.checkInTimeLocal ?? "07:00");
   const at = isoAt(date, minute);
   const deviceId = `android-${point.studentId}`;
   const outside = (point.distanceM ?? 0) > SCHOOL.radiusM;
   const rejection = { id: `demo-rej-${point.studentId}`, reason: "OUTSIDE_GEOFENCE" as const, reasonLabel: "Di luar area sekolah", latitude: round6(point.latitude + 0.0004), longitude: point.longitude, accuracyM: 64, distanceM: (point.distanceM ?? 0) + 44, isMocked: false, deviceId, timeLocal: `${String(Math.floor((minute - 4) / 60)).padStart(2, "0")}:${String((minute - 4) % 60).padStart(2, "0")}`, createdAt: isoAt(date, minute - 4) };
   return {
-    ...detailBase(point.studentId, date), status: point.status, source: "CHECKIN", checkInAt: at, checkInTimeLocal: point.checkInTimeLocal,
-    lateMinutes: point.status === "TERLAMBAT" ? minute - DAY_START_MINUTE : null, latitude: point.latitude, longitude: point.longitude,
+    ...detailBase(point.studentId, date), status: point.status, source: brief.source, checkInAt: at, checkInTimeLocal: point.checkInTimeLocal,
+    lateMinutes: brief.lateMinutes, note: brief.note, needsReview: brief.needsReview, reviewDecision: brief.reviewDecision, review: reviewDto(reviewOf(point.attendanceId, date)),
+    latitude: point.latitude, longitude: point.longitude,
     accuracyM: point.accuracyM, distanceM: point.distanceM, isMocked: false, deviceId, locationCapturedAt: isoAt(date, minute, 6),
     hasAnomaly: point.hasAnomaly, flags: point.flags.map(code => ({ code, label: FLAG_TEXT[code]?.[0] ?? code, severity: FLAG_TEXT[code]?.[1] ?? "LOW" })), lateReason: lateReasonOf(point, date),
     selfie: { fileId: `demo-selfie-${point.studentId}`, url: null, purged: false }, rejectionsSameDay: outside ? [rejection] : [], createdAt: at, updatedAt: at,
@@ -216,11 +255,39 @@ function pointDetail(point: MapPoint, date: string): RecordDetailDto {
 
 /** Detail catatan contoh per attendanceId (tanpa permintaan jaringan); id tak dikenal -> null. */
 export function demoAttendanceDetail(attendanceId: string, date: string = todayWib()): RecordDetailDto | null {
-  const point = POINTS.find(p => p.attendanceId === attendanceId);
+  const base = POINTS.find(p => p.attendanceId === attendanceId);
+  const point = base && withReview(base);
   if (point) return pointDetail(point, date);
   const entry = UNLOCATED.find(([id, status]) => status !== "BELUM_ABSEN" && attendanceIdOf(id) === attendanceId);
   if (!entry) return null;
   const [id, status, note] = entry;
   const leave = status === "IZIN" || status === "SAKIT";
   return { ...detailBase(id, date), status: status as RecordDetailDto["status"], source: leave ? "LEAVE" : "ADMIN", leaveRequestId: leave ? `demo-leave-${id}` : null, note };
+}
+
+export interface DemoReviewInput { readonly decision: "VALID" | "INVALID"; readonly note?: string | null; readonly flags: readonly string[] }
+
+/**
+ * Tinjau anomali di mode demo memakai aturan murni yang SAMA dengan server (rencana, catatan wajib, flag berubah);
+ * pelanggaran dilempar sebagai ApiError. Keputusan hanya tersimpan di memori halaman.
+ */
+export function applyDemoReview(attendanceId: string, input: DemoReviewInput, reviewer: { id: string; name: string }, now: Date = new Date()): AnomalyReviewResultDto {
+  const date = todayWib();
+  const point = demoAttendanceMap({ date }).points.find(p => p.attendanceId === attendanceId);
+  if (!point) throw new ApiError("Catatan absensi tidak ditemukan.", "NOT_FOUND");
+  const plan = planAnomalyReview({ hasAnomaly: point.hasAnomaly, decision: point.reviewDecision }, input.decision);
+  if (plan.kind === "violation") throw new ApiError(plan.violation.message, plan.violation.code);
+  const problem = reviewNoteProblem(input.decision, input.note);
+  if (problem) throw new ApiError(problem, "VALIDATION_FAILED");
+  if (plan.kind !== "unchanged" && !sameFlagSet(point.flags, input.flags)) throw new ApiError(FLAGS_CHANGED.message, FLAGS_CHANGED.code);
+  const statusChanged = plan.kind === "invalidate" && point.status !== "ALPHA";
+  if (plan.kind !== "unchanged") saveDemoReview(attendanceId, { decision: input.decision, note: normalizeReviewNote(input.note), reviewedAt: now.toISOString(), reviewer });
+  const detail = demoAttendanceDetail(attendanceId, date);
+  if (!detail) throw new ApiError("Catatan absensi tidak ditemukan.", "NOT_FOUND");
+  const attendance = {
+    id: detail.id, studentId: detail.student.id, classId: detail.classId, date, status: detail.status, source: detail.source, lateMinutes: detail.lateMinutes,
+    checkInAt: detail.checkInAt, note: detail.note, leaveRequestId: detail.leaveRequestId, hasAnomaly: detail.hasAnomaly, updatedAt: now.toISOString(),
+    needsReview: detail.needsReview, review: detail.review,
+  };
+  return { attendance, unchanged: plan.kind === "unchanged", statusChanged };
 }

@@ -19,10 +19,17 @@ test("label enum publik memakai envelope", async ({ request }) => {
   expect(body.data.AttendanceStatus.HADIR).toBe("Hadir");
   expect(Object.keys(body.data.LateReasonCategory)).toEqual(["TRANSPORT", "WEATHER", "OVERSLEPT", "FAMILY", "HEALTH", "OTHER"]);
   expect(body.data.LateReasonCategory.OTHER).toBe("Lainnya");
+  expect(body.data.AnomalyReviewDecision).toEqual({ VALID: "Valid", INVALID: "Tidak valid" });
 });
 
 test("alasan terlambat membutuhkan login", async ({ request }) => {
   const res = await request.put("/api/v1/student/attendance/today/late-reason", { data: { category: "TRANSPORT" } });
+  expect(res.status()).toBe(401);
+  expect((await res.json()).error.code).toBe("UNAUTHENTICATED");
+});
+
+test("tinjau anomali membutuhkan login", async ({ request }) => {
+  const res = await request.post("/api/v1/school/attendance/apa-saja/anomaly-review", { data: { decision: "VALID", flags: [] } });
   expect(res.status()).toBe(401);
   expect((await res.json()).error.code).toBe("UNAUTHENTICATED");
 });

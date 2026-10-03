@@ -16660,6 +16660,179 @@
         }
       }
     },
+    "/api/v1/school/attendance/{id}/anomaly-review": {
+      "post": {
+        "operationId": "reviewAttendanceAnomaly",
+        "tags": [
+          "Absensi (Admin)"
+        ],
+        "summary": "Tinjau anomali satu catatan: Valid / Tidak valid",
+        "description": "VALID = absensi tetap, catatan keluar dari antrean 'Perlu ditinjau' (catatan opsional). INVALID = jalur Koreksi absensi menjadi ALPHA (sumber ADMIN, catatan = alasan wajib min. 5 karakter, bukti check-in & flag tetap; admin sekolah hanya 45 hari terakhir — 422 CORRECTION_WINDOW_EXPIRED; bukan hari sekolah 422 NOT_SCHOOL_DAY) dan siswa menerima ATTENDANCE_CORRECTED. Keputusan sama -> unchanged=true tanpa audit/notifikasi. INVALID tidak bisa kembali ke VALID (409 ANOMALY_ALREADY_INVALID) — pulihkan status lewat Koreksi absensi; keputusan mencatat tinjauan, status catatan yang berwenang. `flags` = kode flag yang dilihat admin; berbeda dengan yang tersimpan -> 409 ANOMALY_FLAGS_CHANGED. Catatan tanpa anomali -> 422 NO_ANOMALY. Flag baru kelak membuka lagi tinjauan VALID. Diaudit attendance.anomaly_review. Super admin wajib ?schoolId=; catatan sekolah lain -> 404.\n\nAksi POLICY: `attendance.anomaly_review`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Id catatan absensi (sekolah lain -> 404)."
+            },
+            "required": true,
+            "description": "Id catatan absensi (sekolah lain -> 404)."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceAnomalyReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceAnomalyReviewResult"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: ANOMALY_ALREADY_INVALID, ANOMALY_FLAGS_CHANGED, CONFLICT_RETRY.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: NO_ANOMALY, NOT_SCHOOL_DAY, CORRECTION_WINDOW_EXPIRED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/attendance/close-day": {
       "post": {
         "operationId": "recloseAttendanceDay",
@@ -17214,7 +17387,7 @@
           "Absensi — Monitoring"
         ],
         "summary": "Data Absensi satu tanggal (paginasi atas siswa)",
-        "description": "Baris tanpa catatan = belum absen (hanya di hari sekolah). status=BELUM_ABSEN menampilkan siswa aktif tanpa catatan; anomaly=any hanya catatan beranomali. Urut kelas lalu nama. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
+        "description": "Baris tanpa catatan = belum absen (hanya di hari sekolah). status=BELUM_ABSEN menampilkan siswa aktif tanpa catatan; anomaly=any hanya catatan beranomali; anomaly=unreviewed hanya yang belum ditinjau (B1). Urut kelas lalu nama. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
         "security": [
           {
             "bearerAuth": []
@@ -17274,13 +17447,14 @@
             "in": "query",
             "name": "anomaly",
             "schema": {
-              "description": "any = hanya catatan dengan flag anomali (MEDIUM/HIGH).",
+              "description": "any = hanya catatan dengan flag anomali (MEDIUM/HIGH); unreviewed = beranomali yang belum ditinjau.",
               "type": "string",
               "enum": [
-                "any"
+                "any",
+                "unreviewed"
               ]
             },
-            "description": "any = hanya catatan dengan flag anomali (MEDIUM/HIGH)."
+            "description": "any = hanya catatan dengan flag anomali (MEDIUM/HIGH); unreviewed = beranomali yang belum ditinjau."
           },
           {
             "in": "query",
@@ -17701,7 +17875,7 @@
           "Absensi — Monitoring"
         ],
         "summary": "Antrean catatan beranomali",
-        "description": "Rentang default 7 hari terakhir, maksimal 92 hari (400 bila lebih). Terbaru dulu. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
+        "description": "review (B1): UNREVIEWED (default) = belum ditinjau, rentang default hari ini + 45 hari ke belakang (jendela Tidak valid admin sekolah); VALID / INVALID / ALL_ANOMALIES rentang default 7 hari terakhir. Maksimal 92 hari (400 bila lebih). Terbaru dulu; reviewDecision = hasil tinjauan. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
         "security": [
           {
             "bearerAuth": []
@@ -17750,6 +17924,22 @@
               "maxLength": 64
             },
             "description": "Filter kelas: kelas snapshot untuk baris tercatat, kelas saat ini untuk yang belum absen. Kelas sekolah lain -> 404."
+          },
+          {
+            "in": "query",
+            "name": "review",
+            "schema": {
+              "default": "UNREVIEWED",
+              "description": "UNREVIEWED (default, rentang default 46 hari = jendela Tidak valid) | VALID | INVALID | ALL_ANOMALIES (rentang default 7 hari).",
+              "type": "string",
+              "enum": [
+                "UNREVIEWED",
+                "VALID",
+                "INVALID",
+                "ALL_ANOMALIES"
+              ]
+            },
+            "description": "UNREVIEWED (default, rentang default 46 hari = jendela Tidak valid) | VALID | INVALID | ALL_ANOMALIES (rentang default 7 hari)."
           },
           {
             "in": "query",
@@ -18968,7 +19158,7 @@
           "Absensi — Monitoring"
         ],
         "summary": "Detail satu catatan absensi",
-        "description": "Termasuk selfie (url /api/v1/files/{id}; null setelah retensi 180 hari), flag anomali berlabel, percobaan ditolak di hari yang sama, dan 20 entri audit terakhir. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
+        "description": "Termasuk selfie (url /api/v1/files/{id}; null setelah retensi 180 hari), flag anomali berlabel, tinjauan anomali (review, B1), percobaan ditolak di hari yang sama, dan 20 entri audit terakhir. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
         "security": [
           {
             "bearerAuth": []
@@ -32649,6 +32839,59 @@
         ],
         "additionalProperties": false
       },
+      "AttendanceAnomalyReviewInput": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "INVALID"
+            ],
+            "description": "VALID = absensi tetap; INVALID = dikoreksi menjadi ALPHA."
+          },
+          "note": {
+            "description": "Wajib (min. 5 karakter) untuk INVALID: disimpan sebagai catatan koreksi dan dikirim ke siswa. Opsional untuk VALID.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 510
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "flags": {
+            "maxItems": 13,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "CLOCK_SKEW",
+                "DEVICE_SESSION_MISMATCH",
+                "DUPLICATE_SELFIE",
+                "FACE_NOT_DETECTED",
+                "GEOFENCE_TOLERANCE",
+                "LOW_ACCURACY",
+                "NEW_DEVICE",
+                "PERFECT_ACCURACY",
+                "SHARED_DEVICE",
+                "STALE_FIX",
+                "TEST_MODE",
+                "TIME_INCONSISTENT",
+                "WEB_CHECKIN"
+              ]
+            },
+            "description": "Kode flag yang dilihat admin saat memutuskan (dari detail catatan). Berbeda dengan flag tersimpan -> 409 ANOMALY_FLAGS_CHANGED."
+          }
+        },
+        "required": [
+          "decision",
+          "flags"
+        ],
+        "additionalProperties": false
+      },
       "AttendanceRecloseDayInput": {
         "type": "object",
         "properties": {
@@ -38981,6 +39224,189 @@
         ],
         "additionalProperties": false
       },
+      "AttendanceAnomalyReviewResult": {
+        "type": "object",
+        "properties": {
+          "attendance": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "studentId": {
+                "type": "string"
+              },
+              "classId": {
+                "description": "Snapshot kelas saat baris dibuat.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "date": {
+                "type": "string",
+                "format": "date",
+                "example": "2026-07-13"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "HADIR",
+                  "TERLAMBAT",
+                  "IZIN",
+                  "SAKIT",
+                  "ALPHA"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "CHECKIN",
+                  "LEAVE",
+                  "AUTO_ALPHA",
+                  "ADMIN"
+                ]
+              },
+              "lateMinutes": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "checkInAt": {
+                "format": "date-time",
+                "description": "Waktu check-in (UTC); null untuk koreksi/izin/alpha.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "leaveRequestId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "hasAnomaly": {
+                "type": "boolean"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "needsReview": {
+                "type": "boolean"
+              },
+              "review": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AttendanceAnomalyReview"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "studentId",
+              "classId",
+              "date",
+              "status",
+              "source",
+              "lateMinutes",
+              "checkInAt",
+              "note",
+              "leaveRequestId",
+              "hasAnomaly",
+              "updatedAt",
+              "needsReview",
+              "review"
+            ],
+            "additionalProperties": false
+          },
+          "unchanged": {
+            "type": "boolean",
+            "description": "true bila keputusan sama dengan yang tersimpan (tanpa audit/notifikasi)."
+          },
+          "statusChanged": {
+            "type": "boolean",
+            "description": "true bila Tidak valid mengubah status menjadi ALPHA (siswa diberi tahu)."
+          }
+        },
+        "required": [
+          "attendance",
+          "unchanged",
+          "statusChanged"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceAnomalyReview": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "INVALID"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reviewer": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Akun admin yang meninjau."
+          }
+        },
+        "required": [
+          "decision",
+          "note",
+          "reviewedAt",
+          "reviewer"
+        ],
+        "additionalProperties": false
+      },
       "AttendanceRecloseDayResult": {
         "type": "object",
         "properties": {
@@ -39324,6 +39750,25 @@
               }
             ],
             "description": "Alasan terlambat dari siswa (A1). Tetap dikirim setelah koreksi admin (tampilkan sebagai 'sebelum dikoreksi' bila status/sumber berubah)."
+          },
+          "needsReview": {
+            "type": "boolean",
+            "description": "Beranomali dan belum ditinjau (antrean Perlu ditinjau)."
+          },
+          "reviewDecision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "VALID",
+                  "INVALID"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hasil tinjau anomali (B1); null = belum ditinjau."
           }
         },
         "required": [
@@ -39338,7 +39783,9 @@
           "flags",
           "leaveRequestId",
           "note",
-          "lateReason"
+          "lateReason",
+          "needsReview",
+          "reviewDecision"
         ],
         "additionalProperties": false
       },
@@ -39531,6 +39978,25 @@
                     }
                   ],
                   "description": "Kategori alasan terlambat dari siswa (A1); null bila belum diisi."
+                },
+                "needsReview": {
+                  "type": "boolean",
+                  "description": "Beranomali dan belum ditinjau (antrean Perlu ditinjau)."
+                },
+                "reviewDecision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "VALID",
+                        "INVALID"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Hasil tinjau anomali (B1); null = belum ditinjau."
                 }
               },
               "required": [
@@ -39547,7 +40013,9 @@
                 "checkInTimeLocal",
                 "hasAnomaly",
                 "flags",
-                "lateReasonCategory"
+                "lateReasonCategory",
+                "needsReview",
+                "reviewDecision"
               ],
               "additionalProperties": false
             }
@@ -39906,12 +40374,28 @@
           },
           "attendance": {
             "$ref": "#/components/schemas/MonitorAttendanceBrief"
+          },
+          "reviewDecision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "VALID",
+                  "INVALID"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hasil tinjau anomali (B1); null = belum ditinjau."
           }
         },
         "required": [
           "date",
           "student",
-          "attendance"
+          "attendance",
+          "reviewDecision"
         ],
         "additionalProperties": false
       },
@@ -41101,6 +41585,36 @@
             ],
             "description": "Alasan terlambat dari siswa (A1). Tetap dikirim setelah koreksi admin (tampilkan sebagai 'sebelum dikoreksi' bila status/sumber berubah)."
           },
+          "needsReview": {
+            "type": "boolean",
+            "description": "Beranomali dan belum ditinjau (antrean Perlu ditinjau)."
+          },
+          "reviewDecision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "VALID",
+                  "INVALID"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hasil tinjau anomali (B1); null = belum ditinjau."
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceAnomalyReview"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hasil tinjau anomali (B1); null = belum ditinjau."
+          },
           "classId": {
             "type": [
               "string",
@@ -41324,6 +41838,9 @@
           "leaveRequestId",
           "note",
           "lateReason",
+          "needsReview",
+          "reviewDecision",
+          "review",
           "classId",
           "className",
           "student",

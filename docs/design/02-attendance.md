@@ -55,8 +55,8 @@ Every response uses the envelope `{success, data, error:{code,message,details}, 
 | GET | /api/v1/admin/attendance/recap | SA, SU | "Rekap Kelas" tab (one day) | `date` | `[{classId, className, eligible, hadir, terlambat, izin, sakit, alpha, notYet, presentPct}]` + totals |
 | GET | /api/v1/admin/attendance/:id | SA, SU | Record detail and popup | – | record + `selfieUrl\|null (purged), flags[{code, severity, label}], deviceId, isMocked, fixAgeS?, rejectionsSameDay[], audit[≤20]` |
 | PUT | /api/v1/admin/attendance/students/:studentId/days/:date | SA, SU | Manual correction (upsert) | `status, lateMinutes? (required for TERLAMBAT), reason (5–255)` | `{attendance, unchanged}` |
-| GET | /api/v1/admin/attendance/anomalies | SA, SU | Anomaly review queue | `from, to (≤92 days), reviewed? (default false), classId?, page, limit` | rows as in `daily` + `flags` with severity |
-| POST | /api/v1/admin/attendance/:id/anomaly-review | SA, SU | Mark an anomaly valid or invalid | `decision: VALID\|INVALID, note (5–255)` | record. INVALID also corrects the record to ALPHA (source ADMIN). |
+| GET | /api/v1/admin/attendance/anomalies | SA, SU | Anomaly review queue (B1, §3.12) | `from, to (≤92 days; default today−45…today for UNREVIEWED, 7 days otherwise), review? (UNREVIEWED default \| VALID \| INVALID \| ALL_ANOMALIES), classId?, page, limit` | `[{date, student, attendance (brief + needsReview, reviewDecision), reviewDecision}]` + pagination |
+| POST | /api/v1/school/attendance/:id/anomaly-review | SA, SU | Mark an anomaly valid or invalid (B1, §3.12) | `decision: VALID\|INVALID, note? (required 5–255 for INVALID), flags[] (codes the admin saw)` | `{attendance (+ needsReview, review), unchanged, statusChanged}`. INVALID also corrects the record to ALPHA (source ADMIN). |
 | GET | /api/v1/school/attendance/late-reasons | SA, SU | Late reasons per category (A1) | `from?, to? (≤92 days), classId?` | `{from, to, total, filled, unfilled, categories[{category, count}]}` |
 | GET | /api/v1/admin/attendance/rejections | SA, SU | Rejected attempts | `date, studentId?, page, limit` | `[{id, student, reason, latitude, longitude, accuracyM, distanceM, isMocked, deviceId, createdAt}]` |
 | GET | /api/v1/admin/attendance/analytics/classes | SA, SU | Bar chart per class for a month | `month` | `period{from, to, closedThrough, isPartial, unclosedDates[]}, classes[{classId, className, recorded, presentPct, latePct, izinPct, sakitPct, alphaPct, counts{…}}]` |
@@ -371,6 +371,35 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
   so a correction that keeps TERLAMBAT still counts); `unfilled` = CHECKIN without a category; admin-entered
   TERLAMBAT rows without a reason are not counted (the student cannot fill them).
 - **Rate limit:** `LATE_REASON` 10 / 10 minutes per user (separate from `CHECK_IN`).
+
+### 3.12 Anomaly review (B1, owner decision 2026-10-03; implemented 2026-10-03, PLAN wins on conflict)
+
+- **Columns** on `Attendance`: `anomalyReviewDecision` (enum `AnomalyReviewDecision {VALID, INVALID}`),
+  `anomalyReviewedAt`, `anomalyReviewedById` (FK `User`, RESTRICT), `anomalyReviewNote` (≤255). Index
+  `[schoolId, hasAnomaly, anomalyReviewedAt, date]`. CHECK `chk_attendance_anomaly_review`: all four NULL, or
+  decision + time + reviewer set with `hasAnomaly = 1` and a note for INVALID. "Needs review" has one definition:
+  `PENDING_ANOMALY_REVIEW_WHERE = {hasAnomaly: true, anomalyReviewedAt: null}` (`anomaly-review-rules.ts`, used by N4).
+- **Transitions** (`planAnomalyReview`, pure): no anomaly → 422 `NO_ANOMALY` (checked first); none/VALID → VALID or
+  INVALID; same decision → `unchanged` (no write, no audit, no notification); INVALID → VALID → 409
+  `ANOMALY_ALREADY_INVALID` (restore the status with Koreksi absensi). The decision records the review; **the status is
+  authoritative** — A3/N4 count by status, never by decision.
+- **Seen flags:** the body carries the flag codes the admin saw; a different stored set (`sameFlagSet`, order and
+  duplicates ignored) → 409 `ANOMALY_FLAGS_CHANGED`, nothing written. `updatedAt` is not the fingerprint (A1 and
+  corrections touch the same row).
+- **INVALID = correction path:** `assertCorrectableDate` (future 422, not a school day 422 `NOT_SCHOOL_DAY`, school admin
+  window 45 days 422 `CORRECTION_WINDOW_EXPIRED`; super admin unlimited) + `buildCorrectionPatch` to ALPHA (source
+  ADMIN, note = reason, `lateMinutes` NULL). Check-in evidence and flags are never removed. Already ALPHA →
+  `statusChanged=false`, no notification.
+- **Transaction:** pre-read (404 outside scope) → AppLock `attendance:<studentId>` → Student FOR UPDATE → Attendance FOR
+  UPDATE → re-read → plan → flag check → patch → `updateMany {id, schoolId}` → AuditLog `attendance.anomaly_review`
+  (before/after decision, note, status, source, lateMinutes + flags, date, studentId; no separate
+  `attendance.correct`) → `ATTENDANCE_CORRECTED` to the student only when the status changed.
+- **Reopen:** a new `SHARED_DEVICE` flag clears a VALID review (check-in `flagSharedDevice`, and a separate statement
+  before the day-close sweep's flagging UPDATE, same "not yet flagged" predicate incl. NULL / non-array flags).
+  INVALID reviews are never reopened.
+- **Reads:** anomalies `review` filter `UNREVIEWED` (default; default range today + 45 days back = the INVALID window)
+  / `VALID` / `INVALID` / `ALL_ANOMALIES` (default 7 days), row `reviewDecision`; daily `anomaly=unreviewed`; brief,
+  map point and detail `needsReview` + `reviewDecision`; detail `review {decision, note, reviewedAt, reviewer}`.
 
 ## 4. Service modules and pure modules
 

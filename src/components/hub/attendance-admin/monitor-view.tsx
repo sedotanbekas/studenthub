@@ -7,8 +7,9 @@ import { MonitorFilters, type MonitorFilterValue } from "./monitor-filters";
 import { MonitorLegend } from "./monitor-legend";
 import { MonitorList } from "./monitor-list";
 import { MonitorMap, type MonitorMapHandle } from "./monitor-map";
-import { filterMonitor, isOutsideRadius, todayLocal, type MonitorData, type UnlocatedEntry } from "./monitor-rules";
-import { RecordDetailDialog, type DetailTarget } from "./record-detail-dialog";
+import { filterMonitor, isOutsideRadius, pendingReviewCount, todayLocal, type MonitorData, type UnlocatedEntry } from "./monitor-rules";
+import type { DetailTarget } from "./record-detail-dialog";
+import { RecordHost } from "./record-host";
 import { useClassOptions, useMonitorMap } from "./use-monitor-data";
 
 /** Tab "Peta & daftar": filter, peta check-in berkelompok, legenda, daftar tersinkron, dialog detail. */
@@ -35,12 +36,12 @@ export function MonitorView({ filter, onFilter }: MonitorViewProps) {
   return <div className="monitor-view">
     <MonitorFilters value={filter} onChange={onFilter} classes={classes} counts={data?.counts ?? null} maxDate={today} />
     {error && !data ? <div className="panel"><div className="empty-state"><span className="empty-icon"><Icon name="refresh" size={28} /></span><h3>Data kehadiran belum berhasil dimuat</h3><p role="alert">{error}</p><button className="button secondary" onClick={() => setVersion(v => v + 1)}>Coba lagi</button></div></div>
-      : data ? <MonitorContent data={data} filter={filter} loading={loading} />
+      : data ? <MonitorContent data={data} filter={filter} loading={loading} onChanged={() => setVersion(v => v + 1)} />
       : <MonitorSkeleton />}
   </div>;
 }
 
-function MonitorContent({ data, filter, loading }: { data: MonitorData; filter: MonitorFilterValue; loading: boolean }) {
+function MonitorContent({ data, filter, loading, onChanged }: { data: MonitorData; filter: MonitorFilterValue; loading: boolean; onChanged: () => void }) {
   const query = useDeferredValue(filter.query);
   const shown = useMemo(() => filterMonitor(data, { statuses: filter.statuses, query }), [data, filter.statuses, query]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -70,11 +71,11 @@ function MonitorContent({ data, filter, loading }: { data: MonitorData; filter: 
           <MonitorMap school={data.school} points={shown.points} onSelect={setSelectedId} onDetail={openDetail} handle={mapHandle} />
           {shown.points.length === 0 && <p className="monitor-map-empty">{data.points.length ? "Tidak ada titik yang cocok dengan filter." : "Belum ada titik lokasi absen untuk tanggal ini."}</p>}
         </div>
-        <MonitorLegend counts={data.counts} outside={outside} anomalies={data.points.filter(p => p.hasAnomaly).length} />
+        <MonitorLegend counts={data.counts} outside={outside} pendingReview={pendingReviewCount(data.points)} />
       </section>
       <MonitorList points={shown.points} unlocated={shown.unlocated} radiusM={data.school.radiusM} selectedId={selectedId} onFocus={focusRow} onDetail={onUnlocated} />
     </div>
-    {detail && <RecordDetailDialog key={detail.id} target={detail} date={data.date} onClose={() => setDetail(null)} />}
+    {detail && <RecordHost key={detail.id} target={detail} date={data.date} onClose={() => setDetail(null)} onChanged={onChanged} />}
   </>;
 }
 

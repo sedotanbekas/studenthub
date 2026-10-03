@@ -13,6 +13,8 @@ export const attendancePolicy = {
   "attendance.monitor": { roles: ADMINS },
   /** Admin: koreksi manual catatan absensi. */
   "attendance.correct": { roles: ADMINS },
+  /** Admin (termasuk akun guru/wali kelas): tinjau anomali Valid/Tidak valid (B1). */
+  "attendance.anomaly_review": { roles: ADMINS },
   /** Super admin: tutup ulang satu hari sekolah (auto-ALPHA manual) untuk hari lampau. */
   "attendance.reclose": { roles: ["SUPER_ADMIN"] },
   /** Super admin: mode uji absensi sementara (longgarkan lokasi & jam absen semua sekolah). */

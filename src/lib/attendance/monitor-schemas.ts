@@ -3,6 +3,8 @@ import { pageQuerySchema } from "@/lib/http/pagination";
 import { diffDays, monthRange, parseLocalDate } from "@/lib/time/zone";
 import { ANOMALY_CODES } from "./anomaly-rules";
 import { ANALYTICS_MAX_RANGE_DAYS, ATTENDANCE_STATUSES, STUDENT_TREND_DEFAULT_MONTHS, STUDENT_TREND_MAX_MONTHS } from "./attendance-stats";
+import { ANOMALY_REVIEW_DECISIONS, ANOMALY_REVIEW_FILTERS } from "./anomaly-review-rules";
+import { anomalyReviewSchema } from "./anomaly-review-schemas";
 import { LATE_REASON_CATEGORIES } from "./late-reason-rules";
 import { lateReasonSchema } from "./late-reason-schemas";
 
@@ -52,7 +54,10 @@ export const dailyQuery = monitorScopeQuery.extend({
   date: dateField,
   classId: classField,
   status: statusField,
-  anomaly: z.enum(["any"]).optional().meta({ description: "any = hanya catatan dengan flag anomali (MEDIUM/HIGH)." }),
+  anomaly: z
+    .enum(["any", "unreviewed"])
+    .optional()
+    .meta({ description: "any = hanya catatan dengan flag anomali (MEDIUM/HIGH); unreviewed = beranomali yang belum ditinjau." }),
   q: z.string().trim().min(1).max(100).optional().meta({ description: "Nama memuat / awalan NIS / awalan NISN." }),
   ...pageQuerySchema.shape,
 });
@@ -79,7 +84,15 @@ const rangeShape = {
 };
 
 export const anomaliesQuery = monitorScopeQuery
-  .extend({ ...rangeShape, classId: classField, ...pageQuerySchema.shape })
+  .extend({
+    ...rangeShape,
+    classId: classField,
+    review: z
+      .enum(ANOMALY_REVIEW_FILTERS)
+      .default("UNREVIEWED")
+      .meta({ description: "UNREVIEWED (default, rentang default 46 hari = jendela Tidak valid) | VALID | INVALID | ALL_ANOMALIES (rentang default 7 hari)." }),
+    ...pageQuerySchema.shape,
+  })
   .superRefine(refineRange);
 
 /** Hitungan alasan terlambat (A1): default dari awal bulan `to` (atau bulan berjalan) s.d. hari ini. */
@@ -128,6 +141,8 @@ const pctOut = z.number().nullable().meta({ description: "Persen satu desimal; n
 const statusOut = z.enum(ATTENDANCE_STATUSES);
 const sourceOut = z.enum(ATTENDANCE_SOURCES);
 const flagCodesOut = z.array(z.enum(ANOMALY_CODES)).meta({ description: "Kode flag anomali (terurut). Label & keparahan: lihat detail catatan." });
+const reviewDecisionOut = z.enum(ANOMALY_REVIEW_DECISIONS).nullable().meta({ description: "Hasil tinjau anomali (B1); null = belum ditinjau." });
+const needsReviewOut = z.boolean().meta({ description: "Beranomali dan belum ditinjau (antrean Perlu ditinjau)." });
 const lateReasonOut = lateReasonSchema
   .nullable()
   .meta({ description: "Alasan terlambat dari siswa (A1). Tetap dikirim setelah koreksi admin (tampilkan sebagai 'sebelum dikoreksi' bila status/sumber berubah)." });
@@ -180,6 +195,8 @@ export const attendanceBriefSchema = z
     leaveRequestId: z.string().nullable(),
     note: z.string().nullable(),
     lateReason: lateReasonOut,
+    needsReview: needsReviewOut,
+    reviewDecision: reviewDecisionOut,
   })
   .meta({ id: "MonitorAttendanceBrief" });
 
@@ -188,7 +205,7 @@ export const dailyRowSchema = z
   .meta({ id: "MonitorDailyRow" });
 
 export const anomalyRowSchema = z
-  .object({ date: dateOut, student: studentBriefSchema, attendance: attendanceBriefSchema })
+  .object({ date: dateOut, student: studentBriefSchema, attendance: attendanceBriefSchema, reviewDecision: reviewDecisionOut })
   .meta({ id: "MonitorAnomalyRow" });
 
 const rejectionShape = {
@@ -224,6 +241,8 @@ const mapPointSchema = z.object({
   hasAnomaly: z.boolean(),
   flags: flagCodesOut,
   lateReasonCategory: z.enum(LATE_REASON_CATEGORIES).nullable().meta({ description: "Kategori alasan terlambat dari siswa (A1); null bila belum diisi." }),
+  needsReview: needsReviewOut,
+  reviewDecision: reviewDecisionOut,
 });
 
 const unlocatedSchema = z.object({
@@ -300,6 +319,9 @@ export const recordDetailSchema = z
     leaveRequestId: z.string().nullable(),
     note: z.string().nullable(),
     lateReason: lateReasonOut,
+    needsReview: needsReviewOut,
+    reviewDecision: reviewDecisionOut,
+    review: anomalyReviewSchema.nullable().meta({ description: "Hasil tinjau anomali (B1); null = belum ditinjau." }),
     classId: z.string().nullable(),
     className: z.string().nullable().meta({ description: "Kelas snapshot saat dicatat." }),
     student: studentBriefSchema,

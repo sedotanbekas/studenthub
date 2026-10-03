@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import type { ReviewDecision } from "@/lib/attendance/anomaly-review-rules";
+import type { AnomalyReviewResultDto } from "@/lib/attendance/anomaly-review-schemas";
 import type { RecordDetailDto } from "@/lib/attendance/monitor-schemas";
 import { api, scoped } from "@/lib/frontend/api";
 import { demoRows } from "@/lib/frontend/demo";
-import { demoAttendanceDetail, demoAttendanceMap } from "@/lib/frontend/demo-monitor";
+import { applyDemoReview, demoAttendanceDetail, demoAttendanceMap } from "@/lib/frontend/demo-monitor";
 import { useHub } from "../context";
 import type { MonitorData } from "./monitor-rules";
 
@@ -77,4 +79,23 @@ export function useRecordDetail(attendanceId: string, date: string, retry: numbe
     return () => { active = false; };
   }, [attendanceId, date, demo, schoolId, retry]);
   return state;
+}
+
+export interface AnomalyReviewRequest {
+  readonly attendanceId: string;
+  readonly decision: ReviewDecision;
+  readonly note: string;
+  readonly flags: readonly string[];
+  readonly demo: boolean;
+  readonly schoolId: string;
+  readonly reviewer: { readonly id: string; readonly name: string };
+}
+
+/** POST /school/attendance/{id}/anomaly-review; demo -> aturan yang sama di peramban (tanpa jaringan). */
+export async function sendAnomalyReview(request: AnomalyReviewRequest): Promise<AnomalyReviewResultDto> {
+  const note = request.note.trim() || null;
+  if (request.demo) return applyDemoReview(request.attendanceId, { decision: request.decision, note, flags: request.flags }, request.reviewer);
+  const path = `/school/attendance/${encodeURIComponent(request.attendanceId)}/anomaly-review`;
+  const response = await api(scoped(path, request.schoolId), { method: "POST", body: JSON.stringify({ decision: request.decision, note, flags: request.flags }) });
+  return response.data as AnomalyReviewResultDto;
 }

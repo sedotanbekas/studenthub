@@ -1,5 +1,5 @@
 import { initials } from "@/lib/frontend/format";
-import { STATUS_META, flagLabels, formatAccuracy, formatDistance, isOutsideRadius, ringGradient, statusClass, type MapPoint, type MonitorStatus } from "./monitor-rules";
+import { STATUS_META, flagLabels, formatAccuracy, formatDistance, isOutsideRadius, reviewTag, ringGradient, statusClass, type MapPoint, type MonitorStatus } from "./monitor-rules";
 
 /**
  * Markup ikon Leaflet (L.divIcon memakai innerHTML -> semua teks dari data di-escape) dan kartu
@@ -10,7 +10,7 @@ export const PIN_SIZE = 32;
 
 export function pinHtml(point: MapPoint, radiusM: number): string {
   const outside = isOutsideRadius(point, radiusM) ? " is-outside" : "";
-  const flag = point.hasAnomaly ? '<i class="att-pin-flag">!</i>' : "";
+  const flag = point.needsReview ? '<i class="att-pin-flag">!</i>' : "";
   return `<span class="att-pin ${statusClass(point.status)}${outside}" aria-hidden="true"><b>${STATUS_META[point.status].letter}</b>${flag}</span>`;
 }
 
@@ -19,7 +19,7 @@ export function pinLabel(point: MapPoint, radiusM: number): string {
   const parts = [point.name, STATUS_META[point.status].label];
   if (point.checkInTimeLocal) parts.push(`masuk ${point.checkInTimeLocal}`);
   if (isOutsideRadius(point, radiusM)) parts.push("di luar radius");
-  if (point.hasAnomaly) parts.push("perlu ditinjau");
+  if (point.needsReview) parts.push("perlu ditinjau");
   return parts.join(", ");
 }
 
@@ -81,7 +81,7 @@ function cardFacts(point: MapPoint, radiusM: number): HTMLElement {
 }
 
 function flagList(point: MapPoint): HTMLElement {
-  const list = el("ul", `pin-card-flags${point.hasAnomaly ? " is-anomaly" : ""}`);
+  const list = el("ul", `pin-card-flags${point.needsReview ? " is-anomaly" : ""}`);
   list.setAttribute("aria-label", "Catatan pemeriksaan");
   for (const text of flagLabels(point.flags)) list.append(el("li", "", text));
   return list;
@@ -92,6 +92,8 @@ export function pinCard(point: MapPoint, radiusM: number, onDetail: () => void):
   const card = el("div", "pin-card");
   card.append(cardHead(point), pillElement(point.status), cardFacts(point, radiusM));
   if (point.flags.length) card.append(flagList(point));
+  const tag = point.reviewDecision ? reviewTag(point) : null;
+  if (tag) card.append(el("p", "pin-card-review", `Ditinjau: ${tag.text.toLowerCase()}`));
   const button = el("button", "button primary small-button pin-card-detail", "Lihat detail");
   button.type = "button";
   button.addEventListener("click", onDetail);

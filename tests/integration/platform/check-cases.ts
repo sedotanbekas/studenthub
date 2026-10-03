@@ -119,6 +119,27 @@ export function attendanceCases(get: GetFixture): readonly CheckCase[] {
       },
     },
     {
+      constraint: "chk_attendance_anomaly_review",
+      violations: [
+        // Tinjauan hanya untuk catatan beranomali.
+        () => attendance(get(), { hasAnomaly: false, anomalyReviewDecision: "VALID", anomalyReviewedAt: CHECKIN_AT, anomalyReviewedById: get().admin.id }),
+        // Tidak valid wajib alasan (dikirim ke siswa).
+        () => attendance(get(), { hasAnomaly: true, anomalyReviewDecision: "INVALID", anomalyReviewedAt: CHECKIN_AT, anomalyReviewedById: get().admin.id }),
+        // Kolom tinjauan diisi semua atau tidak sama sekali.
+        () => attendance(get(), { hasAnomaly: true, anomalyReviewDecision: "VALID", anomalyReviewedById: get().admin.id }),
+        () => attendance(get(), { hasAnomaly: true, anomalyReviewDecision: "VALID", anomalyReviewedAt: CHECKIN_AT }),
+        () => attendance(get(), { hasAnomaly: true, anomalyReviewedAt: CHECKIN_AT, anomalyReviewedById: get().admin.id }),
+        () => attendance(get(), { hasAnomaly: true, anomalyReviewNote: "Catatan tanpa keputusan" }),
+      ],
+      valid: async () => {
+        const fx = get();
+        await attendance(fx, { hasAnomaly: true, anomalyReviewDecision: "VALID", anomalyReviewedAt: CHECKIN_AT, anomalyReviewedById: fx.admin.id });
+        await attendance(fx, {
+          hasAnomaly: true, status: "ALPHA", anomalyReviewDecision: "INVALID", anomalyReviewedAt: CHECKIN_AT, anomalyReviewedById: fx.admin.id, anomalyReviewNote: "Foto bukan wajah siswa",
+        });
+      },
+    },
+    {
       constraint: "chk_leave_range",
       violations: [() => leave(get(), "2026-09-22", "2026-09-21"), () => leave(get(), "2026-09-01", "2026-10-02")],
       valid: () => leave(get(), "2026-09-01", "2026-10-01"),

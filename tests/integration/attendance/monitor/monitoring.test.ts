@@ -142,7 +142,7 @@ test("Data Absensi: filter BELUM_ABSEN berhalaman, status, anomali, kelas, penca
   const foreign = await get(dailyRoute, `${base}&classId=${foreignClass}`);
   assert.equal(foreign.status, 404);
   assert.equal(foreign.body?.error?.code, "CLASS_NOT_FOUND");
-  for (const qs of ["?date=2091-02-30", "?status=FOO", "?limit=500", "?anomaly=unreviewed"]) {
+  for (const qs of ["?date=2091-02-30", "?status=FOO", "?limit=500", "?anomaly=FOO"]) {
     assert.equal((await get(dailyRoute, `/api/v1/school/attendance/daily${qs}`)).status, 400, qs);
   }
 });

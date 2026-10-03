@@ -3,7 +3,7 @@ import { memo, useEffect, useRef } from "react";
 import { LATE_REASON_LABELS } from "@/lib/attendance/late-reason-rules";
 import { initials, number } from "@/lib/frontend/format";
 import { AttPill } from "./att-pill";
-import { isOutsideRadius, scrollToReveal, statusClass, type MapPoint, type UnlocatedEntry } from "./monitor-rules";
+import { isOutsideRadius, reviewTag, scrollToReveal, statusClass, type MapPoint, type UnlocatedEntry } from "./monitor-rules";
 
 /**
  * Daftar siswa tersinkron dengan peta: sudah check-in (urut jam masuk) + tanpa lokasi. Baris di-memo:
@@ -64,15 +64,16 @@ interface PointRowProps { readonly point: MapPoint; readonly outside: boolean; r
 
 const PointRow = memo(function PointRow({ point, outside, selected, onFocus }: PointRowProps) {
   const reason = point.status === "TERLAMBAT" && point.lateReasonCategory ? LATE_REASON_LABELS[point.lateReasonCategory] : null;
+  const review = reviewTag(point);
   return <li>
     <button type="button" className={`monitor-row${selected ? " is-selected" : ""}`} aria-current={selected ? "true" : undefined} data-id={point.attendanceId} onClick={() => onFocus(point.attendanceId)}>
       <span className={`att-avatar ${statusClass(point.status)}`} aria-hidden="true">{initials(point.name)}</span>
       <span className="monitor-row-main">
         <strong>{point.name}</strong>
         <small>{point.className ?? "Tanpa kelas"} · NIS {point.nis}</small>
-        {(outside || point.hasAnomaly || reason) && <span className="monitor-row-tags">
+        {(outside || review || reason) && <span className="monitor-row-tags">
           {outside && <span className="row-tag is-warning">Di luar radius</span>}
-          {point.hasAnomaly && <span className="row-tag is-danger"><b aria-hidden="true">!</b>Perlu ditinjau</span>}
+          {review && <span className={`row-tag ${review.tone}`}>{review.tone === "is-danger" && <b aria-hidden="true">!</b>}{review.text}</span>}
           {reason && <span className="row-tag is-neutral">Alasan: {reason}</span>}
         </span>}
       </span>
