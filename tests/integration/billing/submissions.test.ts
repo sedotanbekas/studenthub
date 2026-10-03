@@ -63,7 +63,8 @@ describe("unggah bukti transfer", () => {
     assert.match(sub?.proofFile.storageKey ?? "", /^private\/payment-proof\//);
     const note = await prisma.notification.findFirst({ where: { userId: fx.admin.id, type: "PAYMENT_SUBMITTED", data: { equals: { screen: "payment-review", id: res.body?.data.id } } } });
     assert.ok(note, "admin sekolah menerima PAYMENT_SUBMITTED");
-    assert.equal(note?.pushStatus, "SKIPPED");
+    // N3: staf diantre push; tanpa perangkat dispatcher menandainya SKIPPED NO_DEVICE.
+    assert.ok(note?.pushStatus === "PENDING" || (note?.pushStatus === "SKIPPED" && note?.pushError === "NO_DEVICE"), String(note?.pushStatus));
   });
 
   test("bukti kedua saat menunggu 409 SUBMISSION_PENDING tanpa berkas tertinggal", async () => {

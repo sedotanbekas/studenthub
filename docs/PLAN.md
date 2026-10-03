@@ -19,6 +19,7 @@ pada langkah pertama**. Bila dokumen desain bertentangan dengan rencana ini, **r
 |---|---|
 | Stack | Next.js 16 monolith + Prisma 7 (`@prisma/adapter-mariadb`) + MariaDB 10.11, zod v4, jose — pola LIMS |
 | App siswa (nanti) | Expo React Native → Bearer token + refresh token + Expo push |
+| Web (PWA) | manifest + `/sw.js`, Web Push VAPID ke **semua peran** (keputusan 2026-10-03, N3); iPhone: iOS 16.4+ dan "Tambah ke Layar Utama" dulu |
 | Login siswa | NISN + password; wajib ganti password saat login pertama |
 | Absensi | Check-in geofence + **selfie wajib**, Terlambat, Izin/Sakit (lampiran + approval), Alpha otomatis; tanpa absen pulang |
 | Fake GPS | **Ditolak** (422) + percobaan dicatat untuk admin |
@@ -96,7 +97,7 @@ Skema dasar = `docs/design/00-schema.md`, **ditambah** perubahan yang disetujui:
 - **auth**: `User` (role enum, email unik, `passwordHash`, `schoolId?`/`sponsorId?`, `isActive`,
   `mustChangePassword`, `tempPasswordExpiresAt`, TOTP super admin) — **tanpa `tokenVersion`**;
   `AuthSession` (per perangkat, `deviceId`, `expoPushToken @unique`, revoke reason); `RefreshToken`
-  (hash SHA-256, `rotatedAt`).
+  (hash SHA-256, `rotatedAt`); `WebPushSubscription` (satu per sesi WEB, endpoint unik lewat hash, N3).
 - **school**: `Province`/`City` (seed migrasi), `School` (geofence, timezone, jadwal dalam menit lokal,
   mask hari sekolah, rekening SPP + `bankChangedAt`, `activeTermId @unique`), `Holiday` (per sekolah /
   nasional), `AcademicYear`, `Term`, `SchoolClass`, `Subject`, **`ClassSubject`**.
@@ -138,7 +139,8 @@ yang lama); `deviceId` wajib untuk siswa. Limiter login: pasangan ip::identifier
 IP; kunci aktif tak pernah di-evict. Kata sandi awal siswa **selalu di-generate**, kedaluwarsa 14 hari,
 ditampilkan sekali. Kebijakan password (≥8, huruf+angka, tidak memuat NISN/NIS/tanggal lahir).
 Transport cookie + CSRF untuk dashboard web **ditunda ke fase frontend** (arsitektur `Principal`
-sudah siap). Endpoint: refresh, logout(-all), me, change-password, sessions, `PUT/DELETE /me/push-token`.
+sudah siap). Endpoint: refresh, logout(-all), me, change-password, sessions, `PUT/DELETE /me/push-token`,
+`GET /me/web-push` + `PUT/DELETE /me/web-push/subscription` (N3).
 
 **Super admin & provisioning** (`/platform/*`): CRUD sekolah — **lokasi, geofence, timezone & rekening
 bank sekolah hanya SUPER_ADMIN** (anti-geser geofence & anti-pengalihan rekening; diaudit + notifikasi
@@ -257,9 +259,14 @@ near-duplikat (dHash) ditandai dalam sekolah yang sama.
 **Pengumuman & notifikasi**: kategori pengumuman Akademik/Keuangan/Kegiatan/Kalender/Kesiswaan; audiens
 semua / kelas / siswa tertentu; DRAFT → PUBLISHED (fan-out ke inbox per siswa) → CANCELLED (tarik);
 pratinjau jumlah penerima. Inbox semua peran (`/notifications`, cursor, unread-count, read, read-all).
-Satu jalur tulis `notify*(tx, …)` di dalam transaksi bisnis. Push Expo hanya ke siswa (outbox
-sederhana di `Notification.pushStatus`, dikirim via `after()` + tick, mutex in-process, DeviceNotRegistered
-→ token dihapus); transport `log` sampai akun EAS siap. Web: satu poller badge unread-count per tab (siswa 60 dtk; Web Push menyusul N3).
+Satu jalur tulis `notify*(tx, …)` di dalam transaksi bisnis. Push ke **semua peran** lewat satu outbox
+(`Notification.pushStatus`, dikirim via `after()` + tick, mutex in-process): Web Push VAPID (PWA, keputusan pemilik
+2026-10-03, N3) dan Expo (app nanti; transport `log` sampai akun EAS siap); penerima tanpa perangkat → SKIPPED
+NO_DEVICE; DeviceNotRegistered / 404-410 → token/langganan dihapus; langganan sesi yang dicabut ikut dihapus. Klik
+notifikasi membuka bagian hub yang sesuai (+ ditandai dibaca). Ajakan "Aktifkan notifikasi" hanya di beranda HP /
+aplikasi terpasang (tunda 7 hari); iPhone wajib iOS 16.4+ dan dibuka dari ikon layar utama (masuk ulang di aplikasi
+itu; masuk lewat Safari lagi mengeluarkan aplikasi tersebut). Kunci VAPID dibuat sekali oleh deploy, tidak pernah
+diganti. Web: satu poller badge unread-count per tab tetap berjalan (siswa 60 dtk; N1).
 Admin sekolah boleh mematikan kategori kabar sekolah (Keuangan, Kesiswaan) untuk akunnya, dan admin utama juga untuk
 akun admin tambahan (keputusan 2026-10-03, N2); hanya siaran ke admin yang disaring, saat ditulis. Notifikasi pribadi
 & Sistem selalu dikirim; bila semua admin (yang pernah masuk) mematikan satu kategori, admin utama tetap menerimanya.
@@ -369,7 +376,8 @@ X-App-Version gate · sub-peran admin (bendahara/operator) · filter notifikasi 
    `38.47.176.211` (sebelum itu app tetap jalan, hanya SSL & akses publik tertunda).
 2. **Repo saat ini PUBLIC** — kode (bukan data/secret) terlihat publik; disarankan dijadikan private
    (deploy tetap jalan via deploy key read-only).
-3. Nanti: akun Expo/EAS untuk push nyata (sampai itu notifikasi tetap masuk inbox).
+3. Push ke HP sudah lewat Web Push (PWA, N3; kunci dibuat otomatis saat deploy). Akun Expo/EAS hanya dibutuhkan bila
+   app native dibuat.
 
 ## Default yang saya ambil (koreksi bila tidak sesuai)
 Unggahan hanya foto (tanpa PDF) · satu HP = satu akun siswa aktif (HP bersama saudara → ditandai) ·

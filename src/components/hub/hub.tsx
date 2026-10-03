@@ -19,6 +19,7 @@ import { cancelPageSlide, playPageSlide } from "./page-slide";
 import { forgetScrollPositions, restoreScroll } from "./scroll-memory";
 import { loadSections, useSections } from "./sections";
 import { useHubSession } from "./use-session";
+import { WebPushBridge, WebPushPrompt } from "./web-push";
 import { useSplash } from "./use-splash";
 
 /**
@@ -129,6 +130,8 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
         {children}
       </div></main></div>
     <TabBar me={me} section={restricted ? "security" : section} menuOpen={drawer.open} inert={drawer.open} onMenu={drawer.show} />
+    <WebPushBridge key={me.user.id} me={me} demo={demo} />
+    <WebPushPrompt key={`push-${me.user.id}`} me={me} demo={demo} home={home && !drawer.open} toast={session.setNotice} />
     {toast}
   </div></HubContext.Provider>;
 }

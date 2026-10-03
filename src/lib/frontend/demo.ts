@@ -81,6 +81,8 @@ export const demoSchoolAdmins = [
 ] as const;
 
 function sharedRows(path: string): unknown {
+  // Notifikasi HP (N3): aktif di server contoh; mode demo tidak pernah berlangganan (tombol menampilkan pesan demo).
+  if (path === "/me/web-push") return { enabled: true, publicKey: null, subscribed: false };
   if (path === "/me/notification-preferences") return { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS", "ATTENDANCE"], updatedAt: null, updatedBy: null };
   if (path === "/school/admins") return demoSchoolAdmins;
   if (path === "/school/report-cards/sheet") return { term: { id: "term1", label: "Ganjil 2026/2027" }, class: { id: "c1", name: "X IPA 1" }, subject: { id: "subject1", name: "Matematika", code: "MTK", kkm: 75 }, rows: demoStudents.map((s, i) => ({ studentId: s.id, name: s.name, nis: s.nis, score: 80 + i, predicate: "B", reportCardStatus: "DRAFT", blockedReason: null })) };

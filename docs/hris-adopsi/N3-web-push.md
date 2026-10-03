@@ -1,5 +1,32 @@
 # N3: Web Push (PWA)
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `N3-web-push.critique.md` + `00-integration.md` §2 (keputusan 5–9). Semua temuan diterima:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | (a) `WEB_PUSH_DISABLED`/`WEB_PUSH_APP_SESSION`/`WEB_PUSH_ENDPOINT_INVALID` = 422 di `error-status.ts`. (b) `initialPushStatus(_role)` selalu PENDING (parameter dipertahankan untuk pemanggil). (c) SW ES2019 (`catch {}` tanpa binding), lolos lint. (d) Urutan mode: tanpa kunci → mati; kunci rusak → mati; `PUSH_TRANSPORT=memory` → memori **tanpa** cek subjek; selain itu subjek wajib https bukan localhost / mailto. Pasangan kunci KHUSUS test di `tests/integration/setup.ts` & env CI. (e) Test N4 sudah memakai `initialPushStatus("SCHOOL_ADMIN")`; tx-notify/leave/submissions menerima PENDING atau SKIPPED NO_DEVICE. (f) e2e `pwa.spec.ts` memakai super admin CLI + ganti sandi awal. |
+| 2 | Upsert: `lockUserSessions` (AppLock user) → `lockRows("AuthSession")` FOR UPDATE → baca ulang sesi hidup → hapus/upsert. Pencabutan sesi menghapus langganan SETELAH AuthSession diperbarui lewat satu pembantu `forgetRevokedWebPush(tx, whereSesi)` (revokeSession, revokeAllSessions, revokeSchoolSessions, sesi digantikan login, releaseGraduates). Urutan di `tx.ts`. Test balapan logout vs PUT. |
+| 3 | Tanpa penanda per tab: `WebPushBridge` membaca status server setiap identitas berganti; `syncAction` (murni + test): izin ada & server belum punya baris → langganan ULANG (endpoint baru), kunci server berganti → langganan ulang. |
+| 4 | Halaman = penulis kedua badge ikon (`appBadgeAction` dari snapshot N1); keluar → `clearAppBadge()` + tutup notifikasi tampil + `unsubscribe()`. |
+| 5 | Fakta iPhone ditulis apa adanya: langkah pasang ke-3 menyebut akibat masuk lewat Safari; beban `NEW_DEVICE` (±5 catatan/siswa iPhone di minggu pertama → antrean B1 & rekap N4) dicatat di backlog + pertanyaan pemilik 4. |
+| 6 | `webPathOf` memetakan layar yang benar-benar dipakai: admin `leave-request`/`attendance-day` → attendance, siswa `attendance-alpha` → my-leave, `check-in` (N5) → `/hub/my-attendance?absen=1&notif=…`. Test memindai semua `screen:` template + `nisn-release-notice.ts`; setiap tujuan dicek `sectionAllowed` per peran. `notif` dibuang dari URL hidup (parameter lain tetap). |
+| 7 | Expo & web per potongan dikirim paralel (`Promise.all`), batas waktu KERAS 8 dtk per kiriman (opsi `timeout` web-push hanya batas diam soket), invarian lease dihitung ulang (komentar transport). p256dh divalidasi sebagai titik P-256 saat PUT. Galat tanpa kode HTTP & bukan galat jaringan → `fail WEB_PUSH_REJECTED` (tidak diulang 4x). `lastUsedAt` satu `updateMany` per putaran. |
+| 8 | `(await import("web-push")).default` + test pemuat bawaan (`sendNotification`, `getVapidHeaders`). |
+| 9 | Keputusan kunci di `scripts/deploy/vapid-keys-rules.ts` (murni + test): 0 = ada, 3 = buat (dua baris), 2 = sebagian/rusak → deploy berhenti. `env.ts`: "" = tidak diisi, berdua atau tidak sama sekali, kunci harus sah. |
+| 10 | Test unit memastikan tiga operasi ada di katalog web; jembatan & lembar di `.tsx` (keputusan murni di `web-push-rules.ts`, ber-test); `WebPushBridge`/`WebPushPrompt` dipasang sebagai komponen. |
+| 11 | Tunda 7 hari di `localStorage` (murni + test); "diblokir" tidak pernah otomatis; lembar hanya di beranda & tanpa dialog terbuka & laci tertutup; kata "HP" vs "perangkat ini" per jenis perangkat; manifest tanpa `orientation`. |
+| 12 | `webPushTtlSeconds(createdAt, now, expiresAt?)`; `loadReachableDevices(userIds, now)` (bendera web dari transport aktif) untuk dispatcher & N5. |
+
+Catatan implementasi: hanya sesi hidup yang pernah dikirimi (loader join `session: {revokedAt: null, expiresAt > now}`),
+jadi baris yang lolos penghapusan (mis. dibersihkan kaskade maintenance) tidak pernah menerima push. Bila Web Push
+mati (tanpa kunci), dispatcher mengabaikan langganan web dan kartu/lembar disembunyikan. Jawaban default §10 dipakai
+(isi lengkap di layar kunci, tanpa ajakan otomatis di desktop, sponsor ikut menerima). Pertanyaan pemilik tambahan:
+4. **Beban tinjauan NEW_DEVICE setelah memasang PWA di iPhone.** *Default:* terima (backlog mencatat opsi B1 mengabaikan
+   baris yang flag-nya hanya NEW_DEVICE pasca-pasang).
+
+
 Order: after N1, N2 and N4, before N5 (N5 reuses `loadDevices`). Migration `20261003050000_web_push_subscription`.
 
 ## 1. Goal and non-goals

@@ -13,6 +13,7 @@ import { createRateLimiter, type RateLimitConfig, type RateLimiter } from "./rat
  * - TOTP_VERIFY      "totp:<userId>"                   (hanya kode TOTP salah/replay: login & konfirmasi)
  * - CHECK_IN / LATE_REASON / UPLOAD / IMPORT / AD_CLICK / AD_IMPRESSION  "<nama>:<userId>"
  * - EXPORT           "export:<userId>"                 (hanya unduhan yang berhasil; dicek sebelum, dihitung sesudah)
+ * - WEB_PUSH         "u:<userId>"                      (kontrak PUT langganan Web Push, N3)
  * `ipKey` = `rateLimitKeyForIp(clientIp(req))` (IPv6 dinormalisasi ke /64).
  */
 const MINUTE_MS = 60_000;
@@ -35,6 +36,8 @@ export const RATE_LIMITS = {
   AD_IMPRESSION: { limit: 30, windowMs: MINUTE_MS },
   // Ekspor rekap Excel (A3): cukup untuk mengunduh per kelas satu angkatan dalam satu jendela.
   EXPORT: { limit: 30, windowMs: 10 * MINUTE_MS },
+  // Langganan Web Push (N3): sinkron ulang per identitas/kunci jarang; 20 per 10 menit menahan loop klien rusak.
+  WEB_PUSH: { limit: 20, windowMs: 10 * MINUTE_MS },
 } as const satisfies Record<string, RateLimitConfig>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

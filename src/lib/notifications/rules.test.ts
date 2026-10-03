@@ -35,9 +35,8 @@ test("assertDedupKey: 1..64 karakter; tanpa kunci boleh", () => {
   assert.throws(() => assertDedupKey(""), RangeError);
 });
 
-test("push hanya untuk siswa", () => {
-  assert.equal(initialPushStatus("STUDENT"), "PENDING");
-  assert.equal(initialPushStatus("SCHOOL_ADMIN"), "SKIPPED");
+test("semua peran diantre push (N3); dispatcher menandai NO_DEVICE bila tanpa perangkat", () => {
+  for (const role of ["STUDENT", "SCHOOL_ADMIN", "SUPER_ADMIN", "SPONSOR"] as const) assert.equal(initialPushStatus(role), "PENDING");
 });
 
 test("previewText merapikan spasi dan memotong di batas kata", () => {

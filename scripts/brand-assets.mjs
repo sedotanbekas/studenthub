@@ -6,6 +6,9 @@
  * - public/brand/splash-tassel.webp   rumbai toga bergaya stiker (berayun di splash), kanvas sama.
  * - public/brand/splash-shape.webp    siluet gabungan (alfa) = bentuk lubang masker saat halaman disingkap.
  * - src/app/icon.png (96 px), src/app/apple-icon.png (180 px, latar putih)  favicon & ikon layar utama iOS.
+ * - public/brand/app-192.png, app-512.png (latar putih), app-maskable-512.png (tanda 70% — zona aman maskable),
+ *   badge-96.png (siluet putih beralfa; Android hanya memakai alfanya)  ikon PWA & notifikasi (N3).
+ *   Bila logo berganti, GANTI NAMA berkas ikon PWA (Chrome hanya memperbarui ikon terpasang bila URL-nya berubah).
  * Mencetak geometri splash (titik pusat zoom, jari-jari lingkaran dalam, poros rumbai) untuk
  * src/lib/frontend/splash-rules.ts. Jalankan: node scripts/brand-assets.mjs [sumber.jpg]
  */
@@ -148,19 +151,34 @@ async function main() {
   await save(markRgba, W, H, markCrop, MARK_SIZE, `${OUT}/mark.webp`);
   await save(markRgba, W, H, markCrop, 96, resolve("src/app/icon.png"), "png");
   await appleIcon(markRgba, W, H, markCrop);
+  await pwaIcons(markRgba, alpha, W, H, markCrop);
   printGeometry(shape, W, H, splashCrop);
+}
+
+/** Tanda di tengah kanvas persegi berlatar putih pekat (ukuran `size`, tanda `ratio` dari sisi). */
+async function paddedIcon(markRgba, W, H, markCrop, size, ratio, file) {
+  const inner = Math.round(size * ratio);
+  const tmp = resolve(OUT, ".padded-mark.png");
+  await save(markRgba, W, H, markCrop, inner, tmp, "png");
+  const offset = Math.round((size - inner) / 2);
+  await sharp({ create: { width: size, height: size, channels: 4, background: "#ffffff" } })
+    .composite([{ input: tmp, left: offset, top: offset }]).flatten({ background: "#ffffff" }).png({ compressionLevel: 9, palette: true, quality: 95 }).toFile(file);
+  rmSync(tmp);
+  console.log(`Aset: ${file}`);
 }
 
 /** Ikon layar utama iOS: latar putih pekat (iOS membulatkan sudutnya sendiri), tanda 76%. */
 async function appleIcon(markRgba, W, H, markCrop) {
-  const inner = Math.round(180 * 0.76);
-  const tmp = resolve(OUT, ".apple-mark.png");
-  await save(markRgba, W, H, markCrop, inner, tmp, "png");
-  const offset = Math.round((180 - inner) / 2);
-  await sharp({ create: { width: 180, height: 180, channels: 4, background: "#ffffff" } })
-    .composite([{ input: tmp, left: offset, top: offset }]).flatten({ background: "#ffffff" }).png({ compressionLevel: 9, palette: true, quality: 95 }).toFile(resolve("src/app/apple-icon.png"));
-  rmSync(tmp);
-  console.log("Aset: src/app/apple-icon.png");
+  await paddedIcon(markRgba, W, H, markCrop, 180, 0.76, resolve("src/app/apple-icon.png"));
+}
+
+/** Ikon PWA (manifest) & ikon badge notifikasi (N3). */
+async function pwaIcons(markRgba, alpha, W, H, markCrop) {
+  await paddedIcon(markRgba, W, H, markCrop, 192, 0.76, `${OUT}/app-192.png`);
+  await paddedIcon(markRgba, W, H, markCrop, 512, 0.76, `${OUT}/app-512.png`);
+  await paddedIcon(markRgba, W, H, markCrop, 512, 0.7, `${OUT}/app-maskable-512.png`);
+  const silhouette = layer(new Uint8ClampedArray(W * H * 3).fill(255), alpha.map(a => (a > 0.35 ? 1 : 0)), new Float64Array(W * H), W, H);
+  await save(silhouette, W, H, squareAround(bbox(alpha, W, H, 0.05), 0.12), 96, `${OUT}/badge-96.png`, "png");
 }
 
 /** Titik terdalam siluet (pusat zoom masker) & jari-jari lingkaran dalamnya, relatif sisi kanvas splash. */

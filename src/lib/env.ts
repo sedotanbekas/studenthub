@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { parseTotpKey } from "./auth/totp-crypto";
+import { isVapidPublicKey, isVapidPrivateKey } from "./push/web/vapid-keys";
 
 /**
  * Konfigurasi lingkungan tervalidasi. Dibaca malas (getEnv) agar `next build` tidak membutuhkan
  * rahasia produksi. Proses gagal cepat saat pertama kali env dipakai bila konfigurasi tidak valid.
  */
+/** String kosong ("" di .env) = tidak diisi. */
+const optionalText = () => z.string().optional().transform((v) => (v ? v : undefined));
+
 const secret = (name: string) =>
   z.string({ error: `${name} wajib diisi` }).min(32, `${name} minimal 32 karakter`);
 
@@ -36,6 +40,13 @@ const envSchema = z
       .optional()
       .transform((v) => (v ? v : undefined))
       .refine((v) => v === undefined || /^[^:]+:.{8,}$/.test(v), "DOCS_BASIC_AUTH harus user:password (password >= 8)"),
+    /**
+     * Kunci VAPID Web Push (N3): dibuat sekali oleh skrip deploy (scripts/deploy/vapid-keys.ts), JANGAN diganti —
+     * semua langganan push browser akan putus. Tanpa kunci = Web Push mati (dev). Subjek bawaan = APP_ORIGIN.
+     */
+    VAPID_PUBLIC_KEY: optionalText(),
+    VAPID_PRIVATE_KEY: optionalText(),
+    VAPID_SUBJECT: optionalText(),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     APP_VERSION: z.string().default("dev"),
     DEFER_MODE: z.enum(["after", "inline"]).default("after"),
@@ -48,7 +59,15 @@ const envSchema = z
     if (env.NODE_ENV === "production" && !env.DOCS_BASIC_AUTH) {
       ctx.addIssue({ code: "custom", message: "DOCS_BASIC_AUTH wajib di produksi" });
     }
+    checkVapid(env, ctx);
   });
+
+function checkVapid(env: { VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_KEY?: string }, ctx: z.RefinementCtx): void {
+  const { VAPID_PUBLIC_KEY: pub, VAPID_PRIVATE_KEY: priv } = env;
+  if (!pub && !priv) return;
+  if (!pub || !priv) ctx.addIssue({ code: "custom", message: "VAPID_PUBLIC_KEY dan VAPID_PRIVATE_KEY wajib diisi berdua atau tidak sama sekali" });
+  else if (!isVapidPublicKey(pub) || !isVapidPrivateKey(priv)) ctx.addIssue({ code: "custom", message: "Kunci VAPID tidak valid (base64url P-256: publik 65 byte, privat 32 byte)" });
+}
 
 export type Env = z.infer<typeof envSchema>;
 

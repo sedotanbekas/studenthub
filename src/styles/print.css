@@ -7,7 +7,7 @@
 @media print {
   @page { size: A4; margin: 14mm 12mm; }
   html, body { background: #fff !important; color: #000; }
-  body::before, .sidebar, .sidebar-overlay, .topbar, .tab-bar, .demo-banner, .toast, .scope-select { display: none !important; }
+  body::before, .sidebar, .sidebar-overlay, .topbar, .tab-bar, .demo-banner, .toast, .push-sheet, .scope-select { display: none !important; }
   .app-shell { display: block; min-height: 0; }
   .page-content { max-width: none; padding: 0; }
   *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; }

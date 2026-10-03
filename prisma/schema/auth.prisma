@@ -67,9 +67,9 @@ model User {
   leaveReviews             LeaveRequest[]
   invoicesVoided           Invoice[]
   submissionReviews        PaymentSubmission[]
-  paymentsRecorded         Payment[]            @relation("PaymentRecordedBy")
-  paymentsVoided           Payment[]            @relation("PaymentVoidedBy")
-  sponsorsReviewed         Sponsor[]            @relation("SponsorReviewer")
+  paymentsRecorded         Payment[]             @relation("PaymentRecordedBy")
+  paymentsVoided           Payment[]             @relation("PaymentVoidedBy")
+  sponsorsReviewed         Sponsor[]             @relation("SponsorReviewer")
   adsReviewed              Ad[]
   adClicks                 AdClick[]
   topUpReviews             TopUpRequest[]
@@ -77,8 +77,9 @@ model User {
   filesUploaded            StoredFile[]
   auditLogs                AuditLog[]
   loginEvents              LoginEvent[]
-  attendanceAnomalyReviews Attendance[]         @relation("AttendanceAnomalyReviewer")
+  attendanceAnomalyReviews Attendance[]          @relation("AttendanceAnomalyReviewer")
   notificationMutes        NotificationMute[]
+  webPushSubscriptions     WebPushSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,8 +108,9 @@ model AuthSession {
   revokedAt     DateTime?
   revokeReason  SessionRevokeReason?
 
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  refreshTokens RefreshToken[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  refreshTokens       RefreshToken[]
+  webPushSubscription WebPushSubscription?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -118,6 +120,31 @@ model AuthSession {
   @@index([expiresAt])
   /// Retensi sesi dicabut > 90 hari (maintenance-daily) tanpa scan seluruh tabel.
   @@index([revokedAt])
+}
+
+/// Langganan Web Push (PWA) satu browser untuk satu sesi WEB (N3, keputusan pemilik 2026-10-03). Endpoint unik
+/// (hash SHA-256): ganti akun di browser yang sama memindahkan baris ke sesi baru. Hanya sesi hidup yang dikirimi;
+/// baris dihapus saat sesinya dicabut, saat push service menjawab 404/410, atau kaskade saat sesi dibersihkan.
+model WebPushSubscription {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionId    String   @unique
+  endpointHash String   @unique @db.Char(64)
+  /// URL push service — setara token: tidak pernah dilog utuh atau dikembalikan API.
+  endpoint     String   @db.VarChar(2048)
+  p256dh       String   @db.VarChar(128)
+  auth         String   @db.VarChar(64)
+  userAgent    String?  @db.VarChar(255)
+  /// Terakhir didaftarkan ulang atau berhasil dikirimi push.
+  lastUsedAt   DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  session AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 /// "Ingat perangkat ini" (30 hari): login dari perangkat ini tidak meminta kode TOTP. Hanya hash SHA-256

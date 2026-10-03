@@ -1,16 +1,18 @@
 import type { SessionRevokeReason } from "@prisma/client";
 import type { Tx } from "@/lib/db";
+import { forgetRevokedWebPush } from "@/lib/push/web/revoke";
 import { forgetTrustedDevices } from "./trusted-device";
 
 /**
- * Pencabutan sesi (idempoten). Token push sesi ikut dihapus agar HP tidak lagi menerima
- * notifikasi akun tersebut. Efek berlaku pada request berikutnya (getAuth memeriksa AuthSession).
+ * Pencabutan sesi (idempoten). Token push Expo & langganan Web Push (N3) sesi ikut dihapus agar perangkat tidak
+ * lagi menerima notifikasi akun tersebut. Efek berlaku pada request berikutnya (getAuth memeriksa AuthSession).
  */
 export async function revokeSession(tx: Tx, sessionId: string, reason: SessionRevokeReason, now: Date): Promise<boolean> {
   const result = await tx.authSession.updateMany({
     where: { id: sessionId, revokedAt: null },
     data: { revokedAt: now, revokeReason: reason, expoPushToken: null },
   });
+  await forgetRevokedWebPush(tx, { id: sessionId });
   return result.count > 0;
 }
 
@@ -26,6 +28,7 @@ export async function revokeAllSessions(
     where: { userId, revokedAt: null, ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}) },
     data: { revokedAt: now, revokeReason: reason, expoPushToken: null },
   });
+  await forgetRevokedWebPush(tx, { userId });
   // Semua sesi dicabut = perangkat tepercaya ikut dilupakan (login berikutnya kembali meminta TOTP).
   await forgetTrustedDevices(tx, userId);
   return result.count;
@@ -37,5 +40,6 @@ export async function revokeSchoolSessions(tx: Tx, schoolId: string, reason: Ses
     where: { revokedAt: null, user: { schoolId } },
     data: { revokedAt: now, revokeReason: reason, expoPushToken: null },
   });
+  await forgetRevokedWebPush(tx, { user: { schoolId } });
   return result.count;
 }

@@ -13,7 +13,8 @@ dengan alasan penundaan dan pemicu untuk mengerjakannya. Urutan tidak menunjukka
 | Unggahan PDF | Hanya foto JPEG/PNG/WebP (di-encode ulang, tanpa EXIF) | Sekolah wajib menerima surat dokter PDF |
 | Tile peta sendiri (proxy/cache tile) | Peta absensi admin & siswa memuat tile langsung dari `tile.openstreetmap.org` (pihak ketiga melihat IP admin + area koordinat check-in; kebijakan OSM membatasi pemakaian berat) | Sebelum trafik produksi besar, atau kebijakan privasi sekolah mensyaratkan tanpa pihak ketiga |
 | Pencarian di riwayat top-up super admin | Tab riwayat top-up hanya berpaginasi (`GET /platform/topups` belum menerima `q`) | Super admin kesulitan menemukan top-up lama |
-| Push receipts Expo & penggabungan notifikasi admin per pengajuan | Push satu arah; status gagal dari tiket saja; inbox tetap sumber kebenaran; absensi sudah satu rekap harian per sekolah (N4) | Volume push besar / keluhan push tidak sampai |
+| Push receipts Expo & penggabungan notifikasi admin per pengajuan | Push satu arah; status gagal dari tiket saja (Web Push tidak butuh receipt: status HTTP langsung, N3); inbox tetap sumber kebenaran; absensi sudah satu rekap harian per sekolah (N4) | Volume push besar / keluhan push tidak sampai |
+| Pengingat ulang izin notifikasi / ajakan setelah absen pertama | Ajakan Web Push hanya di beranda HP/aplikasi terpasang, tunda 7 hari; "diblokir" tidak pernah diajak otomatis (kartu Keamanan akun) | Persentase akun dengan notifikasi aktif rendah |
 | Anomali `IMPOSSIBLE_TRAVEL` / `IDENTICAL_COORDINATES` | Flag lain tersimpan; tinjau anomali per catatan (B1) dipakai | Pola kecurangan check-in terbukti di lapangan |
 | REFUND ledger sponsor | Hanya TOPUP / CLICK_CHARGE / ADJUSTMENT | Ada permintaan pengembalian dana sponsor (butuh aturan batas refundable + persetujuan SA kedua, lihat review-security) |
 | Multi-user sponsor | Satu akun login per sponsor | Sponsor korporat butuh beberapa operator |
@@ -78,6 +79,13 @@ Satu poller per tab (staf 30 dtk, siswa 60 dtk, hanya saat terlihat). Ditunda: (
 BroadcastChannel — kerjakan bila banyak admin membuka beberapa jendela sekaligus; (b) SSE/push untuk staf — kerjakan
 bila 30 detik terasa lambat setelah Web Push N3 berjalan. Log `request` 2xx unread-count sudah tidak ditulis; tab
 terlihat memutar token tiap 15 menit (±1 transaksi refresh/detik per 1.000 siswa terlihat) — pantau bila beban DB naik.
+
+### Tanda NEW_DEVICE setelah memasang aplikasi di iPhone (N3)
+Di iPhone, aplikasi layar utama punya penyimpanan sendiri: masuk dari ikon = perangkat baru (sesi Safari digantikan) dan
+check-in 7 hari berikutnya ditandai `NEW_DEVICE` (MEDIUM -> antrean "perlu ditinjau" B1 & hitungan rekap N4); masuk
+lewat Safari lagi membalikkannya dan mematikan notifikasi aplikasi. Perkiraan beban: siswa iPhone yang memasang × ±5
+catatan di minggu pertama. Kerjakan (B1: abaikan baris yang flag-nya hanya NEW_DEVICE pasca-pasang) bila antrean
+tinjauan membengkak setelah N3 — keputusan pemilik.
 
 ### Rekap/peringatan kehadiran per kelas untuk wali kelas (N4)
 Rekap harian dikirim per sekolah ke semua admin (bisa dimatikan per akun: kategori Kehadiran). Kerjakan bila ada tautan

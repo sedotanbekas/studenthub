@@ -3,6 +3,7 @@ import type { Tx } from "@/lib/db";
 import { conflict, type AppError } from "@/lib/http/errors";
 import type { SchoolTz } from "@/lib/time/zone";
 import type { StudentStatusValue } from "./constants";
+import { forgetRevokedWebPush } from "@/lib/push/web/revoke";
 import { assertReleaseQuota } from "./nisn-release-log";
 import { decideNisnClaim } from "./nisn-rules";
 
@@ -86,5 +87,6 @@ export async function releaseGraduates(tx: Tx, holders: readonly LockedHolder[],
     where: { userId: { in: holders.map((h) => h.userId) }, revokedAt: null },
     data: { revokedAt: ctx.now, revokeReason: "ACCOUNT_DISABLED", expoPushToken: null },
   });
+  await forgetRevokedWebPush(tx, { userId: { in: holders.map((h) => h.userId) } });
   return holders.map((h) => ({ id: h.id, schoolId: h.schoolId, userId: h.userId, nisn: h.activeNisn }));
 }

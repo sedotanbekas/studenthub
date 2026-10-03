@@ -40,7 +40,7 @@ test("lockKey membuat baris kunci dan lockRows mengunci id terurut", async () =>
   await assert.rejects(withTx((tx) => lockKey(tx, "")));
 });
 
-test("notifikasi: siswa PENDING push, staf SKIPPED; hanya akun aktif", async () => {
+test("notifikasi: semua peran diantre push (PENDING, N3); hanya akun aktif", async () => {
   const school = await createSchool();
   const admin = await createSchoolAdmin(school.id);
   const inactiveAdmin = await createSchoolAdmin(school.id);
@@ -56,14 +56,14 @@ test("notifikasi: siswa PENDING push, staf SKIPPED; hanya akun aktif", async () 
   ]);
   assert.deepEqual(counts, [1, 1, 0]);
   const adminRow = await prisma.notification.findFirstOrThrow({ where: { userId: admin.id } });
-  assert.equal(adminRow.pushStatus, "SKIPPED");
+  assert.equal(adminRow.pushStatus, "PENDING");
   assert.equal(adminRow.body, "Isi uji notifikasi");
   assert.deepEqual(adminRow.data, { screen: "student", id: st.student.id });
   const studentRow = await prisma.notification.findFirstOrThrow({ where: { userId: st.user.id } });
   assert.equal(studentRow.pushStatus, "PENDING");
   assert.equal(studentRow.category, "STUDENT_AFFAIRS");
-  assert.equal(deferred.length, 1);
-  await deferred[0]?.();
+  assert.equal(deferred.length, 2, "satu kick per panggilan notify yang menulis baris PENDING");
+  for (const task of deferred) await task();
 });
 
 test("notifikasi ke super admin & anggota sponsor", async () => {
@@ -75,7 +75,7 @@ test("notifikasi ke super admin & anggota sponsor", async () => {
     await notifySponsorMembers(tx, sp.sponsor.id, { type: "TOPUP_APPROVED", title: "Disetujui", body: "Saldo bertambah" }, ctx);
   });
   assert.ok(await prisma.notification.findFirst({ where: { userId: sa.id, type: "TOPUP_SUBMITTED" } }));
-  assert.equal((await prisma.notification.findFirstOrThrow({ where: { userId: sp.user.id } })).pushStatus, "SKIPPED");
+  assert.equal((await prisma.notification.findFirstOrThrow({ where: { userId: sp.user.id } })).pushStatus, "PENDING");
 });
 
 test("pencabutan sesi idempoten dan membersihkan token push", async () => {

@@ -9,6 +9,7 @@ import { toSessionItem, type IssuedSession } from "./dto";
 import type { SessionItem } from "./auth-schemas";
 import { requirePrincipal, type ActionContext } from "./principal";
 import { generateRefreshToken, refreshExpiry, sessionExpiry } from "./refresh-rules";
+import { forgetRevokedWebPush } from "@/lib/push/web/revoke";
 import { revokeAllSessions, revokeSession } from "./sessions";
 
 /**
@@ -68,13 +69,17 @@ async function revokeReplacedSessions(tx: Tx, input: NewSessionInput): Promise<v
       where: { deviceId: input.deviceId, revokedAt: null, userId: { not: input.userId } },
       data: replaced,
     });
+    await forgetRevokedWebPush(tx, { deviceId: input.deviceId, userId: { not: input.userId } });
   }
   const liveSessions = await tx.authSession.findMany({
     where: { userId: input.userId, revokedAt: null, expiresAt: { gt: input.now } },
     select: { id: true, platform: true, deviceId: true, lastUsedAt: true, createdAt: true },
   });
   const ids = planLoginRevocations({ role: input.role, platform: input.platform, deviceId: input.deviceId, userAgent: input.userAgent, liveSessions });
-  if (ids.length > 0) await tx.authSession.updateMany({ where: { id: { in: ids }, revokedAt: null }, data: replaced });
+  if (ids.length > 0) {
+    await tx.authSession.updateMany({ where: { id: { in: ids }, revokedAt: null }, data: replaced });
+    await forgetRevokedWebPush(tx, { id: { in: ids } });
+  }
 }
 
 /**

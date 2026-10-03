@@ -8,6 +8,7 @@ import { calendarContracts } from "@/lib/calendar/contracts";
 import { academicsContracts } from "@/lib/academics/contracts";
 import { studentsContracts } from "@/lib/students/contracts";
 import { notificationsContracts } from "@/lib/notifications/contracts";
+import { webPushContracts } from "@/lib/push/web/contracts";
 import { attendanceContracts } from "@/lib/attendance/contracts";
 import { reportCardsContracts } from "@/lib/report-cards/contracts";
 import { billingContracts } from "@/lib/billing/contracts";
@@ -31,6 +32,7 @@ export const ALL_CONTRACTS: readonly AnyContract[] = [
   ...academicsContracts,
   ...studentsContracts,
   ...notificationsContracts,
+  ...webPushContracts,
   ...attendanceContracts,
   ...reportCardsContracts,
   ...billingContracts,

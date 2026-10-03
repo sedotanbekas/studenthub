@@ -15,8 +15,9 @@ import {
 
 /**
  * SATU-SATUNYA jalur tulis notifikasi. Dipanggil di DALAM transaksi bisnis (rollback = tanpa
- * notifikasi). Siswa mendapat pushStatus PENDING (dikirim dispatcher), peran lain SKIPPED. Siaran ke admin
- * sekolah disaring saat MENULIS menurut kategori yang dimatikan tiap akun (N2) — inbox, badge, dan push ikut.
+ * notifikasi). Semua peran mendapat pushStatus PENDING (dispatcher: Expo / Web Push, N3; tanpa perangkat -> SKIPPED).
+ * Siaran ke admin sekolah disaring saat MENULIS menurut kategori yang dimatikan tiap akun (N2) — inbox, badge, dan
+ * push ikut.
  */
 export interface NotificationEvent {
   type: NotificationType;

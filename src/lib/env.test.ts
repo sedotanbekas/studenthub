@@ -38,3 +38,15 @@ test("parseEnv: SUPER_ADMIN_TOTP bawaan off (keputusan pemilik 2026-10-02); hany
 test("parseEnv: produksi wajib DOCS_BASIC_AUTH", () => {
   assert.throws(() => parseEnv({ ...BASE, NODE_ENV: "production" }), /DOCS_BASIC_AUTH wajib/);
 });
+
+test("parseEnv: kunci VAPID (N3) berdua atau tidak sama sekali; kosong = tidak diisi; harus sah", async () => {
+  const { generateVapidKeys } = await import("./push/web/vapid-keys");
+  const keys = generateVapidKeys();
+  const none = parseEnv({ ...BASE, VAPID_PUBLIC_KEY: "", VAPID_PRIVATE_KEY: "" });
+  assert.equal(none.VAPID_PUBLIC_KEY, undefined);
+  assert.equal(none.VAPID_PRIVATE_KEY, undefined);
+  const both = parseEnv({ ...BASE, VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey, VAPID_SUBJECT: "mailto:ops@studenthub.id" });
+  assert.equal(both.VAPID_PUBLIC_KEY, keys.publicKey);
+  assert.throws(() => parseEnv({ ...BASE, VAPID_PUBLIC_KEY: keys.publicKey }), /berdua/);
+  assert.throws(() => parseEnv({ ...BASE, VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: "rusak" }), /tidak valid/);
+});

@@ -7,7 +7,7 @@
 #   bash scripts/deploy/remote-deploy.sh <staging|production>
 #
 # Urutan: preflight (user, folder, .env, alat, disk) -> pnpm install --frozen-lockfile -> penjaga
-# nama database -> backup database -> prisma migrate deploy -> (staging) seed demo -> build di bawah
+# nama database -> kunci VAPID Web Push (dibuat sekali) -> backup database -> prisma migrate deploy -> (staging) seed demo -> build di bawah
 # kunci build VPS -> pm2 startOrReload -> poll /api/health sampai melaporkan sha yang dipasang -> data
 # lokasi IP (pnpm geoip:update, tidak fatal).
 #
@@ -161,6 +161,22 @@ wait_for_health() {
   return 1
 }
 
+# Kunci VAPID Web Push (N3): dibuat SEKALI bila .env belum punya (keputusan & pembuatan di vapid-keys.ts, nilai tidak
+# pernah dicetak ke log). Tidak pernah diganti: semua langganan push browser akan putus. Ditambahkan sebelum build &
+# reload sehingga proses baru langsung membacanya.
+ensure_vapid_keys() {
+  local keys status=0
+  keys="$(pnpm exec tsx scripts/deploy/vapid-keys.ts)" || status=$?
+  case "$status" in
+    0) sh_log "kunci VAPID sudah ada" ;;
+    3)
+      printf '\n# Kunci VAPID Web Push (remote-deploy.sh %s). JANGAN diganti: semua langganan push akan putus.\n%s\n' "$(date -u +%F)" "$keys" >> .env
+      sh_log ".env: kunci VAPID ditambahkan (nilai tidak ditampilkan)"
+      ;;
+    *) sh_die "kunci VAPID di .env tidak lengkap/tidak sah — perbaiki manual (jangan dibuat ulang: semua langganan push putus)" ;;
+  esac
+}
+
 # Data perkiraan lokasi IP (DB-IP Lite, riwayat masuk super admin) di <STORAGE_ROOT>/geoip. Tidak fatal:
 # tanpa berkas ini riwayat masuk tetap tercatat, hanya kolom lokasi/ISP kosong.
 update_geoip() {
@@ -186,6 +202,7 @@ main() {
   # confirmModulesPurge=false: tanpa TTY pnpm membatalkan install bila node_modules perlu dibuat ulang.
   run_step "pnpm install" pnpm install --frozen-lockfile --config.confirmModulesPurge=false
   run_step "penjaga nama database" guard_database
+  run_step "kunci VAPID" ensure_vapid_keys
   run_step "backup database" env APP_DIR="$APP_DIR" BACKUP_DIR="$BACKUP_DIR" bash scripts/deploy/backup-db.sh
   run_step "migrasi database" pnpm db:migrate
   if [ "$TARGET" = staging ]; then

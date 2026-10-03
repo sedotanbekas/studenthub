@@ -47,9 +47,12 @@ export function resolveCategory(type: NotificationType, explicit?: NotificationC
   return explicit;
 }
 
-/** Push hanya untuk siswa (app mobile); peran lain memantau inbox lewat polling. */
-export function initialPushStatus(role: UserRole): PushStatus {
-  return role === "STUDENT" ? "PENDING" : "SKIPPED";
+/**
+ * Semua peran diantre push (N3, keputusan pemilik 2026-10-03: Web Push ke semua peran). Penerima tanpa perangkat
+ * (tanpa token Expo / langganan Web Push sesi hidup) ditandai dispatcher SKIPPED "NO_DEVICE".
+ */
+export function initialPushStatus(_role: UserRole): PushStatus {
+  return "PENDING";
 }
 
 /** Pratinjau teks polos: rapikan spasi, potong di batas kata tanpa memecah emoji. */

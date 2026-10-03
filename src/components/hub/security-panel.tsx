@@ -8,6 +8,7 @@ import { useHub } from "./context";
 import { Icon } from "./icon";
 import { PasswordInput } from "./password-input";
 import { DEMO_MESSAGE, SecurityCard } from "./security-card";
+import { WebPushCard } from "./web-push-card";
 
 /**
  * Isi atas halaman "Keamanan akun". Tugas wajib (ganti kata sandi awal, aktifkan TOTP) tampil sebagai kartu
@@ -20,7 +21,7 @@ export function SecurityPanel() {
     return <div className="security-panel"><SecurityCard task icon="key" title="Ganti kata sandi awal" text="Sebelum melanjutkan, buat kata sandi baru untuk mengamankan akunmu."><PasswordForm forced submitLabel="Simpan kata sandi baru" /></SecurityCard></div>;
   }
   if (me.user.totpEnrollmentRequired) return <div className="security-panel"><TotpTask /></div>;
-  return <div className="security-panel"><PasswordCard />{me.user.role === "SCHOOL_ADMIN" && <LoginEmailCard />}{me.user.role === "SUPER_ADMIN" && <TrustedDeviceCard />}</div>;
+  return <div className="security-panel"><PasswordCard /><WebPushCard />{me.user.role === "SCHOOL_ADMIN" && <LoginEmailCard />}{me.user.role === "SUPER_ADMIN" && <TrustedDeviceCard />}</div>;
 }
 
 

@@ -13,6 +13,8 @@ import { log } from "./log";
  *   Notification & AuditLog selalu ditulis TERAKHIR.
  *   Login: AppLock user -> Student -> User -> AuthSession -> LoginEvent (riwayat masuk super admin).
  *   Preferensi notifikasi (N2): AppLock user -> NotificationMute -> AuditLog.
+ *   Web Push (N3): AppLock user -> (User lewat FK) -> AuthSession -> WebPushSubscription; pencabutan sesi menghapus
+ *   langganan SETELAH AuthSession diperbarui.
  *   Tutup hari (auto-alpha, N4): AppLock kalender (bersama) -> Attendance -> Notification (urut userId, dedupKey)
  *   -> JobRun -> AuditLog. Sinkronisasi libur: hapus Attendance lalu tarik Notification per potongan sekolah.
  * JANGAN pernah `FOR UPDATE` baris School/SchoolClass sebagai mutex (baris induk sibuk karena cek FK);
@@ -109,6 +111,7 @@ export async function lockKeyShared(tx: Tx, key: string): Promise<void> {
 
 const LOCKABLE_TABLES = [
   "Student", "LeaveRequest", "Attendance", "ReportCard", "Invoice", "PaymentSubmission", "Payment", "Sponsor", "Ad", "TopUpRequest", "Announcement", "StoredFile",
+  "AuthSession",
 ] as const;
 export type LockableTable = (typeof LOCKABLE_TABLES)[number];
 

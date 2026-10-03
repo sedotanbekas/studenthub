@@ -11,6 +11,7 @@ import type { Identity } from "@/lib/frontend/types";
 import { unreadBadge } from "@/lib/frontend/unread-badge";
 import { loadSections } from "./sections";
 import { forgetResume, playLogoutSplash } from "./splash";
+import { forgetWebPush } from "./web-push";
 
 /**
  * Sesi web: akun sungguhan (cookie HttpOnly lewat /api/web) atau persona demo (sessionStorage).
@@ -153,6 +154,7 @@ function useLogout(state: SessionState): (reason?: LogoutReason) => Promise<void
       clearDemoStorage();
       forgetResume(); // keluar = sesi kerja selesai: halaman terakhir tidak dilanjutkan
       const ended = demo ? true : await api("/auth/logout", { method: "POST" }).then(() => true, () => endServerSession());
+      if (!demo) void forgetWebPush(); // N3: langganan browser, badge ikon & notifikasi tampil dilepas (tanpa menunggu)
       await covered;
       setDemo(false); setSchoolIdState(""); setMe(null);
       setLoginNotice(n => nextLoginNotice(n, { kind: "LOGOUT", reason, ended }));

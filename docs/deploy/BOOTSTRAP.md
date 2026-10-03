@@ -143,6 +143,8 @@ Semua variabel `.env.example`:
 | `STORAGE_ROOT` | `/www/wwwroot/studenthub-storage` | `/www/wwwroot/studenthub-storage-staging` |
 | `PUSH_TRANSPORT` | `log` (ganti `expo` setelah proyek EAS siap) | `log` |
 | `EXPO_ACCESS_TOKEN` | kosong (isi bila Enhanced Push Security aktif) | kosong |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | **dibuat otomatis** oleh `remote-deploy.sh` (langkah "kunci VAPID") bila belum ada — jangan diisi tangan | idem (pasangan sendiri) |
+| `VAPID_SUBJECT` | opsional; bawaan = `APP_ORIGIN` (harus `https://` bukan localhost atau `mailto:`) | opsional |
 | `DOCS_BASIC_AUTH` | `docs:<hex24>` (wajib di produksi) | `docs:<hex24>` |
 | `LOG_LEVEL` | `info` | `info` |
 | `DEMO_PASSWORD` | — (seed demo tidak pernah jalan di produksi) | `Demo<hex12>7` (akun demo `db:seed:demo`) |
@@ -166,6 +168,13 @@ ujung `.env` yang belum memilikinya (baris lain tidak disentuh, nilai tidak dice
 `sudo -iu studenthub pm2 restart studenthub` dan `studenthub-staging`. **Jangan mengganti kunci ini**
 setelah ada super admin yang mendaftarkan TOTP: rahasia lama tak bisa didekripsi sehingga super admin
 tidak bisa login; pulihkan dengan `sudo -iu studenthub bash -c 'cd /www/wwwroot/studenthub && pnpm db:totp-reset --email <email>'`.
+
+**Kunci VAPID Web Push (sejak N3).** Deploy pertama setelah N3 menambahkan `VAPID_PUBLIC_KEY` & `VAPID_PRIVATE_KEY`
+acak di ujung `.env` (nilai tidak dicetak; skrip `scripts/deploy/vapid-keys.ts`). **Jangan pernah mengganti atau
+menghapus kunci ini**: semua langganan notifikasi browser/HP akan putus dan pengguna harus mengaktifkan ulang. Ikut
+sertakan `.env` dalam cadangan. Bila deploy berhenti dengan "kunci VAPID di .env tidak lengkap/tidak sah", perbaiki
+baris `VAPID_*` secara manual (kembalikan pasangan lama dari cadangan; hapus keduanya hanya bila memang ingin
+membuat pasangan baru). Tanpa kunci (mis. dev lokal) Web Push mati dan kartu notifikasi HP disembunyikan.
 
 **Membuat database manual** (bila tidak memakai fase `db`), sebagai root MariaDB:
 

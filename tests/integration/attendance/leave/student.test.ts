@@ -91,7 +91,8 @@ describe("ajukan izin/sakit", () => {
     assert.ok(recipients.has(fx.admin.id) && recipients.has(secondAdminId));
     assert.equal(recipients.has(inactiveAdminId), false);
     assert.equal(recipients.size, 2);
-    assert.equal(notes[0]?.pushStatus, "SKIPPED");
+    // N3: staf diantre push; tanpa perangkat dispatcher menandainya SKIPPED NO_DEVICE.
+    assert.ok(notes[0]?.pushStatus === "PENDING" || (notes[0]?.pushStatus === "SKIPPED" && notes[0]?.pushError === "NO_DEVICE"), String(notes[0]?.pushStatus));
   });
 
   test("admin yang mematikan kabar Kesiswaan (N2) tidak menerima LEAVE_SUBMITTED; admin lain tetap", async () => {

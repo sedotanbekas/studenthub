@@ -58,6 +58,9 @@ jobs:
       PUBLIC_MEDIA_BASE_URL: http://127.0.0.1:3030/media
       STORAGE_ROOT: /tmp/studenthub-storage
       PUSH_TRANSPORT: memory
+      # Kunci VAPID Web Push tiruan khusus test & CI (bukan rahasia; sama dengan tests/integration/setup.ts).
+      VAPID_PUBLIC_KEY: BDHsMb5mUv8hdwi3QYmi_kfIdZ4gftGar1_SefZ9SlslFZcDT_NbsnLFLTczHnrIz9GLRsK-rx7c74Cpmtg0sUc
+      VAPID_PRIVATE_KEY: XbEi_mf6N-E_G_rHzlUPoEUdw-blEZmHH63e_JDykd4
       DOCS_BASIC_AUTH: ci:ci-docs-password
       E2E_BASE_URL: http://127.0.0.1:3030
     steps:
