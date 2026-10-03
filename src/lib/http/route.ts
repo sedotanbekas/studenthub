@@ -45,7 +45,7 @@ export function defineRoute<C extends AnyContract>(contract: C, handler: RouteHa
     } catch (error) {
       response = errorResponse(error, requestId);
     }
-    logRequest(req, contract, response.status, started, requestId, principal);
+    if (!(contract.quietSuccessLog && response.status < 400)) logRequest(req, contract, response.status, started, requestId, principal);
     return response;
   };
 }

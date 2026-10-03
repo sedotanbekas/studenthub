@@ -69,6 +69,12 @@ koreksi. Kerjakan bila wali kelas meminta mengisi alasan atas nama siswa atau si
 Ketukan "Bukan saya" di alur absen tidak dicatat server (hanya logout biasa). Kerjakan bila admin sekolah perlu
 melihat pola HP pinjaman di luar flag `SHARED_DEVICE`.
 
+### Polling badge notifikasi (N1)
+Satu poller per tab (staf 30 dtk, siswa 60 dtk, hanya saat terlihat). Ditunda: (a) berbagi antartab lewat
+BroadcastChannel — kerjakan bila banyak admin membuka beberapa jendela sekaligus; (b) SSE/push untuk staf — kerjakan
+bila 30 detik terasa lambat setelah Web Push N3 berjalan. Log `request` 2xx unread-count sudah tidak ditulis; tab
+terlihat memutar token tiap 15 menit (±1 transaksi refresh/detik per 1.000 siswa terlihat) — pantau bila beban DB naik.
+
 ### Ekspor PDF rekap kehadiran (A3)
 Rekap bulanan hanya XLSX (dicetak dari Excel: A4 lanskap, satu halaman lebar). Kerjakan bila sekolah meminta cetak
 tanpa Excel atau blok tanda tangan wali kelas / kepala sekolah.

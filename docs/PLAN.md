@@ -258,7 +258,7 @@ semua / kelas / siswa tertentu; DRAFT → PUBLISHED (fan-out ke inbox per siswa)
 pratinjau jumlah penerima. Inbox semua peran (`/notifications`, cursor, unread-count, read, read-all).
 Satu jalur tulis `notify*(tx, …)` di dalam transaksi bisnis. Push Expo hanya ke siswa (outbox
 sederhana di `Notification.pushStatus`, dikirim via `after()` + tick, mutex in-process, DeviceNotRegistered
-→ token dihapus); transport `log` sampai akun EAS siap. Dashboard web cukup polling unread-count.
+→ token dihapus); transport `log` sampai akun EAS siap. Web: satu poller badge unread-count per tab (siswa 60 dtk; Web Push menyusul N3).
 
 **Sponsor & iklan** (`/sponsor/*`, `/platform/ads*`, `/platform/topups*`, `/student/ads*`):
 PENDING boleh menyiapkan draft; hanya APPROVED yang bisa submit iklan & top-up; SUSPENDED read-only.

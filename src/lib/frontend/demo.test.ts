@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { demoDetail, demoRows, demoStudents } from "./demo";
+import { demoDetail, demoRows, demoStudents, demoUnreadCount } from "./demo";
 import { demoPersona } from "./demo-personas";
 import type { Row } from "./types";
 
@@ -66,4 +66,10 @@ test("kartu konfirmasi identitas demo (A2): kelas & NISN tersamar milik persona 
     assert.equal(facts.maskedNisn, `••••${String(student?.nisn).slice(-4)}`, key);
   }
   assert.deepEqual(identityFacts(demoRows("/student/profile", demoPersona("SCHOOL_ADMIN"))), EMPTY_FACTS);
+});
+
+test("demoUnreadCount: sama dengan item kotak masuk contoh tanpa readAt, dan > 0", () => {
+  const rows = demoRows("/notifications") as Array<{ readAt?: string | null }>;
+  assert.equal(demoUnreadCount(), rows.filter(r => !r.readAt).length);
+  assert.ok(demoUnreadCount() > 0);
 });

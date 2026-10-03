@@ -1,5 +1,26 @@
 # N1: Notification badge kept current by polling
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `N1-badge-polling.critique.md`. Semua temuan diterima; yang mengubah desain:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | `BadgePollState` menyimpan `nextDueAt` (dipertahankan saat tersembunyi; hanya timer OS yang dihapus) dan `notBefore` (Retry-After). `decideFetch` mengembalikan `fetch` / `queue` / `idle` / `wait{delayMs}` — kembali terlihat < 5 dtk setelah percobaan **menunggu jadwal**, tidak pernah "lewati" tanpa timer. Jeda 5 dtk hanya setelah percobaan berhasil; `online` setelah gagal langsung mengambil. Test: sembunyi-tampil cepat & hasil tiba saat tersembunyi tetap berlanjut. |
+| 2 | `apiFetch`: refresh 409 → tunggu `REFRESH_RACE_WAIT_MS` (300 ms) lalu ulangi; masih 401 → refresh sekali lagi; baru setelah itu `studenthub:expired` (aturan murni `afterRefresh`). Proxy tidak menghapus penanda sesi pada 409 (perubahan server kecil yang disengaja). Poller: 401 = coba lagi, hanya 403 = berhenti. |
+| 3 | `stop()`: `generation++`, batalkan, hapus timer & listener, reset seluruh keadaan (termasuk antrean & kegagalan). `apiFetch` memeriksa `signal.aborted` setelah menunggu refresh (tanpa event "Sesi berakhir"). AbortError dipetakan ke status -1 dan dibuang lewat generation. |
+| 4 | Retry-After dibaca dari body (`error.details.retryAfterSeconds`, `retryAfterFromBody`) dan disimpan sebagai `notBefore`; focus/visible/mutasi tidak menembusnya. |
+| 5 | Jitter diterapkan SETELAH batas 5 menit (270–330 dtk). |
+| 6 | Tanpa `navigator.setAppBadge` (keputusan integrasi 5): badge ikon milik service worker N3. |
+| 7 | Polling memakai `apiFetch(..., { background: true })`: sesi yang berakhir di latar **tidak** menendang pengguna dari formulir; aksi berikutnya yang menangani (perilaku hari ini tetap). |
+| 8 | Biaya dicatat: tab terlihat memutar token tiap 15 menit (1.000 siswa terlihat ≈ 1,1 transaksi refresh/detik); log `request` 2xx untuk unread-count tidak ditulis (`quietSuccessLog` di kontrak) agar log rotasi 20 MB × 14 tidak tergeser. |
+| 9 | Poller disimpan di `globalThis` (HMR dev tidak menggandakan). StrictMode: fetch pertama dibatalkan & dibuang lewat generation — tidak berbahaya. |
+| 10 | Test integrasi baru dikurangi menjadi satu asersi di test read-all yang ada (notifikasi baru setelah read-all → total 1). |
+| 11 | PLAN hanya satu kalimat keputusan; parameter di FRONTEND.md & D5; deskripsi kontrak unread-count diperbarui (30 dtk staf/sponsor, 60 dtk siswa) + `openapi:export`. |
+
+Jawaban default §10 dipakai: siswa 60 dtk; demo menampilkan angka belum dibaca data contoh tanpa jaringan.
+
+
 ## 1. Goal & non-goals
 **Goal.** The bell dot (topbar) and the count badge (sidebar "Notifikasi") keep up with the server while the hub is open. One shared poller per browser tab handles this. It fetches immediately on start, on return to the page (visible/focus/online) and right after "Tandai dibaca"/"Tandai semua dibaca". While the page is visible it fetches every 30 s (students every 60 s). It pauses while the page is hidden and backs off exponentially on errors. It makes no network calls in demo mode and stops at logout or identity change. It publishes the count to `navigator.setAppBadge` when the browser supports it, so N3 (Web Push) reuses the same badge path.
 

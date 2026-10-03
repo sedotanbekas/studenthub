@@ -13617,7 +13617,7 @@
           "Notifikasi"
         ],
         "summary": "Jumlah notifikasi belum dibaca (badge & polling dashboard)",
-        "description": "Dashboard web cukup polling endpoint ini tiap 30 detik. Tampilkan \"99+\" bila total > 99.\n\nAksi POLICY: `notification.self`.",
+        "description": "Dashboard web memakai satu poller per tab: staf & sponsor tiap 30 detik, siswa tiap 60 detik, hanya saat halaman terlihat (jitter ±10%, backoff s.d. 5 menit), segera setelah tandai dibaca. Tampilkan \"99+\" bila total > 99. Respons sukses tidak ditulis ke log request.\n\nAksi POLICY: `notification.self`.",
         "security": [
           {
             "bearerAuth": []

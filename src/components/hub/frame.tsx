@@ -7,6 +7,7 @@ import { initials } from "@/lib/frontend/format";
 import { roleLabels, tabItems } from "@/lib/frontend/modules";
 import { applyGlassMode, glassModeFor, readGlassPreference, writeGlassPreference, type GlassPreference } from "@/lib/frontend/theme";
 import type { Identity, Module } from "@/lib/frontend/types";
+import { badgeLabel } from "@/lib/frontend/badge-poll-rules";
 import { EnvBadge, EnvSwitch } from "./env-switch";
 import { HubLink } from "./hub-link";
 import { capturePage, setSlideTabs } from "./page-slide";
@@ -21,7 +22,7 @@ export function Sidebar({ me, env, modules, current, home, unread, open, onNavig
   // Laci HP dibuka: fokus ke tautan pertama agar keyboard/pembaca layar langsung berada di dalam laci.
   useEffect(() => { if (open) aside.current?.querySelector<HTMLElement>(".nav-item")?.focus(); }, [open]);
   return <aside ref={aside} className={`sidebar ${open ? "open" : ""}`}><HubLink tab href="/hub" className="brand-link" onClick={onNavigate}><Brand /></HubLink><div className="school-switch"><span className="school-icon"><Icon name="school" size={20} /></span><span><strong>{me.school?.name ?? me.sponsor?.companyName ?? "studenthub.id"}</strong><small>{roleLabels[me.user.role]}</small></span></div>
-    <nav aria-label="Navigasi utama"><HubLink tab onClick={onNavigate} className={`nav-item ${home ? "active" : ""}`} href="/hub" aria-current={home ? "page" : undefined}><Icon name="grid" />Beranda</HubLink>{groups.map(group => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{modules.filter(m => m.group === group).map(m => <HubLink tab key={m.key} onClick={onNavigate} className={`nav-item ${current?.key === m.key ? "active" : ""}`} aria-current={current?.key === m.key ? "page" : undefined} href={`/hub/${m.key}`}><Icon name={m.icon} /><span>{m.title}</span>{m.key === "notifications" && unread > 0 && <b className="count-badge">{unread}</b>}</HubLink>)}</div>)}</nav>
+    <nav aria-label="Navigasi utama"><HubLink tab onClick={onNavigate} className={`nav-item ${home ? "active" : ""}`} href="/hub" aria-current={home ? "page" : undefined}><Icon name="grid" />Beranda</HubLink>{groups.map(group => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{modules.filter(m => m.group === group).map(m => <HubLink tab key={m.key} onClick={onNavigate} className={`nav-item ${current?.key === m.key ? "active" : ""}`} aria-current={current?.key === m.key ? "page" : undefined} href={`/hub/${m.key}`}><Icon name={m.icon} /><span>{m.title}</span>{m.key === "notifications" && unread > 0 && <b className="count-badge">{badgeLabel(unread)}</b>}</HubLink>)}</div>)}</nav>
     <EnvSwitch env={env} role={me.user.role} />
     <GlassToggle />
     <button className="account-button" onClick={() => void onLogout()}><span className="avatar">{initials(me.user.name)}</span><span><strong>{me.user.name}</strong><small>Keluar dari akun</small></span><Icon name="logout" size={18} /></button></aside>;
@@ -49,7 +50,7 @@ export function Topbar({ title, home, unread, me, env, onMenu }: TopbarProps) {
     {home ? <span className="topbar-mark"><BrandMark /></span> : <button className="icon-button back-button" aria-label="Kembali" onClick={back}><Icon name="back" size={22} /></button>}
     {/* key: judul baru = elemen baru, sehingga animasi masuknya (transitions.css) selalu berjalan. */}
     <strong key={title} className="topbar-title">{title}</strong>
-    <div className="topbar-tools"><EnvBadge env={env} /><HubLink className="icon-button notification-button" href="/hub/notifications" aria-label={unread > 0 ? `Notifikasi, ${unread} belum dibaca` : "Notifikasi"}><Icon name="bell" />{unread > 0 && <i />}</HubLink><HubLink className="avatar small" href="/hub/security" aria-label="Keamanan akun">{initials(me.user.name)}</HubLink></div></header>;
+    <div className="topbar-tools"><EnvBadge env={env} /><HubLink className="icon-button notification-button" href="/hub/notifications" aria-label={unread > 0 ? `Notifikasi, ${badgeLabel(unread)} belum dibaca` : "Notifikasi"}><Icon name="bell" />{unread > 0 && <i />}</HubLink><HubLink className="avatar small" href="/hub/security" aria-label="Keamanan akun">{initials(me.user.name)}</HubLink></div></header>;
 }
 
 /** Kembali seperti iOS: ke halaman sebelumnya di dalam hub bila ada (riwayat tab ini), selain itu ke beranda. */

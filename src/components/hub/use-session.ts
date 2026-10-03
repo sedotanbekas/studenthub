@@ -8,6 +8,7 @@ import { demoHintCookie, initialSessionView, type SessionHint } from "@/lib/fron
 import { readDemoTheme, writeDemoTheme } from "@/lib/frontend/theme";
 import type { SchoolThemeColors } from "@/lib/schools/theme-rules";
 import type { Identity } from "@/lib/frontend/types";
+import { unreadBadge } from "@/lib/frontend/unread-badge";
 import { loadSections } from "./sections";
 import { forgetResume, playLogoutSplash } from "./splash";
 
@@ -59,6 +60,7 @@ async function legacySession(): Promise<Identity | null> {
  * diakhiri tanpa animasi karena halaman langsung berpindah domain sesudahnya.
  */
 export async function leaveEnvironment(): Promise<void> {
+  unreadBadge.stop(); // N1: tidak ada polling terhadap sesi yang sedang dicabut
   clearDemoStorage();
   forgetResume();
   await endServerSession();
@@ -146,6 +148,7 @@ function useLogout(state: SessionState): (reason?: LogoutReason) => Promise<void
     if (leaving.current) return;
     leaving.current = true;
     try {
+      unreadBadge.stop(); // N1 (keputusan integrasi 8): hentikan poller SEBELUM sesi dicabut -> tanpa "Sesi berakhir" palsu
       const covered = playLogoutSplash();
       clearDemoStorage();
       forgetResume(); // keluar = sesi kerja selesai: halaman terakhir tidak dilanjutkan

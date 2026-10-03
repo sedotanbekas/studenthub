@@ -36,9 +36,12 @@ export const getUnreadNotificationCountContract = defineContract({
   path: "/api/v1/notifications/unread-count",
   tag: TAG,
   summary: "Jumlah notifikasi belum dibaca (badge & polling dashboard)",
-  description: "Dashboard web cukup polling endpoint ini tiap 30 detik. Tampilkan \"99+\" bila total > 99.",
+  description:
+    "Dashboard web memakai satu poller per tab: staf & sponsor tiap 30 detik, siswa tiap 60 detik, hanya saat halaman terlihat " +
+    "(jitter ±10%, backoff s.d. 5 menit), segera setelah tandai dibaca. Tampilkan \"99+\" bila total > 99. Respons sukses tidak ditulis ke log request.",
   action: "notification.self",
   response: unreadCountSchema,
+  quietSuccessLog: true,
 });
 
 export const getNotificationContract = defineContract({

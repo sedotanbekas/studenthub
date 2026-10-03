@@ -151,6 +151,24 @@ test("POST /notifications/read-all: batas before, filter kind, jumlah updated", 
   const none = await readAllCall(me.token, {});
   assert.deepEqual(none.body?.data, { updated: 0 });
   assert.equal((await counts(me.token)).body?.data.total, 0);
+  // Badge N1 (read-your-writes): notifikasi baru setelah read-all langsung terhitung.
+  await notifyPersonal(me.userId, new Date());
+  assert.equal((await counts(me.token)).body?.data.total, 1);
+});
+
+test("unread-count (polling N1): respons sukses tidak ditulis ke log request; galat tetap dicatat", async (t) => {
+  const me = await studentSession(schoolAId);
+  const lines: string[] = [];
+  const level = process.env.LOG_LEVEL;
+  process.env.LOG_LEVEL = "info";
+  t.after(() => { if (level === undefined) delete process.env.LOG_LEVEL; else process.env.LOG_LEVEL = level; });
+  t.mock.method(console, "log", (line: string) => { lines.push(line); });
+  t.mock.method(console, "error", (line: string) => { lines.push(line); });
+  assert.equal((await counts(me.token)).status, 200);
+  assert.equal(lines.filter((l) => l.includes('"msg":"request"')).length, 0);
+  const denied = await callRoute(unreadCount, { method: "GET", url: "/api/v1/notifications/unread-count" });
+  assert.equal(denied.status, 401);
+  assert.equal(lines.filter((l) => l.includes('"msg":"request"') && l.includes('"status":401')).length, 1);
 });
 
 test("POST read-all: before di masa depan dibatasi ke sekarang (item yang datang belakangan tetap belum dibaca)", async () => {

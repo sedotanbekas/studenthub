@@ -136,7 +136,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     const response = NextResponse.json(payload, { status: upstream.status, headers: NO_STORE });
     if (tokens) { setTokens(response, tokens); setTrustedDevice(response, tokens); }
     // Refresh token ditolak: sesi sudah berakhir, halaman berikutnya langsung dirender sebagai halaman masuk.
-    if (path === "/auth/refresh" && upstream.status >= 400 && upstream.status < 500) clearHint(response);
+    // Kecuali 409 REFRESH_RACE: tab lain baru saja memutar token (sesi masih hidup; N1).
+    if (path === "/auth/refresh" && upstream.status >= 400 && upstream.status < 500 && upstream.status !== 409) clearHint(response);
     return response;
   } catch { return failure("Layanan sedang tidak tersedia. Silakan coba lagi.", 502); }
 }

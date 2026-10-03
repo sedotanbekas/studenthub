@@ -5,6 +5,8 @@ import { resolveSchema } from "@/lib/frontend/catalog";
 import type { Operation, Row, Schema } from "@/lib/frontend/types";
 import { ACTION_LABELS, isDangerAction } from "@/lib/frontend/workspace-rules";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
+import { affectsUnreadBadge } from "@/lib/frontend/badge-poll-rules";
+import { unreadBadge } from "@/lib/frontend/unread-badge";
 import { useHub } from "./context";
 import { Fields, defaults } from "./fields";
 import { Details } from "./data-view";
@@ -77,6 +79,7 @@ export function ActionDialog({ op, initial = {}, onClose, onDone }: DialogProps)
       const response = await api(scoped(buildPath(op, params), schoolId), { method: op.method, body: makeBody(values, op) });
       setResult(response.data ?? { message: "Perubahan berhasil disimpan." });
       onDone(); toast(op.method === "GET" ? "Data berhasil dimuat." : "Perubahan berhasil disimpan.");
+      if (affectsUnreadBadge(op.id)) unreadBadge.refresh(); // N1: badge langsung turun, tanpa menunggu 30 detik
       if (op.path === "/auth/change-password" || op.path === "/me/totp/confirm") await reloadMe();
       if (op.path === "/auth/logout-all") window.dispatchEvent(new Event("studenthub:expired"));
     } catch (e) { setError(e instanceof Error ? e.message : "Permintaan gagal."); if (e && typeof e === "object" && "details" in e) setErrorDetails(e.details); }

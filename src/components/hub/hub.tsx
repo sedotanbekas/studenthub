@@ -1,13 +1,15 @@
 "use client";
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/frontend/api";
 import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionFromPath } from "@/lib/frontend/modules";
 import { applyGlassMode, applyTheme, glassModeFor, readGlassPreference } from "@/lib/frontend/theme";
 import { resolveTheme } from "@/lib/schools/theme-rules";
 import { demoAllowed, type AppEnv } from "@/lib/frontend/app-env";
+import { demoUnreadCount } from "@/lib/frontend/demo";
 import type { SessionHint } from "@/lib/frontend/session-hint";
 import type { Identity } from "@/lib/frontend/types";
+import { unreadBadge } from "@/lib/frontend/unread-badge";
 import { HubContext } from "./context";
 import { DemoBanner, Sidebar, TabBar, Topbar, deviceMemory } from "./frame";
 import { Brand } from "./icon";
@@ -22,21 +24,33 @@ import { useSplash } from "./use-splash";
  * Kerangka hub yang BERTAHAN antarhalaman (dipasang di app/hub/layout.tsx): sesi, tema sekolah,
  * sidebar/topbar/tab bar. Isi halaman (children) berganti per bagian dengan transisi di page.tsx.
  */
-interface NavData { readonly userId: string; readonly unread: number; readonly schools: { id: string; name: string }[] }
+interface NavData { readonly userId: string; readonly schools: { id: string; name: string }[] }
 
 /** Data navigasi terikat pada user: data milik akun sebelumnya tidak pernah tampil untuk akun berikutnya. */
 function useNavigationData(me: Identity | null, demo: boolean): Omit<NavData, "userId"> {
   const [data, setData] = useState<NavData | null>(null);
   useEffect(() => {
-    if (!me || demo || isRestricted(me)) return;
+    if (!me || demo || isRestricted(me) || me.user.role !== "SUPER_ADMIN") return;
     let active = true;
     const userId = me.user.id;
-    const merge = (patch: Partial<NavData>) => { if (active) setData(prev => ({ unread: 0, schools: [], ...(prev?.userId === userId ? prev : {}), ...patch, userId })); };
-    api("/notifications/unread-count").then(r => merge({ unread: Number((r.data as { total?: number }).total ?? 0) })).catch(() => {});
-    if (me.user.role === "SUPER_ADMIN") api("/platform/schools?limit=100").then(r => merge({ schools: r.data as { id: string; name: string }[] })).catch(() => {});
+    api("/platform/schools?limit=100").then(r => { if (active) setData({ userId, schools: r.data as { id: string; name: string }[] }); }).catch(() => {});
     return () => { active = false; };
   }, [me, demo]);
-  return data && me && !demo && data.userId === me.user.id ? data : { unread: 0, schools: [] };
+  return data && me && !demo && data.userId === me.user.id ? data : { schools: [] };
+}
+
+/** Badge notifikasi: satu poller bersama (unread-badge.ts, N1); demo = angka data contoh, tanpa jaringan. */
+function useUnreadBadge(me: Identity | null, demo: boolean): number {
+  const live = useSyncExternalStore(unreadBadge.subscribe, unreadBadge.getSnapshot, () => 0);
+  const userId = me?.user.id;
+  const role = me?.user.role;
+  const restricted = me ? isRestricted(me) : true;
+  useEffect(() => {
+    if (!userId || !role || demo || restricted) { unreadBadge.stop(); return; }
+    unreadBadge.start({ userId, role });
+    return () => unreadBadge.stop();
+  }, [userId, role, demo, restricted]);
+  return demo ? demoUnreadCount() : live;
 }
 
 /** Tema sekolah milik identitas aktif (keluar/ganti akun -> bawaan) + mode kaca pilihan perangkat, juga di halaman masuk. */
@@ -91,7 +105,8 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
   // Splash + halaman terakhir yang dilanjutkan (setelah forgetScrollPositions di atas).
   const resuming = useSplash(me, demo, session.ready && sections.ready, pathname);
   const drawer = useDrawer();
-  const { schools, unread } = useNavigationData(me, demo);
+  const { schools } = useNavigationData(me, demo);
+  const unread = useUnreadBadge(me, demo);
   useAppearance(me);
   useSectionGuard(me, section);
   const toast = notice ? <div className="toast" role="status">{notice}</div> : null;

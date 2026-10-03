@@ -48,6 +48,8 @@ export interface RouteContract<
   readonly binary?: boolean;
   /** Tipe konten respons biner untuk dokumentasi (default: gambar JPEG/PNG/WebP). */
   readonly binaryMediaTypes?: readonly string[];
+  /** Lewati log `request` untuk respons sukses (endpoint polling bervolume tinggi); galat tetap dicatat. */
+  readonly quietSuccessLog?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
