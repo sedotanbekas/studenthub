@@ -135,3 +135,17 @@ model Notification {
   @@index([pushStatus, pushNextAttemptAt])
   @@index([announcementId])
 }
+
+/// Kategori siaran admin sekolah yang DIMATIKAN untuk satu akun (N2, keputusan pemilik 2026-10-03).
+/// Tanpa baris = terima semua. Hanya menyaring notifySchoolAdmins saat menulis; notifikasi pribadi
+/// dan SYSTEM selalu dikirim (CHECK chk_notification_mute_category). Bila NotificationCategory bertambah
+/// nilai (di UJUNG), kolom `category` di sini ikut di-MODIFY bersama Notification & Announcement.
+model NotificationMute {
+  userId    String
+  category  NotificationCategory
+  createdAt DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([userId, category])
+}

@@ -13,7 +13,7 @@ import { toDbDate } from "../../../src/lib/time/zone";
 import { disconnect, prisma, uniq } from "../helpers/db";
 import { createSchool, createSchoolAdmin, createSponsor, createStoredFile, createStudent, uniqEmail, uniqNisn } from "../helpers/factories";
 import { AD_END, AD_START, buildCheckFixture, type CheckFixture } from "./check-fixture";
-import { adLedgerCases, attendanceCases, billingCases, type CheckCase } from "./check-cases";
+import { adLedgerCases, attendanceCases, billingCases, notificationCases, type CheckCase } from "./check-cases";
 
 after(disconnect);
 
@@ -298,6 +298,7 @@ const ALL_CASES: readonly CheckCase[] = [
   ...attendanceCases(() => fx),
   ...billingCases(() => fx),
   ...adLedgerCases(() => fx),
+  ...notificationCases(() => fx),
   ...SPONSOR_CASES,
 ];
 

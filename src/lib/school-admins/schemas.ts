@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { queryBoolean, schoolIdQuery } from "@/lib/academics/schema-common";
 import { pageQuerySchema } from "@/lib/http/pagination";
+import { ADMIN_MUTABLE_CATEGORIES } from "@/lib/notifications/rules";
 
 /** Skema zod akun admin sekolah yang dikelola admin utama (/api/v1/school/admins*). */
 const emailSchema = z.string().trim().toLowerCase().max(191).pipe(z.email("Format email tidak valid."));
@@ -51,6 +52,7 @@ export const schoolAdminSchema = z
     tempPasswordExpiresAt: iso.nullable(),
     lastLoginAt: iso.nullable(),
     createdAt: iso,
+    mutedCategories: z.array(z.enum(ADMIN_MUTABLE_CATEGORIES)).meta({ description: "Kabar sekolah yang TIDAK dikirim ke akun ini (N2); [] = terima semua." }),
   })
   .meta({ id: "SchoolAdmin" });
 export type SchoolAdminDto = z.input<typeof schoolAdminSchema>;

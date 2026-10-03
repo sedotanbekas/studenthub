@@ -88,6 +88,7 @@ export const ACTION_LABELS: Readonly<Record<string, ActionText>> = {
   cancelOwnPaymentSubmission: { label: "Batalkan bukti bayar" },
   getOwnPaymentReceipt: { label: "Lihat kuitansi" },
   markNotificationRead: { label: "Tandai dibaca" },
+  updateSchoolAdminNotificationPreferences: { label: "Atur notifikasi", hint: "Pilih kabar sekolah yang dikirim ke akun ini." },
   upsertSingleReportCardGrades: { label: "Ubah nilai" },
   revokeMySession: { label: "Keluarkan perangkat ini" },
 };

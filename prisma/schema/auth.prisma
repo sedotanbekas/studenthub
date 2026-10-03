@@ -78,6 +78,7 @@ model User {
   auditLogs                AuditLog[]
   loginEvents              LoginEvent[]
   attendanceAnomalyReviews Attendance[]         @relation("AttendanceAnomalyReviewer")
+  notificationMutes        NotificationMute[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -94,6 +94,20 @@ describe("ajukan izin/sakit", () => {
     assert.equal(notes[0]?.pushStatus, "SKIPPED");
   });
 
+  test("admin yang mematikan kabar Kesiswaan (N2) tidak menerima LEAVE_SUBMITTED; admin lain tetap", async () => {
+    const muted = await createSchoolAdmin(fx.school.id);
+    // Penerima yang tersisa harus pernah masuk; bila tidak, cadangan mengirim ke semua admin (rules.ts).
+    await prisma.user.updateMany({ where: { id: { in: [muted.id, fx.admin.id] } }, data: { lastLoginAt: new Date() } });
+    await prisma.notificationMute.create({ data: { userId: muted.id, category: "STUDENT_AFFAIRS" } });
+    const st = await createStudentWithToken(fx);
+    const res = await submit(st, { ...(await freeRun(1, 1)), reason: "Acara keluarga di luar kota" });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const rows = await prisma.notification.findMany({ where: { type: "LEAVE_SUBMITTED", userId: { in: [fx.admin.id, muted.id] } } });
+    const recipients = new Set(rows.filter((n) => (n.data as { id?: string } | null)?.id === res.body?.data.id).map((n) => n.userId));
+    assert.deepEqual([recipients.has(fx.admin.id), recipients.has(muted.id)], [true, false]);
+    await prisma.user.update({ where: { id: muted.id }, data: { isActive: false } });
+  });
+
   test("SAKIT >= 3 hari sekolah tanpa lampiran -> 422 ATTACHMENT_REQUIRED; 2 hari boleh", async () => {
     const st = await createStudentWithToken(fx);
     const three = await freeRun(3, 3);

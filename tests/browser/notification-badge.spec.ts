@@ -28,6 +28,7 @@ async function signedIn(page: Page, total: number): Promise<Mock> {
       return route.fulfill({ json: envelope({ total: mock.total, announcements: 0, personal: mock.total, latestCreatedAt: null }) });
     }
     if (path === "/notifications/read-all") { mock.total = 0; return route.fulfill({ json: envelope({ updated: 3 }) }); }
+    if (path === "/me/notification-preferences") return route.fulfill({ json: envelope({ mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS"], updatedAt: null, updatedBy: null }) });
     if (path === "/auth/logout") { mock.loggedOut = true; return route.fulfill({ json: envelope({ ok: true }) }); }
     if (path === "/auth/me" && mock.loggedOut) return route.fulfill({ status: 401, json: { success: false, data: null, error: { code: "UNAUTHENTICATED", message: "Silakan login." }, meta: null } });
     const data = path === "/auth/me" ? identity : path === "/school/dashboard/summary" ? demoSummary : [];

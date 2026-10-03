@@ -3,6 +3,7 @@ import { prisma, type Tx } from "@/lib/db";
 import { notFound } from "@/lib/http/errors";
 import { likeSearch } from "@/lib/http/like";
 import { toSkipTake } from "@/lib/http/pagination";
+import { normalizeMutedCategories } from "@/lib/notifications/rules";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import type { ListSchoolAdminsQuery, SchoolAdminDto } from "./schemas";
 
@@ -19,6 +20,7 @@ const ADMIN_SELECT = {
   lastLoginAt: true,
   createdAt: true,
   school: { select: { npsn: true } },
+  notificationMutes: { select: { category: true } },
 } as const satisfies Prisma.UserSelect;
 
 type AdminRow = Prisma.UserGetPayload<{ select: typeof ADMIN_SELECT }>;
@@ -36,6 +38,8 @@ function toSchoolAdminDto(row: AdminRow): SchoolAdminDto {
     tempPasswordExpiresAt: row.tempPasswordExpiresAt?.toISOString() ?? null,
     lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
+    // Kategori lama yang tak lagi bisa dimatikan disembunyikan (dibersihkan pada PUT berikutnya).
+    mutedCategories: normalizeMutedCategories(row.notificationMutes.map((m) => m.category)),
   };
 }
 

@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { api } from "@/lib/frontend/api";
 import { operations } from "@/lib/frontend/catalog";
 import type { Operation } from "@/lib/frontend/types";
@@ -7,12 +7,12 @@ import { ActionDialog } from "./action-dialog";
 import { useHub } from "./context";
 import { Icon } from "./icon";
 import { PasswordInput } from "./password-input";
+import { DEMO_MESSAGE, SecurityCard } from "./security-card";
 
 /**
  * Isi atas halaman "Keamanan akun". Tugas wajib (ganti kata sandi awal, aktifkan TOTP) tampil sebagai kartu
  * dengan formulir/tombol TEPAT di bawah pesannya — pengguna tidak perlu mencari di "Tindakan lainnya".
  */
-const DEMO_MESSAGE = "Mode demo digunakan untuk menjelajahi formulir. Keluar dari demo dan masuk dengan akun untuk menyimpan data.";
 
 export function SecurityPanel() {
   const { me } = useHub();
@@ -23,10 +23,6 @@ export function SecurityPanel() {
   return <div className="security-panel"><PasswordCard />{me.user.role === "SCHOOL_ADMIN" && <LoginEmailCard />}{me.user.role === "SUPER_ADMIN" && <TrustedDeviceCard />}</div>;
 }
 
-interface CardProps { icon: string; title: string; text: ReactNode; task?: boolean; action?: ReactNode; children?: ReactNode }
-function SecurityCard({ icon, title, text, task = false, action, children }: CardProps) {
-  return <section className={`security-card${task ? " is-task" : ""}`}><div className="security-card-head"><span className="quick-icon tone-0"><Icon name={icon} size={24} /></span><div><h2>{title}</h2><p>{text}</p></div></div>{action}{children}</section>;
-}
 
 /** Kirim formulir sebaris: galat tampil di formulir, sukses mengosongkan isian. */
 function useInlineSubmit(run: (form: FormData) => Promise<void>) {

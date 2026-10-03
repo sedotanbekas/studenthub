@@ -96,6 +96,13 @@ tbody tr:hover { background: color-mix(in srgb, var(--primary) 4%, #fff); }
 .security-form { display: grid; gap: 14px; width: 100%; max-width: 480px; }
 .security-form > .button { justify-self: start; }
 .security-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Kabar sekolah per akun admin (N2): kartu di halaman Notifikasi + field "Kabar yang dikirim". */
+.notification-prefs-skeleton { height: 120px; border-radius: var(--radius); }
+.notification-prefs-note { display: block; margin-top: 4px; }
+.notification-prefs-editor { display: grid; gap: 12px; width: 100%; max-width: 560px; }
+.notification-categories { display: grid; gap: 12px; }
+.notification-categories .check-field input { width: 20px; height: 20px; margin-top: 2px; }
+.dialog-footer-inline { display: flex; flex-wrap: wrap; gap: 10px; }
 .task-steps { display: grid; gap: 12px; width: 100%; margin: 0; padding-left: 20px; }
 .task-steps li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 @media (max-width: 640px) { .security-form > .button, .security-card > .button { justify-self: stretch; align-self: stretch; } }

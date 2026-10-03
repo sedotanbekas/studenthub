@@ -21,7 +21,7 @@ dengan alasan penundaan dan pemicu untuk mengerjakannya. Urutan tidak menunjukka
 | Job rekonsiliasi saldo | Diganti test invarian saldo == ledger | Ada koreksi manual ledger di produksi |
 | Target iklan per jenjang sekolah | Target: semua / provinsi / kota / sekolah | Sponsor meminta targeting SD/SMP/SMA |
 | Gerbang `X-App-Version` (paksa update app) | Tidak ada | Rilis app yang memutus kompatibilitas API |
-| Sub-peran admin sekolah (bendahara/operator) | Satu peran SCHOOL_ADMIN | Sekolah butuh pemisahan tugas SPP vs akademik |
+| Sub-peran admin sekolah (bendahara/operator) | Satu peran SCHOOL_ADMIN; N2 hanya menyaring notifikasi, tidak memisahkan akses | Sekolah butuh pemisahan tugas SPP vs akademik |
 | Check-in offline | Wajib online (server menentukan waktu & lokasi) | Sekolah dengan sinyal buruk meminta mode antre |
 | Play Integrity / App Attest | Hanya flag `mocked` + deviceId terikat | Kecurangan lokasi palsu tetap tinggi |
 
@@ -68,6 +68,10 @@ koreksi. Kerjakan bila wali kelas meminta mengisi alasan atas nama siswa atau si
 ### Jejak "Bukan saya" (A2)
 Ketukan "Bukan saya" di alur absen tidak dicatat server (hanya logout biasa). Kerjakan bila admin sekolah perlu
 melihat pola HP pinjaman di luar flag `SHARED_DEVICE`.
+
+### Notifikasi "hanya kelas saya" & preferensi super admin (N2)
+Mute per akun admin hanya per kategori (Keuangan, Kesiswaan). Kerjakan "hanya kelas saya" bila ada tautan guru ↔ kelas;
+preferensi super admin bila beberapa super admin membagi tugas (semua siaran super admin saat ini SYSTEM).
 
 ### Polling badge notifikasi (N1)
 Satu poller per tab (staf 30 dtk, siswa 60 dtk, hanya saat terlihat). Ditunda: (a) berbagi antartab lewat

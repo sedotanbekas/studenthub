@@ -10,6 +10,7 @@ import { useHub } from "./context";
 import { Icon } from "./icon";
 import { NumericField } from "./numeric-input";
 import { PasswordInput } from "./password-input";
+import { NotificationCategoriesField } from "./notification-categories-field";
 
 export function defaults(input: Schema, initial: Row = {}): Row {
   const schema = resolveSchema(input, initial);
@@ -40,6 +41,7 @@ function SimpleField({ name, schema: input, value, required, onChange }: FieldPr
   const type = Array.isArray(schema.type) ? schema.type.find(t => t !== "null") : schema.type;
   const caption = <span>{label(name)}{required && <b className="required"> *</b>}</span>;
   if (name === "schoolDaysMask") return <WeekdayField value={value} onChange={onChange} />;
+  if (name === "mutedCategories") return <NotificationCategoriesField value={value} onChange={onChange} />;
   if (isClockMinuteField(name)) return <label className="field">{caption}<input type="time" required={required} value={typeof value === "number" ? clockText(value) : ""} onChange={e => { const [hours, minutes] = e.target.value.split(":").map(Number); onChange(hours === undefined || minutes === undefined ? undefined : hours * 60 + minutes); }} /></label>;
   if (name === "imageFileId") return <BannerField value={value} required={required} onChange={onChange} />;
   if (type === "object") return <fieldset className="nested-field"><legend>{label(name)}</legend><Fields schema={schema} value={(value ?? {}) as Row} onChange={onChange} /></fieldset>;

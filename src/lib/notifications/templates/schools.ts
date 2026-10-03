@@ -1,4 +1,4 @@
-import type { NotificationEvent } from "@/lib/notifications/notify";
+import type { SchoolAdminBroadcastEvent } from "@/lib/notifications/notify";
 import type { SchoolChangeGroup } from "@/lib/schools/rules";
 
 /** Teks notifikasi domain sekolah (murni). */
@@ -41,7 +41,7 @@ function bankSentence(input: SchoolSettingsChangedInput): string {
 }
 
 /** Notifikasi ke admin sekolah saat super admin/admin mengubah konfigurasi sekolah. */
-export function schoolSettingsChangedEvent(input: SchoolSettingsChangedInput): NotificationEvent {
+export function schoolSettingsChangedEvent(input: SchoolSettingsChangedInput): SchoolAdminBroadcastEvent {
   const labels = input.groups.map((group) => SCHOOL_CHANGE_LABELS[group]).join(", ");
   const attendanceNote =
     input.groups.some((g) => g === "LOCATION" || g === "TIMEZONE" || g === "SCHEDULE" || g === "SCHOOL_DAYS")

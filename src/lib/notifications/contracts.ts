@@ -6,9 +6,11 @@ import {
   listInboxQuerySchema,
   markReadResultSchema,
   notificationIdParams,
+  notificationPreferencesSchema,
   readAllBodySchema,
   readAllResultSchema,
   unreadCountSchema,
+  updateNotificationPreferencesBody,
 } from "./schemas";
 
 /** Kontrak route inbox notifikasi (semua peran, aksi inti `notification.self`). */
@@ -82,10 +84,39 @@ export const markAllNotificationsReadContract = defineContract({
   response: readAllResultSchema,
 });
 
+const PREFS_NOTE =
+  "Hanya menyaring siaran ke admin sekolah (Keuangan: bukti transfer SPP; Kesiswaan: pengajuan izin/sakit) saat notifikasi DITULIS — " +
+  "tidak berlaku mundur. Notifikasi pribadi dan kategori Sistem selalu dikirim; bila semua admin mematikan satu kategori, admin utama tetap menerimanya.";
+
+export const getMyNotificationPreferencesContract = defineContract({
+  id: "getMyNotificationPreferences",
+  method: "GET",
+  path: "/api/v1/me/notification-preferences",
+  tag: TAG,
+  summary: "Kabar sekolah yang dikirim ke akun admin ini",
+  description: PREFS_NOTE,
+  action: "notification.preferences",
+  response: notificationPreferencesSchema,
+});
+
+export const updateMyNotificationPreferencesContract = defineContract({
+  id: "updateMyNotificationPreferences",
+  method: "PUT",
+  path: "/api/v1/me/notification-preferences",
+  tag: TAG,
+  summary: "Atur kabar sekolah yang dikirim ke akun admin ini",
+  description: `${PREFS_NOTE} Set sama -> tanpa perubahan & tanpa audit; selain itu diaudit user.notification_mutes.`,
+  action: "notification.preferences",
+  body: updateNotificationPreferencesBody,
+  response: notificationPreferencesSchema,
+});
+
 export const notificationsContracts: readonly AnyContract[] = [
   listNotificationsContract,
   getUnreadNotificationCountContract,
   getNotificationContract,
   markNotificationReadContract,
   markAllNotificationsReadContract,
+  getMyNotificationPreferencesContract,
+  updateMyNotificationPreferencesContract,
 ];

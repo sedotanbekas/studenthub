@@ -1,5 +1,5 @@
 import { formatLocalDate, formatRupiah } from "@/lib/billing/format";
-import type { NotificationEvent } from "../notify";
+import type { NotificationEvent, SchoolAdminBroadcastEvent } from "../notify";
 
 /**
  * Teks notifikasi SPP (murni, Bahasa Indonesia). Tautan: { screen: "invoice", id } untuk siswa,
@@ -65,7 +65,7 @@ export interface PaymentSubmittedInfo {
   readonly amount: number;
 }
 
-export function paymentSubmittedNotification(info: PaymentSubmittedInfo): NotificationEvent {
+export function paymentSubmittedNotification(info: PaymentSubmittedInfo): SchoolAdminBroadcastEvent {
   const who = info.className ? `${info.studentName} (${info.className})` : info.studentName;
   return {
     type: "PAYMENT_SUBMITTED",

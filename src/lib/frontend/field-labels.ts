@@ -37,7 +37,7 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   errors: "Galat", warnings: "Peringatan", created: "Dibuat", credentials: "Data masuk siswa", students: "Siswa", studentStatus: "Status siswa",
   // Notifikasi & pengumuman
   category: "Kategori", data: "Data", screen: "Layar tujuan", count: "Jumlah", total: "Total", announcements: "Pengumuman", announcement: "Pengumuman",
-  personal: "Pribadi", kind: "Jenis notifikasi", latestCreatedAt: "Terbaru pada", updated: "Diperbarui", recipientCount: "Jumlah penerima", author: "Penulis", readCount: "Dibaca",
+  personal: "Pribadi", kind: "Jenis notifikasi", mutedCategories: "Kabar yang dimatikan", mutableCategories: "Kabar yang bisa diatur", updatedBy: "Diubah oleh", latestCreatedAt: "Terbaru pada", updated: "Diperbarui", recipientCount: "Jumlah penerima", author: "Penulis", readCount: "Dibaca",
   cancelledAt: "Dibatalkan pada", stats: "Statistik", notified: "Diberi tahu",
   // Absensi
   serverTime: "Waktu server", ianaTimezone: "Zona waktu (IANA)", schoolDay: "Hari sekolah", window: "Jendela absen", opensAt: "Dibuka pukul",

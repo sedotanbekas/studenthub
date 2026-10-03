@@ -1,4 +1,6 @@
 import type { ActionContext } from "@/lib/auth/principal";
+import { replaceNotificationMutes } from "@/lib/notifications/preferences-service";
+import type { UpdateNotificationPreferencesBody } from "@/lib/notifications/schemas";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { activateUser, createUser, deactivateUser, resetUserPassword, revokeUserSessions, updateUser } from "@/lib/users/service";
 import { countSchoolAdmins, getSchoolAdmin, hasPrimaryAdmin } from "./queries";
@@ -58,4 +60,14 @@ export async function revokeSchoolAdminSessions(scope: SchoolScope, id: string, 
 export async function resetSchoolAdminPassword(scope: SchoolScope, id: string, newPassword: string | undefined, ctx: ActionContext) {
   await manageableTarget(scope, id);
   return resetUserPassword(id, newPassword, ctx);
+}
+
+/**
+ * PUT /school/admins/{id}/notification-preferences (N2): admin utama mengatur kabar sekolah akun admin TAMBAHAN.
+ * Admin utama sendiri -> 403 PRIMARY_ADMIN_PROTECTED (mengatur miliknya lewat /me/notification-preferences).
+ */
+export async function updateSchoolAdminNotificationPreferences(scope: SchoolScope, id: string, input: UpdateNotificationPreferencesBody, ctx: ActionContext): Promise<SchoolAdminDto> {
+  await manageableTarget(scope, id);
+  await replaceNotificationMutes(id, scope.schoolId, input.mutedCategories, ctx);
+  return getSchoolAdmin(scope, id);
 }

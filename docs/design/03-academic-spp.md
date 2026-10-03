@@ -361,7 +361,7 @@ All responses use the envelope `{success, data, error, meta}`.
      - Apply the G1 rules.
      - Create the StoredFile (PAYMENT_PROOF, schoolId, uploadedById).
      - Create the PaymentSubmission with `pendingInvoiceId = invoiceId`.
-     - Notify PAYMENT_SUBMITTED to active SCHOOL_ADMIN users of the school (at most `MAX_ADMIN_NOTIFY = 50`).
+     - Notify PAYMENT_SUBMITTED to active SCHOOL_ADMIN users of the school minus accounts muting FINANCE, with the primary-admin fallback (N2, design 05 N12; at most `MAX_ADMIN_NOTIFY = 50`).
    - On any failure, `storage.delete(key)` and rethrow.
    - A retried double tap is harmless: the second request gets 409 `SUBMISSION_PENDING`.
 3. A student cancels a submission with a compare-and-set PENDING → CANCELLED and `pendingInvoiceId = NULL`, only on their own submission.

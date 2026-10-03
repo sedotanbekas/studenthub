@@ -1,4 +1,4 @@
-import type { NotificationEvent } from "../notify";
+import type { NotificationEvent, SchoolAdminBroadcastEvent } from "../notify";
 
 /**
  * Teks notifikasi izin/sakit (murni, Bahasa Indonesia). Tautan deep link: { screen: "leave-request", id }.
@@ -47,7 +47,7 @@ export interface LeaveSubmittedInfo extends LeaveRef {
   readonly className: string | null;
 }
 
-export function leaveSubmittedNotification(info: LeaveSubmittedInfo): NotificationEvent {
+export function leaveSubmittedNotification(info: LeaveSubmittedInfo): SchoolAdminBroadcastEvent {
   const who = info.className ? `${info.studentName} (${info.className})` : info.studentName;
   return {
     type: "LEAVE_SUBMITTED",

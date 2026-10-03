@@ -68,7 +68,16 @@ export function demoDetail(path: string, id: string, viewer?: DemoViewer): Row |
   return student ? studentDemoDetail(path, id, student) : null;
 }
 
+/** Akun admin sekolah contoh (N2): admin utama + dua guru, satu mematikan kabar Keuangan. */
+export const demoSchoolAdmins = [
+  { id: "adm1", name: "Admin SMA Cendekia", email: null, loginNpsn: "20123456", isPrimary: true, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-25T00:30:00.000Z", createdAt: "2026-07-01T02:00:00.000Z", mutedCategories: [] },
+  { id: "adm2", name: "Bu Rina (Wali kelas X IPA 1)", email: "rina@cendekia.sch.id", loginNpsn: null, isPrimary: false, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-24T23:50:00.000Z", createdAt: "2026-07-15T02:00:00.000Z", mutedCategories: ["FINANCE"] },
+  { id: "adm3", name: "Pak Dodi (Guru BK)", email: "dodi@cendekia.sch.id", loginNpsn: null, isPrimary: false, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-25T01:10:00.000Z", createdAt: "2026-07-15T02:05:00.000Z", mutedCategories: [] },
+] as const;
+
 function sharedRows(path: string): unknown {
+  if (path === "/me/notification-preferences") return { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS"], updatedAt: null, updatedBy: null };
+  if (path === "/school/admins") return demoSchoolAdmins;
   if (path === "/school/report-cards/sheet") return { term: { id: "term1", label: "Ganjil 2026/2027" }, class: { id: "c1", name: "X IPA 1" }, subject: { id: "subject1", name: "Matematika", code: "MTK", kkm: 75 }, rows: demoStudents.map((s, i) => ({ studentId: s.id, name: s.name, nis: s.nis, score: 80 + i, predicate: "B", reportCardStatus: "DRAFT", blockedReason: null })) };
   if (path === "/school/academic-years") return [{ id: "year1", name: "2026/2027", terms: [{ id: "term1", label: "Ganjil 2026/2027" }, { id: "term2", label: "Genap 2026/2027" }] }];
   if (path === "/school/subjects") return [{ id: "subject1", name: "Matematika", code: "MTK" }, { id: "subject2", name: "Bahasa Indonesia", code: "BIN" }];

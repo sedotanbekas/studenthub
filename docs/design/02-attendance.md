@@ -290,7 +290,7 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
    - If `type=SAKIT` and `schoolDayCount ≥ 3` and there is no attachment, return 422 `ATTACHMENT_REQUIRED`. An empty (0-byte) `attachment` part counts as no attachment.
    - At most `LEAVE_DAILY_SUBMISSION_LIMIT` = 5 submissions per student per local day, **cancelled ones included** → 429 `LEAVE_DAILY_LIMIT` with `Retry-After` (checked before the photo is processed and again under the student lock). This bounds a create-then-cancel loop that would fill the shared disk with attachments and flood admins with notifications.
    - Days that already have a CHECKIN row are allowed in the range.
-   - Notify every active SA of the school with `LEAVE_SUBMITTED` (inbox only).
+   - Notify the active SAs of the school with `LEAVE_SUBMITTED` (inbox only), minus accounts muting STUDENT_AFFAIRS; primary-admin fallback (N2, design 05 N12).
 2. **Cancel (student):** `updateMany where {id, studentId, status: PENDING}` sets CANCELLED. A count of 0 means 404 if the request is not the student's, otherwise 409. After commit the attachment bytes are deleted and `StoredFile.deletedAt` is set (the row stays for the FK; download → 410). If that fails, `maintenance-daily` retries: it purges LEAVE_ATTACHMENT bytes of CANCELLED leaves at once and of REJECTED leaves 30 days after review; PENDING and APPROVED attachments are kept.
 3. **Approve (admin):**
    - Read the leave's studentId within the tenant scope (404 if not found).
@@ -618,7 +618,7 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
   - approve racing auto-ALPHA ends with IZIN, not ALPHA
   - reject requires a note; cancel works only on the student's own PENDING request
   - SA of another school → 404
-  - notifications written: LEAVE_SUBMITTED to every SA, LEAVE_APPROVED to the student
+  - notifications written: LEAVE_SUBMITTED to the active SAs (minus STUDENT_AFFAIRS mutes, N2), LEAVE_APPROVED to the student
 - **Calendar hook:**
   - adding a retroactive holiday deletes AUTO_ALPHA and LEAVE rows but keeps CHECKIN
   - removing a holiday deletes the JobRun, and the next run closes the day again

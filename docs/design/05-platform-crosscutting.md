@@ -192,8 +192,8 @@ N1. **Event table.** `categoryForType` is a total `Record<NotificationType, …>
 | PAYMENT_APPROVED, PAYMENT_REJECTED | student | FINANCE | `invoice` | no |
 | LEAVE_APPROVED, LEAVE_REJECTED | student | STUDENT_AFFAIRS | `leave-request` | no |
 | REPORT_CARD_PUBLISHED | student | ACADEMIC | `report-card` | no |
-| PAYMENT_SUBMITTED | active SCHOOL_ADMINs of the school | FINANCE | `payment-review` | yes |
-| LEAVE_SUBMITTED | active SCHOOL_ADMINs of the school | STUDENT_AFFAIRS | `leave-review` | yes |
+| PAYMENT_SUBMITTED | active SCHOOL_ADMINs of the school minus FINANCE mutes (N12) | FINANCE | `payment-review` | yes |
+| LEAVE_SUBMITTED | active SCHOOL_ADMINs of the school minus STUDENT_AFFAIRS mutes (N12) | STUDENT_AFFAIRS | `leave-review` | yes |
 | AD_SUBMITTED | active SUPER_ADMINs | SYSTEM | `ad-review` | yes |
 | TOPUP_SUBMITTED | active SUPER_ADMINs | SYSTEM | `topup-review` | yes |
 | SPONSOR_APPROVED, SPONSOR_SUSPENDED | the sponsor's member users | SYSTEM | `sponsor` | no |
@@ -226,6 +226,16 @@ N8. **Mark as read.**
 N9. **Detail.** Announcement rows include `Announcement.body`. A retracted announcement has no notifications left, so the detail returns 404.
 
 N10. **Low balance.** Pure `crossedBelow(before, after, LOW_BALANCE_THRESHOLD_RUPIAH)` is true when `before ≥ T` and `after < T`. The sponsor domain calls it inside the charge or adjustment transaction. It fires once per downward crossing; a top-up above T re-arms it.
+
+N12. **Mute kategori siaran admin (fitur N2, owner decision 2026-10-03).** `NotificationMute(userId, category)`
+(PK both, CHECK `category <> 'SYSTEM'`) lists the categories an admin account does NOT receive. Only
+`notifySchoolAdmins` filters, at write time, so inbox, badge and push agree; it accepts only
+`SCHOOL_ADMIN_BROADCAST_TYPES` (typed) and `ADMIN_MUTABLE_CATEGORIES` = their categories minus SYSTEM (test).
+Recipients = active admins not muting the category; if none of them is reachable (has logged in and no expired
+temporary password), the primary admin also receives it, or every candidate when there is no active primary.
+Personal notifications and super-admin broadcasts are never filtered. `/me/notification-preferences` (any admin,
+own account) and `/school/admins/{id}/notification-preferences` (primary admin for extra admins; primary itself
+→ 403 PRIMARY_ADMIN_PROTECTED) replace the set under `AppLock user`, audit `user.notification_mutes`.
 
 N11. **Retention.** `maintenance-daily` deletes notifications older than `NOTIFICATION_RETENTION_DAYS` in `DELETE … LIMIT 5000` loops. Their PushTickets are deleted by cascade.
 

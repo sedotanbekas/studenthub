@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { listInboxQuerySchema, notificationIdParams, readAllBodySchema } from "./schemas";
+import { listInboxQuerySchema, notificationIdParams, readAllBodySchema, updateNotificationPreferencesBody } from "./schemas";
 
 test("query list: default kind=all, unreadOnly=false, limit=20", () => {
   const parsed = listInboxQuerySchema.parse({});
@@ -42,4 +42,12 @@ test("body read-all: opsional, before ISO -> Date, kunci asing ditolak", () => {
   assert.equal(readAllBodySchema.safeParse({ before: "2026-09-21" }).success, false);
   assert.equal(readAllBodySchema.safeParse({ kind: "semua" }).success, false);
   assert.equal(readAllBodySchema.safeParse({ all: true }).success, false);
+});
+
+test("pilihan kabar sekolah (N2): SYSTEM & tanpa kolom ditolak; [] diterima", () => {
+  assert.equal(updateNotificationPreferencesBody.safeParse({ mutedCategories: [] }).success, true);
+  assert.deepEqual(updateNotificationPreferencesBody.parse({ mutedCategories: ["FINANCE"] }), { mutedCategories: ["FINANCE"] });
+  for (const body of [{ mutedCategories: ["SYSTEM"] }, {}, { mutedCategories: ["FINANCE"], extra: true }, { mutedCategories: "FINANCE" }]) {
+    assert.equal(updateNotificationPreferencesBody.safeParse(body).success, false, JSON.stringify(body));
+  }
 });

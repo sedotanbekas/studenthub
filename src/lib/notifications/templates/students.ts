@@ -1,4 +1,4 @@
-import type { NotificationEvent } from "../notify";
+import type { SchoolAdminBroadcastEvent } from "../notify";
 
 /**
  * Teks notifikasi domain siswa (murni, Bahasa Indonesia). Notifikasi NISN_RELEASED dikirim ke admin
@@ -10,7 +10,7 @@ export interface ReleasedStudentInfo {
   readonly nisn: string;
 }
 
-export function nisnReleasedNotification(released: readonly ReleasedStudentInfo[]): NotificationEvent {
+export function nisnReleasedNotification(released: readonly ReleasedStudentInfo[]): SchoolAdminBroadcastEvent {
   const [first] = released;
   if (released.length === 1 && first !== undefined) {
     return {

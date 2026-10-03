@@ -2,6 +2,7 @@ import { NotificationCategory, NotificationType } from "@prisma/client";
 import { z } from "zod";
 import { cursorQuerySchema } from "@/lib/http/cursor";
 import { INBOX_KINDS } from "./inbox-filters";
+import { ADMIN_MUTABLE_CATEGORIES } from "./rules";
 
 /** Skema zod inbox notifikasi (request + respons). Respons dipakai juga untuk OpenAPI. */
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -84,3 +85,27 @@ export type MarkReadDto = z.input<typeof markReadResultSchema>;
 
 export const readAllResultSchema = z.object({ updated: z.int().min(0) }).meta({ id: "NotificationReadAllResult" });
 export type ReadAllDto = z.input<typeof readAllResultSchema>;
+
+// ----------------------------------------------------------------------------- pilihan kabar sekolah admin (N2)
+
+const mutableCategory = z.enum(ADMIN_MUTABLE_CATEGORIES).meta({ description: "Kategori kabar sekolah yang bisa dimatikan per akun admin." });
+
+export const updateNotificationPreferencesBody = z
+  .strictObject({
+    mutedCategories: z
+      .array(mutableCategory)
+      .max(20)
+      .meta({ description: "Kategori kabar sekolah yang TIDAK dikirim ke akun ini. [] = terima semua. Ganti penuh (PUT). SYSTEM tidak bisa dimatikan." }),
+  })
+  .meta({ id: "UpdateNotificationPreferencesInput" });
+export type UpdateNotificationPreferencesBody = z.output<typeof updateNotificationPreferencesBody>;
+
+export const notificationPreferencesSchema = z
+  .object({
+    mutedCategories: z.array(mutableCategory),
+    mutableCategories: z.array(mutableCategory).meta({ description: "Kategori yang bisa diatur, urutan tampilan." }),
+    updatedAt: instant.nullable().meta({ description: "Perubahan terakhir (null = belum pernah diatur)." }),
+    updatedBy: z.object({ id: z.string(), name: z.string() }).nullable().meta({ description: "Akun yang terakhir mengubah (admin utama bisa mengatur akun admin tambahan)." }),
+  })
+  .meta({ id: "NotificationPreferences" });
+export type NotificationPreferencesDto = z.infer<typeof notificationPreferencesSchema>;

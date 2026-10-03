@@ -29,9 +29,12 @@ export function DataTable({ rows, onSelect, columns }: { rows: Row[]; onSelect?:
   const keys = columns?.filter(k => rows.some(r => k in r)) ?? Object.keys(rows[0] ?? {}).filter(k => k !== "mustChangePassword" && !isHiddenField(k)).slice(0, 6);
   return <div className="table-scroll"><table><thead><tr>{keys.map(k => <th key={k} scope="col">{label(k)}</th>)}{onSelect && <th scope="col"><span className="sr-only">Detail</span></th>}</tr></thead><tbody>{rows.map((row, i) => <tr key={String(row.id ?? i)} className={onSelect ? "clickable-row" : undefined} onClick={onSelect ? () => onSelect(row) : undefined}>{keys.map(k => <td key={k}><Cell name={k} value={row[k]} /></td>)}{onSelect && <td><button className="table-detail" onClick={e => { e.stopPropagation(); onSelect(row); }} aria-label={`Lihat detail ${display(row.name ?? row.title ?? row.student ?? row.termLabel ?? row.invoiceNo ?? i + 1)}`}><Icon name="arrow" size={17} /></button></td>}</tr>)}</tbody></table></div>;
 }
+/** Teks daftar kosong yang bermakna (bukan "Belum ada data."). */
+const EMPTY_LIST_TEXT: Readonly<Record<string, string>> = { mutedCategories: "Tidak ada — semua kabar sekolah dikirim." };
+
 export function Details({ value, depth = 0, field = "", onSelect }: { value: unknown; depth?: number; field?: string; onSelect?: (row: Row, field: string) => void }) {
   if (value === null || value === undefined) return <p className="muted">Belum ada informasi.</p>;
-  if (Array.isArray(value)) return value.length ? typeof value[0] === "object" ? <DataTable rows={value as Row[]} onSelect={onSelect && ["terms", "payments", "submissions"].includes(field) ? row => onSelect(row, field) : undefined} /> : <div className="tag-list">{value.map((v, i) => <span className="pill" key={i}>{display(v)}</span>)}</div> : <p className="muted">Belum ada data.</p>;
+  if (Array.isArray(value)) return value.length ? typeof value[0] === "object" ? <DataTable rows={value as Row[]} onSelect={onSelect && ["terms", "payments", "submissions"].includes(field) ? row => onSelect(row, field) : undefined} /> : <div className="tag-list">{value.map((v, i) => <span className="pill" key={i}>{display(v)}</span>)}</div> : <p className="muted">{EMPTY_LIST_TEXT[field] ?? "Belum ada data."}</p>;
   if (typeof value !== "object") return <p className="detail-text">{display(value)}</p>;
   return <div className={`details-grid depth-${depth}`}>{Object.entries(value as Row).filter(([key]) => !isHiddenField(key)).map(([key, item]) => {
     const nested = item !== null && typeof item === "object";

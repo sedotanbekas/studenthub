@@ -3,7 +3,7 @@ import type { ActionContext } from "@/lib/auth/principal";
 import { redactForAudit, writeAudit } from "@/lib/audit";
 import type { Tx } from "@/lib/db";
 import { AppError } from "@/lib/http/errors";
-import { notifyRecipients, notifySuperAdmins } from "@/lib/notifications/notify";
+import { notifySchoolAdmins, notifySuperAdmins } from "@/lib/notifications/notify";
 import { nisnReleasedNotification } from "@/lib/notifications/templates/students";
 import type { ClaimingSchool, ReleasedHolder } from "./nisn-claim";
 import { nisnReleaseSuperAdminNotice } from "./nisn-release-notice";
@@ -71,17 +71,14 @@ async function writeOriginAudits(tx: Tx, released: readonly ReleasedHolder[]): P
   });
 }
 
+/** Admin sekolah ASAL diberi tahu lewat jalur siaran admin yang sama (notifySchoolAdmins; SYSTEM tidak pernah disaring). */
 async function notifyOriginSchools(tx: Tx, released: readonly ReleasedHolder[], ctx: ActionContext): Promise<void> {
   const schoolIds = [...new Set(released.map((holder) => holder.schoolId))];
-  const [holders, admins] = await Promise.all([
-    tx.user.findMany({ where: { id: { in: released.map((r) => r.userId) } }, select: { id: true, name: true } }),
-    tx.user.findMany({ where: { schoolId: { in: schoolIds }, role: "SCHOOL_ADMIN", isActive: true }, select: { id: true, schoolId: true } }),
-  ]);
+  const holders = await tx.user.findMany({ where: { id: { in: released.map((r) => r.userId) } }, select: { id: true, name: true } });
   const nameOf = new Map(holders.map((u) => [u.id, u.name]));
   for (const schoolId of schoolIds) {
     const info = released.filter((h) => h.schoolId === schoolId).map((h) => ({ studentId: h.id, name: nameOf.get(h.userId) ?? "Siswa", nisn: h.nisn }));
-    const recipients = admins.filter((admin) => admin.schoolId === schoolId).map((admin) => ({ userId: admin.id, role: "SCHOOL_ADMIN" as const }));
-    await notifyRecipients(tx, recipients, nisnReleasedNotification(info), ctx);
+    await notifySchoolAdmins(tx, schoolId, nisnReleasedNotification(info), ctx);
   }
 }
 

@@ -1,5 +1,27 @@
 # N2: Notification categories per admin account
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `N2-notification-categories.critique.md`. Semua temuan diterima; yang mengubah desain:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | Kasus `chk_notification_mute_category` ditambahkan (`notificationCases` di `check-cases.ts`): SYSTEM ditolak, FINANCE lolos. |
+| 2 | `SCHOOL_ADMIN_BROADCAST_TYPES` (PAYMENT_SUBMITTED, LEAVE_SUBMITTED, SCHOOL_SETTINGS_CHANGED, NISN_RELEASED — diturunkan ulang dari semua pemanggil; A1/B1 tidak menambah siaran admin) dan `notifySchoolAdmins(…, event: SchoolAdminBroadcastEvent)` bertipe: siaran baru wajib didaftarkan. Test: `ADMIN_MUTABLE_CATEGORIES` = kategori tipe siaran selain SYSTEM; setiap kategori punya petunjuk. ENUM migrasi disalin dari definisi terakhir. Kategori ATTENDANCE untuk N4 ditambahkan oleh N4 (keputusan integrasi 1) beserta petunjuknya. |
+| 3 | Rute sekolah memakai `manageableTarget`: hanya admin tambahan; admin utama → 403 `PRIMARY_ADMIN_PROTECTED` dan mengatur miliknya lewat `/me/notification-preferences` (sesuai PLAN). |
+| 4 | `SecurityCard`/`DEMO_MESSAGE` dipindah ke `security-card.tsx`; `NotificationCategoriesField` di berkas sendiri (tanpa siklus impor). |
+| 5 | Tanpa perubahan `format.ts`; detail menampilkan "Tidak ada — semua kabar sekolah dikirim." untuk daftar kosong `mutedCategories`. |
+| 6 | Catatan kaki ada di dalam field (tampil di kartu & dialog); toast aksi "Atur notifikasi" memakai `prefsSavedMessage`. |
+| 7 | DTO `SchoolAdmin` menormalkan `mutedCategories` (kategori lama yang tak bisa dimatikan disembunyikan). |
+| 8 | `BroadcastCandidate.reachable` (`isReachableAdmin`: pernah masuk & kata sandi sementara belum kedaluwarsa): bila tidak ada penerima tersisa yang bisa dijangkau, admin utama ikut menerima (atau semua kandidat bila tanpa admin utama). |
+| 9 | `NotificationPreferences` memuat `updatedAt`/`updatedBy` dari audit terakhir; kartu menulis "Diatur oleh … pada …" bila diubah akun lain. |
+| 10 | Dokumen desain 02 (LEAVE_SUBMITTED), 03 (PAYMENT_SUBMITTED), 05 (tabel peristiwa + aturan "N12. Mute kategori siaran admin (fitur N2)") diperbarui. |
+| 11 | Rujukan baris dikoreksi saat implementasi; tombol "Atur" ada di bawah teks kartu; rujukan HRIS hanya latar (repo luar). |
+
+Jawaban default §10 dipakai: cadangan admin utama; admin tambahan boleh mengatur miliknya sendiri; SYSTEM selalu
+dikirim; kategori kehadiran (ATTENDANCE) menyusul di N4 sebagai kategori baru yang bisa dimatikan.
+
+
 ## 1. Goal & non-goals
 
 **Goal.** Today every active SCHOOL_ADMIN gets every school-wide broadcast (`notifySchoolAdmins`, `src/lib/notifications/notify.ts:70-73`). That includes the extra admin accounts teachers use. This feature adds a per-account **mute list** of `NotificationCategory` values. The mute list applies only to the broadcast fan-out to school admins. An account with no rows receives everything, exactly as today, so the deploy changes nothing until someone chooses. Admins set their own list on the **Notifikasi** page. The primary admin, and a super admin through `?schoolId=`, can also set it for any admin account in **Admin & guru**. Filtering happens when rows are written, so the inbox, unread badge and push (N3) all agree automatically.

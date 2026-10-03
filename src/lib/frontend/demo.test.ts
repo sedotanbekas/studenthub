@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { schoolAdminSchema } from "@/lib/school-admins/schemas";
 import assert from "node:assert/strict";
 import { demoDetail, demoRows, demoStudents, demoUnreadCount } from "./demo";
 import { demoPersona } from "./demo-personas";
@@ -72,4 +73,11 @@ test("demoUnreadCount: sama dengan item kotak masuk contoh tanpa readAt, dan > 0
   const rows = demoRows("/notifications") as Array<{ readAt?: string | null }>;
   assert.equal(demoUnreadCount(), rows.filter(r => !r.readAt).length);
   assert.ok(demoUnreadCount() > 0);
+});
+
+test("demo admin sekolah (N2): lolos skema SchoolAdmin, tepat satu admin utama, pilihan kabar contoh", () => {
+  const admins = demoRows("/school/admins") as unknown[];
+  for (const admin of admins) assert.doesNotThrow(() => schoolAdminSchema.parse(admin));
+  assert.equal((admins as Array<{ isPrimary: boolean }>).filter(a => a.isPrimary).length, 1);
+  assert.deepEqual(demoRows("/me/notification-preferences"), { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS"], updatedAt: null, updatedBy: null });
 });

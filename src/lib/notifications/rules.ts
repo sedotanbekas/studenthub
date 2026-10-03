@@ -51,3 +51,60 @@ export function previewText(body: string, max: number = NOTIFICATION_PREVIEW_MAX
   const boundary = cut.lastIndexOf(" ");
   return `${(boundary > max * 0.6 ? cut.slice(0, boundary) : cut).trimEnd()}…`;
 }
+
+// ----------------------------------------------------------------------------- mute kategori siaran admin (N2)
+
+/**
+ * Tipe notifikasi yang disiarkan ke SEMUA admin sekolah (notifySchoolAdmins hanya menerima tipe ini — dicek tsc).
+ * Menambah siaran admin baru = tambahkan di sini, lalu putuskan apakah kategorinya boleh dimatikan.
+ */
+export const SCHOOL_ADMIN_BROADCAST_TYPES = ["PAYMENT_SUBMITTED", "LEAVE_SUBMITTED", "SCHOOL_SETTINGS_CHANGED", "NISN_RELEASED"] as const satisfies readonly NotificationType[];
+export type SchoolAdminBroadcastType = (typeof SCHOOL_ADMIN_BROADCAST_TYPES)[number];
+
+/**
+ * Kategori siaran admin sekolah yang boleh dimatikan per akun (urutan = urutan tampilan) = kategori tipe siaran di
+ * atas selain SYSTEM (dijaga test). SYSTEM (pengaturan/rekening sekolah, NISN dilepas) tidak pernah.
+ */
+export const ADMIN_MUTABLE_CATEGORIES = ["FINANCE", "STUDENT_AFFAIRS"] as const satisfies readonly NotificationCategory[];
+export type AdminMutableCategory = (typeof ADMIN_MUTABLE_CATEGORIES)[number];
+
+export const isAdminMutableCategory = (category: NotificationCategory): category is AdminMutableCategory =>
+  (ADMIN_MUTABLE_CATEGORIES as readonly NotificationCategory[]).includes(category);
+
+/** Buang duplikat & kategori yang tidak bisa dimatikan; urut sesuai ADMIN_MUTABLE_CATEGORIES. */
+export function normalizeMutedCategories(input: readonly NotificationCategory[]): AdminMutableCategory[] {
+  return ADMIN_MUTABLE_CATEGORIES.filter((category) => input.includes(category));
+}
+
+/** Perubahan set tersimpan -> set baru (removed boleh memuat kategori lama yang tak lagi bisa dimatikan). */
+export function diffMutedCategories(stored: readonly NotificationCategory[], next: readonly AdminMutableCategory[]): { added: AdminMutableCategory[]; removed: NotificationCategory[] } {
+  return { added: next.filter((c) => !stored.includes(c)), removed: [...new Set(stored)].filter((c) => !(next as readonly NotificationCategory[]).includes(c)) };
+}
+
+export interface BroadcastCandidate {
+  readonly userId: string;
+  readonly isPrimary: boolean;
+  /** Pernah masuk & kata sandi sementara belum kedaluwarsa (isReachableAdmin). */
+  readonly reachable: boolean;
+  readonly muted: readonly NotificationCategory[];
+}
+
+/** Akun yang belum pernah masuk / kata sandi sementaranya kedaluwarsa tidak dihitung sebagai penangan kabar. */
+export function isReachableAdmin(user: { lastLoginAt: Date | null; mustChangePassword: boolean; tempPasswordExpiresAt: Date | null }, now: Date): boolean {
+  if (user.lastLoginAt === null) return false;
+  return !(user.mustChangePassword && user.tempPasswordExpiresAt !== null && user.tempPasswordExpiresAt <= now);
+}
+
+/**
+ * Penerima siaran admin: kategori tak bisa dimatikan -> semua. Selain itu buang yang mematikan; bila tidak ada
+ * penerima tersisa yang bisa dijangkau -> admin utama ikut menerima (atau semua kandidat bila admin utama tidak ada),
+ * agar pekerjaan tidak pernah sunyi. Urutan kandidat dijaga.
+ */
+export function selectBroadcastRecipients(candidates: readonly BroadcastCandidate[], category: NotificationCategory): string[] {
+  if (!isAdminMutableCategory(category)) return candidates.map((c) => c.userId);
+  const keep = candidates.filter((c) => !c.muted.includes(category));
+  if (keep.some((c) => c.reachable)) return keep.map((c) => c.userId);
+  const primary = candidates.find((c) => c.isPrimary);
+  if (!primary) return candidates.map((c) => c.userId);
+  return candidates.filter((c) => c === primary || keep.includes(c)).map((c) => c.userId);
+}

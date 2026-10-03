@@ -344,3 +344,16 @@ export function adLedgerCases(get: GetFixture): readonly CheckCase[] {
     },
   ];
 }
+
+// ----------------------------------------------------------------------------- notifikasi
+
+export function notificationCases(get: GetFixture): readonly CheckCase[] {
+  return [
+    {
+      constraint: "chk_notification_mute_category",
+      // SYSTEM (pengaturan/rekening sekolah, NISN dilepas) tidak pernah boleh dimatikan (N2).
+      violations: [() => prisma.notificationMute.create({ data: { userId: get().admin.id, category: "SYSTEM" } })],
+      valid: () => prisma.notificationMute.create({ data: { userId: get().admin.id, category: "FINANCE" } }),
+    },
+  ];
+}

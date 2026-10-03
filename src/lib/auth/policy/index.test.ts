@@ -63,3 +63,13 @@ test("schoolAdmins.manage: hanya admin UTAMA (dan super admin); admin tambahan c
   assert.equal(codeOf(() => authorize(makePrincipal({ role: "STUDENT", studentStatus: "ACTIVE" }), "schoolAdmins.read")), "FORBIDDEN");
   assert.ok(!listAllowedActions(extra).includes("schoolAdmins.manage"));
 });
+
+test("notification.preferences (N2): admin sekolah utama & tambahan; peran lain ditolak; wajib ganti sandi diblokir", () => {
+  for (const isPrimarySchoolAdmin of [true, false]) {
+    assert.equal(codeOf(() => authorize(makePrincipal({ role: "SCHOOL_ADMIN", isPrimarySchoolAdmin }), "notification.preferences")), null);
+  }
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "STUDENT", studentStatus: "ACTIVE" }), "notification.preferences")), "FORBIDDEN");
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SPONSOR", schoolId: null }), "notification.preferences")), "FORBIDDEN");
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SUPER_ADMIN", schoolId: null }), "notification.preferences")), "FORBIDDEN");
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SCHOOL_ADMIN", mustChangePassword: true }), "notification.preferences")), "PASSWORD_CHANGE_REQUIRED");
+});

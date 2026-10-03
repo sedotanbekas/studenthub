@@ -7,6 +7,8 @@ import { ACTION_LABELS, isDangerAction } from "@/lib/frontend/workspace-rules";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { affectsUnreadBadge } from "@/lib/frontend/badge-poll-rules";
 import { unreadBadge } from "@/lib/frontend/unread-badge";
+import { prefsSavedMessage } from "@/lib/frontend/notification-prefs-rules";
+import type { AdminMutableCategory } from "@/lib/notifications/rules";
 import { useHub } from "./context";
 import { Fields, defaults } from "./fields";
 import { Details } from "./data-view";
@@ -60,6 +62,15 @@ function makeBody(values: Row, op: Operation): BodyInit | undefined {
   return form;
 }
 interface DialogProps { op: Operation; initial?: Row; onClose: () => void; onDone: () => void }
+/** Pesan sukses: pilihan kabar sekolah (N2) memakai kalimat sebab-akibat yang sama dengan kartu Notifikasi. */
+function successText(op: Operation, data: unknown): string {
+  if (op.id === "updateSchoolAdminNotificationPreferences") {
+    const muted = (data as { mutedCategories?: AdminMutableCategory[] } | null)?.mutedCategories ?? [];
+    return prefsSavedMessage(muted);
+  }
+  return op.method === "GET" ? "Data berhasil dimuat." : "Perubahan berhasil disimpan.";
+}
+
 export function ActionDialog({ op, initial = {}, onClose, onDone }: DialogProps) {
   const { schoolId, demo, toast, reloadMe } = useHub();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -78,7 +89,7 @@ export function ActionDialog({ op, initial = {}, onClose, onDone }: DialogProps)
     try {
       const response = await api(scoped(buildPath(op, params), schoolId), { method: op.method, body: makeBody(values, op) });
       setResult(response.data ?? { message: "Perubahan berhasil disimpan." });
-      onDone(); toast(op.method === "GET" ? "Data berhasil dimuat." : "Perubahan berhasil disimpan.");
+      onDone(); toast(successText(op, response.data));
       if (affectsUnreadBadge(op.id)) unreadBadge.refresh(); // N1: badge langsung turun, tanpa menunggu 30 detik
       if (op.path === "/auth/change-password" || op.path === "/me/totp/confirm") await reloadMe();
       if (op.path === "/auth/logout-all") window.dispatchEvent(new Event("studenthub:expired"));

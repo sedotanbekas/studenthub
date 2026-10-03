@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
+import { updateNotificationPreferencesBody } from "@/lib/notifications/schemas";
 import { activateUserResult, deactivateUserResult, resetPasswordResult, revokeSessionsResult } from "@/lib/users/schemas";
 import {
   createSchoolAdminBody,
@@ -142,6 +143,24 @@ export const revokeSchoolAdminSessionsContract = defineContract({
   errors: [...TARGET_ERRORS, "CANNOT_TARGET_SELF"],
 });
 
+export const updateSchoolAdminNotificationPreferencesContract = defineContract({
+  id: "updateSchoolAdminNotificationPreferences",
+  method: "PUT",
+  path: "/api/v1/school/admins/{id}/notification-preferences",
+  tag: TAG,
+  summary: "Atur kabar sekolah yang dikirim ke satu akun admin tambahan",
+  description:
+    `${MANAGE_NOTE} ${TARGET_NOTE} Admin utama mengatur akunnya sendiri lewat PUT /me/notification-preferences. ` +
+    "Hanya menyaring siaran admin (Keuangan, Kesiswaan) untuk notifikasi baru; Sistem & notifikasi pribadi selalu dikirim; " +
+    "bila semua admin mematikan satu kategori, admin utama tetap menerimanya. Diaudit user.notification_mutes.",
+  action: "schoolAdmins.manage",
+  params: schoolAdminIdParams,
+  query: schoolIdQuery,
+  body: updateNotificationPreferencesBody,
+  response: schoolAdminSchema,
+  errors: TARGET_ERRORS,
+});
+
 export const schoolAdminsContracts: readonly AnyContract[] = [
   listSchoolAdminsContract,
   createSchoolAdminContract,
@@ -151,4 +170,5 @@ export const schoolAdminsContracts: readonly AnyContract[] = [
   activateSchoolAdminContract,
   resetSchoolAdminPasswordContract,
   revokeSchoolAdminSessionsContract,
+  updateSchoolAdminNotificationPreferencesContract,
 ];

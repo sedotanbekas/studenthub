@@ -259,6 +259,9 @@ pratinjau jumlah penerima. Inbox semua peran (`/notifications`, cursor, unread-c
 Satu jalur tulis `notify*(tx, …)` di dalam transaksi bisnis. Push Expo hanya ke siswa (outbox
 sederhana di `Notification.pushStatus`, dikirim via `after()` + tick, mutex in-process, DeviceNotRegistered
 → token dihapus); transport `log` sampai akun EAS siap. Web: satu poller badge unread-count per tab (siswa 60 dtk; Web Push menyusul N3).
+Admin sekolah boleh mematikan kategori kabar sekolah (Keuangan, Kesiswaan) untuk akunnya, dan admin utama juga untuk
+akun admin tambahan (keputusan 2026-10-03, N2); hanya siaran ke admin yang disaring, saat ditulis. Notifikasi pribadi
+& Sistem selalu dikirim; bila semua admin (yang pernah masuk) mematikan satu kategori, admin utama tetap menerimanya.
 
 **Sponsor & iklan** (`/sponsor/*`, `/platform/ads*`, `/platform/topups*`, `/student/ads*`):
 PENDING boleh menyiapkan draft; hanya APPROVED yang bisa submit iklan & top-up; SUSPENDED read-only.
@@ -291,7 +294,7 @@ Cookie+CSRF web (fase dashboard) · penjadwalan/edit pengumuman terbit · kenaik
 (sebelum Juli 2027) · unggahan PDF · push receipts & penggabungan notifikasi admin · IMPOSSIBLE_TRAVEL /
 IDENTICAL_COORDINATES · tandai valid massal · ekspor PDF & rekap rentang bebas/semester · REFUND ledger · multi-user
 sponsor · ringkasan platform iklan · job rekonsiliasi (diganti test invarian) · target jenjang sekolah ·
-X-App-Version gate · sub-peran admin (bendahara/operator) · check-in offline · Play Integrity/App Attest.
+X-App-Version gate · sub-peran admin (bendahara/operator) · filter notifikasi per kelas guru · check-in offline · Play Integrity/App Attest.
 
 ---
 

@@ -14,7 +14,7 @@ Buka `http://localhost:3030`. Masuk menggunakan akun yang tersedia, atau pilih s
 
 | Peran | Tampilan |
 |---|---|
-| Admin sekolah | Beranda dengan ringkasan dan grafik kehadiran; siswa; absensi dan izin; tahun ajaran, semester, kelas dan mapel; rapor dan lembar nilai; tagihan dan verifikasi pembayaran; pengumuman; kalender; profil sekolah; **tema sekolah**; audit |
+| Admin sekolah | Beranda dengan ringkasan dan grafik kehadiran; siswa; absensi dan izin; tahun ajaran, semester, kelas dan mapel; rapor dan lembar nilai; tagihan dan verifikasi pembayaran; pengumuman; kalender; profil sekolah; **tema sekolah**; audit; notifikasi: atur kabar sekolah yang diterima |
 | Super admin | Sekolah; pengguna; sponsor; moderasi iklan; top-up; libur nasional; pengaturan platform; audit; seluruh halaman sekolah dengan pemilih sekolah |
 | Sponsor | Kampanye, unggah banner dan target; analitik; saldo, top-up dan transaksi; profil perusahaan |
 | Siswa | Beranda (kartu identitas + jam sekolah + status absen + menu besar + pengumuman); absensi dengan peta dan foto wajah; izin/sakit; rapor; tagihan dan bukti transfer; kalender belajar; profil |
@@ -91,6 +91,14 @@ Keputusan klien 2026-09-25: siswa boleh absen dari **browser HP** (bukan desktop
 - **Setelah ditinjau.** Ringkasan "Valid · <peninjau> · <waktu sekolah>" (+ "Ubah jadi tidak valid") atau "Tidak valid …" dengan tombol **Koreksi absensi** bila status masih Alpa; Koreksi diisi dari catatan yang sedang dilihat (siswa & tanggal detail, bukan filter halaman). Tidak valid tidak bisa kembali ke Valid; setelah dipulihkan lewat Koreksi tag menjadi "Tidak valid · dipulihkan".
 - **Demo.** Satu tinjauan contoh (Teguh Santoso, Valid oleh "Pak Dodi (Guru BK)") dan Yoga Pratama (`FACE_NOT_DETECTED`) di antrean. Keputusan di demo **disimpan di memori halaman** (pengecualian dari aturan demo yang menolak simpan) supaya alurnya bisa dicoba; hilang saat halaman dimuat ulang dan tidak pernah ke server. Filter tinjauan berlaku juga di demo (`demoRows` menerima parameter tampilan).
 - Aturan murni: `src/lib/attendance/anomaly-review-rules.ts` (server & klien) dan `src/components/hub/attendance-admin/monitor-rules.ts` (`reviewTag`, teks hasil/galat).
+
+## Kabar sekolah per akun admin (N2)
+
+- **Kartu "Kabar sekolah untuk akun ini"** di halaman Notifikasi (admin sekolah): ringkasan ("Semua kabar sekolah dikirim ke akun ini." / "Kabar Keuangan tidak dikirim ke akun ini.") + **Atur** → kotak centang per kategori (**dicentang = diterima**: Keuangan — bukti transfer SPP baru; Kesiswaan — pengajuan izin/sakit) → **Simpan pilihan** (aktif hanya bila ada perubahan). Gagal memuat ditampilkan sebagai galat + Coba lagi, tidak pernah sebagai "semua dikirim". Bila diatur admin utama, kartu menyebut "Diatur oleh … pada …".
+- **Admin & guru → detail akun → Atur notifikasi** (admin utama, untuk admin tambahan): field yang sama; toast memakai kalimat sebab-akibat yang sama. Detail akun menampilkan "Kabar yang dimatikan" (kosong = "Tidak ada — semua kabar sekolah dikirim.").
+- Catatan di bawah centang: berlaku untuk notifikasi baru; notifikasi pribadi & kabar Sistem selalu dikirim; bila semua admin mematikan satu kategori, admin utama tetap menerimanya.
+- Demo: tiga akun admin contoh (Bu Rina mematikan Keuangan); simpan ditolak dengan pesan demo.
+- Kode: `src/components/hub/{notification-prefs,notification-categories-field,security-card}.tsx`, aturan `src/lib/frontend/notification-prefs-rules.ts` & `src/lib/notifications/rules.ts`.
 
 ## Kehadiran admin: rekap bulanan (A3)
 
