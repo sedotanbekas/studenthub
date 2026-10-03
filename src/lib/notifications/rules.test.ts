@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   ADMIN_MUTABLE_CATEGORIES,
   assertDedupKey,
+  isPushOnlyType,
   NOTIFICATION_DEDUP_KEY_MAX,
   CATEGORY_BY_TYPE,
   SCHOOL_ADMIN_BROADCAST_TYPES,
@@ -26,6 +27,12 @@ test("notifikasi absensi (N4) berkategori Kehadiran; koreksi absensi tetap Kesis
   assert.equal(resolveCategory("ATTENDANCE_ALPHA"), "ATTENDANCE");
   assert.equal(resolveCategory("ATTENDANCE_DAY_SUMMARY"), "ATTENDANCE");
   assert.equal(resolveCategory("ATTENDANCE_CORRECTED"), "STUDENT_AFFAIRS");
+});
+
+test("pengingat absen (N5): kategori Kehadiran & push-only; tipe lain tidak", () => {
+  assert.equal(resolveCategory("ATTENDANCE_REMINDER"), "ATTENDANCE");
+  assert.equal(isPushOnlyType("ATTENDANCE_REMINDER"), true);
+  assert.equal(isPushOnlyType("ATTENDANCE_ALPHA"), false);
 });
 
 test("assertDedupKey: 1..64 karakter; tanpa kunci boleh", () => {

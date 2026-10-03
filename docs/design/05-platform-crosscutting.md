@@ -247,7 +247,12 @@ takeover, concurrent tick + super-admin re-close, or re-close after a calendar c
 recipient per date. Recipients are inserted in `userId` order. Retraction (holiday added retroactively) deletes by the
 same keys per school chunk; a delivered push cannot be recalled, hence the 0-check-in hold.
 
-N11. **Retention.** `maintenance-daily` deletes notifications older than `NOTIFICATION_RETENTION_DAYS` in `DELETE … LIMIT 5000` loops. Their PushTickets are deleted by cascade.
+N11. **Retention.** `maintenance-daily` deletes notifications older than `NOTIFICATION_RETENTION_DAYS` in `DELETE … LIMIT 5000` loops (push-only types such as `ATTENDANCE_REMINDER`: 30 days, index `[type, createdAt]`).
+
+N14. **Push-only & expiring rows (N5, owner decision 2026-10-03).** `PUSH_ONLY_TYPES` rows are written with `readAt = now`
+(never raise the badge) and are excluded from the inbox list and detail (404). `Notification.pushExpiresAt`: the dispatcher
+skips with `EXPIRED` once `now >= pushExpiresAt`; Web Push TTL and Expo `expiration` never exceed it. A row made irrelevant
+before sending (student checked in) becomes SKIPPED `OBSOLETE`. Their PushTickets are deleted by cascade.
 
 ### A. Announcements
 
@@ -415,6 +420,8 @@ J1. **Tick** (`runTick(now)`): run every due job with `Promise.allSettled`. Each
 
 J2. **Schedule** (pure `dueJobs(now)`):
 - Every tick, queue-type (safe to run twice): `push-dispatch`, `announcements-publish`, `push-receipts`, `ads-lifecycle` (calls the sponsor domain's `expireEndedAds(now)` / auto-pause).
+- Every tick, keyed per school: `attendance-reminder` (N5, design 02 §3.15) — one JobRun per (school, local date) in the
+  send window before the bell; push-only `ATTENDANCE_REMINDER` rows.
 - Every tick, keyed per school: `attendance-auto-alpha`. For each active school, run `attendance.runAutoAlphaForSchool(schoolId, localDate, ctx)` once the local time is past `dayEndMinute`. It also catches up the previous `AUTO_ALPHA_CATCHUP_DAYS` dates. Skipping holidays and non-school days belongs to the attendance domain's function.
 - Hourly, keyed by UTC hour: `files-orphan-cleanup`.
 - Daily, keyed by WIB date, on the first tick at or after 19:00 UTC: `maintenance-daily`. It runs selfie retention, notification retention, and purges AuthSessions revoked or expired more than 30 days ago (refresh tokens deleted by cascade), JobRuns older than 90 days, and PushTickets older than 24 hours.

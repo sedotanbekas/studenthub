@@ -408,3 +408,17 @@ test("kunci attendance:<studentId>: siswa dinonaktifkan / pindah kelas selagi ch
   const row = await prisma.attendance.findFirstOrThrow({ where: { studentId: moved.student.id } });
   assert.equal(row.classId, null, "snapshot kelas dari baris siswa terkunci, bukan konteks sebelum kunci");
 });
+
+test("N5: check-in yang diterima membuat pengingat absen PENDING miliknya OBSOLETE; milik siswa lain & yang terkirim tidak berubah", async () => {
+  const [st, other] = [await addStudent(world), await addStudent(world)];
+  const remind = (userId: string, status: "PENDING" | "SENT") => prisma.notification.create({
+    data: { userId, type: "ATTENDANCE_REMINDER", category: "ATTENDANCE", title: "Kamu belum absen hari ini", body: "Jam masuk 07:00.", pushStatus: status, readAt: new Date(), dedupKey: `attendance-reminder:${DAY}:${status}` },
+  });
+  const [mine, sent, theirs] = [await remind(st.user.id, "PENDING"), await remind(st.user.id, "SENT"), await remind(other.user.id, "PENDING")];
+  const out = await checkInAs(st, at(425));
+  assert.equal(out.status, 201);
+  const after = async (id: string) => prisma.notification.findUniqueOrThrow({ where: { id }, select: { pushStatus: true, pushError: true } });
+  assert.deepEqual(await after(mine.id), { pushStatus: "SKIPPED", pushError: "OBSOLETE" });
+  assert.deepEqual(await after(sent.id), { pushStatus: "SENT", pushError: null });
+  assert.deepEqual(await after(theirs.id), { pushStatus: "PENDING", pushError: null });
+});

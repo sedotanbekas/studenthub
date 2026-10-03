@@ -33,7 +33,7 @@ function fakeDeps(overrides: Partial<TickDeps> = {}): { deps: TickDeps; keyed: K
 
 const TICK_AT = new Date("2026-09-21T19:00:00Z");
 
-test("runTick 19:00Z: menjalankan keempat job, keyed lewat runKeyed('global', runKey), queue lewat runQueue", async () => {
+test("runTick 19:00Z: menjalankan kelima job, keyed lewat runKeyed('global', runKey), queue lewat runQueue", async () => {
   const { deps, keyed, queued } = fakeDeps();
   const result = await createTickRunner(deps).runTick(TICK_AT, "req-tick-1");
 
@@ -41,10 +41,11 @@ test("runTick 19:00Z: menjalankan keempat job, keyed lewat runKeyed('global', ru
   assert.deepEqual(result.results.map((r) => [r.job, r.outcome]), [
     ["push-dispatch", "ran"],
     ["attendance-auto-alpha", "ran"],
+    ["attendance-reminder", "ran"],
     ["files-orphan-cleanup", "ran"],
     ["maintenance-daily", "ran"],
   ]);
-  assert.deepEqual(queued.map((c) => c.name), ["push-dispatch", "attendance-auto-alpha"]);
+  assert.deepEqual(queued.map((c) => c.name), ["push-dispatch", "attendance-auto-alpha", "attendance-reminder"]);
   assert.deepEqual(keyed.map((c) => [c.job, c.scopeKey, c.runKey]), [
     ["files-orphan-cleanup", "global", "2026-09-21T19"],
     ["maintenance-daily", "global", "2026-09-22"],
@@ -66,7 +67,7 @@ test("runTick: JobContext berisi now, requestId, dan deadline = now + 50 detik",
 test("runTick 18:59Z: maintenance-daily tidak dijalankan", async () => {
   const { deps, keyed } = fakeDeps();
   const result = await createTickRunner(deps).runTick(new Date("2026-09-21T18:59:00Z"), "req-tick-2");
-  assert.deepEqual(result.results.map((r) => r.job), ["push-dispatch", "attendance-auto-alpha", "files-orphan-cleanup"]);
+  assert.deepEqual(result.results.map((r) => r.job), ["push-dispatch", "attendance-auto-alpha", "attendance-reminder", "files-orphan-cleanup"]);
   assert.deepEqual(keyed.map((c) => c.job), ["files-orphan-cleanup"]);
 });
 
@@ -83,6 +84,7 @@ test("runTick: hasil skipped/failed diteruskan; penolakan tak terduga menjadi fa
   assert.deepEqual(result.results.map((r) => [r.job, r.outcome]), [
     ["push-dispatch", "skipped"],
     ["attendance-auto-alpha", "failed"],
+    ["attendance-reminder", "ran"],
     ["files-orphan-cleanup", "failed"],
     ["maintenance-daily", "ran"],
   ]);

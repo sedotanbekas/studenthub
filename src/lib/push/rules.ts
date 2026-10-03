@@ -50,8 +50,10 @@ export interface PushSource {
   readonly data: unknown;
 }
 
-export function buildPushMessage(row: PushSource, token: string): PushMessage {
+export function buildPushMessage(row: PushSource & { readonly pushExpiresAt?: Date | null }, token: string): PushMessage {
+  const expiration = expoExpirationOf(row.pushExpiresAt);
   return {
+    ...(expiration !== undefined ? { expiration } : {}),
     to: token,
     title: previewText(row.title, PUSH_TITLE_MAX),
     body: previewText(row.body, PUSH_BODY_MAX),
@@ -114,9 +116,15 @@ export function aggregateOutcome(results: readonly DeviceResult[], attempts: num
   return { status: "FAILED", error: failure ? failure.error : PUSH_ERROR.DEVICE_NOT_REGISTERED };
 }
 
-export function isExpired(createdAt: Date, now: Date): boolean {
-  return now.getTime() - createdAt.getTime() > PUSH_MAX_AGE_MINUTES * MINUTE_MS;
+/** Lewat batas umur 60 menit, atau sudah melewati `pushExpiresAt` (pengingat absen = batas hadir, N5). */
+export function isExpired(row: { readonly createdAt: Date; readonly pushExpiresAt?: Date | null }, now: Date): boolean {
+  if (row.pushExpiresAt && now.getTime() >= row.pushExpiresAt.getTime()) return true;
+  return now.getTime() - row.createdAt.getTime() > PUSH_MAX_AGE_MINUTES * MINUTE_MS;
 }
+
+/** Waktu kedaluwarsa Expo (detik epoch) agar layanan push tidak menyimpan pesan melewati `pushExpiresAt`. */
+export const expoExpirationOf = (pushExpiresAt: Date | null | undefined): number | undefined =>
+  pushExpiresAt ? Math.floor(pushExpiresAt.getTime() / 1000) : undefined;
 
 export function chunk<T>(items: readonly T[], size: number): T[][] {
   if (!Number.isInteger(size) || size < 1) throw new Error("Ukuran chunk harus bilangan bulat >= 1");

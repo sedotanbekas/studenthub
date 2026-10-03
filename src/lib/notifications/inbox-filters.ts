@@ -1,5 +1,6 @@
 import type { NotificationCategory, NotificationType, Prisma } from "@prisma/client";
 import { cursorWhere, type CursorPosition } from "@/lib/http/cursor";
+import { PUSH_ONLY_TYPES } from "./rules";
 
 /**
  * Pembangun filter inbox (murni, tanpa Prisma runtime) — desain N6–N8.
@@ -43,6 +44,9 @@ export interface UnreadSummary {
 
 const isNonEmpty = (where: Where): boolean => Object.keys(where).length > 0;
 
+/** Tipe push-only (pengingat absen, N5) tidak pernah tampil di kotak masuk. */
+export const VISIBLE_TYPES: Where = { type: { notIn: [...PUSH_ONLY_TYPES] } };
+
 export function kindWhere(kind: InboxKind): Where {
   if (kind === "announcement") return { type: "ANNOUNCEMENT" };
   if (kind === "personal") return { type: { not: "ANNOUNCEMENT" } };
@@ -53,6 +57,7 @@ export function kindWhere(kind: InboxKind): Where {
 export function buildInboxWhere(filter: InboxFilter): Where {
   const parts: Where[] = [
     { userId: filter.userId },
+    VISIBLE_TYPES,
     kindWhere(filter.kind),
     filter.category ? { category: filter.category } : {},
     filter.unreadOnly ? { readAt: null } : {},

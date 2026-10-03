@@ -449,6 +449,26 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
 - **Exactly once:** every row carries `dedupKey` (`attendance-alpha:<date>` / `attendance-summary:<date>`), unique per
   recipient, INSERT IGNORE (design 05 N13). Retraction on a retroactive holiday: §3.8 step 6.
 
+### 3.15 Attendance reminder (N5, owner decision 2026-10-03; implemented 2026-10-03, PLAN wins on conflict)
+
+- **Job** `attendance-reminder` (every tick, queue type; `reminder-job.ts`): active schools with
+  `attendanceReminderEnabled` whose schedule is NOT the untouched default (`isDefaultSchedule`) and whose local time is
+  in `[sendMinute, startMinute - 1)` with the weekday in the mask (`reminderSlot`; `sendMinute = max(start - lead, open)`).
+  One batched settled pre-check, then `runKeyedJob("attendance-reminder", schoolId, localDate)` — no catch-up.
+- **Per school** (one transaction, 30 s): `checkSchoolDay` (real calendar; test mode is never consulted) → candidates
+  = ACTIVE students activated before the check-in close with an active user and no Attendance row → minus PENDING or
+  APPROVED leave covering the date → minus students without a reachable device (`loadReachableDevices`, the
+  dispatcher's definition) → `notifyRecipients` with `ATTENDANCE_REMINDER` (category ATTENDANCE, push-only: `readAt`
+  set, hidden from inbox & detail), `dedupKey = attendance-reminder:<date>`, `pushExpiresAt = start + lateTolerance`.
+  Post-insert sweep (`sweepCheckedInReminders`) marks recipients that checked in meanwhile SKIPPED `OBSOLETE`; then
+  `kickPushDispatch()` so the rows go out at once (the window closes a minute before the bell).
+- **Check-in** (CREATED path) marks the student's PENDING reminders `OBSOLETE` in the same transaction (Notification last).
+- **Expiry everywhere**: dispatcher `isExpired` (`now >= pushExpiresAt` → SKIPPED EXPIRED), Web Push TTL ≤ seconds to
+  `pushExpiresAt`, Expo `expiration`. Push-only rows are purged after 30 days (`maintenance-daily`, index [type, createdAt]).
+- **Settings** `GET/PUT /school/settings/attendance-reminder` (`schools.profile.read` / `schools.settings.update`, SchoolScope,
+  `lockKey(school-config)`, audit `school.attendance_reminder_update`, same values → no audit). CHECK `chk_school_reminder_lead`
+  (5..120).
+
 ## 4. Service modules and pure modules
 
 **Pure modules** (no Prisma; each has a colocated `*.test.ts`):

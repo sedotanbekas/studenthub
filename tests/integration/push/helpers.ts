@@ -25,8 +25,9 @@ const DAY_MS = 86_400_000;
 export const expoToken = (): string => `ExponentPushToken[${uniq("tok").replace(/[^A-Za-z0-9_-]/g, "_")}]`;
 
 /** Sesi ANDROID dengan token Expo; `state` membuat sesi dicabut/kedaluwarsa (harus dilewati). */
-export async function addDevice(userId: string, state: "live" | "revoked" | "expired" = "live"): Promise<Device> {
-  const { sessionId } = await createSessionToken(userId, { deviceId: uniq("dev") });
+/** `expiresAt`: untuk test berjam tetap (mis. 2031) agar sesi masih hidup pada instant uji. */
+export async function addDevice(userId: string, state: "live" | "revoked" | "expired" = "live", options: { expiresAt?: Date } = {}): Promise<Device> {
+  const { sessionId } = await createSessionToken(userId, { deviceId: uniq("dev"), ...(options.expiresAt ? { expiresAt: options.expiresAt } : {}) });
   const token = expoToken();
   await prisma.authSession.update({
     where: { id: sessionId },

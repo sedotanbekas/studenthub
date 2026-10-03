@@ -117,3 +117,10 @@ test("demo admin sekolah (N2): lolos skema SchoolAdmin, tepat satu admin utama, 
   assert.equal((admins as Array<{ isPrimary: boolean }>).filter(a => a.isPrimary).length, 1);
   assert.deepEqual(demoRows("/me/notification-preferences"), { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS", "ATTENDANCE"], updatedAt: null, updatedBy: null });
 });
+
+test("demo pengingat absen (N5): DTO pengaturan, bukan baris monitor kehadiran", async () => {
+  const { attendanceReminderSettingsSchema } = await import("@/lib/schools/reminder-schemas");
+  const settings = demoRows("/school/settings/attendance-reminder");
+  assert.doesNotThrow(() => attendanceReminderSettingsSchema.parse(settings));
+  assert.equal(Array.isArray(settings), false);
+});

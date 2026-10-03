@@ -75,6 +75,7 @@ test("endpoint tick dengan secret benar menjalankan job (cakupan uji kosong) dan
     assert.ok(getLastTickAt());
     const outcomes = res.body?.data.results ?? [];
     assert.ok(outcomes.some((r) => r.job === "attendance-auto-alpha"), JSON.stringify(outcomes));
+    assert.ok(outcomes.some((r) => r.job === "attendance-reminder"), "tick menjalankan pengingat absen (N5)");
     assert.equal(outcomes.some((r) => r.outcome === "failed"), false, JSON.stringify(outcomes));
     const single = await runSingleJob("attendance-auto-alpha", new Date(), uniq("req"));
     assert.deepEqual(single.results.map((r) => [r.job, r.outcome]), [["attendance-auto-alpha", "ran"]]);

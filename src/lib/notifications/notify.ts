@@ -5,6 +5,7 @@ import {
   assertDedupKey,
   initialPushStatus,
   isAdminMutableCategory,
+  isPushOnlyType,
   isReachableAdmin,
   NOTIFICATION_TITLE_MAX,
   previewText,
@@ -33,6 +34,8 @@ export interface NotificationEvent {
    * (indeks unik userId+dedupKey, INSERT IGNORE) sehingga job yang diulang tidak menggandakan notifikasi.
    */
   dedupKey?: string;
+  /** Push tidak dikirim lagi setelah waktu ini (pengingat absen = batas hadir, N5). */
+  pushExpiresAt?: Date;
 }
 
 export interface NotifyContext {
@@ -59,6 +62,9 @@ export async function notifyRecipients(tx: Tx, recipients: readonly Recipient[],
     data,
     announcementId: event.announcementId ?? null,
     dedupKey: event.dedupKey ?? null,
+    pushExpiresAt: event.pushExpiresAt ?? null,
+    // Push-only (N5): sudah dibaca sejak ditulis -> tidak menaikkan badge, tidak tampil di kotak masuk.
+    readAt: isPushOnlyType(event.type) ? ctx.now : null,
     pushStatus: initialPushStatus(r.role),
     pushNextAttemptAt: ctx.now,
     createdAt: ctx.now,

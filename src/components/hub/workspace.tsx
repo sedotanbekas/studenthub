@@ -17,6 +17,7 @@ import { ACTION_LABELS, detailBase, pageActions, VIEW_COLUMNS, VIEW_NOTES, views
 import { CalendarView, FeedView, GradeSheet } from "./domain-views";
 import type { SheetDto } from "@/lib/report-cards/schemas";
 import { ReportCardDocument, isReportCardDetail } from "./report-card";
+import { AttendanceReminderCard } from "./attendance-reminder-card";
 import { NotificationPrefsCard } from "./notification-prefs";
 import { SecurityPanel } from "./security-panel";
 import { useLeaveIntent } from "./use-url-intent";
@@ -67,6 +68,7 @@ export function Workspace({ module, embedded = false, recordDialog }: { module: 
   return <div className="workspace-page"><div className={`page-heading${embedded ? " embedded" : ""}`}>{!embedded && <div><h1>{module.title}</h1><p>{module.description}</p></div>}<PageActions create={create} secondary={secondary} disabled={needsSchool} onOpen={op => setAction({ op })} /></div>
     {module.key === "security" && <SecurityPanel />}
     {module.key === "notifications" && me.user.role === "SCHOOL_ADMIN" && <div className="security-panel"><NotificationPrefsCard /></div>}
+    {module.key === "school-settings" && !needsSchool && <div className="security-panel"><AttendanceReminderCard key={`${schoolId}:${version}`} /></div>}
     {views.length > 1 && <ViewTabs views={views} current={view} onChange={changeView} />}
     <section className="panel data-panel" {...(views.length > 1 && view ? { role: "tabpanel", id: "view-panel", "aria-labelledby": `view-tab-${view.id}` } : {})}><div className="data-panel-top"><div className="view-title"><span className="module-icon"><Icon name={module.icon} size={21} /></span><div><h2>{view ? viewLabel(view) : module.title}</h2>{meta?.total !== undefined && <small>{`${number(meta.total)} data ${demo ? "contoh" : "tersedia"}`}</small>}</div></div>{rowHint && <p className="row-hint"><Icon name="arrow" size={15} />Pilih salah satu data untuk melihat detail dan tindakannya.</p>}</div>
       {view && <div className="table-toolbar"><div className="table-search"><Icon name="search" size={17} /><input aria-label="Cari data" placeholder={view.parameters.some(p => p.name === "q") ? "Cari nama atau nomor…" : "Pencarian tidak tersedia pada tampilan ini"} value={query} disabled={!view.parameters.some(p => p.name === "q")} onChange={e => { setQuery(e.target.value); setFilters(f => ({ ...f, page: 1, cursor: undefined })); }} /></div><div className="toolbar-actions">{Object.keys(filtersSchema.properties ?? {}).length > 0 && <button className={`button secondary small-button ${filterOpen ? "selected-button" : ""}`} onClick={() => setFilterOpen(!filterOpen)}><Icon name="settings" size={15} />Filter</button>}<button className="icon-button" aria-label="Muat ulang data" disabled={loading} onClick={() => setVersion(v => v + 1)}><Icon name="refresh" size={17} /></button></div></div>}

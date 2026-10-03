@@ -5,10 +5,11 @@ import { JOB_NAMES } from "./types";
 
 const at = (iso: string): Date => new Date(iso);
 
-test("dueJobs 18:59Z: tiga job, maintenance-daily belum jatuh tempo", () => {
+test("dueJobs 18:59Z: empat job, maintenance-daily belum jatuh tempo", () => {
   assert.deepEqual(dueJobs(at("2026-09-21T18:59:00Z")), [
     { name: "push-dispatch", runKey: null },
     { name: "attendance-auto-alpha", runKey: null },
+    { name: "attendance-reminder", runKey: null },
     { name: "files-orphan-cleanup", runKey: "2026-09-21T18" },
   ]);
 });
@@ -17,6 +18,7 @@ test("dueJobs 19:00Z: maintenance-daily jatuh tempo dengan kunci tanggal WIB (02
   assert.deepEqual(dueJobs(at("2026-09-21T19:00:00Z")), [
     { name: "push-dispatch", runKey: null },
     { name: "attendance-auto-alpha", runKey: null },
+    { name: "attendance-reminder", runKey: null },
     { name: "files-orphan-cleanup", runKey: "2026-09-21T19" },
     { name: "maintenance-daily", runKey: "2026-09-22" },
   ]);
@@ -41,10 +43,10 @@ test("dueJobs pada :00, :05, :07 dalam satu jam memakai kunci jam UTC yang sama"
   assert.deepEqual(keys, ["2026-09-21T03", "2026-09-21T03", "2026-09-21T03"]);
 });
 
-test("dueJobs: push-dispatch & attendance-auto-alpha jatuh tempo di setiap tick tanpa runKey", () => {
+test("dueJobs: push-dispatch, attendance-auto-alpha & attendance-reminder jatuh tempo di setiap tick tanpa runKey", () => {
   for (const iso of ["2026-01-01T00:00:00Z", "2026-06-15T12:34:00Z", "2026-12-31T23:59:00Z"]) {
     const queue = dueJobs(at(iso)).filter((job) => job.runKey === null).map((job) => job.name);
-    assert.deepEqual(queue, ["push-dispatch", "attendance-auto-alpha"], iso);
+    assert.deepEqual(queue, ["push-dispatch", "attendance-auto-alpha", "attendance-reminder"], iso);
   }
 });
 
@@ -63,6 +65,7 @@ test("runKeyFor: kunci yang sama dengan penjadwal untuk setiap job (dipakai ekse
   const now = at("2026-09-21T10:15:00Z");
   assert.equal(runKeyFor("push-dispatch", now), null);
   assert.equal(runKeyFor("attendance-auto-alpha", now), null);
+  assert.equal(runKeyFor("attendance-reminder", now), null);
   assert.equal(runKeyFor("files-orphan-cleanup", now), "2026-09-21T10");
   assert.equal(runKeyFor("maintenance-daily", now), "2026-09-21");
   assert.equal(runKeyFor("maintenance-daily", at("2026-09-21T17:00:00Z")), "2026-09-22");

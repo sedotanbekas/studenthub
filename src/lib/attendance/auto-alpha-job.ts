@@ -4,6 +4,7 @@ import type { DateRange } from "@/lib/calendar/ranges";
 import { checkSchoolDay, termCoverageSealDate, type DayReason } from "@/lib/calendar/rules";
 import { prisma, type Prisma, type Tx } from "@/lib/db";
 import { runKeyedJob } from "@/lib/jobs/runner";
+import { schoolScopeFilter } from "@/lib/jobs/scope";
 import type { JobOutcome, JobResult } from "@/lib/jobs/types";
 import { log } from "@/lib/log";
 import { fromDbDate, localParts, toDbDate, type LocalDate } from "@/lib/time/zone";
@@ -49,11 +50,6 @@ export type CloseSchool = Prisma.SchoolGetPayload<{ select: typeof CLOSE_SCHOOL_
 
 type OutcomeCounts = Record<JobOutcome, number>;
 
-/** Cakupan test: bila ctx.scope diisi, hanya schoolIds yang disebut (kosong = tidak ada). */
-function schoolFilter(ctx: JobContext): Prisma.SchoolWhereInput {
-  return ctx.scope ? { id: { in: [...(ctx.scope.schoolIds ?? [])] } } : {};
-}
-
 /** Kunci (schoolId|tanggal) JobRun auto-alpha yang tidak perlu dicoba lagi, satu kueri untuk semua sekolah. */
 async function settledKeys(schoolIds: readonly string[], now: Date): Promise<ReadonlySet<string>> {
   if (schoolIds.length === 0) return new Set();
@@ -70,7 +66,7 @@ function doneDatesOf(schoolId: string, settled: ReadonlySet<string>): ReadonlySe
 }
 
 export async function runAutoAlpha(ctx: JobContext): Promise<JobResult> {
-  const schools = await prisma.school.findMany({ where: { isActive: true, ...schoolFilter(ctx) }, select: CLOSE_SCHOOL_SELECT, orderBy: { id: "asc" } });
+  const schools = await prisma.school.findMany({ where: { isActive: true, ...schoolScopeFilter(ctx) }, select: CLOSE_SCHOOL_SELECT, orderBy: { id: "asc" } });
   const settled = await settledKeys(schools.map((school) => school.id), ctx.now);
   const counts: OutcomeCounts = { ran: 0, skipped: 0, failed: 0 };
   let hasMore = false;

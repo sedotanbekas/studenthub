@@ -45,6 +45,7 @@ export function toExpoMessage(message: PushMessage): ExpoPushMessage {
     sound: message.sound,
     priority: message.priority,
     channelId: message.channelId,
+    ...(message.expiration !== undefined ? { expiration: message.expiration } : {}),
   };
 }
 

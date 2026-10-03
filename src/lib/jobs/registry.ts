@@ -6,6 +6,7 @@ import type { JobHandler, JobName } from "./types";
  */
 const pushDispatch: JobHandler = async (ctx) => (await import("./push-dispatch")).runPushDispatchJob(ctx);
 const autoAlpha: JobHandler = async (ctx) => (await import("@/lib/attendance/auto-alpha-job")).runAutoAlpha(ctx);
+const attendanceReminder: JobHandler = async (ctx) => (await import("@/lib/attendance/reminder-job")).runAttendanceReminders(ctx);
 const orphanFilesCleanup: JobHandler = async (ctx) => (await import("./files-cleanup")).runOrphanFilesCleanup(ctx);
 const maintenanceDaily: JobHandler = async (ctx) => (await import("./maintenance")).runMaintenanceDaily(ctx);
 
@@ -19,6 +20,8 @@ export const JOB_HANDLERS: Readonly<Record<JobName, JobHandler>> = {
   "push-dispatch": pushDispatch,
   // Per sekolah aktif → runKeyedJob("auto-alpha", schoolId, tanggal lokal, tutup hari) + catch-up 7 hari.
   "attendance-auto-alpha": autoAlpha,
+  // Pengingat absen (N5): per sekolah di jendela kirim -> runKeyedJob("attendance-reminder", schoolId, tanggal lokal).
+  "attendance-reminder": attendanceReminder,
   // Banner iklan yatim (> 24 jam, tidak dirujuk iklan): byte lalu baris.
   "files-orphan-cleanup": orphanFilesCleanup,
   // Retensi harian: selfie 180 hari, CheckInRejection 90 hari, token/sesi mati, notifikasi, JobRun.

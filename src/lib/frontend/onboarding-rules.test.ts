@@ -10,7 +10,7 @@ const READY: SchoolSetupFacts = {
 const status = (facts: SchoolSetupFacts) => Object.fromEntries(schoolSetupSteps(facts).map((s) => [s.key, s.status]));
 
 test("persiapan sekolah lengkap: semua langkah selesai", () => {
-  assert.deepEqual(status(READY), { academics: "done", schedule: "done", students: "done", holidays: "done", bank: "done" });
+  assert.deepEqual(status(READY), { academics: "done", schedule: "done", reminder: "done", students: "done", holidays: "done", bank: "done" });
   assert.equal(checklistComplete(schoolSetupSteps(READY)), true);
 });
 
@@ -20,7 +20,7 @@ test("sekolah baru (seperti Bina Nusa): akademik & siswa wajib, jadwal bawaan di
     schedule: { checkInOpen: "06:00", checkInClose: "10:00" },
     setupChecklist: { hasTermToday: false, nextTermStartDate: null, classCount: 2, subjectCount: 0, activeStudentCount: 0, holidayCount: 0 },
   };
-  assert.deepEqual(status(fresh), { academics: "todo", schedule: "optional", students: "todo", holidays: "optional", bank: "optional" });
+  assert.deepEqual(status(fresh), { academics: "todo", schedule: "optional", reminder: "optional", students: "todo", holidays: "optional", bank: "optional" });
   assert.equal(checklistComplete(schoolSetupSteps(fresh)), false);
   const academics = schoolSetupSteps(fresh)[0]!;
   assert.match(academics.summary, /jenjang/);

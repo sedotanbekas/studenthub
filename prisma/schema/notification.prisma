@@ -49,6 +49,7 @@ enum NotificationType {
   SCHOOL_SETTINGS_CHANGED
   ATTENDANCE_ALPHA
   ATTENDANCE_DAY_SUMMARY
+  ATTENDANCE_REMINDER
 }
 
 enum PushStatus {
@@ -125,6 +126,8 @@ model Notification {
   pushError         String?              @db.VarChar(255)
   /// Kunci idempoten notifikasi job (mis. "attendance-alpha:2031-03-18"); unik per penerima. NULL = tanpa dedup.
   dedupKey          String?              @db.VarChar(64)
+  /// Push tidak relevan lagi setelah waktu ini (pengingat absen = jam masuk + toleransi, N5). NULL = batas umur 60 menit.
+  pushExpiresAt     DateTime?
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -141,6 +144,8 @@ model Notification {
   @@index([userId, readAt])
   @@index([pushStatus, pushNextAttemptAt])
   @@index([announcementId])
+  /// Retensi pendek tipe push-only (pengingat absen, N5) di maintenance-daily.
+  @@index([type, createdAt])
 }
 
 /// Kategori siaran admin sekolah yang DIMATIKAN untuk satu akun (N2, keputusan pemilik 2026-10-03).

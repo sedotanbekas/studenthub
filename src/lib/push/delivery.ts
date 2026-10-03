@@ -63,14 +63,14 @@ export async function unreadCountsFor(userIds: readonly string[]): Promise<Reado
   return new Map(groups.map((g) => [g.userId, g._count._all]));
 }
 
-export type DeliverySource = PushSource & { readonly userId: string; readonly createdAt: Date };
+export type DeliverySource = PushSource & { readonly userId: string; readonly createdAt: Date; readonly pushExpiresAt?: Date | null };
 
 export function buildDeliveries(rows: readonly DeliverySource[], devices: ReadonlyMap<string, readonly Device[]>, now: Date, unread: ReadonlyMap<string, number> = new Map()): Delivery[] {
   return rows.flatMap((row) =>
     (devices.get(row.userId) ?? []).map((device): Delivery => {
       if (device.kind === "expo") return { kind: "expo", notificationId: row.id, sessionId: device.sessionId, token: device.token, message: buildPushMessage(row, device.token) };
       const payload = buildWebPushPayload(row, device.role, unread.get(row.userId) ?? null);
-      return { kind: "web", notificationId: row.id, subscriptionId: device.subscriptionId, endpointHash: device.endpointHash, send: { target: device.target, payload, ttlSeconds: webPushTtlSeconds(row.createdAt, now) } };
+      return { kind: "web", notificationId: row.id, subscriptionId: device.subscriptionId, endpointHash: device.endpointHash, send: { target: device.target, payload, ttlSeconds: webPushTtlSeconds(row.createdAt, now, row.pushExpiresAt) } };
     }),
   );
 }

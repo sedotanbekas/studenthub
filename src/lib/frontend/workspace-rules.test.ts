@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { operations } from "./catalog";
 import type { Operation } from "./types";
 import { modulesFor } from "./modules";
-import { ACTION_LABELS, detailBase, HIDDEN_VIEWS, isDangerAction, isHiddenField, NESTED_DETAIL_BASES, pageActions, splitActions, VIEW_LABELS, viewsFor } from "./workspace-rules";
+import { ACTION_LABELS, detailBase, HIDDEN_VIEWS, isDangerAction, isHiddenField, NESTED_DETAIL_BASES, PANEL_OPERATIONS, pageActions, splitActions, VIEW_LABELS, viewsFor } from "./workspace-rules";
 
 const op = (id: string, method: string, path: string): Operation => ({ id, method, path, title: id, action: "", parameters: [], multipart: false });
 
@@ -97,7 +97,7 @@ test("setiap operasi menu terjangkau: tampilan, aksi halaman, atau jendela detai
     const pageLevel = new Set(views.flatMap((v) => { const a = pageActions(available, v.path); return [a.create, ...a.secondary]; }).filter((o): o is Operation => Boolean(o)).map((o) => o.id));
     const bases = [...views.map((v) => detailBase(v.path)), ...NESTED_DETAIL_BASES];
     for (const candidate of available) {
-      const ok = views.includes(candidate) || pageLevel.has(candidate.id) || HIDDEN_VIEWS.has(candidate.id) || bases.some((base) => candidate.path.startsWith(`${base}/{id}`));
+      const ok = views.includes(candidate) || pageLevel.has(candidate.id) || HIDDEN_VIEWS.has(candidate.id) || PANEL_OPERATIONS.has(candidate.id) || bases.some((base) => candidate.path.startsWith(`${base}/{id}`));
       if (!ok) unreachable.push(`${entry.key}:${candidate.id}`);
     }
   }
@@ -109,4 +109,11 @@ test("rekap bulanan (A3): kedua operasi ada di katalog (proxy /api/web hanya men
     assert.ok(operations.some((op) => op.id === id), id);
     assert.ok(HIDDEN_VIEWS.has(id), id);
   }
+});
+
+test("operasi berkartu sendiri (pengingat absen, N5) bukan tab maupun tombol halaman", () => {
+  const ops = [op("getSchoolProfile", "GET", "/school/profile"), op("updateSchoolSettings", "PATCH", "/school/settings"), op("getAttendanceReminderSettings", "GET", "/school/settings/attendance-reminder"), op("updateAttendanceReminderSettings", "PUT", "/school/settings/attendance-reminder")];
+  assert.deepEqual(viewsFor(ops, "getSchoolProfile").map((v) => v.id), ["getSchoolProfile"]);
+  assert.deepEqual(pageActions(ops, "/school/profile").secondary.map((a) => a.id), ["updateSchoolSettings"]);
+  assert.ok(PANEL_OPERATIONS.has("getAttendanceReminderSettings"));
 });

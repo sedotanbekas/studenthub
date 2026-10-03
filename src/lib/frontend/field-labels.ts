@@ -80,4 +80,7 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   reReviewTriggered: "Perlu ditinjau ulang", prevFrom: "Periode lalu dari", prevTo: "Periode lalu sampai", kpis: "Indikator", value: "Nilai",
   previous: "Sebelumnya", changePct: "Perubahan (%)", dimension: "Dimensi", items: "Rincian", key: "Kunci", sharePct: "Porsi (%)", urlHost: "Domain tautan",
   isPunycodeHost: "Domain punycode", sponsorName: "Sponsor", refreshAfterSeconds: "Muat ulang setelah (detik)", accepted: "Diterima", duplicate: "Duplikat",
+  // Pengingat absen (N5).
+  leadMinutes: "Menit sebelum jam masuk", sendMinute: "Pengingat dikirim", pushReadyStudentCount: "Siswa siap menerima notifikasi HP",
+  defaultSchedule: "Jadwal masih bawaan",
 };

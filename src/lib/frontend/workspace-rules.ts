@@ -37,6 +37,7 @@ export const ACTION_LABELS: Readonly<Record<string, ActionText>> = {
   bulkCreateSchoolInvoices: { label: "Tagihan SPP massal", hint: "Satu periode untuk seluruh sekolah, kelas tertentu, atau siswa terpilih." },
   previewSchoolAnnouncementRecipients: { label: "Cek jumlah penerima", hint: "Hitung penerima sebelum pengumuman diterbitkan." },
   updateSchoolSettings: { label: "Ubah jadwal & jenjang", hint: "Jam absen, hari sekolah, dan jenjang sekolah." },
+  updateAttendanceReminderSettings: { label: "Atur pengingat absen" },
   markAllNotificationsRead: { label: "Tandai semua dibaca" },
   authChangePassword: { label: "Ganti kata sandi" },
   authLogoutAll: { label: "Keluar dari semua perangkat", hint: "Semua sesi diakhiri, termasuk perangkat ini." },
@@ -104,6 +105,7 @@ export const VIEW_LABELS: Readonly<Record<string, string>> = {
   listSchoolAnnouncements: "Pengumuman",
   listSchoolHolidays: "Kalender libur",
   getSchoolProfile: "Profil & kesiapan sekolah",
+  getAttendanceReminderSettings: "Pengingat absen",
   listSchoolAuditLogs: "Riwayat aktivitas",
   listSchoolAdmins: "Admin & guru",
   listNotifications: "Notifikasi",
@@ -144,15 +146,18 @@ const isRowLevel = (op: Operation): boolean => op.path.includes("{id}");
 const hasPathParams = (op: Operation): boolean => op.path.includes("{");
 
 /** Tampilan data yang bisa dipilih (tab): GET tanpa {id}, tampilan utama modul di depan. */
+/** Operasi yang punya kartu sendiri di halaman (bukan tab/tombol), mis. kartu "Pengingat absen" di Pengaturan sekolah (N5). */
+export const PANEL_OPERATIONS: ReadonlySet<string> = new Set(["getAttendanceReminderSettings", "updateAttendanceReminderSettings"]);
+
 export function viewsFor(available: readonly Operation[], primaryId: string | undefined): Operation[] {
-  const views = available.filter((op) => op.method === "GET" && !hasPathParams(op) && !isTemplate(op) && !HIDDEN_VIEWS.has(op.id));
+  const views = available.filter((op) => op.method === "GET" && !hasPathParams(op) && !isTemplate(op) && !HIDDEN_VIEWS.has(op.id) && !PANEL_OPERATIONS.has(op.id));
   const primary = views.find((op) => op.id === primaryId);
   return primary ? [primary, ...views.filter((op) => op !== primary)] : views;
 }
 
 /** Tombol biru = buat untuk tampilan aktif (POST ke path yang sama); aksi tingkat halaman lain = sekunder. */
 export function pageActions(available: readonly Operation[], viewPath: string | undefined): { create: Operation | undefined; secondary: Operation[] } {
-  const pageLevel = available.filter((op) => !isRowLevel(op) && (op.method !== "GET" || isTemplate(op) || hasPathParams(op)));
+  const pageLevel = available.filter((op) => !isRowLevel(op) && !PANEL_OPERATIONS.has(op.id) && (op.method !== "GET" || isTemplate(op) || hasPathParams(op)));
   const create = pageLevel.find((op) => op.method === "POST" && op.path === viewPath);
   const rest = pageLevel.filter((op) => op !== create);
   // Aksi milik tampilan yang dibuka (mis. "Kunci kembali absensi" di tab Mode uji) didahulukan agar tidak terselip di "Lainnya".

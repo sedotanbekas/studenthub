@@ -107,8 +107,9 @@ test("webPushTtlSeconds: sisa jendela 60 menit, dibatasi expiresAt, minimal 60 d
   assert.equal(webPushTtlSeconds(created, at(0)), 3600);
   assert.equal(webPushTtlSeconds(created, at(59)), 60);
   assert.equal(webPushTtlSeconds(created, at(61)), 60);
-  assert.equal(webPushTtlSeconds(created, at(10), at(15)), 300, "pengingat kedaluwarsa saat bel");
-  assert.equal(webPushTtlSeconds(created, at(10), at(9)), 60);
+  assert.equal(webPushTtlSeconds(created, at(10), at(15)), 300, "pengingat kedaluwarsa di batas hadir");
+  assert.equal(webPushTtlSeconds(created, at(10), new Date(at(10).getTime() + 20_000)), 20, "tanpa lantai 60 detik bila ada batas");
+  assert.equal(webPushTtlSeconds(created, at(10), at(9)), 1);
 });
 
 test("buildWebPushPayload: potong judul/isi tanpa memecah emoji, tag & tautan", () => {

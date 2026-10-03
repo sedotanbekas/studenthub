@@ -70,6 +70,11 @@ model School {
   dayEndMinute         Int            @default(900) @db.SmallInt
   /// Bitmask: Sen=1 Sel=2 Rab=4 Kam=8 Jum=16 Sab=32 Min=64. 31 = Sen-Jum, 63 = Sen-Sab.
   schoolDaysMask       Int            @default(31) @db.TinyInt
+  /// Pengingat absen (N5): push ke siswa yang belum absen `attendanceReminderLeadMinutes` menit sebelum jam masuk
+  /// (tidak lebih awal dari jam buka absen), sekali per tanggal lokal, hanya hari sekolah & jadwal yang sudah diatur.
+  attendanceReminderEnabled     Boolean @default(true)
+  /// 5..120 (CHECK chk_school_reminder_lead).
+  attendanceReminderLeadMinutes Int     @default(15) @db.SmallInt
   /// Rekening tujuan transfer SPP: hanya SUPER_ADMIN yang boleh mengubah (anti-pengalihan).
   bankName             String?        @db.VarChar(50)
   bankAccountNumber    String?        @db.VarChar(30)

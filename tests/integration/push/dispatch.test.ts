@@ -236,3 +236,20 @@ test("anggaran waktu habis di tengah batch: chunk berikutnya tidak dikirim, bari
   const next = await dispatchPendingPushes(jobCtx(now, [st.user.id]), memoryPushTransport);
   assert.deepEqual({ claimed: next.claimed, sent: next.sent }, { claimed: 50, sent: 50 }, "putaran berikutnya mengirim sisanya");
 });
+
+test("N5: baris dengan pushExpiresAt lewat -> SKIPPED EXPIRED tanpa dikirim; yang masih berlaku membawa expiration Expo", async () => {
+  const { notifyUsers } = await import("@/lib/notifications/notify");
+  const { withTx } = await import("@/lib/tx");
+  const st = await studentWithDevices(schoolId, 1);
+  const now = new Date();
+  const remind = (title: string, pushExpiresAt: Date) =>
+    withTx((tx) => notifyUsers(tx, [st.user.id], { type: "ATTENDANCE_REMINDER", title, body: "Jam masuk 07:00.", link: { screen: "check-in", id: "2031-03-18" }, dedupKey: `attendance-reminder:${title}`, pushExpiresAt }, { now }));
+  await remind("lewat", new Date(now.getTime() - 1_000));
+  await remind("berlaku", new Date(now.getTime() + 600_000));
+  const [late, live] = await Promise.all(["lewat", "berlaku"].map((title) => prisma.notification.findFirstOrThrow({ where: { userId: st.user.id, title }, select: { id: true } })));
+  await dispatchPendingPushes(jobCtx(now, [st.user.id]), memoryPushTransport);
+  assert.deepEqual([(await notificationRow(late!.id)).pushStatus, (await notificationRow(late!.id)).pushError], ["SKIPPED", "EXPIRED"]);
+  assert.equal(messagesFor(late!.id).length, 0);
+  assert.equal((await notificationRow(live!.id)).pushStatus, "SENT");
+  assert.equal(messagesFor(live!.id)[0]?.expiration, Math.floor((now.getTime() + 600_000) / 1000));
+});

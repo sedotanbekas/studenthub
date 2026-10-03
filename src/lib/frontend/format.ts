@@ -21,7 +21,7 @@ function numeric(value: number, key: string): string {
   return /amount|balance|cpc|price|spent|revenue|remaining/i.test(key) ? rupiah(value) : number(value);
 }
 /** Kolom jadwal sekolah yang disimpan sebagai menit sejak 00:00 waktu lokal sekolah. */
-const CLOCK_MINUTE_FIELDS: ReadonlySet<string> = new Set(["checkInOpenMinute", "startMinute", "checkInCloseMinute", "dayEndMinute"]);
+const CLOCK_MINUTE_FIELDS: ReadonlySet<string> = new Set(["checkInOpenMinute", "startMinute", "checkInCloseMinute", "dayEndMinute", "sendMinute"]);
 export const isClockMinuteField = (key: string): boolean => CLOCK_MINUTE_FIELDS.has(key);
 export const clockText = (minutes: number): string => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 /** Kolom waktu kejadian yang perlu jam, bukan hanya tanggal (mis. riwayat masuk). */

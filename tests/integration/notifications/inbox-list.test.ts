@@ -160,3 +160,18 @@ test("IDOR: hanya baris milik sendiri; ?schoolId sekolah lain diabaikan", async 
   assert.equal(res.status, 200);
   assert.deepEqual(res.body?.data.map((i) => i.id), [myId]);
 });
+
+test("pengingat absen (N5, push-only) tidak tampil di daftar, tidak menaikkan badge, dan detailnya 404", async () => {
+  const { GET: detail } = await import("@/app/api/v1/notifications/[id]/route");
+  const { GET: unread } = await import("@/app/api/v1/notifications/unread-count/route");
+  const { notifyRecipients } = await import("@/lib/notifications/notify");
+  const { attendanceReminderEvent } = await import("@/lib/notifications/templates/attendance-reminder");
+  const { withTx } = await import("@/lib/tx");
+  const st = await studentSession(schoolAId);
+  const before = (await callRoute<Envelope<{ total: number }>>(unread, { method: "GET", url: "/api/v1/notifications/unread-count", bearer: st.token })).body?.data.total;
+  await withTx((tx) => notifyRecipients(tx, [{ userId: st.userId, role: "STUDENT" }], attendanceReminderEvent({ date: "2031-03-18", startMinute: 420, lateToleranceMinutes: 15, expiresAt: new Date(Date.now() + 600_000) }), { now: new Date() }));
+  const row = await prisma.notification.findFirstOrThrow({ where: { userId: st.userId, type: "ATTENDANCE_REMINDER" } });
+  assert.equal((await list(st.token)).body?.data.some((item) => item.id === row.id), false);
+  assert.equal((await callRoute<Envelope<{ total: number }>>(unread, { method: "GET", url: "/api/v1/notifications/unread-count", bearer: st.token })).body?.data.total, before);
+  assert.equal((await callRoute(detail, { method: "GET", url: `/api/v1/notifications/${row.id}`, bearer: st.token, params: { id: row.id } })).status, 404);
+});

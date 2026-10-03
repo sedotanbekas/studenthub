@@ -27,7 +27,15 @@ export const CATEGORY_BY_TYPE: Readonly<Record<NotificationType, NotificationCat
   SCHOOL_SETTINGS_CHANGED: "SYSTEM",
   ATTENDANCE_ALPHA: "ATTENDANCE",
   ATTENDANCE_DAY_SUMMARY: "ATTENDANCE",
+  ATTENDANCE_REMINDER: "ATTENDANCE",
 };
+
+/**
+ * Tipe push-only (N5): baris ditulis SUDAH dibaca (tidak menaikkan badge) dan tidak tampil di kotak masuk maupun
+ * detail; hanya ada untuk outbox push (coba ulang, kedaluwarsa, jejak).
+ */
+export const PUSH_ONLY_TYPES = ["ATTENDANCE_REMINDER"] as const satisfies readonly NotificationType[];
+export const isPushOnlyType = (type: NotificationType): boolean => (PUSH_ONLY_TYPES as readonly NotificationType[]).includes(type);
 
 export const NOTIFICATION_PREVIEW_MAX = 500;
 export const NOTIFICATION_TITLE_MAX = 150;

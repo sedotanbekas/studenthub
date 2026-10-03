@@ -4107,6 +4107,274 @@
         }
       }
     },
+    "/api/v1/school/settings/attendance-reminder": {
+      "get": {
+        "operationId": "getAttendanceReminderSettings",
+        "tags": [
+          "Sekolah - Profil & Pengaturan"
+        ],
+        "summary": "Pengaturan pengingat absen (jam kirim & jangkauan notifikasi HP)",
+        "description": "Pengingat absen (N5): push sekali per hari sekolah ke siswa yang belum absen, `leadMinutes` sebelum jam masuk (tidak lebih awal dari jam buka absen), tidak dikirim saat izin PENDING/DISETUJUI mencakup hari itu, kedaluwarsa di jam masuk + toleransi, tidak tampil di kotak masuk. Sekolah dengan jadwal bawaan (`defaultSchedule=true`) belum dikirimi sampai jam & hari absensi diatur. Mode uji absensi tidak berpengaruh. SUPER_ADMIN wajib `?schoolId=` (sekolah tak dikenal -> 404); admin sekolah memakai sekolahnya sendiri (schoolId lain -> 403 `SCOPE_MISMATCH`).\n\nAksi POLICY: `schools.profile.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceReminderSettings"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateAttendanceReminderSettings",
+        "tags": [
+          "Sekolah - Profil & Pengaturan"
+        ],
+        "summary": "Atur pengingat absen (nyala/mati, menit sebelum jam masuk 5..120)",
+        "description": "Pengingat absen (N5): push sekali per hari sekolah ke siswa yang belum absen, `leadMinutes` sebelum jam masuk (tidak lebih awal dari jam buka absen), tidak dikirim saat izin PENDING/DISETUJUI mencakup hari itu, kedaluwarsa di jam masuk + toleransi, tidak tampil di kotak masuk. Sekolah dengan jadwal bawaan (`defaultSchedule=true`) belum dikirimi sampai jam & hari absensi diatur. Mode uji absensi tidak berpengaruh. SUPER_ADMIN wajib `?schoolId=` (sekolah tak dikenal -> 404); admin sekolah memakai sekolahnya sendiri (schoolId lain -> 403 `SCOPE_MISMATCH`). Nilai sama -> tanpa perubahan & tanpa audit; selain itu diaudit school.attendance_reminder_update.\n\nAksi POLICY: `schools.settings.update`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah memakai sekolahnya sendiri."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "leadMinutes": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 120,
+                    "description": "Menit sebelum jam masuk (5..120); tidak pernah lebih awal dari jam buka absen."
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "leadMinutes"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceReminderSettings"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/users": {
       "get": {
         "operationId": "listPlatformUsers",
@@ -36958,6 +37226,85 @@
         ],
         "additionalProperties": false
       },
+      "AttendanceReminderSettings": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "leadMinutes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "checkInOpenMinute": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1439,
+            "description": "Jam buka absen (menit lokal)."
+          },
+          "startMinute": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1439,
+            "description": "Jam masuk (menit lokal)."
+          },
+          "lateToleranceMinutes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Toleransi terlambat; pengingat kedaluwarsa di jam masuk + toleransi."
+          },
+          "schoolDaysMask": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sendMinute": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1439,
+            "description": "Menit lokal pengingat dikirim = max(jam masuk - lead, jam buka absen)."
+          },
+          "timezone": {
+            "type": "string",
+            "enum": [
+              "WIB",
+              "WITA",
+              "WIT"
+            ]
+          },
+          "defaultSchedule": {
+            "type": "boolean",
+            "description": "true = jam & hari absensi masih bawaan: pengingat tidak dikirim sampai jadwal diatur."
+          },
+          "activeStudentCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "pushReadyStudentCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Siswa aktif yang punya perangkat penerima notifikasi HP (Web Push / app)."
+          }
+        },
+        "required": [
+          "enabled",
+          "leadMinutes",
+          "checkInOpenMinute",
+          "startMinute",
+          "lateToleranceMinutes",
+          "schoolDaysMask",
+          "sendMinute",
+          "timezone",
+          "defaultSchedule",
+          "activeStudentCount",
+          "pushReadyStudentCount"
+        ],
+        "additionalProperties": false
+      },
       "PlatformUser": {
         "type": "object",
         "properties": {
@@ -38718,7 +39065,8 @@
               "NISN_RELEASED",
               "SCHOOL_SETTINGS_CHANGED",
               "ATTENDANCE_ALPHA",
-              "ATTENDANCE_DAY_SUMMARY"
+              "ATTENDANCE_DAY_SUMMARY",
+              "ATTENDANCE_REMINDER"
             ]
           },
           "category": {
@@ -38913,7 +39261,8 @@
               "NISN_RELEASED",
               "SCHOOL_SETTINGS_CHANGED",
               "ATTENDANCE_ALPHA",
-              "ATTENDANCE_DAY_SUMMARY"
+              "ATTENDANCE_DAY_SUMMARY",
+              "ATTENDANCE_REMINDER"
             ]
           },
           "category": {

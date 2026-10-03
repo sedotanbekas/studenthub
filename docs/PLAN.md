@@ -277,6 +277,12 @@ izin/sakit (atau teks "pengajuan … belum disetujui" bila ada izin PENDING), da
 Kategori baru **Kehadiran** (ATTENDANCE) — rekap bisa dimatikan per akun admin seperti N2. Tanpa satu pun check-in
 pada tanggal itu, notifikasi Alpa ke siswa ditahan dan rekap admin menyebutnya. Idempoten lewat `Notification.dedupKey`
 (unik per penerima): tutup ulang tidak menggandakan; libur yang ditambah mundur menarik notifikasi tanggal itu.
+**Pengingat absen** (keputusan pemilik 2026-10-03, N5): push sekali per hari sekolah ke siswa yang belum absen (wajib
+absen, tanpa izin PENDING/DISETUJUI, punya perangkat), `N` menit sebelum jam masuk (bawaan 15, 5..120, tidak lebih awal
+dari jam buka absen; nyala/mati & menit diatur admin di Pengaturan sekolah). Push-only (tidak masuk kotak masuk/badge),
+kedaluwarsa di jam masuk + toleransi (dispatcher, TTL Web Push, `expiration` Expo), dibatalkan (OBSOLETE) saat siswa absen,
+tepat sekali per tanggal (JobRun + dedupKey), tanpa susulan bila jendela terlewat. **Bawaan menyala**, tetapi sekolah yang
+jadwalnya masih bawaan (belum pernah diatur) tidak dikirimi sampai jam & hari absensi diatur. Mode uji tidak berpengaruh.
 
 **Sponsor & iklan** (`/sponsor/*`, `/platform/ads*`, `/platform/topups*`, `/student/ads*`):
 PENDING boleh menyiapkan draft; hanya APPROVED yang bisa submit iklan & top-up; SUSPENDED read-only.
@@ -301,7 +307,7 @@ kehadiran hari ini, rapor semester ini, siswa belum lunas + menunggu verifikasi)
 yatim); `GET /files/{id}` dengan `canReadFile` (404 bila tak berhak, 410 bila sudah dihapus
 retensi); guard disk bebas <5 GB → 503; storage di luar repo. Satu baris cron per menit →
 `POST /api/internal/jobs/tick` (header `X-Job-Secret`, 404 bila salah, tolak bila ada `X-Real-IP`;
-nginx memblokir `/api/internal/`): push-dispatch, auto-alpha, orphan banner (per jam),
+nginx memblokir `/api/internal/`): push-dispatch, auto-alpha, pengingat absen (N5), orphan banner (per jam),
 maintenance harian (cleanup sesi, purge selfie 180 hari, CheckInRejection 90 hari, retensi notifikasi).
 
 ### Ditunda (YAGNI — dicatat di backlog `docs/backlog.md`)

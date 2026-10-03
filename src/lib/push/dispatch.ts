@@ -59,8 +59,8 @@ function outcomesOf(rows: readonly ClaimedNotification[], deliveries: readonly D
 }
 
 async function processClaim(claim: Claim, now: Date, transports: DeliveryTransports, deadline: number): Promise<DispatchSummary> {
-  const expired = claim.rows.filter((row) => isExpired(row.createdAt, now));
-  const live = claim.rows.filter((row) => !isExpired(row.createdAt, now));
+  const expired = claim.rows.filter((row) => isExpired(row, now));
+  const live = claim.rows.filter((row) => !isExpired(row, now));
   const devices = await loadDevices([...new Set(live.map((row) => row.userId))], now, { web: transports.web !== null });
   const reachable = live.filter((row) => devices.has(row.userId));
   const unreachable = live.filter((row) => !devices.has(row.userId));

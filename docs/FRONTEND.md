@@ -14,7 +14,7 @@ Buka `http://localhost:3030`. Masuk menggunakan akun yang tersedia, atau pilih s
 
 | Peran | Tampilan |
 |---|---|
-| Admin sekolah | Beranda dengan ringkasan dan grafik kehadiran; siswa; absensi dan izin; tahun ajaran, semester, kelas dan mapel; rapor dan lembar nilai; tagihan dan verifikasi pembayaran; pengumuman; kalender; profil sekolah; **tema sekolah**; audit; notifikasi: atur kabar sekolah yang diterima |
+| Admin sekolah | Beranda dengan ringkasan dan grafik kehadiran; siswa; absensi dan izin; tahun ajaran, semester, kelas dan mapel; rapor dan lembar nilai; tagihan dan verifikasi pembayaran; pengumuman; kalender; profil sekolah; **tema sekolah**; **pengingat absen** (Pengaturan sekolah); audit; notifikasi: atur kabar sekolah yang diterima |
 | Super admin | Sekolah; pengguna; sponsor; moderasi iklan; top-up; libur nasional; pengaturan platform; audit; seluruh halaman sekolah dengan pemilih sekolah |
 | Sponsor | Kampanye, unggah banner dan target; analitik; saldo, top-up dan transaksi; profil perusahaan |
 | Siswa | Beranda (kartu identitas + jam sekolah + status absen + menu besar + pengumuman); absensi dengan peta dan foto wajah; izin/sakit; rapor; tagihan dan bukti transfer; kalender belajar; profil |
@@ -182,3 +182,9 @@ Untuk instalasi Chromium yang sudah tersedia, `PLAYWRIGHT_CHROMIUM_EXECUTABLE` d
 - **Kartu "Notifikasi di perangkat ini"** (Keamanan akun, semua peran; tersembunyi bila server tanpa kunci): Aktif → **Matikan**; Belum aktif → **Aktifkan**; Diblokir → langkah per platform + **Periksa lagi**; iPhone di Safari → langkah pasang; tidak didukung → keterangan. Demo: tombol menampilkan pesan demo.
 - **Sinkron per identitas** (`WebPushBridge`): setiap akun masuk, bila izin sudah diberikan, status sesi dibaca dari server; sesi baru tanpa langganan → langganan ulang (endpoint baru). Klik notifikasi membuka bagian hub (`/hub/<bagian>?notif=<id>`): notifikasi ditandai dibaca, `notif` dibuang dari URL (parameter lain mis. `absen=1` tetap). Pesan SW `studenthub:push` menyegarkan badge (N1); halaman juga menulis badge ikon aplikasi mengikuti jumlah belum dibaca. Keluar: langganan browser dilepas, badge ikon dihapus, notifikasi yang masih tampil ditutup.
 - Aturan murni & test: `src/lib/frontend/web-push-rules.ts`, `src/lib/push/web/rules.ts` (tautan per peran, dipindai terhadap layar semua template), `src/lib/push/sw.test.ts` (SW di node:vm), browser `tests/browser/web-push.spec.ts`.
+
+## Pengingat absen (N5)
+
+- **Kartu "Pengingat absen"** di Pengaturan sekolah (admin sekolah & super admin dengan sekolah terpilih; dipasang ulang saat sekolah/jadwal berubah): pratinjau langsung "Siswa yang belum absen menerima notifikasi HP pukul 06:45 — 15 menit sebelum jam masuk 07:00." (dijepit ke jam buka absen + kalimat penjelas; mati: "Mati — …"; jadwal bawaan: belum dikirim sampai jam sekolah diatur), centang **Kirim pengingat absen**, isian **Menit sebelum jam masuk** (5–120), **Simpan** aktif hanya bila berubah; toast menyebut "segera dikirim" bila jendela hari ini sedang terbuka. Baris jangkauan: "N dari M siswa aktif bisa menerima notifikasi HP …" (iPhone: Layar Utama). Operasi `getAttendanceReminderSettings`/`updateAttendanceReminderSettings` tidak tampil sebagai tab/tombol (`PANEL_OPERATIONS`). Aturan teks: `src/lib/frontend/reminder-card-rules.ts`.
+- **Siswa**: tanpa UI baru — notifikasi "Kamu belum absen hari ini" membuka `/hub/my-attendance?absen=1` (alur absen; `notif` dibuang jembatan N3). Tidak tampil di kotak masuk.
+- **Demo**: pengaturan contoh (jam masuk 07:15, kirim 07:00, 1.012 dari 1.284 siswa); Simpan menampilkan pesan demo. Beranda: langkah persiapan "Pengingat absen".

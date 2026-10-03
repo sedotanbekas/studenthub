@@ -26,6 +26,7 @@ import { decisionInputOf, findAttendance, loadAnomalyEvidence, loadCheckInContex
 import { LEAVE_CONVERSION_NOTE, SHARED_DEVICE_MAX_ROWS, STORED_COORD_DECIMALS } from "./constants";
 import { haversineMeters } from "./geo";
 import { logRejectionSafely } from "./rejection-log";
+import { expireAttendanceReminders } from "./reminder-expiry";
 import { lateReasonClock } from "./late-reason-rules";
 import { ATTENDANCE_ROW_SELECT, checkInMessage, toCheckInAttendanceDto, type AttendanceRow } from "./student-dto";
 import type { CheckInBody, CheckInResultDto } from "./student-schemas";
@@ -252,6 +253,8 @@ async function writeInTx(tx: Tx, plan: WritePlan, written: string[]): Promise<Tx
   const data = presenceData(plan, file.id, flags);
   const row = existing && mode === "CONVERT_LEAVE" ? await convertLeaveRow(tx, existing.id, plan, data) : await createRow(tx, plan, locked.classId, data);
   await flagSharedDevice(tx, student.schoolId, shared);
+  // Pengingat absen (N5) yang belum terkirim tidak relevan lagi: Notification ditulis terakhir.
+  await expireAttendanceReminders(tx, [student.userId]);
   return { kind: "CREATED", row, storageKey: file.storageKey };
 }
 

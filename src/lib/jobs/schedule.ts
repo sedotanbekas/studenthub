@@ -5,7 +5,7 @@ import { JOB_NAMES, type JobName } from "./types";
 /**
  * Jadwal job (murni, tanpa Prisma; jam disuntik lewat `now`).
  * - EVERY_TICK: tipe antrean, aman dijalankan dua kali, tanpa JobRun (runKey null).
- *   attendance-auto-alpha memberi kunci JobRun sendiri per sekolah/tanggal di dalam handler.
+ *   attendance-auto-alpha & attendance-reminder memberi kunci JobRun sendiri per sekolah/tanggal di dalam handler.
  * - HOURLY: dikunci per jam UTC ("YYYY-MM-DDTHH").
  * - DAILY: dikunci per tanggal WIB, jatuh tempo mulai tick pertama >= 19:00 UTC (02:00 WIB).
  */
@@ -14,6 +14,7 @@ type Cadence = "EVERY_TICK" | "HOURLY" | "DAILY";
 const JOB_CADENCE: Readonly<Record<JobName, Cadence>> = {
   "push-dispatch": "EVERY_TICK",
   "attendance-auto-alpha": "EVERY_TICK",
+  "attendance-reminder": "EVERY_TICK",
   "files-orphan-cleanup": "HOURLY",
   "maintenance-daily": "DAILY",
 };

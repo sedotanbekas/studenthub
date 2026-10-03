@@ -38,4 +38,6 @@ export const PUSH_ERROR = {
   NETWORK_ERROR: "NETWORK_ERROR",
   TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
   UNKNOWN: "UNKNOWN_ERROR",
+  /** Pengingat absen (N5) yang tidak relevan lagi karena siswa sudah absen. */
+  OBSOLETE: "OBSOLETE",
 } as const;

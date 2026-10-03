@@ -17,6 +17,8 @@ export interface PushMessage {
   readonly sound: "default";
   readonly priority: "high";
   readonly channelId: "default";
+  /** Detik epoch: layanan push membuang pesan yang belum terkirim setelah ini (pengingat absen, N5). */
+  readonly expiration?: number;
 }
 
 export type PushTicket =

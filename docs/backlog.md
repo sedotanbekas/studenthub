@@ -87,6 +87,15 @@ lewat Safari lagi membalikkannya dan mematikan notifikasi aplikasi. Perkiraan be
 catatan di minggu pertama. Kerjakan (B1: abaikan baris yang flag-nya hanya NEW_DEVICE pasca-pasang) bila antrean
 tinjauan membengkak setelah N3 — keputusan pemilik.
 
+### Pengingat absen kedua & pilihan per siswa (N5)
+Satu pengingat per hari, `N` menit sebelum jam masuk; tanpa susulan. Kerjakan bila diminta: (a) pengingat kedua menjelang
+batas terlambat — bila banyak siswa masih terlambat setelah pengingat pertama; (b) siswa mematikan sendiri — bila ada
+keluhan pengingat; (c) membatalkan pengingat saat admin mencatat absen/izin atas nama siswa (sekarang hanya check-in
+siswa yang membatalkan) — bila siswa menerima pengingat padahal sudah dicatat admin; (d) layar `check-in` di app Expo
+saat app dibuat; (e) hanya menghitung langganan web di HP/aplikasi terpasang (kini langganan browser desktop ikut
+"siap menerima" walau absen hanya dari HP) — bila jangkauan di kartu terasa menyesatkan. Volume: ±1 baris push-only per
+siswa yang bisa dijangkau per hari sekolah, dihapus setelah 30 hari (indeks [type, createdAt]).
+
 ### Rekap/peringatan kehadiran per kelas untuk wali kelas (N4)
 Rekap harian dikirim per sekolah ke semua admin (bisa dimatikan per akun: kategori Kehadiran). Kerjakan bila ada tautan
 guru ↔ kelas, sehingga wali kelas bisa menerima rekap/peringatan kelasnya saja.

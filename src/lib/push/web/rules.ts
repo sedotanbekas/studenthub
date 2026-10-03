@@ -124,11 +124,14 @@ export function webPathOf(role: UserRole, screen: string, notificationId: string
 const MIN_TTL_SECONDS = 60;
 const MAX_TTL_SECONDS = PUSH_MAX_AGE_MINUTES * 60;
 
-/** Sisa jendela 60 menit (selaras EXPIRED); dibatasi lagi oleh `expiresAt` (pengingat N5), minimal 60 detik. */
+/**
+ * Sisa jendela 60 menit (selaras EXPIRED), minimal 60 detik. Dengan `expiresAt` (pengingat absen, N5) TTL tidak
+ * pernah melewati waktu itu (tanpa lantai 60 detik; minimal 1) — layanan push membuang pesan setelahnya.
+ */
 export function webPushTtlSeconds(createdAt: Date, now: Date, expiresAt?: Date | null): number {
-  const remaining = MAX_TTL_SECONDS - Math.floor((now.getTime() - createdAt.getTime()) / 1000);
-  const untilExpiry = expiresAt ? Math.floor((expiresAt.getTime() - now.getTime()) / 1000) : Number.POSITIVE_INFINITY;
-  return Math.max(MIN_TTL_SECONDS, Math.min(MAX_TTL_SECONDS, remaining, untilExpiry));
+  const remaining = Math.max(MIN_TTL_SECONDS, MAX_TTL_SECONDS - Math.floor((now.getTime() - createdAt.getTime()) / 1000));
+  if (!expiresAt) return Math.min(MAX_TTL_SECONDS, remaining);
+  return Math.max(1, Math.min(MAX_TTL_SECONDS, remaining, Math.floor((expiresAt.getTime() - now.getTime()) / 1000)));
 }
 
 export interface WebPushPayload {

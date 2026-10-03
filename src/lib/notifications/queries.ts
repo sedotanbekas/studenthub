@@ -5,7 +5,7 @@ import { decodeOptionalCursor, sliceCursorPage } from "@/lib/http/cursor";
 import type { CursorMeta } from "@/lib/http/envelope";
 import { notFound } from "@/lib/http/errors";
 import { toInboxDetailDto, toInboxItemDto, toUnreadCountDto } from "./dto";
-import { buildInboxWhere, summarizeUnread } from "./inbox-filters";
+import { buildInboxWhere, summarizeUnread, VISIBLE_TYPES } from "./inbox-filters";
 import type { InboxDetailDto, InboxItemDto, ListInboxQuery, UnreadCountDto } from "./schemas";
 
 /** Baca inbox milik pemanggil (desain N6, N7, N9). Selalu difilter userId dari sesi. */
@@ -66,12 +66,12 @@ export async function unreadCounts(ctx: ActionContext): Promise<UnreadCountDto> 
 
 /**
  * Detail milik pemanggil (tidak menandai dibaca). Milik orang lain / tidak ada / pengumuman
- * yang sudah ditarik (CANCELLED) -> 404 yang sama.
+ * yang sudah ditarik (CANCELLED) / tipe push-only (pengingat absen) -> 404 yang sama.
  */
 export async function getInboxItem(id: string, ctx: ActionContext): Promise<InboxDetailDto> {
   const { userId } = requirePrincipal(ctx);
   const row = await prisma.notification.findFirst({
-    where: { id, userId },
+    where: { id, userId, ...VISIBLE_TYPES },
     select: { ...INBOX_SELECT, announcement: { select: ANNOUNCEMENT_SELECT } },
   });
   if (!row || row.announcement?.status === "CANCELLED") throw notFound(NOTIFICATION_NOT_FOUND);

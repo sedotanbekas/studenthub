@@ -6,6 +6,7 @@ import {
   chunk,
   classifyRequestError,
   classifyTicket,
+  expoExpirationOf,
   isExpired,
   unsentNotificationIds,
   pushLinkOf,
@@ -89,10 +90,15 @@ test("aggregateOutcome: gagal permanen menang atas unregistered; semua unregiste
   assert.deepEqual(aggregateOutcome([], 0, NOW), { status: "SKIPPED", error: "NO_DEVICE" });
 });
 
-test("isExpired: lebih tua dari 60 menit", () => {
-  assert.equal(isExpired(minutes(-60), NOW), false);
-  assert.equal(isExpired(minutes(-61), NOW), true);
-  assert.equal(isExpired(minutes(5), NOW), false);
+test("isExpired: lebih tua dari 60 menit, atau melewati pushExpiresAt (N5)", () => {
+  assert.equal(isExpired({ createdAt: minutes(-60) }, NOW), false);
+  assert.equal(isExpired({ createdAt: minutes(-61) }, NOW), true);
+  assert.equal(isExpired({ createdAt: minutes(5) }, NOW), false);
+  assert.equal(isExpired({ createdAt: minutes(-5), pushExpiresAt: minutes(1) }, NOW), false, "sebelum batas");
+  assert.equal(isExpired({ createdAt: minutes(-5), pushExpiresAt: NOW }, NOW), true, "tepat di batas");
+  assert.equal(isExpired({ createdAt: minutes(-5), pushExpiresAt: null }, NOW), false, "null = aturan 60 menit");
+  assert.equal(expoExpirationOf(new Date("2031-03-18T00:15:00.500Z")), Date.parse("2031-03-18T00:15:00Z") / 1000);
+  assert.equal(expoExpirationOf(null), undefined);
 });
 
 test("chunk: potongan <= ukuran, urutan tetap, input tidak dimutasi", () => {

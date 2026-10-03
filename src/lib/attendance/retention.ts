@@ -2,7 +2,7 @@
  * Aturan retensi murni untuk job maintenance-daily & files-orphan-cleanup (PLAN "File & job"):
  * selfie 180 hari (keputusan klien; baris absensi tetap), lampiran izin dibatalkan (segera) / ditolak
  * (30 hari), CheckInRejection 90 hari, token/sesi mati,
- * notifikasi 1 tahun, JobRun 90 hari (auto-alpha 400 hari karena dipakai analitik "hari tertutup").
+ * notifikasi 1 tahun (tipe push-only seperti pengingat absen: 30 hari), JobRun 90 hari (auto-alpha 400 hari karena dipakai analitik "hari tertutup").
  */
 
 const DAY_MS = 86_400_000;
@@ -19,6 +19,8 @@ export const EXPIRED_REFRESH_TOKEN_DAYS = 1;
 /** AuthSession dicabut/kedaluwarsa lebih dari 90 hari lalu (RefreshToken ikut terhapus kaskade). */
 export const DEAD_SESSION_DAYS = 90;
 export const NOTIFICATION_RETENTION_DAYS = 365;
+/** Baris push-only (pengingat absen, N5): tidak tampil di kotak masuk, hanya jejak pengiriman — 30 hari cukup. */
+export const PUSH_ONLY_NOTIFICATION_RETENTION_DAYS = 30;
 /** Riwayat masuk super admin (jejak keamanan; percobaan gagal juga dicatat, jadi wajib dibatasi). */
 export const LOGIN_EVENT_RETENTION_DAYS = 365;
 export const JOB_RUN_RETENTION_DAYS = 90;
@@ -39,6 +41,7 @@ export interface RetentionCutoffs {
   readonly expiredRefreshToken: Date;
   readonly deadSession: Date;
   readonly notification: Date;
+  readonly pushOnlyNotification: Date;
   readonly loginEvent: Date;
   readonly jobRun: Date;
   readonly autoAlphaRun: Date;
@@ -56,6 +59,7 @@ export function retentionCutoffs(now: Date): RetentionCutoffs {
     expiredRefreshToken: daysAgo(now, EXPIRED_REFRESH_TOKEN_DAYS),
     deadSession: daysAgo(now, DEAD_SESSION_DAYS),
     notification: daysAgo(now, NOTIFICATION_RETENTION_DAYS),
+    pushOnlyNotification: daysAgo(now, PUSH_ONLY_NOTIFICATION_RETENTION_DAYS),
     loginEvent: daysAgo(now, LOGIN_EVENT_RETENTION_DAYS),
     jobRun: daysAgo(now, JOB_RUN_RETENTION_DAYS),
     autoAlphaRun: daysAgo(now, AUTO_ALPHA_RUN_RETENTION_DAYS),

@@ -99,6 +99,12 @@ const SCHOOL_CASES: readonly CheckCase[] = [
     valid: () => createSchool({ data: { schoolDaysMask: 127 } }),
   },
   {
+    // Pengingat absen (N5): 5..120 menit sebelum jam masuk.
+    constraint: "chk_school_reminder_lead",
+    violations: [() => updateSchool({ attendanceReminderLeadMinutes: 4 }), () => updateSchool({ attendanceReminderLeadMinutes: 121 })],
+    valid: () => createSchool({ data: { attendanceReminderLeadMinutes: 120 } }),
+  },
+  {
     constraint: "chk_school_bank",
     violations: [
       () => updateSchool({ bankName: "BRI" }),

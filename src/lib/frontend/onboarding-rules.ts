@@ -1,4 +1,5 @@
-import { DEFAULT_SCHOOL_CONFIG, schoolDayCodes } from "@/lib/schools/rules";
+import { isDefaultSchedule } from "@/lib/attendance/reminder-rules";
+import { schoolDayCodes } from "@/lib/schools/rules";
 import type { EducationLevel } from "@/lib/schools/education-level";
 
 /**
@@ -58,7 +59,6 @@ export function isSchoolSetupFacts(value: unknown): value is SchoolSetupFacts {
     && typeof value.schedule.checkInOpen === "string" && typeof value.schedule.checkInClose === "string";
 }
 
-const isDefaultSchedule =(facts: SchoolSetupFacts): boolean => SCHEDULE_KEYS.every((key) => facts[key] === DEFAULT_SCHOOL_CONFIG[key]);
 const dayList = (mask: number): string => schoolDayCodes(mask).map((code) => DAY_SHORT[code]).join(", ");
 
 function academicsStep(facts: SchoolSetupFacts): ChecklistStep {
@@ -80,6 +80,12 @@ export function schoolSetupSteps(facts: SchoolSetupFacts): ChecklistStep[] {
       key: "schedule", title: "Jam & hari absensi", why: "Absen di luar jam buka–tutup ditolak; pastikan sesuai jam sekolahmu.",
       status: defaultSchedule ? "optional" : "done", summary: `${defaultSchedule ? "Masih bawaan: " : ""}${facts.schedule.checkInOpen}–${facts.schedule.checkInClose}, ${dayList(facts.schoolDaysMask)}`,
       href: "/hub/school-settings", cta: "Periksa jadwal",
+    },
+    {
+      // Pengingat absen (N5): jam masuk bawaan belum dikonfirmasi sekolah -> pengingat belum dikirim.
+      key: "reminder", title: "Pengingat absen", why: "Siswa yang belum absen menerima notifikasi HP sebelum jam masuk.",
+      status: defaultSchedule ? "optional" : "done", summary: defaultSchedule ? "Belum dikirim: jam sekolah masih bawaan" : "Dikirim sebelum jam masuk (nyala/mati di Pengaturan sekolah)",
+      href: "/hub/school-settings", cta: "Atur pengingat",
     },
     {
       key: "students", title: "Data siswa", why: "Siswa baru bisa masuk dan absen setelah akunnya aktif.",

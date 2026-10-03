@@ -154,6 +154,20 @@ test("notifikasi > 365 hari dihapus; JobRun > 90 hari dihapus kecuali auto-alpha
   assert.deepEqual(remaining, [recentGeneric.id, keptAlpha.id].sort());
 });
 
+test("pengingat absen push-only > 30 hari dihapus; yang lebih baru & notifikasi biasa seumur tetap", async () => {
+  const school = await createSchool();
+  const st = await createStudent(school.id);
+  const note = (type: "ATTENDANCE_REMINDER" | "ATTENDANCE_CORRECTED", createdAt: Date) =>
+    prisma.notification.create({ data: { userId: st.user.id, type, category: "ATTENDANCE", title: "Uji", body: "Uji retensi", readAt: createdAt, createdAt } });
+  await note("ATTENDANCE_REMINDER", daysAgo(31));
+  const keptReminder = await note("ATTENDANCE_REMINDER", daysAgo(29));
+  const keptNormal = await note("ATTENDANCE_CORRECTED", daysAgo(31));
+  const result = await runMaintenanceDaily(jobCtx(NOW, { schoolIds: [school.id], userIds: [st.user.id] }));
+  assert.deepEqual(result.pushOnlyNotifications, { deleted: 1 });
+  const remaining = (await prisma.notification.findMany({ where: { userId: st.user.id }, select: { id: true } })).map((r) => r.id).sort();
+  assert.deepEqual(remaining, [keptReminder.id, keptNormal.id].sort());
+});
+
 test("riwayat masuk super admin > 365 hari dihapus, yang lebih baru tetap", async () => {
   const sa = await createSuperAdmin({ totp: false });
   const event = (createdAt: Date) => prisma.loginEvent.create({ data: { userId: sa.id, succeeded: false, failureCode: "WRONG_PASSWORD", platform: "WEB", createdAt } });
@@ -173,6 +187,7 @@ test("query retensi tabel besar memakai indeks (EXPLAIN bukan type=ALL / tanpa k
   const cutoff = daysAgo(365);
   const plans: ExplainRow[][] = [
     await prisma.$queryRaw`EXPLAIN SELECT id FROM Notification WHERE createdAt < ${cutoff} ORDER BY createdAt ASC LIMIT 5000`,
+    await prisma.$queryRaw`EXPLAIN SELECT id FROM Notification WHERE type IN ('ATTENDANCE_REMINDER') AND createdAt < ${cutoff} ORDER BY createdAt ASC LIMIT 5000`,
     await prisma.$queryRaw`EXPLAIN SELECT id FROM LoginEvent WHERE createdAt < ${cutoff} ORDER BY createdAt ASC LIMIT 5000`,
     await prisma.$queryRaw`EXPLAIN SELECT id FROM AuthSession WHERE revokedAt < ${cutoff} LIMIT 5000`,
     await prisma.$queryRaw`EXPLAIN SELECT id FROM AuthSession WHERE expiresAt < ${cutoff} LIMIT 5000`,
@@ -188,5 +203,5 @@ test("query retensi tabel besar memakai indeks (EXPLAIN bukan type=ALL / tanpa k
 
 test("anggaran waktu habis -> semua bagian dilewati", async () => {
   const result = await runMaintenanceDaily({ ...jobCtx(NOW, { schoolIds: [], userIds: [] }), deadline: Date.now() - 1 });
-  assert.deepEqual(result, { skipped: ["selfies", "leaveAttachments", "checkInRejections", "auth", "notifications", "loginEvents", "jobRuns"] });
+  assert.deepEqual(result, { skipped: ["selfies", "leaveAttachments", "checkInRejections", "auth", "notifications", "pushOnlyNotifications", "loginEvents", "jobRuns"] });
 });

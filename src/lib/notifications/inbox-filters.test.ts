@@ -10,9 +10,9 @@ test("kindWhere: announcement = tipe ANNOUNCEMENT, personal = selain ANNOUNCEMEN
   assert.deepEqual(kindWhere("all"), {});
 });
 
-test("buildInboxWhere: hanya userId untuk kind=all tanpa filter lain", () => {
+test("buildInboxWhere: kind=all = userId + tanpa tipe push-only (pengingat absen, N5)", () => {
   const where = buildInboxWhere({ userId: "u1", kind: "all", unreadOnly: false, cursor: null });
-  assert.deepEqual(where, { AND: [{ userId: "u1" }] });
+  assert.deepEqual(where, { AND: [{ userId: "u1" }, { type: { notIn: ["ATTENDANCE_REMINDER"] } }] });
 });
 
 test("buildInboxWhere: menggabungkan kind, kategori, unreadOnly, dan cursor lewat AND", () => {
@@ -21,6 +21,7 @@ test("buildInboxWhere: menggabungkan kind, kategori, unreadOnly, dan cursor lewa
   assert.deepEqual(where, {
     AND: [
       { userId: "u1" },
+      { type: { notIn: ["ATTENDANCE_REMINDER"] } },
       { type: { not: "ANNOUNCEMENT" } },
       { category: "FINANCE" },
       { readAt: null },

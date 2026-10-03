@@ -73,6 +73,12 @@ export function demoDetail(path: string, id: string, viewer?: DemoViewer): Row |
   return student ? studentDemoDetail(path, id, student) : null;
 }
 
+/** Pengaturan pengingat absen contoh (N5): jadwal sudah diatur (07:15), 15 menit sebelumnya. */
+export const DEMO_REMINDER_SETTINGS = {
+  enabled: true, leadMinutes: 15, checkInOpenMinute: 360, startMinute: 435, lateToleranceMinutes: 15, schoolDaysMask: 31, sendMinute: 420,
+  timezone: "WIB", defaultSchedule: false, activeStudentCount: 1284, pushReadyStudentCount: 1012,
+} as const;
+
 /** Akun admin sekolah contoh (N2): admin utama + dua guru, satu mematikan kabar Keuangan. */
 export const demoSchoolAdmins = [
   { id: "adm1", name: "Admin SMA Cendekia", email: null, loginNpsn: "20123456", isPrimary: true, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-25T00:30:00.000Z", createdAt: "2026-07-01T02:00:00.000Z", mutedCategories: [] },
@@ -83,6 +89,8 @@ export const demoSchoolAdmins = [
 function sharedRows(path: string): unknown {
   // Notifikasi HP (N3): aktif di server contoh; mode demo tidak pernah berlangganan (tombol menampilkan pesan demo).
   if (path === "/me/web-push") return { enabled: true, publicKey: null, subscribed: false };
+  // Pengingat absen (N5) — sebelum cabang `attendance` di bawah agar tidak menjadi baris monitor.
+  if (path === "/school/settings/attendance-reminder") return DEMO_REMINDER_SETTINGS;
   if (path === "/me/notification-preferences") return { mutedCategories: [], mutableCategories: ["FINANCE", "STUDENT_AFFAIRS", "ATTENDANCE"], updatedAt: null, updatedBy: null };
   if (path === "/school/admins") return demoSchoolAdmins;
   if (path === "/school/report-cards/sheet") return { term: { id: "term1", label: "Ganjil 2026/2027" }, class: { id: "c1", name: "X IPA 1" }, subject: { id: "subject1", name: "Matematika", code: "MTK", kkm: 75 }, rows: demoStudents.map((s, i) => ({ studentId: s.id, name: s.name, nis: s.nis, score: 80 + i, predicate: "B", reportCardStatus: "DRAFT", blockedReason: null })) };

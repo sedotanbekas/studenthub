@@ -87,6 +87,14 @@ tbody tr:hover { background: color-mix(in srgb, var(--primary) 4%, #fff); }
 .security-intro p { color: var(--muted); }
 /* Keamanan akun (security-panel.tsx): tugas wajib = kartu beraksen dengan formulir tepat di bawah pesannya. */
 .security-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 16px; align-items: start; }
+/* Kartu pengingat absen (N5). */
+.reminder-line { display: block; }
+.reminder-line + .reminder-line { margin-top: 4px; }
+.reminder-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 18px; width: 100%; }
+.reminder-form .check-field { align-self: center; }
+.reminder-lead input { width: 7rem; }
+.reminder-form .error-message { flex-basis: 100%; margin: 0; }
+.reminder-reach { color: var(--muted); font-size: .9rem; }
 /* Lembar ajakan notifikasi HP (N3): di atas bar tab, tidak menutupi seluruh layar (bukan modal). */
 .push-sheet { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 60; transform: translateX(-50%); display: flex; gap: 14px; align-items: flex-start; width: min(440px, calc(100vw - 24px)); padding: 18px; background: var(--paper); border: 2px solid var(--line-soft); border-radius: var(--radius); box-shadow: var(--elev-3, 0 12px 40px rgb(11 18 32 / 22%)); }
 .push-sheet-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }

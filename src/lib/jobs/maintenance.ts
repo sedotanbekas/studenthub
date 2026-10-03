@@ -2,6 +2,7 @@ import { AUTO_ALPHA_JOB } from "@/lib/attendance/auto-alpha-rules";
 import { DELETE_CHUNK, FILE_PURGE_BATCH, hasTimeLeft, retentionCutoffs, type RetentionCutoffs } from "@/lib/attendance/retention";
 import type { JobContext } from "@/lib/auth/principal";
 import { Prisma, prisma } from "@/lib/db";
+import { PUSH_ONLY_TYPES } from "@/lib/notifications/rules";
 import { purgeFileBytes } from "./files-cleanup";
 import type { JobResult } from "./types";
 
@@ -156,6 +157,20 @@ const deleteNotifications: Section = async (ctx, cutoffs) => {
   return { deleted };
 };
 
+/** Notifikasi push-only (pengingat absen, N5) > 30 hari — indeks [type, createdAt]. */
+const deletePushOnlyNotifications: Section = async (ctx, cutoffs) => {
+  const userIds = scopeOf(ctx, "userIds");
+  if (isEmptyScope(userIds)) return { deleted: 0 };
+  const old = { type: { in: [...PUSH_ONLY_TYPES] }, createdAt: { lt: cutoffs.pushOnlyNotification } };
+  const where = { ...old, ...(userIds ? { userId: { in: [...userIds] } } : {}) };
+  const deleted = await drainByIds(
+    ctx,
+    () => prisma.notification.findMany({ where, select: { id: true }, orderBy: { createdAt: "asc" }, take: DELETE_CHUNK }),
+    async (ids) => (await prisma.notification.deleteMany({ where: { id: { in: ids }, ...old } })).count,
+  );
+  return { deleted };
+};
+
 /** Riwayat masuk super admin > 365 hari (indeks createdAt / userId+createdAt). */
 const deleteLoginEvents: Section = async (ctx, cutoffs) => {
   const userIds = scopeOf(ctx, "userIds");
@@ -195,6 +210,7 @@ const SECTIONS: ReadonlyArray<readonly [string, Section]> = [
   ["checkInRejections", deleteRejections],
   ["auth", cleanupAuth],
   ["notifications", deleteNotifications],
+  ["pushOnlyNotifications", deletePushOnlyNotifications],
   ["loginEvents", deleteLoginEvents],
   ["jobRuns", deleteJobRuns],
 ];

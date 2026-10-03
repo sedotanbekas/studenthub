@@ -1,5 +1,32 @@
 # N5 — Pengingat absen (attendance reminder push)
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `N5-attendance-reminders.critique.md` + `00-integration.md` §2 (keputusan 1, 6, 7, 9). Semua temuan diterima:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | Kasus `chk_school_reminder_lead` di `SCHOOL_CASES` (4 & 121 ditolak, 120 lolos). |
+| 2 | **Bawaan tetap MENYALA (15 menit)** sesuai default §10.1, tetapi job **tidak mengirim untuk sekolah yang jadwalnya masih bawaan** (`isDefaultSchedule`, satu definisi di `reminder-rules.ts`, dipakai juga daftar persiapan Beranda). Kartu & langkah persiapan "Pengingat absen" menjelaskannya. **Keputusan akhir §10.1 tetap milik pemilik sebelum merge ke master** (ubah default = satu baris migrasi/skema). |
+| 3 | `pushExpiresAt` ikut ke transport: TTL Web Push ≤ detik menuju batas (tanpa lantai 60 dtk), Expo `expiration` (detik epoch). |
+| 4 | `addDevice(…, { expiresAt })`; test berjam tetap memakai perangkat yang masih hidup + kontrol positif di setiap test lewati. |
+| 5 | Rujukan baris diperbaiki saat implementasi; pemetaan `check-in` = `webPathOf` N3 (sudah ada); rujukan HRIS = latar dari repo luar. |
+| 6 | `REMINDER_SCHOOL_SELECT` lengkap (id, timezone, jam buka/masuk/toleransi/tutup/akhir, mask, lead); `await loadCalendarContext`; daftar ENUM 26 nilai ditulis penuh di migrasi. |
+| 7 | Jendela kirim `[menit kirim, jam masuk − 1)` + `kickPushDispatch()` sesudah commit tiap sekolah; jendela kosong (buka = masuk − 1) → tidak pernah (test). |
+| 8 | Kedaluwarsa = **jam masuk + toleransi** (batas tercatat hadir); teks menyebut batas itu. |
+| 9 | Isi: "Jam masuk 07:00. Absen begitu tiba di sekolah, paling lambat 07:15 agar tercatat hadir."; kartu memakai "notifikasi HP"; toast "pengingat hari ini segera dikirim" bila jendela hari ini sedang terbuka. |
+| 10 | `dedupKey = attendance-reminder:<tanggal>` (N4) menggantikan anti-join `notifications none`; test dua penulisan langsung = satu baris. |
+| 11 | Jangkauan = `loadReachableDevices` (bendera web dari transport aktif, definisi dispatcher) untuk job & GET. Membatasi ke perangkat HP saja dicatat di backlog. |
+| 12 | `tick-runner.test.ts`/`schedule.test.ts` diperbarui; `sweepCheckedInReminders` diekspor & diuji langsung. |
+| 13 | Indeks `[type, createdAt]` + retensi 30 hari untuk tipe push-only di `maintenance-daily`; volume (±1 baris per siswa terjangkau per hari sekolah) dicatat di backlog. |
+| 14 | Kartu dipasang dengan `key={schoolId:version}` (jadwal yang baru diubah langsung terbaca); `DEMO_MESSAGE`/`SecurityCard` sudah di modul bersama (N2); jembatan N3 hanya membuang `notif` (absen=1 tetap); `markRead` baris push-only tetap 200 (sudah dibaca), detail 404. |
+
+Catatan implementasi: kategori `ATTENDANCE` (00-integration keputusan 1) untuk `ATTENDANCE_REMINDER`; tipe push-only
+(`PUSH_ONLY_TYPES`) ditulis sudah dibaca dan disaring dari daftar & detail kotak masuk; check-in yang diterima menandai
+pengingat PENDING miliknya `OBSOLETE` di transaksi yang sama. Pertanyaan pemilik §10.2–10.3 memakai default (tanpa
+pengingat kedua, tanpa pilihan per siswa).
+
+
 Order: last in the batch (after N3 Web Push). Migration prefix `20261003060000`.
 
 ## 1. Goal & non-goals

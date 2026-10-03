@@ -15,6 +15,7 @@ import {
   updateSchoolBody,
   updateSchoolSettingsBody,
 } from "./schemas";
+import { attendanceReminderSettingsSchema, updateAttendanceReminderBody } from "./reminder-schemas";
 import { schoolThemeSchema, updateSchoolThemeBody } from "./theme-schemas";
 
 /** Kontrak route domain sekolah: /platform/schools* (SUPER_ADMIN) dan /school/profile|settings|theme. */
@@ -199,6 +200,40 @@ export const resetSchoolThemeContract = defineContract({
   response: schoolThemeSchema,
 });
 
+const REMINDER_PATH = "/api/v1/school/settings/attendance-reminder";
+const REMINDER_NOTE = [
+  "Pengingat absen (N5): push sekali per hari sekolah ke siswa yang belum absen, `leadMinutes` sebelum jam masuk (tidak lebih",
+  "awal dari jam buka absen), tidak dikirim saat izin PENDING/DISETUJUI mencakup hari itu, kedaluwarsa di jam masuk + toleransi,",
+  "tidak tampil di kotak masuk. Sekolah dengan jadwal bawaan (`defaultSchedule=true`) belum dikirimi sampai jam & hari absensi",
+  "diatur. Mode uji absensi tidak berpengaruh.",
+  THEME_SCOPE_NOTE,
+].join(" ");
+
+export const getAttendanceReminderSettingsContract = defineContract({
+  id: "getAttendanceReminderSettings",
+  method: "GET",
+  path: REMINDER_PATH,
+  tag: SCHOOL_TAG,
+  summary: "Pengaturan pengingat absen (jam kirim & jangkauan notifikasi HP)",
+  description: REMINDER_NOTE,
+  action: "schools.profile.read",
+  query: schoolScopeQuery,
+  response: attendanceReminderSettingsSchema,
+});
+
+export const updateAttendanceReminderSettingsContract = defineContract({
+  id: "updateAttendanceReminderSettings",
+  method: "PUT",
+  path: REMINDER_PATH,
+  tag: SCHOOL_TAG,
+  summary: "Atur pengingat absen (nyala/mati, menit sebelum jam masuk 5..120)",
+  description: `${REMINDER_NOTE} Nilai sama -> tanpa perubahan & tanpa audit; selain itu diaudit school.attendance_reminder_update.`,
+  action: "schools.settings.update",
+  query: schoolScopeQuery,
+  body: updateAttendanceReminderBody,
+  response: attendanceReminderSettingsSchema,
+});
+
 export const schoolsContracts: readonly AnyContract[] = [
   listPlatformSchoolsContract,
   createPlatformSchoolContract,
@@ -211,4 +246,6 @@ export const schoolsContracts: readonly AnyContract[] = [
   getSchoolThemeContract,
   updateSchoolThemeContract,
   resetSchoolThemeContract,
+  getAttendanceReminderSettingsContract,
+  updateAttendanceReminderSettingsContract,
 ];

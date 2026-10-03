@@ -17,6 +17,7 @@ const CLAIM_SELECT = {
   data: true,
   createdAt: true,
   pushAttempts: true,
+  pushExpiresAt: true,
 } as const satisfies Prisma.NotificationSelect;
 
 export type ClaimedNotification = Prisma.NotificationGetPayload<{ select: typeof CLAIM_SELECT }>;
