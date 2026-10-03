@@ -54,3 +54,16 @@ test("detail demo: rapor & tagihan milik persona terbuka lengkap; milik siswa la
   assert.equal(demoDetail("/student/report-cards", alyaCard), null, "tanpa persona");
   assert.equal(demoDetail("/student/report-cards", alyaCard, demoPersona("SCHOOL_ADMIN")), null, "admin demo tidak memakai jalur siswa");
 });
+
+test("kartu konfirmasi identitas demo (A2): kelas & NISN tersamar milik persona siswa; non-siswa kosong", async () => {
+  const { identityFacts, EMPTY_FACTS } = await import("./identity-confirm-rules");
+  const { demoPersona } = await import("./demo-personas");
+  for (const key of ["STUDENT", "STUDENT_BIMA", "STUDENT_CITRA"]) {
+    const persona = demoPersona(key);
+    const student = demoStudents.find(s => s.id === persona.studentId);
+    const facts = identityFacts(demoRows("/student/profile", persona));
+    assert.equal(facts.className, persona.className, key);
+    assert.equal(facts.maskedNisn, `••••${String(student?.nisn).slice(-4)}`, key);
+  }
+  assert.deepEqual(identityFacts(demoRows("/student/profile", demoPersona("SCHOOL_ADMIN"))), EMPTY_FACTS);
+});

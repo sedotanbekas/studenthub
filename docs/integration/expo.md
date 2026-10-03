@@ -207,6 +207,10 @@ Penolakan (urutan pemeriksaan server):
 
 Precheck + check-in berbagi limiter `CHECK_IN`: 10 permintaan / 10 menit per siswa.
 
+**Konfirmasi akun (rekomendasi, A2).** Sebelum membuka kamera/lokasi, tampilkan "Absen sebagai <nama>" (nama dari
+`/auth/me`, kelas + NISN tersamar 4 digit terakhir dari `GET /student/profile`) dengan "Ya, ini saya" dan "Bukan saya"
+(→ `POST /auth/logout`). API tidak mewajibkannya.
+
 **Alasan terlambat (opsional, A1).** Bila precheck `wouldBeLate=true`, tampilkan pilihan "Kenapa terlambat?" di layar
 tinjau tanpa pernah menahan tombol kirim. Setelah check-in (201/200) berstatus `TERLAMBAT` dengan
 `attendance.lateReason = null` dan `lateReasonEditable = true`, kirim `PUT /student/attendance/today/late-reason`
@@ -348,6 +352,7 @@ Semua 429 membawa `Retry-After` (detik) dan `error.details.retryAfterSeconds`. L
 - [ ] Check-in: precheck dulu, foto dikompres JPEG, ulang kirim aman (200 `replayed`).
 - [ ] Lokasi palsu di Android menampilkan pesan penolakan (tidak ada jalan pintas di klien).
 - [ ] Terlambat: alasan opsional tidak pernah menahan kirim; PUT alasan gagal tidak membatalkan absen.
+- [ ] Kartu "Absen sebagai …" muncul sebelum kamera; "Bukan saya" keluar dari akun.
 - [ ] Unggahan izin & bukti SPP menangani 413/415/422 gambar.
 - [ ] Push dibuka → navigasi sesuai `screen` → `/notifications/{id}/read`.
 - [ ] Slider: impresi hanya saat terlihat, klik membuka `targetUrl` dari respons klik.

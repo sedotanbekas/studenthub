@@ -1,8 +1,9 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/frontend/api";
 import { DEMO_PERSONAS, demoPersona } from "@/lib/frontend/demo-personas";
+import { nextLoginNotice, type LoginNotice, type LogoutReason } from "@/lib/frontend/identity-confirm-rules";
 import { demoHintCookie, initialSessionView, type SessionHint } from "@/lib/frontend/session-hint";
 import { readDemoTheme, writeDemoTheme } from "@/lib/frontend/theme";
 import type { SchoolThemeColors } from "@/lib/schools/theme-rules";
@@ -63,9 +64,9 @@ export async function leaveEnvironment(): Promise<void> {
   await endServerSession();
 }
 
-/** Hapus cookie sesi server tanpa memicu event "sesi berakhir" (proxy selalu menghapus cookie). */
-function endServerSession(): Promise<void> {
-  return fetch("/api/web/auth/logout", { method: "POST", cache: "no-store" }).then(() => undefined, () => undefined);
+/** Hapus cookie sesi server tanpa memicu event "sesi berakhir" (proxy selalu menghapus cookie); true bila sampai ke server. */
+function endServerSession(): Promise<boolean> {
+  return fetch("/api/web/auth/logout", { method: "POST", cache: "no-store" }).then(r => r.ok, () => false);
 }
 
 export interface HubSession {
@@ -74,11 +75,13 @@ export interface HubSession {
   readonly demo: boolean;
   readonly schoolId: string;
   readonly notice: string;
+  /** Penjelasan di halaman masuk (mis. setelah "Bukan saya", A2); tidak hilang sendiri. */
+  readonly loginNotice: LoginNotice | null;
   setNotice: (text: string) => void;
   setSchoolId: (id: string) => void;
   /** `covered`: identitas baru dipasang setelah tirai splash login menutup layar. */
   login: (covered?: Promise<void>) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: (reason?: LogoutReason) => Promise<void>;
   reloadMe: () => Promise<void>;
   startDemo: (key: string, covered?: Promise<void>) => void;
   switchPersona: (key: string) => void;
@@ -96,6 +99,7 @@ function useSessionState(hint: SessionHint, demoEnabled: boolean) {
   const [demo, setDemo] = useState(false);
   const [schoolId, setSchoolIdState] = useState("");
   const [notice, setNotice] = useState("");
+  const [loginNotice, setLoginNotice] = useState<LoginNotice | null>(null);
   const account = hint.account;
   const demoHinted = hint.demo;
   useEffect(() => {
@@ -119,17 +123,47 @@ function useSessionState(hint: SessionHint, demoEnabled: boolean) {
     return () => { active = false; };
   }, [account, demoHinted, demoEnabled]);
   useEffect(() => {
-    const expired = () => { setMe(null); setNotice("Sesi berakhir. Silakan masuk kembali."); };
+    const expired = () => { setMe(null); setNotice("Sesi berakhir. Silakan masuk kembali."); setLoginNotice(n => nextLoginNotice(n, { kind: "EXPIRED" })); };
     window.addEventListener("studenthub:expired", expired);
     return () => window.removeEventListener("studenthub:expired", expired);
   }, []);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(""), 4500); return () => clearTimeout(timer); }, [notice]);
-  return { me, setMe, ready, setReady, demo, setDemo, schoolId, setSchoolIdState, notice, setNotice };
+  return { me, setMe, ready, setReady, demo, setDemo, schoolId, setSchoolIdState, notice, setNotice, loginNotice, setLoginNotice };
+}
+
+type SessionState = ReturnType<typeof useSessionState>;
+
+/**
+ * Keluar berlaku SEKETIKA (penyimpanan demo & halaman terakhir dihapus, sesi dicabut) walau halaman dimuat ulang di
+ * tengah animasi; hanya pergantian tampilan yang menunggu layar tertutup logo, lalu tirai menyusut ke tombol Masuk
+ * (splash.ts). Ketukan ganda diabaikan (`leaving`) agar alasan "Bukan saya" tidak tertimpa keluar biasa.
+ */
+function useLogout(state: SessionState): (reason?: LogoutReason) => Promise<void> {
+  const router = useRouter();
+  const leaving = useRef(false);
+  const { demo, setDemo, setMe, setSchoolIdState, setLoginNotice } = state;
+  return useCallback(async (reason?: LogoutReason) => {
+    if (leaving.current) return;
+    leaving.current = true;
+    try {
+      const covered = playLogoutSplash();
+      clearDemoStorage();
+      forgetResume(); // keluar = sesi kerja selesai: halaman terakhir tidak dilanjutkan
+      const ended = demo ? true : await api("/auth/logout", { method: "POST" }).then(() => true, () => endServerSession());
+      await covered;
+      setDemo(false); setSchoolIdState(""); setMe(null);
+      setLoginNotice(n => nextLoginNotice(n, { kind: "LOGOUT", reason, ended }));
+      router.replace("/hub", { scroll: false }); // posisi gulir diatur scroll-memory.ts
+    } finally {
+      leaving.current = false;
+    }
+  }, [demo, router, setDemo, setLoginNotice, setMe, setSchoolIdState]);
 }
 
 export function useHubSession(hint: SessionHint, demoEnabled = true): HubSession {
-  const router = useRouter();
-  const { me, setMe, ready, setReady, demo, setDemo, schoolId, setSchoolIdState, notice, setNotice } = useSessionState(hint, demoEnabled);
+  const state = useSessionState(hint, demoEnabled);
+  const { me, setMe, ready, setReady, demo, setDemo, schoolId, setSchoolIdState, notice, setNotice, loginNotice, setLoginNotice } = state;
+  const logout = useLogout(state);
 
   const reloadMe = useCallback(async () => { const result = await api("/auth/me"); setMe(result.data as Identity); setReady(true); }, [setMe, setReady]);
 
@@ -138,33 +172,20 @@ export function useHubSession(hint: SessionHint, demoEnabled = true): HubSession
     clearDemoStorage();
     const identity = (await api("/auth/me")).data as Identity;
     await covered;
-    setDemo(false); setSchoolIdState(""); setMe(identity); setReady(true);
-  }, [setDemo, setMe, setReady, setSchoolIdState]);
+    setDemo(false); setSchoolIdState(""); setMe(identity); setReady(true); setLoginNotice(n => nextLoginNotice(n, { kind: "LOGIN" }));
+  }, [setDemo, setLoginNotice, setMe, setReady, setSchoolIdState]);
 
   const startDemo = useCallback((key: string, covered: Promise<void> = Promise.resolve()) => {
     void loadSections();
     void endServerSession(); // pastikan tidak ada sesi akun sungguhan yang tersisa di balik mode demo
     sessionStorage.setItem(DEMO_FLAG, "true"); sessionStorage.setItem(DEMO_ROLE, key); writeDemoHint(true);
-    void covered.then(() => { setDemo(true); setSchoolIdState(""); setMe(demoIdentity(key)); });
-  }, [setDemo, setMe, setSchoolIdState]);
+    void covered.then(() => { setDemo(true); setSchoolIdState(""); setMe(demoIdentity(key)); setLoginNotice(n => nextLoginNotice(n, { kind: "DEMO" })); });
+  }, [setDemo, setLoginNotice, setMe, setSchoolIdState]);
 
   const switchPersona = useCallback((key: string) => {
     sessionStorage.setItem(DEMO_ROLE, key);
     setMe(demoIdentity(key));
   }, [setMe]);
-
-  const logout = useCallback(async () => {
-    // Keluar berlaku SEKETIKA (penyimpanan demo & halaman terakhir dihapus, sesi dicabut) walau halaman
-    // dimuat ulang di tengah animasi; hanya pergantian tampilan yang menunggu layar tertutup logo, lalu
-    // tirai menyusut ke tombol Masuk (animasi keluar = masuk dibalik, splash.ts).
-    const covered = playLogoutSplash();
-    clearDemoStorage();
-    forgetResume(); // keluar = sesi kerja selesai: halaman terakhir tidak dilanjutkan
-    if (!demo) await api("/auth/logout", { method: "POST" }).catch(() => endServerSession());
-    await covered;
-    setDemo(false); setSchoolIdState(""); setMe(null);
-    router.replace("/hub", { scroll: false }); // posisi gulir diatur scroll-memory.ts
-  }, [demo, router, setDemo, setMe, setSchoolIdState]);
 
   const setSchoolId = useCallback((id: string) => { setSchoolIdState(id); sessionStorage.setItem(SCHOOL_KEY, id); }, [setSchoolIdState]);
 
@@ -174,5 +195,5 @@ export function useHubSession(hint: SessionHint, demoEnabled = true): HubSession
     if (key) setMe(demoIdentity(key));
   }, [setMe]);
 
-  return { me, ready, demo, schoolId, notice, setNotice, setSchoolId, login, logout, reloadMe, startDemo, switchPersona, saveDemoTheme };
+  return { me, ready, demo, schoolId, notice, loginNotice, setNotice, setSchoolId, login, logout, reloadMe, startDemo, switchPersona, saveDemoTheme };
 }

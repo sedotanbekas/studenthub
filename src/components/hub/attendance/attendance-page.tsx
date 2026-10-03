@@ -33,9 +33,11 @@ function useToday(version: number): TodayState {
 }
 
 export function AttendancePage() {
-  const { demo } = useHub();
+  const { demo, me } = useHub();
   const [version, setVersion] = useState(0);
   const [open, setOpen] = useState(false);
+  // Konfirmasi akun (A2) diingat per kunjungan halaman & per akun: muat ulang / ganti persona = tanya lagi.
+  const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
   // Mode demo tidak menyimpan: alasan yang baru diisi ditampilkan dari state lokal (muat ulang = hilang).
   const [demoReason, setDemoReason] = useState<LateReasonDto | null>(null);
   const state = useToday(version);
@@ -53,7 +55,7 @@ export function AttendancePage() {
       : state.kind === "error" ? state.code === "CHECKIN_MOBILE_ONLY" ? <MobileOnly /> : <div className="error-message" role="alert">{state.message}<button className="text-button" onClick={() => setVersion(v => v + 1)}>Coba lagi</button></div>
       : <TodayCard today={state.today} demoReason={demoReason} onStart={() => setOpen(true)} onReasonSaved={onReasonSaved} />}
     <HistoryPanel version={version} />
-    {open && state.kind === "ready" && <CheckInFlow today={state.today} onClose={() => setOpen(false)} onDone={() => setVersion(v => v + 1)} />}
+    {open && state.kind === "ready" && <CheckInFlow today={state.today} identityConfirmed={confirmedFor === me.user.id} onIdentityConfirmed={() => setConfirmedFor(me.user.id)} onClose={() => setOpen(false)} onDone={() => setVersion(v => v + 1)} />}
   </div>;
 }
 

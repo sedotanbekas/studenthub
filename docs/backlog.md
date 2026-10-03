@@ -64,3 +64,7 @@ punya akses shell ke VPS.
 ### Alasan terlambat hari lampau / diisi wali kelas atas nama siswa (A1)
 Siswa hanya bisa mengisi alasan untuk absen hari ini, sebelum jam akhir hari sekolah; admin memakai catatan
 koreksi. Kerjakan bila wali kelas meminta mengisi alasan atas nama siswa atau siswa meminta mengubah hari lampau.
+
+### Jejak "Bukan saya" (A2)
+Ketukan "Bukan saya" di alur absen tidak dicatat server (hanya logout biasa). Kerjakan bila admin sekolah perlu
+melihat pola HP pinjaman di luar flag `SHARED_DEVICE`.

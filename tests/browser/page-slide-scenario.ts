@@ -100,7 +100,7 @@ export async function verifyPageSlides(page: Page): Promise<void> {
   await page.locator(".tile", { hasText: "Absen" }).click();
   await waitMode(page, "forward");
   expect((await sample(page)).dialog).toBe(false);
-  await expect(page.getByRole("dialog", { name: "Izinkan perangkat" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Konfirmasi akun" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.dataset.pageSlide ?? null)).toBeNull();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }

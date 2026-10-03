@@ -208,6 +208,11 @@ Cek "kelas di tahun ajaran aktif" hanya saat aktivasi / ganti kelas (bukan tiap 
   (409) tanpa menghapus alasan; alasan dihitung selama status tetap TERLAMBAT. Admin melihatnya di detail catatan,
   daftar peta, Data Absensi, dan `GET /school/attendance/late-reasons` (per kategori; "belum diisi" = check-in sendiri
   tanpa alasan). Audit mencatat kategori & panjang keterangan (bukan teksnya). Tanpa notifikasi.
+- **Konfirmasi identitas sebelum absen (pemilik 2026-10-03, A2):** alur absen web diawali kartu "Absen sebagai
+  <nama> · <kelas> · NISN ••••<4 digit>". "Ya, ini saya" langsung meminta izin lokasi & kamera (tanpa ketukan tambahan),
+  "Bukan saya" mengeluarkan akun dari perangkat itu (logout biasa) dan halaman masuk menjelaskan akibat masuk di HP
+  pinjaman (akun di HP sendiri keluar; absen dua siswa dari HP yang sama ditandai `SHARED_DEVICE`). Hanya frontend,
+  tanpa perubahan API; diingat per kunjungan halaman. Mencegah salah akun, bukan kecurangan yang disengaja.
 - Izin/Sakit: backdate ≤7 hari, maju ≤30, rentang ≤14; SAKIT ≥3 hari sekolah wajib lampiran foto;
   approve → baris IZIN/SAKIT tiap hari sekolah (tidak menimpa CHECKIN/ADMIN); reject wajib alasan.
 - Auto-ALPHA per sekolah setelah `dayEndMinute` lokal (tiga zona waktu), catch-up 7 hari, idempoten

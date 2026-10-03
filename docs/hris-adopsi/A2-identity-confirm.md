@@ -1,5 +1,25 @@
 # A2 — Konfirmasi identitas sebelum absen (spec)
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `A2-identity-confirm.critique.md`. Semua temuan diterima:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | `NOT_ME_NOTICE`: judul "Akun sebelumnya sudah keluar dari perangkat ini."; catatan menyebut akibat masuk di HP pinjaman (akun di HP sendiri keluar) dan `SHARED_DEVICE` yang benar (absen dua siswa dari HP sama di hari sama). |
+| 2 | Notice dirender `div.info-message.login-notice` (judul di atas catatan); gaya di `shell.css`. |
+| 3 | Baris di bawah "Ya, ini saya": "Setelah ini HP meminta izin lokasi & kamera untuk absen." |
+| 4 | Transisi notice murni `nextLoginNotice(current, event)` (LOGIN/DEMO/LOGOUT/EXPIRED) + test; `studenthub:expired` juga mengosongkan notice; test browser keluar demo berikutnya → notice hilang. |
+| 5 | Test browser memakai heading statis "Nyalakan lokasi dan kamera" dan nama dialog, bukan label tombol yang berubah. |
+| 6 | `logout` tahu apakah sesi server berakhir; bila tidak → `OFFLINE_NOTICE` ("Akun belum keluar sepenuhnya… sambungkan internet lalu muat ulang"). |
+| 7 | `GET /student/profile` dibatasi 5 detik (`AbortSignal.timeout`), gagal → kartu dengan nama saja. |
+| 8 | `HubSession.logout` & `HubContextValue.logout` bertipe `(reason?: LogoutReason) => Promise<void>`. |
+| 9 | `logout` dijaga ref `leaving` (ketukan ganda diabaikan, alasan pertama menang). |
+| 10 | Koordinasi dicatat di `00-integration.md` §2.8 (urutan langkah logout dengan N1/N3); A1 dan A2 sama-sama mengubah `check-in-flow.tsx` (judul/langkah berbasis `identityConfirmed`). |
+| 11 | "Bukan saya" ber-`aria-describedby` ke catatan akibat; NISN tersamar punya label lisan "NISN berakhiran 1234"; notice menjadi `aria-describedby` formulir masuk. |
+| 12 | Entri backlog berupa bagian `###`. Coverage: logika di berkas `.ts` teruji; komponen `.tsx` di luar cakupan c8. |
+
+
 ## 1. Goal & non-goals
 
 **Goal.** Absen tidak boleh lagi tercatat atas nama akun yang kebetulan masih masuk di HP pinjaman atau HP bersama saudara. Alur absen web (`CheckInFlow`) dibuka dengan kartu **"Absen sebagai <nama> · <kelas> · NISN ••••<4 digit>"** sebelum izin lokasi/kamera diminta. **"Ya, ini saya"** mengonfirmasi dan langsung meminta izin lokasi + kamera (ketukan yang sama dengan tombol "Izinkan lokasi & kamera" sekarang), jadi jumlah ketukan tidak bertambah. **"Bukan saya"** menutup alur, keluar lewat jalur logout yang sudah ada, lalu halaman masuk menampilkan penjelasan satu baris (satu HP = satu akun siswa; HP yang dipakai bergantian ditandai). Hanya frontend. Mode demo tetap jalan.

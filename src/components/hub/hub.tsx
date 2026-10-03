@@ -98,7 +98,7 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
   if (sections.failed) return <main className="standalone"><Brand /><p>Halaman gagal dimuat. Periksa koneksi internet lalu coba lagi.</p><button type="button" className="button primary" onClick={() => void loadSections()}>Coba lagi</button></main>;
   if (!session.ready || resuming || !sections.ready) return <main className="standalone"><Brand /><div className="loader" /><p>Memuat…</p></main>;
   // Suspense: halaman masuk (HTML server) dihidrasi bertahap setelah kerangka, bukan dalam satu long task (TBT).
-  if (!me) return <><Suspense fallback={null}><Login env={env} onLogin={session.login} onDemo={session.startDemo} /></Suspense>{toast}</>;
+  if (!me) return <><Suspense fallback={null}><Login env={env} notice={session.loginNotice} onLogin={session.login} onDemo={session.startDemo} /></Suspense>{toast}</>;
   const restricted = isRestricted(me);
   const { home, module: current } = resolveSection(me.user.role, restricted, section);
   const value = { me, demo, schoolId, toast: session.setNotice, reloadMe: session.reloadMe, logout: session.logout, saveDemoTheme: session.saveDemoTheme };

@@ -5,6 +5,7 @@ import { loginDeviceId } from "@/lib/frontend/attendance";
 import { DEMO_PERSONAS } from "@/lib/frontend/demo-personas";
 import { demoAllowed, type AppEnv } from "@/lib/frontend/app-env";
 import { EARLY_DEMO, takeEarlyDemo } from "@/lib/frontend/early-demo";
+import type { LoginNotice } from "@/lib/frontend/identity-confirm-rules";
 import { EnvSwitch } from "./env-switch";
 import { Brand, Icon } from "./icon";
 import { PasswordInput } from "./password-input";
@@ -24,8 +25,8 @@ function useHydrated(): boolean {
  * bertipe submit (form dengan 2 isian tanpa tombol submit tidak terkirim lewat Enter), jadi kredensial
  * tidak pernah terkirim sebagai form biasa; method="post" = pengaman bila browser tetap mengirimnya.
  */
-interface LoginProps { env: AppEnv | null; onLogin: (covered: Promise<void>) => Promise<void>; onDemo: (personaKey: string, covered: Promise<void>) => void }
-export function Login({ env, onLogin, onDemo }: LoginProps) {
+interface LoginProps { env: AppEnv | null; notice?: LoginNotice | null; onLogin: (covered: Promise<void>) => Promise<void>; onDemo: (personaKey: string, covered: Promise<void>) => void }
+export function Login({ env, notice, onLogin, onDemo }: LoginProps) {
   const hydrated = useHydrated();
   // Tombol demo yang diketuk sebelum JS aktif (dicatat skrip sebaris, src/lib/frontend/early-demo.ts).
   useEffect(() => {
@@ -50,7 +51,7 @@ export function Login({ env, onLogin, onDemo }: LoginProps) {
   }
   return <main className="login-page">
     <section className="login-story" aria-hidden="true"><Brand /><div><h1>Sekolah dan siswa, dalam satu tempat.</h1><p>Absensi, rapor, tagihan, dan pengumuman sekolah.</p></div></section>
-    <section className="login-form-side"><div className="login-box"><span className="login-brand"><Brand /></span><h2>Senang bertemu lagi.</h2><p>Masuk dengan NISN (siswa), NPSN (admin sekolah), atau email.</p><form method="post" onSubmit={submit} onInput={() => void loadSections()}>
+    <section className="login-form-side"><div className="login-box"><span className="login-brand"><Brand /></span><h2>Senang bertemu lagi.</h2><p>Masuk dengan NISN (siswa), NPSN (admin sekolah), atau email.</p>{notice && <div className="info-message login-notice" role="status" id="login-notice"><span><strong>{notice.title}</strong><small>{notice.note}</small></span></div>}<form method="post" aria-describedby={notice ? "login-notice" : undefined} onSubmit={submit} onInput={() => void loadSections()}>
       <label className="field">NISN, NPSN, atau email<input name="identifier" autoComplete="username" inputMode="email" placeholder="NISN, NPSN sekolah, atau email" required autoFocus /></label>
       <label className="field">Kata sandi<PasswordInput name="password" autoComplete="current-password" placeholder="Masukkan kata sandi" required /></label>
       {totp && <label className="field">Kode autentikator<input name="totpCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 digit kode verifikasi" autoComplete="one-time-code" required onChange={e => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 6); }} /></label>}

@@ -12,6 +12,7 @@ import { AccessGate } from "./access-gate";
 import { AttendanceMap, type SchoolArea } from "./attendance-map";
 import { bestPosition, useDeviceAccess, useLivePosition } from "./device-access";
 import { FaceCamera } from "./face-camera";
+import { IdentityStep } from "./identity-step";
 import { DoneLateReason, EMPTY_LATE_DRAFT, LateReasonPicker } from "./late-reason-form";
 import type { LateReasonDraft } from "@/lib/attendance/late-reason-rules";
 
@@ -38,8 +39,10 @@ function useSchoolArea(today: TodayDto, demoFix: Fix | null, demo: boolean): Sch
   }, [demo, demoLat, demoLng, latitude, longitude, radiusM]);
 }
 
-export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClose: () => void; onDone: () => void }) {
-  const { demo } = useHub();
+interface FlowProps { today: TodayDto; identityConfirmed: boolean; onIdentityConfirmed: () => void; onClose: () => void; onDone: () => void }
+
+export function CheckInFlow({ today, identityConfirmed, onIdentityConfirmed, onClose, onDone }: FlowProps) {
+  const { demo, logout } = useHub();
   const access = useDeviceAccess();
   const [step, setStep] = useState<Step>("location");
   const [verdict, setVerdict] = useState<Verdict | null>(null);
@@ -52,7 +55,7 @@ export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClo
   const live: Fix | null = watched && demo ? { coords: simulateDemoFix(watched.coords), timestamp: watched.timestamp } : watched;
   const school = useSchoolArea(today, access.fix, demo);
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus(); }, [step, access.ready]);
+  useEffect(() => { heading.current?.focus(); }, [step, access.ready, identityConfirmed]);
   // Layar penuh sebagai <dialog> modal: aplikasi di belakangnya otomatis inert dan Escape menutup alur.
   const screen = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -64,14 +67,17 @@ export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClo
   const distance = live && school ? Math.round(haversineMeters(live.coords, school)) : null;
   const inside = live && school && distance !== null ? distance <= school.radiusM + Math.min(live.coords.accuracy, ACCURACY_TOLERANCE_CAP_M) : null;
   const steps: Step[] = ["location", "face", "review"];
-  const title = !access.ready ? "Izinkan perangkat" : step === "location" ? "Cek lokasi" : step === "face" ? "Foto wajah" : step === "review" ? "Periksa & kirim" : "Absensi tercatat";
+  const title = !identityConfirmed ? "Konfirmasi akun" : !access.ready ? "Izinkan perangkat" : step === "location" ? "Cek lokasi" : step === "face" ? "Foto wajah" : step === "review" ? "Periksa & kirim" : "Absensi tercatat";
+  // Konfirmasi akun bukan langkah bernomor; hitungan & bilah langkah baru tampil setelah izin aktif.
+  const numbered = identityConfirmed && access.ready && step !== "done";
   return <dialog ref={screen} className="checkin-screen" aria-labelledby="checkin-title" onCancel={e => { if (!isOwnDialogCancel(e)) return; e.preventDefault(); onClose(); }}>
-    <header className="checkin-header"><button className="icon-button" aria-label="Tutup absensi" onClick={onClose}><Icon name="close" /></button><h1 id="checkin-title" ref={heading} tabIndex={-1}>{title}</h1><span className="step-count">{access.ready && step !== "done" ? `${steps.indexOf(step) + 1}/3` : ""}</span></header>
-    {access.ready && step !== "done" && <ol className="step-bar" aria-hidden="true">{steps.map((s, i) => <li key={s} className={i <= steps.indexOf(step) ? "on" : ""} />)}</ol>}
+    <header className="checkin-header"><button className="icon-button" aria-label="Tutup absensi" onClick={onClose}><Icon name="close" /></button><h1 id="checkin-title" ref={heading} tabIndex={-1}>{title}</h1><span className="step-count">{numbered ? `${steps.indexOf(step) + 1}/3` : ""}</span></header>
+    {numbered && <ol className="step-bar" aria-hidden="true">{steps.map((s, i) => <li key={s} className={i <= steps.indexOf(step) ? "on" : ""} />)}</ol>}
     <div className="checkin-content">
       {demo && <p className="info-message">Mode demo: area sekolah dan akurasi GPS disimulasikan di sekitarmu; absensi tidak disimpan.</p>}
       {today.testMode && !demo && <p className="warning-message" role="status">{TEST_MODE_NOTE}</p>}
-      {!access.ready ? <AccessGate access={access} />
+      {!identityConfirmed ? <IdentityStep onConfirm={() => { onIdentityConfirmed(); void access.request(); }} onNotMe={() => { onClose(); void logout("NOT_ME"); }} />
+        : !access.ready ? <AccessGate access={access} />
         : step === "location" ? <LocationStep today={today} school={school} live={live} distance={distance} inside={inside} verdict={verdict} onVerdict={setVerdict} onNext={() => setStep("face")} />
         : step === "face" && access.stream ? <section className="checkin-step-body"><div className="step-intro"><h2>Hadapkan wajah ke kamera</h2><p>Lepas masker/kacamata hitam dan pastikan wajahmu terang. Foto tetap bisa diambil walau wajah belum terdeteksi; admin sekolah akan memeriksanya.</p></div><FaceCamera stream={access.stream} onCapture={(blob, faceCheck) => { setPhoto({ blob, url: URL.createObjectURL(blob), faceCheck }); setStep("review"); }} /></section>
         : step === "review" && photo ? <ReviewStep maxAccuracyM={today.geofence.maxAccuracyM} photo={photo} distance={distance} verdict={verdict} draft={reasonDraft} onDraft={setReasonDraft} onRetake={() => setStep("face")} onLocationError={message => { setVerdict({ ok: false, message, wouldBeLate: false }); setStep("location"); }} onImageError={() => setStep("face")} onDone={done => { setResult(done); setStep("done"); }} />

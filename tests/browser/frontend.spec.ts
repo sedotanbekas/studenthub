@@ -129,13 +129,37 @@ test("siswa (HP): beranda ringkas, alur absen wajib izin lokasi & kamera sebelum
   await expect(page.getByText("Kamu belum absen")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("navigation", { name: "Menu siswa" }).getByRole("link", { name: "Absen" }).click();
+  const confirm = page.getByRole("dialog", { name: "Konfirmasi akun" });
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toContainText("Alya Putri Ramadhani");
+  await expect(confirm).toContainText("X IPA 1 · NISN ••••5432");
+  await expect(confirm.getByRole("button", { name: /izinkan/i })).toHaveCount(0);
+  await confirm.getByRole("button", { name: "Ya, ini saya" }).click();
   const flow = page.getByRole("dialog", { name: "Izinkan perangkat" });
   await expect(flow).toBeVisible();
-  await expect(flow.getByRole("button", { name: "Izinkan lokasi & kamera" })).toBeVisible();
+  await expect(flow.getByRole("heading", { name: "Nyalakan lokasi dan kamera" })).toBeVisible();
   await expect(flow.getByRole("button", { name: "Lanjut ke foto wajah" })).toHaveCount(0);
   await flow.getByRole("button", { name: "Tutup absensi" }).click();
   await expect(page.getByRole("heading", { name: "Riwayat", exact: false })).toBeVisible();
+  // Konfirmasi diingat selama kunjungan halaman: buka lagi langsung ke izin perangkat.
+  await page.getByRole("button", { name: "Absen sekarang" }).click();
+  await expect(page.getByRole("dialog", { name: "Izinkan perangkat" })).toBeVisible();
   await context.close();
+});
+test("siswa (demo): Bukan saya mengeluarkan akun dan menjelaskan di halaman masuk; keluar demo berikutnya menghapus pesan", async ({ page }) => {
+  await page.goto("/hub");
+  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Alya" }).click();
+  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Absensi" }).click();
+  await page.getByRole("button", { name: "Absen sekarang" }).click();
+  await page.getByRole("dialog", { name: "Konfirmasi akun" }).getByRole("button", { name: "Bukan saya" }).click();
+  await expect(page.getByRole("heading", { name: "Senang bertemu lagi." })).toBeVisible();
+  await expect(page.getByText("Akun sebelumnya sudah keluar dari perangkat ini.")).toBeVisible();
+  await expect(page.locator(".demo-banner")).toHaveCount(0);
+  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Bima" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Bima Aditya Pratama" })).toBeVisible();
+  await page.locator(".demo-banner").getByRole("button", { name: /Keluar demo/ }).click();
+  await expect(page.getByRole("heading", { name: "Senang bertemu lagi." })).toBeVisible();
+  await expect(page.getByText("Akun sebelumnya sudah keluar dari perangkat ini.")).toHaveCount(0);
 });
 test("login: tombol demo per persona (admin, 3 siswa, sponsor, super admin) langsung masuk ke peran itu", async ({ page }) => {
   const cases: [string, RegExp | string][] = [["Admin sekolah", /Selamat datang, Adinda/], ["Siswa · Alya", "Alya Putri Ramadhani"], ["Siswa · Bima", "Bima Aditya Pratama"], ["Siswa · Citra", "Citra Ayu Lestari"], ["Sponsor", /Selamat datang, Rizky/], ["Super admin", /Selamat datang, Dimas/]];

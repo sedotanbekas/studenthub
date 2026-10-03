@@ -87,3 +87,7 @@
 .demo-persona strong { display: block; font-size: 15px; line-height: 1.25; }
 .demo-persona small { display: block; font-size: 13px; line-height: 1.3; color: var(--muted); font-weight: 600; }
 .demo-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: var(--primary-soft); color: var(--primary-ink); flex-shrink: 0; }
+/* Penjelasan setelah "Bukan saya" (A2): judul di atas catatan, warna info (bukan abu-abu paragraf .login-box). */
+.login-box > .login-notice { margin: 4px 0 12px; color: var(--primary-ink); }
+.login-notice strong { display: block; }
+.login-notice small { display: block; margin-top: 2px; font-size: 14px; font-weight: 600; }
