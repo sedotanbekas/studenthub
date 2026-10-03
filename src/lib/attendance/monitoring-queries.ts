@@ -47,6 +47,7 @@ import type {
 
 export interface MonitorSchool {
   readonly id: string;
+  readonly name: string;
   readonly timezone: SchoolTz;
   readonly latitude: number;
   readonly longitude: number;
@@ -67,13 +68,14 @@ export async function loadMonitorSchool(scope: SchoolScope): Promise<MonitorScho
   const school = await prisma.school.findUnique({
     where: { id: scope.schoolId },
     select: {
-      id: true, timezone: true, latitude: true, longitude: true, geofenceRadiusM: true, dayEndMinute: true, checkInCloseMinute: true, schoolDaysMask: true,
+      id: true, name: true, timezone: true, latitude: true, longitude: true, geofenceRadiusM: true, dayEndMinute: true, checkInCloseMinute: true, schoolDaysMask: true,
       createdAt: true,
     },
   });
   if (!school) throw notFound("Sekolah tidak ditemukan.", "SCHOOL_NOT_FOUND");
   return {
     id: school.id,
+    name: school.name,
     timezone: school.timezone,
     latitude: decimalToNumber(school.latitude) ?? 0,
     longitude: decimalToNumber(school.longitude) ?? 0,

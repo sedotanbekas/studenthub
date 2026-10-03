@@ -213,6 +213,13 @@ Cek "kelas di tahun ajaran aktif" hanya saat aktivasi / ganti kelas (bukan tiap 
   "Bukan saya" mengeluarkan akun dari perangkat itu (logout biasa) dan halaman masuk menjelaskan akibat masuk di HP
   pinjaman (akun di HP sendiri keluar; absen dua siswa dari HP yang sama ditandai `SHARED_DEVICE`). Hanya frontend,
   tanpa perubahan API; diingat per kunjungan halaman. Mencegah salah akun, bukan kecurangan yang disengaja.
+- **Rekap bulanan + ekspor Excel (pemilik 2026-10-03, A3):** tab "Rekap bulanan" di Kehadiran: satu kelas satu
+  bulan sebagai matriks siswa × tanggal (H/T/I/S/A, K = tercatat di kelas lain, L libur, ? hari belum ditutup,
+  – tidak wajib absen, abu-abu = hari berjalan) + total per siswa (hadir, terlambat & menit, izin, sakit, alpa,
+  % hadir, alasan terlambat A1). Kelas = snapshot saat absen dicatat (siswa pindah muncul di kedua kelas). Angka
+  memakai SATU fungsi hitung dengan rekap kehadiran rapor & bulan siswa admin; hari belum ditutup ikut dihitung dan
+  diberi peringatan. Unduh XLSX satu kelas atau semua kelas (sheet per kelas + Keterangan), diaudit, kuota 30 unduhan
+  berhasil per 10 menit, tanpa NISN/foto/lokasi. Tanpa migrasi.
 - **Tinjau anomali (pemilik 2026-10-03, B1):** admin sekolah (atau super admin dengan `?schoolId=`) menandai catatan
   beranomali (`hasAnomaly`, flag MEDIUM/HIGH) **Valid** (absensi tetap, catatan opsional) atau **Tidak valid** (jalur
   Koreksi absensi menjadi ALPHA: sumber ADMIN, alasan wajib ≥5 karakter yang dikirim ke siswa lewat
@@ -282,7 +289,7 @@ maintenance harian (cleanup sesi, purge selfie 180 hari, CheckInRejection 90 har
 ### Ditunda (YAGNI — dicatat di backlog `docs/backlog.md`)
 Cookie+CSRF web (fase dashboard) · penjadwalan/edit pengumuman terbit · kenaikan kelas massal
 (sebelum Juli 2027) · unggahan PDF · push receipts & penggabungan notifikasi admin · IMPOSSIBLE_TRAVEL /
-IDENTICAL_COORDINATES · tandai valid massal · REFUND ledger · multi-user
+IDENTICAL_COORDINATES · tandai valid massal · ekspor PDF & rekap rentang bebas/semester · REFUND ledger · multi-user
 sponsor · ringkasan platform iklan · job rekonsiliasi (diganti test invarian) · target jenjang sekolah ·
 X-App-Version gate · sub-peran admin (bendahara/operator) · check-in offline · Play Integrity/App Attest.
 

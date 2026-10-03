@@ -155,6 +155,10 @@ test("check-in mendokumentasikan 201 (baru) DAN 200 (replay) dengan envelope yan
   const file = doc.paths["/api/v1/files/{id}"]?.get?.responses?.["200"]?.content ?? {};
   assert.deepEqual(Object.keys(file).sort(), ["image/jpeg", "image/png", "image/webp"]);
   assert.deepEqual(file["image/jpeg"]?.schema, { type: "string", format: "binary" });
+  const xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  for (const path of ["/api/v1/school/students/import/template", "/api/v1/school/attendance/monthly-recap/export"]) {
+    assert.deepEqual(Object.keys(doc.paths[path]?.get?.responses?.["200"]?.content ?? {}), [xlsx], path);
+  }
 });
 
 test("batas panjang teks masukan (rapikan-lalu-cek) terdokumentasi minLength/maxLength", () => {

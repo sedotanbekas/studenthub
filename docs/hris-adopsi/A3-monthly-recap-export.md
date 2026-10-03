@@ -1,5 +1,30 @@
 # A3 — Rekap bulanan per kelas + ekspor Excel (spec)
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `A3-monthly-recap-export.critique.md`. Semua temuan diterima; yang mengubah desain:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | Satu aturan: baris s.d. `closedThrough` dihitung, termasuk hari **belum ditutup** (penutupan hanya menambah ALPHA). `cellDisplay`: kode pada hari UNCLOSED tetap final berwarna status; abu-abu hanya hari berjalan (OPEN); kosong pada UNCLOSED = "?". Legenda, baris Excel, tabel §9 diselaraskan: "Abu-abu = hari berjalan, belum dihitung · ? = hari belum ditutup, alpa otomatis bisa bertambah". Test unit & integrasi: baris di hari belum ditutup ikut total. |
+| 2 | Label baru di `field-labels.ts`: `isFinal`, `day`, `weekday`, `closure`, `cells`, `otherClasses`, `lateReasons` (`lateReasonCategories` dihapus dari DTO — urutan kategori sudah ada di `lateReasons.categories`). |
+| 3 | Kuota hanya untuk unduhan berhasil: kontrak tanpa `rateLimit`; layanan memanggil `assertRateLimit("EXPORT", "export:<userId>")` sebelum dan `hit` sesudah berkas jadi; `errors` tetap memuat `RATE_LIMITED`. EXPORT = 30 / 10 menit. Batas ekspor dari benchmark (4.000 siswa × 30 hari ≈ 2,6 detik, test unit): `MAX_EXPORT_STUDENTS = 4000`, `MAX_EXPORT_ROWS = 4000 × 31`; layar 200 siswa (pesan "unduh Excel per kelas"). `loadClassSource` menerima batas (layar vs ekspor); semua groupBy/findMany ber-`take`. |
+| 4 | Alasan terlambat bertipe `LateReasonCode`, dihitung dengan `countLateReasons` A1 (`filled`, `unfilled`, kategori urut kanonik); Excel menambah kolom "Alasan belum diisi" + catatan di sheet Keterangan bahwa TERLAMBAT yang dicatat admin tanpa alasan tidak masuk kolom alasan; mode Ringkas menampilkan chip yang sama. Tab "Alasan terlambat" A1 tetap s.d. hari ini dan menampilkan rentangnya (from–to), rekap s.d. tanggal final — keduanya menyebut rentang masing-masing. |
+| 5 | Klaim dipersempit: rapor (draf), bulan siswa admin, dan rekap bulanan memakai `tallyAttendance`; riwayat siswa sendiri & analitik kelas tetap `countsFrom` (dicatat di backlog); rapor terbit = snapshot beku. Test konsistensi integrasi memakai siswa satu kelas tanpa baris tanpa-kelas, Jan–Apr. |
+| 6 | `sheetNameFor`: buang `*?:/\[]`, rapikan spasi, buang kutip tepi, 31 karakter, unik tanpa beda huruf besar, "Keterangan"/"History" dicadangkan; kelas bernama sama beda tahun ajaran diberi tahun ("X IPA 1 (2025-2026)"). Halaman: `paperSize 9`, lanskap, `fitToWidth 1`, `fitToHeight 0`. Waktu unduh memakai zona sekolah. Slug berkas cadangan "kelas". |
+| 7 | `cellDisplay` ditulis sebagai daftar berurutan; enam pasangan token `--att-{other,holiday,off,pending,unclosed,none}-{soft,ink}` di `charts.css` + kelas `.recap-cell.s-*`; `RECAP_TONE_COLORS` dijaga test yang membaca charts.css. |
+| 8 | `TallyRow`: `lateMinutes` grup = jumlah menit grup (tidak dikali `count`); alasan menambah `count`; test untuk keduanya. |
+| 9 | Tiga tab di HP: tab bisa digeser (`overflow-x: auto`) dan di < 480px memakai label pendek "Peta / Rekap / Data" (nama aksesibel tetap label lengkap). Test 390px tanpa luapan untuk tab rekap. |
+| 10 | `useClassOptions` mengembalikan `{options, loading, error}`; tab dipasang ulang saat sekolah berganti (`key={schoolId}`) dan kelas tak dikenal jatuh ke kelas pertama; navigasi bulan memakai tombol sebelumnya/berikutnya (tidak melewati bulan berjalan); breakpoint 760px; localStorage dibaca dengan pola setState tertunda + try/catch; "Belum ada hari yang ditutup di bulan ini."; lencana "Sebagian bulan tanpa kelas". |
+| 11 | Demo: kolom hari ini dari status peta contoh (setelah tinjauan B1, alasan A1), hari sebelumnya dari hash deterministik, hari ini selalu "berjalan". Test: kolom hari ini = peta, hari mendatang kosong. |
+| 12 | Test: `resetAllLimiters()` di `beforeEach` + admin khusus untuk 429; `RowInput.lateReasonCategory` (mengisi `lateReasonAt`); NISN diperiksa tidak ada di JSON maupun XLSX; katalog memuat kedua operasi (test workspace-rules); `studentBriefSelect` tidak dipakai. |
+| 13 | Nomor desain: A1 §3.11, B1 §3.12, A3 §3.13. Tipe diberi nama `MonthlyRecapRow`/`MonthlyRecapCandidate`/`MonthlyRecapDay`/`MonthlyRecapStudent`. Kode rate limit & error ditambah di ujung blok. |
+| 14 | `HIDDEN_VIEWS` memuat kedua id karena keduanya akan menjadi tab generik yang rusak (classId wajib; ekspor = unduhan berkuota & diaudit). ≈12 query (kalender dimuat dua kali lewat `listUnclosedDates`). Rujukan HRIS hanya latar (repo luar). |
+
+Jawaban default §10 dipakai: % hadir atas hari tercatat; tanpa NISN; A4 lanskap; tanpa blok tanda tangan; semua admin
+melihat semua kelas.
+
+
 Depends on A1 (late-reason category) being merged first. **No migration.**
 
 ## 1. Goal & non-goals

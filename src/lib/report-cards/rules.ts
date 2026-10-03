@@ -1,4 +1,5 @@
 import type { AttendanceStatus, GradePredicate, ReportCardStatus } from "@prisma/client";
+import { tallyAttendance, tallyByStudent, type AttendanceTally } from "@/lib/attendance/attendance-stats";
 import type { LocalDate } from "@/lib/time/zone";
 
 /**
@@ -50,26 +51,21 @@ export interface AttendanceSummary {
 
 export const ZERO_ATTENDANCE: AttendanceSummary = Object.freeze({ sick: 0, permit: 0, absent: 0 });
 
-const SUMMARY_FIELD: Readonly<Partial<Record<AttendanceStatus, keyof AttendanceSummary>>> = { SAKIT: "sick", IZIN: "permit", ALPHA: "absent" };
-
-function addToSummary(summary: AttendanceSummary, status: AttendanceStatus, count: number): AttendanceSummary {
-  const field = SUMMARY_FIELD[status];
-  return field ? { ...summary, [field]: summary[field] + count } : summary;
+/** Proyeksi tally bersama (attendance-stats) ke kolom rapor: SAKIT -> sick, IZIN -> permit, ALPHA -> absent. */
+export function toReportCardAttendance(tally: AttendanceTally): AttendanceSummary {
+  return { sick: tally.counts.sakit, permit: tally.counts.izin, absent: tally.counts.alpha };
 }
 
 /** SAKIT -> sick, IZIN -> permit, ALPHA -> absent; HADIR & TERLAMBAT tidak dihitung. */
 export function summarizeAttendance(rows: ReadonlyArray<{ status: AttendanceStatus; count: number }>): AttendanceSummary {
-  return rows.reduce((acc, row) => addToSummary(acc, row.status, row.count), ZERO_ATTENDANCE);
+  return toReportCardAttendance(tallyAttendance(rows));
 }
 
 /** Rekap per siswa dari groupBy (studentId, status). Siswa tanpa baris tidak muncul (anggap nol). */
 export function summarizeAttendanceByStudent(
   rows: ReadonlyArray<{ studentId: string; status: AttendanceStatus; count: number }>,
 ): ReadonlyMap<string, AttendanceSummary> {
-  return rows.reduce(
-    (acc, row) => new Map(acc).set(row.studentId, addToSummary(acc.get(row.studentId) ?? ZERO_ATTENDANCE, row.status, row.count)),
-    new Map<string, AttendanceSummary>(),
-  );
+  return new Map([...tallyByStudent(rows)].map(([studentId, tally]) => [studentId, toReportCardAttendance(tally)]));
 }
 
 /** Rentang rekap: awal semester .. min(akhir semester, closedThrough); null bila belum ada hari tertutup. */

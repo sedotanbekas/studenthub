@@ -13070,19 +13070,7 @@
           "200": {
             "description": "Berkas biner dengan Content-Type asli (header cache & keamanan: lihat deskripsi operasi).",
             "content": {
-              "image/jpeg": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              },
-              "image/png": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              },
-              "image/webp": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
@@ -19130,6 +19118,280 @@
           },
           "404": {
             "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, SCHOOL_NOT_FOUND, CLASS_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/attendance/monthly-recap": {
+      "get": {
+        "operationId": "monitorAttendanceMonthlyRecap",
+        "tags": [
+          "Absensi — Monitoring"
+        ],
+        "summary": "Rekap bulanan satu kelas (matriks per tanggal)",
+        "description": "Siswa × tanggal: H/T/I/S/A, K = hari itu tercatat di kelas lain, null = tanpa catatan; days[].closure CLOSED / UNCLOSED (tertutup, alpa otomatis belum ditulis — angka bisa bertambah) / OPEN (hari berjalan: tampil, tidak dihitung). Kelas = snapshot kelas saat absen dicatat; siswa yang pindah muncul di kedua kelas (otherClasses). Totals memakai tally yang sama dengan rapor & bulan siswa (hari s.d. closedThrough). Tanpa NISN. Maks. 200 siswa (422 RECAP_TOO_LARGE — unduh Excel). SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          },
+          {
+            "in": "query",
+            "name": "classId",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Kelas (snapshot kelas saat absen dicatat). Kelas sekolah lain -> 404."
+            },
+            "required": true,
+            "description": "Kelas (snapshot kelas saat absen dicatat). Kelas sekolah lain -> 404."
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "schema": {
+              "description": "Bulan YYYY-MM; default bulan berjalan (waktu lokal sekolah).",
+              "type": "string",
+              "example": "2026-09"
+            },
+            "description": "Bulan YYYY-MM; default bulan berjalan (waktu lokal sekolah)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MonitorMonthlyRecap"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, SCHOOL_NOT_FOUND, CLASS_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: RECAP_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/attendance/monthly-recap/export": {
+      "get": {
+        "operationId": "exportAttendanceMonthlyRecap",
+        "tags": [
+          "Absensi — Monitoring"
+        ],
+        "summary": "Unduh rekap bulanan (Excel)",
+        "description": "XLSX: satu sheet per kelas (classId kosong = semua kelas, termasuk 'Tanpa kelas' bila ada) + sheet 'Keterangan'. Data sama dengan rekap bulanan di layar; tanpa NISN, foto, maupun lokasi. Maks. 4000 siswa per berkas (422 RECAP_TOO_LARGE — unduh per kelas). Hanya unduhan yang berhasil memakai kuota (30 per 10 menit per akun; 429 RATE_LIMITED). Diaudit attendance.recap_export. Lampiran, Cache-Control: no-store. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          },
+          {
+            "in": "query",
+            "name": "classId",
+            "schema": {
+              "description": "Kosong = semua kelas (satu sheet per kelas, termasuk 'Tanpa kelas' bila ada).",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Kosong = semua kelas (satu sheet per kelas, termasuk 'Tanpa kelas' bila ada)."
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "schema": {
+              "description": "Bulan YYYY-MM; default bulan berjalan (waktu lokal sekolah).",
+              "type": "string",
+              "example": "2026-09"
+            },
+            "description": "Bulan YYYY-MM; default bulan berjalan (waktu lokal sekolah)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berkas biner dengan Content-Type asli (header cache & keamanan: lihat deskripsi operasi).",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, SCHOOL_NOT_FOUND, CLASS_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: RECAP_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
             "content": {
               "application/json": {
                 "schema": {
@@ -41405,6 +41667,339 @@
           "filled",
           "unfilled",
           "categories"
+        ],
+        "additionalProperties": false
+      },
+      "MonitorMonthlyRecap": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "example": "2026-09"
+          },
+          "monthLabel": {
+            "type": "string",
+            "example": "September 2026"
+          },
+          "class": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "closedThrough": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-21",
+            "description": "Hari terakhir yang dihitung (lewat jam akhir hari sekolah)."
+          },
+          "isFinal": {
+            "type": "boolean",
+            "description": "true bila seluruh bulan sudah lewat dan tidak ada hari yang belum ditutup."
+          },
+          "unclosedDates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-09-21"
+            }
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date",
+                  "example": "2026-09-21"
+                },
+                "day": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 31
+                },
+                "weekday": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 7,
+                  "description": "1 = Senin ... 7 = Minggu."
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "SCHOOL_DAY",
+                    "DAY_OFF",
+                    "HOLIDAY",
+                    "OUTSIDE_TERM"
+                  ]
+                },
+                "holidayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "closure": {
+                  "type": "string",
+                  "enum": [
+                    "CLOSED",
+                    "UNCLOSED",
+                    "OPEN"
+                  ],
+                  "description": "CLOSED = final; UNCLOSED = tertutup tapi alpa otomatis belum ditulis (angka bisa bertambah); OPEN = hari berjalan / mendatang (tidak dihitung)."
+                }
+              },
+              "required": [
+                "date",
+                "day",
+                "weekday",
+                "reason",
+                "holidayName",
+                "closure"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "students": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "studentId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "nis": {
+                  "type": "string"
+                },
+                "studentStatus": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "ACTIVE",
+                    "INACTIVE",
+                    "GRADUATED",
+                    "MOVED"
+                  ]
+                },
+                "cells": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "H",
+                          "T",
+                          "I",
+                          "S",
+                          "A",
+                          "K"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "description": "Satu kode per tanggal (urut days): H/T/I/S/A, K = tercatat di kelas lain, null = tanpa catatan."
+                },
+                "otherClasses": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "Kelas lain tempat siswa tercatat bulan ini (pindah kelas); id null = tanpa kelas."
+                },
+                "totals": {
+                  "$ref": "#/components/schemas/AttendanceTally"
+                }
+              },
+              "required": [
+                "studentId",
+                "name",
+                "nis",
+                "studentStatus",
+                "cells",
+                "otherClasses",
+                "totals"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/AttendanceTally"
+          }
+        },
+        "required": [
+          "month",
+          "monthLabel",
+          "class",
+          "closedThrough",
+          "isFinal",
+          "unclosedDates",
+          "days",
+          "students",
+          "totals"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceTally": {
+        "type": "object",
+        "properties": {
+          "hadir": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "terlambat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "izin": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "sakit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "alpha": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "recorded": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Hari tercatat (s.d. closedThrough)."
+          },
+          "present": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Hadir + terlambat."
+          },
+          "presentPct": {
+            "description": "present / recorded (satu desimal); null bila belum ada hari tercatat.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "lateMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Total menit terlambat."
+          },
+          "lateReasons": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "filled + unfilled."
+              },
+              "filled": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Catatan TERLAMBAT yang berkategori alasan (sumber apa pun)."
+              },
+              "unfilled": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Check-in sendiri berstatus TERLAMBAT yang belum diisi alasannya."
+              },
+              "categories": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "TRANSPORT",
+                        "WEATHER",
+                        "OVERSLEPT",
+                        "FAMILY",
+                        "HEALTH",
+                        "OTHER"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "category",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "Semua kategori, urut kode; tanpa catatan = 0."
+              }
+            },
+            "required": [
+              "total",
+              "filled",
+              "unfilled",
+              "categories"
+            ],
+            "additionalProperties": false,
+            "description": "Alasan terlambat per kategori (aturan A1: belum diisi = check-in sendiri tanpa alasan)."
+          }
+        },
+        "required": [
+          "hadir",
+          "terlambat",
+          "izin",
+          "sakit",
+          "alpha",
+          "recorded",
+          "present",
+          "presentPct",
+          "lateMinutes",
+          "lateReasons"
         ],
         "additionalProperties": false
       },

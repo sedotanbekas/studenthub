@@ -46,6 +46,8 @@ export interface RouteContract<
   readonly rateLimit?: { readonly limiter: LimiterName; readonly key: "ip" | "user" };
   /** Respons biner (unduhan berkas): handler mengembalikan Response langsung. */
   readonly binary?: boolean;
+  /** Tipe konten respons biner untuk dokumentasi (default: gambar JPEG/PNG/WebP). */
+  readonly binaryMediaTypes?: readonly string[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

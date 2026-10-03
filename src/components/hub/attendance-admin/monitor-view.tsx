@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { display, number } from "@/lib/frontend/format";
 import { useHub } from "../context";
 import { Icon } from "../icon";
@@ -25,9 +25,10 @@ function mostlyHidden(element: HTMLElement): boolean {
 interface MonitorViewProps { readonly filter: MonitorFilterValue; readonly onFilter: (next: MonitorFilterValue) => void }
 
 export function MonitorView({ filter, onFilter }: MonitorViewProps) {
-  const { me, demo, schoolId } = useHub();
+  const { me, demo, schoolId, toast } = useHub();
   const needsSchool = me.user.role === "SUPER_ADMIN" && !schoolId && !demo;
-  const classes = useClassOptions(!needsSchool);
+  const { options: classes, error: classError } = useClassOptions(!needsSchool);
+  useEffect(() => { if (classError) toast(classError); }, [classError, toast]);
   const [version, setVersion] = useState(0);
   const className = classes.find(c => c.id === filter.classId)?.name ?? null;
   const { data, loading, error } = useMonitorMap({ date: filter.date, classId: filter.classId, className }, version, !needsSchool);

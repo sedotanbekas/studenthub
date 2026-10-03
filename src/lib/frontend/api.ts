@@ -17,7 +17,11 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 /** Unduh berkas dari API web (mis. templat impor) dengan sesi saat ini. */
 export async function downloadApiFile(path: string, filename: string): Promise<void> {
   const response = await apiFetch(path);
-  if (!response.ok) throw new Error("Berkas belum dapat diunduh. Coba lagi sebentar lagi.");
+  if (!response.ok) {
+    // Galat server ber-envelope JSON (mis. 422 RECAP_TOO_LARGE, 429): tampilkan pesannya, bukan pesan umum.
+    const body = (response.headers.get("content-type")?.includes("json") ? await response.json().catch(() => null) : null) as Envelope | null;
+    throw new ApiError(body?.error?.message ?? "Berkas belum dapat diunduh. Coba lagi sebentar lagi.", body?.error?.code ?? "DOWNLOAD_FAILED");
+  }
   const url = URL.createObjectURL(await response.blob());
   const link = document.createElement("a");
   link.href = url; link.download = filename; link.click();

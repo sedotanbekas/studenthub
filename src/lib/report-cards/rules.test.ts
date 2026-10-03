@@ -1,5 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
+import { tallyAttendance, tallyByStudent } from "@/lib/attendance/attendance-stats";
 import {
   attendanceWindow,
   averageScore,
@@ -12,6 +13,8 @@ import {
   selectPublishTargets,
   summarizeAttendance,
   summarizeAttendanceByStudent,
+  toReportCardAttendance,
+  ZERO_ATTENDANCE,
   type CardGrades,
 } from "./rules";
 
@@ -89,6 +92,18 @@ describe("rekap kehadiran", () => {
     assert.deepEqual(map.get("s1"), { sick: 2, permit: 1, absent: 0 });
     assert.deepEqual(map.get("s2"), { sick: 0, permit: 0, absent: 1 });
     assert.equal(map.has("s3"), false);
+  });
+
+  test("rekap rapor = proyeksi tally bersama (angka sama dengan rekap bulanan A3)", () => {
+    const rows = [
+      { studentId: "s1", status: "SAKIT", count: 2 },
+      { studentId: "s1", status: "TERLAMBAT", count: 3 },
+      { studentId: "s2", status: "ALPHA", count: 1 },
+    ] as const;
+    const tallies = tallyByStudent(rows);
+    const map = summarizeAttendanceByStudent(rows);
+    for (const [studentId, tally] of tallies) assert.deepEqual(map.get(studentId), toReportCardAttendance(tally));
+    assert.deepEqual(toReportCardAttendance(tallyAttendance([])), ZERO_ATTENDANCE);
   });
 
   test("attendanceWindow: dipotong di min(akhir semester, closedThrough); null bila belum ada hari tertutup", () => {

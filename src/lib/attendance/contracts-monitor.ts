@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
 import { lateReasonCountsSchema } from "./late-reason-schemas";
+import { XLSX_MIME } from "@/lib/students/import/constants";
 import { CORRECTION_WINDOW_DAYS } from "./correction-rules";
+import { MAX_EXPORT_STUDENTS, MAX_RECAP_STUDENTS } from "./monthly-recap-rules";
+import { monthlyRecapExportQuery, monthlyRecapQuery, monthlyRecapSchema } from "./monthly-recap-schemas";
 import {
   anomaliesQuery,
   anomalyRowSchema,
@@ -237,6 +240,42 @@ export const lateReasonsContract = defineContract({
   errors: ["SCHOOL_NOT_FOUND", "CLASS_NOT_FOUND"],
 });
 
+export const monthlyRecapContract = defineContract({
+  id: "monitorAttendanceMonthlyRecap",
+  method: "GET",
+  path: "/api/v1/school/attendance/monthly-recap",
+  tag: TAG,
+  summary: "Rekap bulanan satu kelas (matriks per tanggal)",
+  description:
+    "Siswa × tanggal: H/T/I/S/A, K = hari itu tercatat di kelas lain, null = tanpa catatan; days[].closure CLOSED / UNCLOSED (tertutup, alpa otomatis " +
+    "belum ditulis — angka bisa bertambah) / OPEN (hari berjalan: tampil, tidak dihitung). Kelas = snapshot kelas saat absen dicatat; siswa yang pindah " +
+    "muncul di kedua kelas (otherClasses). Totals memakai tally yang sama dengan rapor & bulan siswa (hari s.d. closedThrough). Tanpa NISN. " +
+    `Maks. ${MAX_RECAP_STUDENTS} siswa (422 RECAP_TOO_LARGE — unduh Excel). ${SCOPE_NOTE}`,
+  action: ACTION,
+  query: monthlyRecapQuery,
+  response: monthlyRecapSchema,
+  errors: ["SCHOOL_NOT_FOUND", "CLASS_NOT_FOUND", "RECAP_TOO_LARGE"],
+});
+
+export const monthlyRecapExportContract = defineContract({
+  id: "exportAttendanceMonthlyRecap",
+  method: "GET",
+  path: "/api/v1/school/attendance/monthly-recap/export",
+  tag: TAG,
+  summary: "Unduh rekap bulanan (Excel)",
+  description:
+    "XLSX: satu sheet per kelas (classId kosong = semua kelas, termasuk 'Tanpa kelas' bila ada) + sheet 'Keterangan'. Data sama dengan rekap bulanan " +
+    `di layar; tanpa NISN, foto, maupun lokasi. Maks. ${MAX_EXPORT_STUDENTS} siswa per berkas (422 RECAP_TOO_LARGE — unduh per kelas). Hanya unduhan ` +
+    "yang berhasil memakai kuota (30 per 10 menit per akun; 429 RATE_LIMITED). Diaudit attendance.recap_export. Lampiran, Cache-Control: no-store. " +
+    SCOPE_NOTE,
+  action: ACTION,
+  query: monthlyRecapExportQuery,
+  response: z.unknown(),
+  binary: true,
+  binaryMediaTypes: [XLSX_MIME],
+  errors: ["SCHOOL_NOT_FOUND", "CLASS_NOT_FOUND", "RECAP_TOO_LARGE", "RATE_LIMITED"],
+});
+
 export const attendanceMonitorContracts: readonly AnyContract[] = [
   todayStatsContract,
   dailyContract,
@@ -251,5 +290,7 @@ export const attendanceMonitorContracts: readonly AnyContract[] = [
   studentTrendContract,
   studentMonthContract,
   lateReasonsContract,
+  monthlyRecapContract,
+  monthlyRecapExportContract,
   recordDetailContract,
 ];

@@ -10,9 +10,9 @@ import { lateReasonSchema } from "./late-reason-schemas";
 
 /** Skema zod monitoring & analitik absensi admin (sumber validasi runtime + OpenAPI). */
 
-const idString = z.string().trim().min(1, "Id wajib diisi.").max(64, "Id terlalu panjang.");
-const dateOut = z.string().meta({ format: "date", example: "2026-09-21" });
-const monthOut = z.string().meta({ example: "2026-09" });
+export const idString = z.string().trim().min(1, "Id wajib diisi.").max(64, "Id terlalu panjang.");
+export const dateOut = z.string().meta({ format: "date", example: "2026-09-21" });
+export const monthOut = z.string().meta({ example: "2026-09" });
 const localDateInput = z
   .string()
   .trim()
@@ -46,7 +46,7 @@ const classField = idString
   .optional()
   .meta({ description: "Filter kelas: kelas snapshot untuk baris tercatat, kelas saat ini untuk yang belum absen. Kelas sekolah lain -> 404." });
 const statusField = z.enum(DAILY_STATUS_FILTERS).optional().meta({ description: "BELUM_ABSEN = siswa aktif tanpa catatan pada hari sekolah itu." });
-const monthField = monthInput.optional().meta({ description: "Bulan YYYY-MM; default bulan berjalan (waktu lokal sekolah)." });
+export const monthField = monthInput.optional().meta({ description: "Bulan YYYY-MM; default bulan berjalan (waktu lokal sekolah)." });
 
 export const dateScopeQuery = monitorScopeQuery.extend({ date: dateField });
 

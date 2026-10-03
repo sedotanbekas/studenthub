@@ -71,16 +71,16 @@ function requestBody(contract: AnyContract): ZodOpenApiOperationObject["requestB
 const BINARY_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const binarySchema = z.string().meta({ format: "binary" });
 
-function binaryResponse() {
+function binaryResponse(types: readonly string[] = BINARY_MEDIA_TYPES) {
   return {
     description: "Berkas biner dengan Content-Type asli (header cache & keamanan: lihat deskripsi operasi).",
-    content: Object.fromEntries(BINARY_MEDIA_TYPES.map((type) => [type, { schema: binarySchema }])),
+    content: Object.fromEntries(types.map((type) => [type, { schema: binarySchema }])),
   };
 }
 
 function successResponse(contract: AnyContract): ZodOpenApiOperationObject["responses"] {
   const primary = contract.successStatus ?? 200;
-  if (contract.binary) return { [String(primary)]: binaryResponse() };
+  if (contract.binary) return { [String(primary)]: binaryResponse(contract.binaryMediaTypes) };
   const content = { "application/json": { schema: envelopeOf(contract.response, contract.pagination, contract.meta) } };
   const statuses = [primary, ...(contract.alternateSuccessStatuses ?? []).filter((status) => status !== primary)];
   const describe = (status: number) => (status === primary ? "Berhasil." : "Berhasil (status alternatif; lihat deskripsi operasi).");

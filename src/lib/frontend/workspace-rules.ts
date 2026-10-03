@@ -134,6 +134,8 @@ export const VIEW_LABELS: Readonly<Record<string, string>> = {
 export const HIDDEN_VIEWS: ReadonlySet<string> = new Set([
   "getUnreadNotificationCount", "monitorAttendanceToday", "monitorAttendanceMap", "monitorAttendanceClassAnalytics",
   "monitorAttendanceSummaryAnalytics", "monitorAttendanceSchoolTrend",
+  // Rekap bulanan punya tab sendiri (classId wajib; ekspor = unduhan berkas yang diaudit & berkuota, bukan tabel).
+  "monitorAttendanceMonthlyRecap", "exportAttendanceMonthlyRecap",
 ]);
 
 const isTemplate = (op: Operation): boolean => op.id.includes("Template");

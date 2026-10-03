@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import type { ReviewDecision } from "@/lib/attendance/anomaly-review-rules";
 import type { AnomalyReviewResultDto } from "@/lib/attendance/anomaly-review-schemas";
 import type { RecordDetailDto } from "@/lib/attendance/monitor-schemas";
+import type { MonthlyRecapDto } from "@/lib/attendance/monthly-recap-schemas";
 import { api, scoped } from "@/lib/frontend/api";
 import { demoRows } from "@/lib/frontend/demo";
 import { applyDemoReview, demoAttendanceDetail, demoAttendanceMap } from "@/lib/frontend/demo-monitor";
+import { demoMonthlyRecap } from "@/lib/frontend/demo-recap";
 import { useHub } from "../context";
 import type { MonitorData } from "./monitor-rules";
 
@@ -24,20 +26,23 @@ function toOptions(rows: unknown): ClassOption[] {
   });
 }
 
-/** Daftar kelas untuk filter (GET /school/classes). Gagal -> filter tetap "Semua kelas" + toast. */
-export function useClassOptions(enabled: boolean): ClassOption[] {
-  const { demo, schoolId, toast } = useHub();
-  const [classes, setClasses] = useState<ClassOption[]>([]);
+export interface ClassOptionsLoad { readonly options: ClassOption[]; readonly loading: boolean; readonly error: string }
+
+/** Daftar kelas untuk filter (GET /school/classes). Gagal -> daftar kosong + pesan (peta: filter tetap "Semua kelas"). */
+export function useClassOptions(enabled: boolean): ClassOptionsLoad {
+  const { demo, schoolId } = useHub();
+  const [state, setState] = useState<ClassOptionsLoad>({ options: [], loading: true, error: "" });
   useEffect(() => {
     if (!enabled) return;
     let active = true;
+    Promise.resolve().then(() => { if (active) setState(s => ({ ...s, loading: true, error: "" })); });
     const load = demo ? Promise.resolve(demoRows("/school/classes")) : api(scoped("/school/classes?limit=100", schoolId)).then(r => r.data);
     load
-      .then(rows => { if (active) setClasses(toOptions(rows)); })
-      .catch((error: unknown) => { if (active) toast(message(error, "Daftar kelas belum dapat dimuat.")); });
+      .then(rows => { if (active) setState({ options: toOptions(rows), loading: false, error: "" }); })
+      .catch((error: unknown) => { if (active) setState({ options: [], loading: false, error: message(error, "Daftar kelas belum dapat dimuat.") }); });
     return () => { active = false; };
-  }, [demo, schoolId, enabled, toast]);
-  return classes;
+  }, [demo, schoolId, enabled]);
+  return state;
 }
 
 export interface MapQuery { readonly date: string; readonly classId: string; readonly className: string | null }
@@ -98,4 +103,26 @@ export async function sendAnomalyReview(request: AnomalyReviewRequest): Promise<
   const path = `/school/attendance/${encodeURIComponent(request.attendanceId)}/anomaly-review`;
   const response = await api(scoped(path, request.schoolId), { method: "POST", body: JSON.stringify({ decision: request.decision, note, flags: request.flags }) });
   return response.data as AnomalyReviewResultDto;
+}
+
+export interface RecapQuery { readonly classId: string; readonly month: string }
+export interface RecapLoad { readonly data: MonthlyRecapDto | null; readonly loading: boolean; readonly error: string }
+
+/** Rekap bulanan satu kelas (GET /school/attendance/monthly-recap). Data lama tetap tampil saat memuat ulang. */
+export function useMonthlyRecap(query: RecapQuery, version: number, enabled: boolean): RecapLoad {
+  const { demo, schoolId } = useHub();
+  const [state, setState] = useState<RecapLoad>({ data: null, loading: true, error: "" });
+  const { classId, month } = query;
+  useEffect(() => {
+    if (!enabled || !classId) return;
+    let active = true;
+    Promise.resolve().then(() => { if (active) setState(s => ({ ...s, loading: true, error: "" })); });
+    const path = `/school/attendance/monthly-recap?classId=${encodeURIComponent(classId)}&month=${encodeURIComponent(month)}`;
+    const load = demo ? Promise.resolve(demoMonthlyRecap({ classId, month })) : api(scoped(path, schoolId)).then(r => r.data as MonthlyRecapDto);
+    load
+      .then(data => { if (active) setState({ data, loading: false, error: "" }); })
+      .catch((error: unknown) => { if (active) setState(s => ({ data: s.data, loading: false, error: message(error, "Rekap belum dapat dimuat.") })); });
+    return () => { active = false; };
+  }, [demo, schoolId, classId, month, version, enabled]);
+  return state;
 }

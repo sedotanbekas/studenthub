@@ -103,3 +103,10 @@ test("setiap operasi menu terjangkau: tampilan, aksi halaman, atau jendela detai
   }
   assert.deepEqual(unreachable, []);
 });
+
+test("rekap bulanan (A3): kedua operasi ada di katalog (proxy /api/web hanya meneruskan isi katalog) dan tidak jadi tab generik", () => {
+  for (const id of ["monitorAttendanceMonthlyRecap", "exportAttendanceMonthlyRecap"]) {
+    assert.ok(operations.some((op) => op.id === id), id);
+    assert.ok(HIDDEN_VIEWS.has(id), id);
+  }
+});

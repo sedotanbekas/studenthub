@@ -1,7 +1,7 @@
 /**
  * Gerbang peran & isolasi tenant untuk SEMUA endpoint monitoring/analitik absensi (dua sekolah):
  * tanpa token 401, siswa 403, admin sekolah dengan schoolId lain 403, super admin tanpa schoolId 400,
- * super admin dengan sekolah tak dikenal 404, id milik sekolah lain 404, admin sendiri & super admin 200.
+ * super admin dengan sekolah tak dikenal 404, id milik sekolah lain 404 (rekap bulanan: classId), admin sendiri & super admin 200.
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,10 @@ import { GET as studentTrendRoute } from "@/app/api/v1/school/attendance/analyti
 import { GET as summaryRoute } from "@/app/api/v1/school/attendance/analytics/summary/route";
 import { GET as anomaliesRoute } from "@/app/api/v1/school/attendance/anomalies/route";
 import { GET as dailyRoute } from "@/app/api/v1/school/attendance/daily/route";
+import { GET as lateReasonsRoute } from "@/app/api/v1/school/attendance/late-reasons/route";
 import { GET as mapRoute } from "@/app/api/v1/school/attendance/map/route";
+import { GET as monthlyRecapExportRoute } from "@/app/api/v1/school/attendance/monthly-recap/export/route";
+import { GET as monthlyRecapRoute } from "@/app/api/v1/school/attendance/monthly-recap/route";
 import { GET as recapRoute } from "@/app/api/v1/school/attendance/recap/route";
 import { GET as rejectionsRoute } from "@/app/api/v1/school/attendance/rejections/route";
 import { GET as todayRoute } from "@/app/api/v1/school/attendance/stats/today/route";
@@ -61,6 +64,9 @@ before(async () => {
     { name: "student trend", handler: studentTrendRoute, path: `${base}/analytics/students/${student.id}`, params: { studentId: student.id }, ownsId: true },
     { name: "student month", handler: studentMonthRoute, path: `${base}/students/${student.id}/month?month=2091-03`, params: { studentId: student.id }, ownsId: true },
     { name: "detail", handler: detailRoute, path: `${base}/${row.id}`, params: { id: row.id }, ownsId: true },
+    { name: "late-reasons", handler: lateReasonsRoute, path: `${base}/late-reasons?from=2091-03-01&to=2091-03-31` },
+    { name: "monthly-recap", handler: monthlyRecapRoute, path: `${base}/monthly-recap?classId=${classId}&month=2091-03`, ownsId: true },
+    { name: "monthly-recap/export", handler: monthlyRecapExportRoute, path: `${base}/monthly-recap/export?classId=${classId}&month=2091-03`, ownsId: true },
   ];
 });
 after(disconnect);

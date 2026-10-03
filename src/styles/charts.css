@@ -16,6 +16,14 @@
   --att-sakit: #4a3aa7; --att-sakit-soft: #e9e6f7; --att-sakit-ink: #33287a;
   --att-alpha: #c62d2d; --att-alpha-soft: #fbe3e3; --att-alpha-ink: #8a1f1f;
   --att-belum: #7a7f8c; --att-belum-soft: #eef0f3; --att-belum-ink: #444955;
+  /* Sel rekap bulanan (A3; = RECAP_TONE_COLORS di monthly-recap-rules.ts, dijaga test): kelas lain, libur,
+     non-sekolah, hari berjalan, belum ditutup, tidak wajib absen. Selalu disertai huruf/tanda, bukan warna saja. */
+  --att-other-soft: #e6eaf2; --att-other-ink: #3d4a63;
+  --att-holiday-soft: #f3ecdc; --att-holiday-ink: #5f5235;
+  --att-off-soft: #f1f2f5; --att-off-ink: #6b7080;
+  --att-pending-soft: #eef0f3; --att-pending-ink: #5b6070;
+  --att-unclosed-soft: #fff5cc; --att-unclosed-ink: #6e5200;
+  --att-none-soft: #fafbfc; --att-none-ink: #80869a;
 }
 
 .chart { position: relative; margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }

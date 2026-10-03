@@ -1,4 +1,5 @@
 import { addDays, diffDays, type LocalDate } from "@/lib/time/zone";
+import { countLateReasons, type LateReasonCode, type LateReasonCounts, type LateReasonGroupCount } from "./late-reason-rules";
 
 /**
  * Statistik absensi (murni, tanpa Prisma; desain 02 §3.10).
@@ -124,6 +125,75 @@ export function todayCard(input: { eligible: number; counts: StatusCounts; isSch
     presentPct: isSchoolDay ? pct(present, eligible) : null,
   };
 }
+
+// ----------------------------------------------------------------------------- tally bersama (A3)
+
+/**
+ * Satu baris atau satu grup baris absensi. `count` default 1. Untuk grup, `lateMinutes` adalah JUMLAH menit grup
+ * (tidak pernah dikali count) dan alasan terlambat menambah `count`. Data terlambat hanya dihitung pada TERLAMBAT.
+ */
+export interface TallyRow {
+  readonly status: AttendanceStatusValue;
+  readonly count?: number;
+  readonly lateMinutes?: number | null;
+  readonly lateReason?: LateReasonCode | null;
+  /** Sumber baris; "belum diisi" hanya untuk TERLAMBAT dari check-in sendiri (aturan A1). */
+  readonly source?: string;
+}
+
+export interface AttendanceTally {
+  readonly counts: StatusCounts;
+  readonly recorded: number;
+  readonly present: number;
+  readonly presentPct: number | null;
+  readonly lateMinutes: number;
+  readonly lateReasons: LateReasonCounts;
+}
+
+function tallyOf(counts: StatusCounts, lateMinutes: number, lateReasons: LateReasonCounts): AttendanceTally {
+  const recorded = recordedOf(counts);
+  const present = presentOf(counts);
+  return { counts, recorded, present, presentPct: pct(present, recorded), lateMinutes, lateReasons };
+}
+
+/**
+ * Fungsi hitung TUNGGAL untuk kehadiran rapor (draf), ringkasan bulan siswa admin, dan rekap bulanan per kelas:
+ * angka ketiganya tidak bisa berbeda untuk baris yang sama.
+ */
+export function tallyAttendance(rows: readonly TallyRow[]): AttendanceTally {
+  let counts = EMPTY_COUNTS;
+  let lateMinutes = 0;
+  const late: LateReasonGroupCount[] = [];
+  for (const row of rows) {
+    const n = row.count ?? 1;
+    counts = addStatus(counts, row.status, n);
+    if (row.status !== "TERLAMBAT") continue;
+    lateMinutes += row.lateMinutes ?? 0;
+    late.push({ category: row.lateReason ?? null, source: row.source ?? "ADMIN", count: n });
+  }
+  return tallyOf(counts, lateMinutes, countLateReasons(late));
+}
+
+export const EMPTY_TALLY: AttendanceTally = tallyAttendance([]);
+
+export function sumTallies(tallies: readonly AttendanceTally[]): AttendanceTally {
+  const counts = tallies.reduce((acc, t) => sumCounts(acc, t.counts), EMPTY_COUNTS);
+  const lateMinutes = tallies.reduce((sum, t) => sum + t.lateMinutes, 0);
+  const groups = tallies.flatMap((t) => [
+    ...t.lateReasons.categories.map((c) => ({ category: c.category, source: "CHECKIN", count: c.count })),
+    { category: null, source: "CHECKIN", count: t.lateReasons.unfilled },
+  ]);
+  return tallyOf(counts, lateMinutes, countLateReasons(groups));
+}
+
+export function tallyByStudent(rows: ReadonlyArray<TallyRow & { readonly studentId: string }>): ReadonlyMap<string, AttendanceTally> {
+  const grouped = new Map<string, TallyRow[]>();
+  for (const row of rows) grouped.set(row.studentId, [...(grouped.get(row.studentId) ?? []), row]);
+  return new Map([...grouped].map(([studentId, list]) => [studentId, tallyAttendance(list)]));
+}
+
+/** Baris dihitung hanya bila harinya sudah lewat jam tutup (s.d. closedThrough). */
+export const isCountedDate = (date: LocalDate, closed: LocalDate): boolean => date <= closed;
 
 // ----------------------------------------------------------------------------- bulan & periode
 

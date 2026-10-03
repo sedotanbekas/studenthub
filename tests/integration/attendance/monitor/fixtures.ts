@@ -3,7 +3,7 @@
  * agar tidak bertabrakan dengan libur nasional test lain), kelas, siswa bernama terkontrol, baris
  * absensi sumber ADMIN (tanpa selfie), dan konteks aksi dengan jam yang diinjeksi.
  */
-import type { AttendanceStatus, School, SchoolTimezone } from "@prisma/client";
+import type { AttendanceStatus, LateReasonCategory, School, SchoolTimezone } from "@prisma/client";
 import type { ActionContext } from "@/lib/auth/principal";
 import { makePrincipal } from "@/lib/auth/test-principal";
 import { toDbDate, type LocalDate } from "@/lib/time/zone";
@@ -76,6 +76,8 @@ export interface RowInput {
   readonly checkInAt?: Date;
   readonly hasAnomaly?: boolean;
   readonly anomalyFlags?: string[];
+  /** Alasan terlambat (A1); lateReasonAt diisi otomatis agar lolos chk_attendance_late_reason. */
+  readonly lateReasonCategory?: LateReasonCategory;
 }
 
 /** Baris absensi sumber ADMIN (lolos semua CHECK tanpa selfie). */
@@ -95,6 +97,9 @@ export function rowData(input: RowInput) {
     checkInAt: input.checkInAt ?? null,
     hasAnomaly: input.hasAnomaly ?? false,
     anomalyFlags: input.anomalyFlags ?? undefined,
+    lateReasonCategory: input.lateReasonCategory ?? null,
+    lateReasonAt: input.lateReasonCategory ? (input.checkInAt ?? new Date(`${input.date}T01:00:00Z`)) : null,
+    lateReasonNote: input.lateReasonCategory === "OTHER" ? "Keterangan fixture" : null,
     note: "fixture",
   };
 }

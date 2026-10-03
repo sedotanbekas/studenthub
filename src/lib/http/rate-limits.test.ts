@@ -24,6 +24,7 @@ test("konfigurasi bernama sesuai rencana", () => {
     IMPORT: { limit: 10, windowMs: 60 * MIN },
     AD_CLICK: { limit: 10, windowMs: MIN },
     AD_IMPRESSION: { limit: 30, windowMs: MIN },
+    EXPORT: { limit: 30, windowMs: 10 * MIN },
   };
   assert.deepEqual(RATE_LIMITS, expected);
 });

@@ -58,6 +58,8 @@ Every response uses the envelope `{success, data, error:{code,message,details}, 
 | GET | /api/v1/admin/attendance/anomalies | SA, SU | Anomaly review queue (B1, §3.12) | `from, to (≤92 days; default today−45…today for UNREVIEWED, 7 days otherwise), review? (UNREVIEWED default \| VALID \| INVALID \| ALL_ANOMALIES), classId?, page, limit` | `[{date, student, attendance (brief + needsReview, reviewDecision), reviewDecision}]` + pagination |
 | POST | /api/v1/school/attendance/:id/anomaly-review | SA, SU | Mark an anomaly valid or invalid (B1, §3.12) | `decision: VALID\|INVALID, note? (required 5–255 for INVALID), flags[] (codes the admin saw)` | `{attendance (+ needsReview, review), unchanged, statusChanged}`. INVALID also corrects the record to ALPHA (source ADMIN). |
 | GET | /api/v1/school/attendance/late-reasons | SA, SU | Late reasons per category (A1) | `from?, to? (≤92 days), classId?` | `{from, to, total, filled, unfilled, categories[{category, count}]}` |
+| GET | /api/v1/school/attendance/monthly-recap | SA, SU | Monthly recap of one class (A3, §3.13) | `classId, month?` | `{month, monthLabel, class, closedThrough, isFinal, unclosedDates, days[{date, day, weekday, reason, holidayName, closure}], students[{studentId, name, nis, studentStatus, cells[H/T/I/S/A/K\|null], otherClasses, totals}], totals}` (no NISN) |
+| GET | /api/v1/school/attendance/monthly-recap/export | SA, SU | XLSX of one class or all classes (A3, §3.13) | `classId?, month?` | XLSX attachment (sheet per class + "Keterangan"); audited `attendance.recap_export`; quota counts successful downloads only |
 | GET | /api/v1/admin/attendance/rejections | SA, SU | Rejected attempts | `date, studentId?, page, limit` | `[{id, student, reason, latitude, longitude, accuracyM, distanceM, isMocked, deviceId, createdAt}]` |
 | GET | /api/v1/admin/attendance/analytics/classes | SA, SU | Bar chart per class for a month | `month` | `period{from, to, closedThrough, isPartial, unclosedDates[]}, classes[{classId, className, recorded, presentPct, latePct, izinPct, sakitPct, alphaPct, counts{…}}]` |
 | GET | /api/v1/admin/attendance/analytics/summary | SA, SU | Donut with change vs last month | `month` | `{month, presentPct, counts, prevMonth, prevPresentPct, deltaPp, isPartial}` |
@@ -354,6 +356,10 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
   - On a non-school day, `presentPct` is null.
 - **Rounding:** `round1(x) = Math.round(x·10)/10` on the computed percentage. Counts are always returned too. `pct(n, 0) = null`.
 - **Queries:** `groupBy(['classId','status'])` over `[schoolId, date, classId, status]`, which the index fully covers. The student trend fetches at most about 260 rows and aggregates them in a pure function.
+- **Shared tally (A3):** `tallyAttendance` is the single counting function for the report card's draft attendance
+  (`summarizeAttendance*` project it), the admin student-month summary and the monthly recap. The student's own
+  history (`student-dto.ts`) and the class/summary analytics still count with `countsFrom`/`summarize` over the same
+  rows and cut; published report cards keep their frozen snapshot.
 
 ### 3.11 Late reason (A1, owner decision 2026-10-03; implemented 2026-10-03, PLAN wins on conflict)
 
@@ -400,6 +406,30 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
 - **Reads:** anomalies `review` filter `UNREVIEWED` (default; default range today + 45 days back = the INVALID window)
   / `VALID` / `INVALID` / `ALL_ANOMALIES` (default 7 days), row `reviewDecision`; daily `anomaly=unreviewed`; brief,
   map point and detail `needsReview` + `reviewDecision`; detail `review {decision, note, reviewedAt, reviewer}`.
+
+### 3.13 Monthly recap & Excel export (A3, owner decision 2026-10-03; implemented 2026-10-03, PLAN wins on conflict)
+
+- **No schema change.** Class = the `Attendance.classId` snapshot. Membership of class C in month M: a student with at
+  least one row in C, or an eligible current member of C (`eligibleOn(month end)`) with no row at all in M. A student
+  who moved mid-month appears in both classes; cells of days recorded elsewhere show `K`.
+- **Counting:** rows of C dated `≤ closedThrough`, through `tallyAttendance`. Days that passed `dayEndMinute` but have
+  no auto-alpha JobRun (`UNCLOSED`) ARE counted (closing a day only adds ALPHA rows); the screen and file warn that
+  ALPHA can still grow. Days after `closedThrough` (`OPEN`) are shown grey and not counted. Late reasons follow A1
+  (`countLateReasons`: unfilled = own check-in without a reason).
+- **Cell display** (`cellDisplay`, ordered): code → OPEN grey / K other / status tone; empty → holiday "L", non-school
+  day blank, OPEN grey, UNCLOSED "?", closed school day "–" (not required). Tone colours = `--att-*` tokens in
+  `charts.css`, mirrored in `RECAP_TONE_COLORS` (guarded by a unit test).
+- **Caps:** screen 200 students (422 `RECAP_TOO_LARGE`); export 4,000 students / 124,000 rows per file (benchmark:
+  4,000 students × 30 days ≈ 2.6 s). Every query is school-scoped with `take`; NISN, selfies, coordinates and notes are
+  never selected.
+- **Workbook** (`monthly-recap-xlsx.ts`): one sheet per class (safe names: `*?:/\[]` stripped, edge quotes removed,
+  31 chars, case-insensitive dedupe, "Keterangan"/"History" reserved; same-named classes of different years get the
+  year), last sheet "Keterangan". Title, school + "Data final s.d." + download time in the school's zone, a not-final
+  line, codes per day, H/T/I/S/A, % Hadir, late minutes, one column per late category + "Alasan belum diisi",
+  remarks (status, moved class). Values only (no formulas), A4 landscape, fit to one page wide, frozen No/NIS/Nama.
+- **Export:** `assertRateLimit("EXPORT", "export:<userId>")` before, `hit` after the workbook is built (failed
+  downloads do not use quota; 30 per 10 minutes). AuditLog `attendance.recap_export` `{month, classCount,
+  studentCount, isFinal}` in its own short transaction (AuditLog only).
 
 ## 4. Service modules and pure modules
 

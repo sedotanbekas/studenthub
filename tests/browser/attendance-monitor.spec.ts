@@ -241,3 +241,33 @@ test("tinjau anomali: Tidak valid wajib alasan, lalu Alpa + tag di daftar; tinja
   await expect(located.getByRole("button", { name: /Yoga Pratama/ })).toContainText("Tidak valid");
   await expect(legend).toContainText(`${pendingBefore - 1} perlu ditinjau`);
 });
+
+test("rekap bulanan (demo): matriks per kelas, ganti kelas, unduh = pemberitahuan demo; HP default ringkas tanpa luapan", async ({ page }) => {
+  await openAsSchoolAdmin(page);
+  await page.getByRole("tab", { name: "Rekap bulanan" }).click();
+  const panel = page.locator(".recap-panel");
+  await expect(panel.getByRole("heading", { level: 2 })).toContainText("Rekap X IPA 1 ·");
+  await expect(panel).toContainText(/Kehadiran \d+(,\d)?% · Hadir \d+/);
+  const grid = page.getByRole("region", { name: /per tanggal/ });
+  await expect(grid.getByRole("rowheader", { name: /Alya Putri Ramadhani/ })).toBeVisible();
+  await page.getByRole("combobox", { name: "Kelas" }).selectOption({ label: "X IPA 2" });
+  await expect(panel.getByRole("heading", { level: 2 })).toContainText("Rekap X IPA 2 ·");
+  await expect(grid.getByRole("rowheader", { name: /Gilang Ramadhan/ })).toBeVisible();
+  await expect(grid.getByRole("rowheader", { name: /Alya Putri Ramadhani/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Bulan sebelumnya" }).click();
+  await expect(page.getByRole("button", { name: "Bulan berikutnya" })).toBeEnabled();
+  await page.getByRole("button", { name: "Unduh Excel" }).click();
+  await expect(page.getByText("Mode demo tidak mengunduh berkas.")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Keterangan kode" })).toContainText("Tercatat di kelas lain");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "Kehadiran" })).toBeVisible();
+  await page.getByRole("tab", { name: "Rekap bulanan" }).click();
+  await expect(page.locator(".recap-compact")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ringkas" })).toHaveAttribute("aria-pressed", "true");
+  expect(await noHorizontalOverflow(page)).toBe(true);
+  await page.getByRole("button", { name: "Per tanggal" }).click();
+  await expect(page.getByRole("region", { name: /per tanggal/ })).toBeVisible();
+  expect(await noHorizontalOverflow(page)).toBe(true);
+});

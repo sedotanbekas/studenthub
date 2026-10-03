@@ -12,14 +12,13 @@ import {
   countsFrom,
   cutPeriod,
   deltaPp,
+  isCountedDate,
   monthOf,
-  pct,
-  presentOf,
   recentMonths,
-  recordedOf,
   resolveRange,
   shiftMonth,
   summarize,
+  tallyAttendance,
   type ClassStatusCount,
   type StatusCounts,
 } from "./attendance-stats";
@@ -197,11 +196,10 @@ export async function getStudentTrend(ctx: ActionContext, studentId: string, que
 type NonSchoolReason = StudentMonthDto["nonSchoolDays"][number]["reason"];
 const isNonSchool = (day: DayCheck): day is DayCheck & { reason: NonSchoolReason } => day.reason !== "SCHOOL_DAY";
 
+/** Ringkasan bulan satu siswa lewat tally bersama (angka sama dengan rekap bulanan per kelas A3 & rapor). */
 function monthSummary(rows: ReadonlyArray<{ date: LocalDate; status: StudentMonthDto["days"][number]["status"] }>, closed: LocalDate): StudentMonthDto["summary"] {
-  const counts = countsFrom(rows.filter((row) => row.date <= closed).map((row) => ({ status: row.status, count: 1 })));
-  const recorded = recordedOf(counts);
-  const present = presentOf(counts);
-  return { recorded, present, late: counts.terlambat, izin: counts.izin, sakit: counts.sakit, alpha: counts.alpha, presentPct: pct(present, recorded) };
+  const { counts, recorded, present, presentPct } = tallyAttendance(rows.filter((row) => isCountedDate(row.date, closed)));
+  return { recorded, present, late: counts.terlambat, izin: counts.izin, sakit: counts.sakit, alpha: counts.alpha, presentPct };
 }
 
 /** Tampilan bulan satu siswa untuk admin (bentuk sama dengan riwayat bulanan siswa + identitas siswa). */

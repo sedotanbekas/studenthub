@@ -69,6 +69,19 @@ koreksi. Kerjakan bila wali kelas meminta mengisi alasan atas nama siswa atau si
 Ketukan "Bukan saya" di alur absen tidak dicatat server (hanya logout biasa). Kerjakan bila admin sekolah perlu
 melihat pola HP pinjaman di luar flag `SHARED_DEVICE`.
 
+### Ekspor PDF rekap kehadiran (A3)
+Rekap bulanan hanya XLSX (dicetak dari Excel: A4 lanskap, satu halaman lebar). Kerjakan bila sekolah meminta cetak
+tanpa Excel atau blok tanda tangan wali kelas / kepala sekolah.
+
+### Rekap semester / rentang bebas & pemilih kelas tahun lalu (A3)
+Rekap per bulan kalender; kelas tahun ajaran lalu tercakup lewat "Unduh semua kelas" (sheet dari data). Kerjakan bila
+admin meminta rekap semester dalam satu berkas atau mengeluh memilih kelas lama (Juli–Agustus).
+
+### Satu fungsi hitung untuk riwayat siswa & analitik (A3)
+`tallyAttendance` dipakai rapor (draf), bulan siswa admin, dan rekap bulanan. Riwayat absensi siswa sendiri
+(`student-dto.ts`) dan analitik kelas masih menghitung dengan `countsFrom` atas baris & potongan yang sama. Kerjakan
+bila salah satu definisi berubah (mis. penyebut % hadir = hari sekolah, bukan hari tercatat).
+
 ### Tandai valid massal (B1)
 Tinjau anomali satu catatan per keputusan. Kerjakan bila antrean berisi banyak catatan sejenis yang jelas valid
 (mis. kelompok `TEST_MODE` atau `NEW_DEVICE` setelah sekolah ganti HP massal).

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
-import { IMPORT_MAX_BODY_BYTES } from "./import/constants";
+import { IMPORT_MAX_BODY_BYTES, XLSX_MIME } from "./import/constants";
 import { importStudentsBody, importStudentsResponse } from "./import/schemas";
 import {
   activateStudentBody,
@@ -153,6 +153,7 @@ export const importTemplateContract = defineContract({
   query: schoolScopeQuery,
   response: z.unknown(),
   binary: true,
+  binaryMediaTypes: [XLSX_MIME],
 });
 
 export const importStudentsContract = defineContract({

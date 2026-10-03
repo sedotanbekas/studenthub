@@ -146,6 +146,30 @@ const todayWib = () => localParts(new Date(), "WIB").ymd;
 /** Sekolah 6 hari: Minggu libur — kecuali hari ini, agar peta contoh selalu bisa dicoba. */
 const isDemoSchoolDay = (date: string) => date === todayWib() || new Date(`${date}T00:00:00Z`).getUTCDay() !== 0;
 
+/** Siswa demo (sama dengan peta): dipakai rekap bulanan demo (A3). */
+export const DEMO_ROSTER: ReadonlyArray<{ readonly id: string; readonly name: string; readonly nis: string; readonly className: string }> = ROSTER.map(([id]) => {
+  const { name, nis, className } = student(id);
+  return { id, name, nis, className };
+});
+
+export interface DemoTodayRow {
+  readonly studentId: string;
+  readonly status: "HADIR" | "TERLAMBAT" | "IZIN" | "SAKIT" | "ALPHA";
+  readonly lateMinutes: number | null;
+  readonly lateReason: LateReasonCode | null;
+}
+
+/** Status hari ini per siswa dari peta contoh (setelah tinjauan demo): kolom hari ini rekap bulanan demo. */
+export function demoTodayRows(date: string = todayWib()): DemoTodayRow[] {
+  const map = demoAttendanceMap({ date });
+  const minutesAfterStart = (time: string | null) => (time ? Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)) - DAY_START_MINUTE : 0);
+  const located = map.points.map((p): DemoTodayRow => ({
+    studentId: p.studentId, status: p.status as DemoTodayRow["status"], lateMinutes: p.status === "TERLAMBAT" ? minutesAfterStart(p.checkInTimeLocal) : null, lateReason: p.lateReasonCategory ?? null,
+  }));
+  const others = map.unlocated.flatMap((u): DemoTodayRow[] => (u.status === "BELUM_ABSEN" ? [] : [{ studentId: u.studentId, status: u.status as DemoTodayRow["status"], lateMinutes: null, lateReason: null }]));
+  return [...located, ...others];
+}
+
 export interface DemoMapOptions { readonly date?: string; readonly className?: string | null }
 
 /** Peta check-in contoh (MapDto); filter kelas & tanggal diterapkan seperti server (counts ikut). */

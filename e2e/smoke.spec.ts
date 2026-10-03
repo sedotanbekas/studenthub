@@ -34,6 +34,14 @@ test("tinjau anomali membutuhkan login", async ({ request }) => {
   expect((await res.json()).error.code).toBe("UNAUTHENTICATED");
 });
 
+test("rekap bulanan & ekspor Excel membutuhkan login", async ({ request }) => {
+  for (const path of ["/api/v1/school/attendance/monthly-recap?classId=x", "/api/v1/school/attendance/monthly-recap/export"]) {
+    const res = await request.get(path);
+    expect(res.status(), path).toBe(401);
+    expect((await res.json()).error.code).toBe("UNAUTHENTICATED");
+  }
+});
+
 test("wilayah membutuhkan login", async ({ request }) => {
   const res = await request.get("/api/v1/regions/provinces");
   expect(res.status()).toBe(401);

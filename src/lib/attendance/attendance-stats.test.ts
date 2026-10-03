@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { closedThrough } from "./auto-alpha-rules";
 import {
   EMPTY_COUNTS,
+  EMPTY_TALLY,
   aggregateByMonth,
   buildClassRates,
   buildDailyTrend,
@@ -10,13 +11,18 @@ import {
   countsFrom,
   cutPeriod,
   deltaPp,
+  isCountedDate,
   pct,
   recentMonths,
   resolveRange,
   round1,
   shiftMonth,
   summarize,
+  sumTallies,
+  tallyAttendance,
+  tallyByStudent,
   todayCard,
+  type TallyRow,
 } from "./attendance-stats";
 
 test("round1: satu desimal, setengah menjauhi nol, tanpa -0", () => {
@@ -183,4 +189,55 @@ test("buildDailyTrend: setiap hari sekolah muncul (kosong -> null), tanggal non-
     ["2026-09-03", true, 0, null],
     ["2026-09-05", false, 1, 100],
   ]);
+});
+
+// ----------------------------------------------------------------------------- tally bersama (A3)
+
+test("tallyAttendance: bobot grup, hadir = HADIR+TERLAMBAT, persen atas tercatat; counts = countsFrom", () => {
+  const rows: TallyRow[] = [
+    { status: "HADIR", count: 6 },
+    { status: "TERLAMBAT", count: 2, lateMinutes: 30, lateReason: "WEATHER", source: "CHECKIN" },
+    { status: "IZIN" },
+    { status: "ALPHA", count: 1 },
+  ];
+  const t = tallyAttendance(rows);
+  assert.deepEqual(t.counts, countsFrom(rows.map((r) => ({ status: r.status, count: r.count ?? 1 }))));
+  assert.deepEqual([t.recorded, t.present, t.presentPct, t.lateMinutes], [10, 8, 80, 30], "menit grup sudah dijumlah (tidak dikali count)");
+  assert.deepEqual([t.lateReasons.filled, t.lateReasons.unfilled, t.lateReasons.total], [2, 0, 2], "alasan menambah count");
+  assert.equal(t.lateReasons.categories.find((c) => c.category === "WEATHER")?.count, 2);
+});
+
+test("tallyAttendance: data terlambat diabaikan di baris non-TERLAMBAT; belum diisi hanya check-in sendiri", () => {
+  const t = tallyAttendance([
+    { status: "HADIR", lateMinutes: 12, lateReason: "TRANSPORT", source: "CHECKIN" },
+    { status: "TERLAMBAT", lateMinutes: 7, lateReason: null, source: "CHECKIN" },
+    { status: "TERLAMBAT", lateMinutes: 9, lateReason: null, source: "ADMIN" },
+  ]);
+  assert.deepEqual([t.counts.terlambat, t.lateMinutes], [2, 16]);
+  assert.deepEqual([t.lateReasons.filled, t.lateReasons.unfilled, t.lateReasons.total], [0, 1, 1]);
+  assert.deepEqual(t.lateReasons.categories.map((c) => c.category), ["TRANSPORT", "WEATHER", "OVERSLEPT", "FAMILY", "HEALTH", "OTHER"]);
+});
+
+test("tally kosong: persen null, semua nol; EMPTY_TALLY = tallyAttendance([])", () => {
+  const empty = tallyAttendance([]);
+  assert.deepEqual(empty, EMPTY_TALLY);
+  assert.deepEqual([empty.recorded, empty.presentPct, empty.lateMinutes, empty.lateReasons.total], [0, null, 0, 0]);
+});
+
+test("sumTallies: asosiatif dan sama dengan tally gabungan baris; tallyByStudent per siswa", () => {
+  const a: TallyRow[] = [{ status: "HADIR", count: 3 }, { status: "TERLAMBAT", lateMinutes: 5, lateReason: "OTHER", source: "CHECKIN" }];
+  const b: TallyRow[] = [{ status: "SAKIT", count: 2 }, { status: "TERLAMBAT", lateMinutes: 4, source: "CHECKIN" }];
+  const c: TallyRow[] = [{ status: "ALPHA" }];
+  const [ta, tb, tc] = [tallyAttendance(a), tallyAttendance(b), tallyAttendance(c)];
+  assert.deepEqual(sumTallies([sumTallies([ta, tb]), tc]), sumTallies([ta, sumTallies([tb, tc])]));
+  assert.deepEqual(sumTallies([ta, tb, tc]), tallyAttendance([...a, ...b, ...c]));
+  assert.deepEqual(sumTallies([]), EMPTY_TALLY);
+  const byStudent = tallyByStudent([...a.map((r) => ({ ...r, studentId: "s1" })), ...b.map((r) => ({ ...r, studentId: "s2" }))]);
+  assert.deepEqual([...byStudent.keys()], ["s1", "s2"]);
+  assert.deepEqual(byStudent.get("s2"), tb);
+});
+
+test("isCountedDate: hanya s.d. closedThrough (inklusif)", () => {
+  assert.equal(isCountedDate("2026-09-12", "2026-09-12"), true);
+  assert.equal(isCountedDate("2026-09-13", "2026-09-12"), false);
 });
