@@ -200,6 +200,14 @@ Cek "kelas di tahun ajaran aktif" hanya saat aktivasi / ganti kelas (bukan tiap 
   gagal, atau belum menemukan wajah) agar absen tidak lama. Hasilnya dikirim sebagai `faceCheck` opsional
   (DETECTED / NOT_DETECTED / UNAVAILABLE); selain DETECTED diberi flag `FACE_NOT_DETECTED` (MEDIUM, antrean
   "Perlu ditinjau") untuk diperiksa manual admin sekolah — tidak pernah menolak absen. Selfie tetap wajib.
+- **Alasan terlambat (pemilik 2026-10-03, A1):** siswa yang tercatat TERLAMBAT dari check-in sendiri boleh memberi
+  alasan (6 kategori kode tetap — Transportasi/macet, Hujan/cuaca, Bangun kesiangan, Keperluan keluarga, Kurang sehat,
+  Lainnya — + keterangan opsional ≤200 karakter, wajib ≥5 untuk Lainnya) di langkah tinjau absen, layar "tercatat",
+  atau kartu Absensi, hanya untuk hari ini sebelum jam akhir hari sekolah (`PUT /student/attendance/today/late-reason`).
+  Alasan TIDAK PERNAH menahan absen; server sendiri yang menentukan terlambat. Koreksi admin mengunci isian siswa
+  (409) tanpa menghapus alasan; alasan dihitung selama status tetap TERLAMBAT. Admin melihatnya di detail catatan,
+  daftar peta, Data Absensi, dan `GET /school/attendance/late-reasons` (per kategori; "belum diisi" = check-in sendiri
+  tanpa alasan). Audit mencatat kategori & panjang keterangan (bukan teksnya). Tanpa notifikasi.
 - Izin/Sakit: backdate ≤7 hari, maju ≤30, rentang ≤14; SAKIT ≥3 hari sekolah wajib lampiran foto;
   approve → baris IZIN/SAKIT tiap hari sekolah (tidak menimpa CHECKIN/ADMIN); reject wajib alasan.
 - Auto-ALPHA per sekolah setelah `dayEndMinute` lokal (tiga zona waktu), catch-up 7 hari, idempoten

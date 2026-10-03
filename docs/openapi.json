@@ -14542,6 +14542,166 @@
         }
       }
     },
+    "/api/v1/student/attendance/today/late-reason": {
+      "put": {
+        "operationId": "setOwnLateReason",
+        "tags": [
+          "Absensi Siswa"
+        ],
+        "summary": "Isi/ubah alasan terlambat hari ini",
+        "description": "Opsional: alasan TIDAK PERNAH menahan atau menolak absen; server sendiri yang menentukan terlambat. Hanya untuk catatan check-in sendiri berstatus TERLAMBAT pada tanggal lokal hari ini (422 NO_ATTENDANCE_TODAY / ATTENDANCE_NOT_LATE); setelah dikoreksi admin -> 409 LATE_REASON_LOCKED; setelah jam akhir hari sekolah (dayEndMinute) -> 422 LATE_REASON_DAY_CLOSED. Boleh diubah sebelum itu (setiap perubahan diaudit tanpa teks keterangan); alasan sama -> unchanged=true tanpa audit. Tanpa notifikasi. Tidak harus sesi HP. Rate limit LATE_REASON 10 / 10 menit. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceLateReasonInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceLateReasonResult"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, STUDENT_NOT_ACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: LATE_REASON_LOCKED, CONFLICT_RETRY.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: NO_ATTENDANCE_TODAY, ATTENDANCE_NOT_LATE, LATE_REASON_DAY_CLOSED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/student/attendance": {
       "get": {
         "operationId": "listOwnAttendanceMonth",
@@ -18636,6 +18796,150 @@
           },
           "404": {
             "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, SCHOOL_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/attendance/late-reasons": {
+      "get": {
+        "operationId": "monitorLateReasons",
+        "tags": [
+          "Absensi — Monitoring"
+        ],
+        "summary": "Alasan terlambat per kategori",
+        "description": "Catatan berstatus TERLAMBAT dalam rentang (default awal bulan `to` / bulan berjalan s.d. hari ini, termasuk hari berjalan; maks. 92 hari) per kategori alasan siswa. filled = berkategori (juga bila dikoreksi tetap TERLAMBAT); unfilled = check-in sendiri tanpa alasan; TERLAMBAT yang dicatat admin tanpa alasan dan catatan yang dikoreksi menjadi status lain tidak dihitung. classId = kelas snapshot. SUPER_ADMIN wajib mengirim ?schoolId=. Id milik sekolah lain -> 404.\n\nAksi POLICY: `attendance.monitor`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "description": "Awal rentang (inklusif).",
+              "type": "string",
+              "format": "date",
+              "example": "2026-09-21"
+            },
+            "description": "Awal rentang (inklusif)."
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "description": "Akhir rentang (inklusif), maks. 92 hari dari from.",
+              "type": "string",
+              "format": "date",
+              "example": "2026-09-21"
+            },
+            "description": "Akhir rentang (inklusif), maks. 92 hari dari from."
+          },
+          {
+            "in": "query",
+            "name": "classId",
+            "schema": {
+              "description": "Filter kelas: kelas snapshot untuk baris tercatat, kelas saat ini untuk yang belum absen. Kelas sekolah lain -> 404.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Filter kelas: kelas snapshot untuk baris tercatat, kelas saat ini untuk yang belum absen. Kelas sekolah lain -> 404."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MonitorLateReasonCounts"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, SCHOOL_NOT_FOUND, CLASS_NOT_FOUND.",
             "content": {
               "application/json": {
                 "schema": {
@@ -32192,6 +32496,39 @@
         ],
         "additionalProperties": false
       },
+      "AttendanceLateReasonInput": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "TRANSPORT",
+              "WEATHER",
+              "OVERSLEPT",
+              "FAMILY",
+              "HEALTH",
+              "OTHER"
+            ],
+            "description": "Kode kategori; label di GET /meta/enums (LateReasonCategory)."
+          },
+          "note": {
+            "description": "Opsional, kecuali OTHER (min. 5 karakter). Baris baru & spasi berlebih dirapikan, karakter tak terlihat dibuang; maks. 200 karakter.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "category"
+        ],
+        "additionalProperties": false
+      },
       "CreateLeaveRequestInput": {
         "type": "object",
         "properties": {
@@ -37599,6 +37936,21 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "lateReason": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/AttendanceLateReason"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Alasan terlambat yang diisi siswa; null bila belum ada."
+                  },
+                  "lateReasonEditable": {
+                    "type": "boolean",
+                    "description": "true bila siswa boleh mengisi/mengubah alasan sekarang (PUT /student/attendance/today/late-reason)."
                   }
                 },
                 "required": [
@@ -37606,7 +37958,9 @@
                   "status",
                   "source",
                   "checkInTimeLocal",
-                  "lateMinutes"
+                  "lateMinutes",
+                  "lateReason",
+                  "lateReasonEditable"
                 ],
                 "additionalProperties": false
               },
@@ -37694,6 +38048,45 @@
           "canCheckIn",
           "blockReason",
           "testMode"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceLateReason": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "TRANSPORT",
+              "WEATHER",
+              "OVERSLEPT",
+              "FAMILY",
+              "HEALTH",
+              "OTHER"
+            ]
+          },
+          "note": {
+            "description": "Keterangan siswa (maks. 200 karakter); wajib untuk OTHER.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeLocal": {
+            "type": "string",
+            "description": "Jam lokal sekolah saat terakhir diisi/diubah (HH:mm).",
+            "example": "07:35"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Instant server terakhir diisi/diubah (ISO UTC)."
+          }
+        },
+        "required": [
+          "category",
+          "note",
+          "timeLocal",
+          "updatedAt"
         ],
         "additionalProperties": false
       },
@@ -37851,6 +38244,21 @@
               "AUTO_ALPHA",
               "ADMIN"
             ]
+          },
+          "lateReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceLateReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alasan terlambat yang diisi siswa; null bila belum ada."
+          },
+          "lateReasonEditable": {
+            "type": "boolean",
+            "description": "true bila siswa boleh mengisi/mengubah alasan sekarang (PUT /student/attendance/today/late-reason)."
           }
         },
         "required": [
@@ -37861,7 +38269,30 @@
           "checkInAt",
           "checkInTimeLocal",
           "distanceM",
-          "source"
+          "source",
+          "lateReason",
+          "lateReasonEditable"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceLateReasonResult": {
+        "type": "object",
+        "properties": {
+          "lateReason": {
+            "$ref": "#/components/schemas/AttendanceLateReason"
+          },
+          "unchanged": {
+            "type": "boolean",
+            "description": "true bila alasan sama dengan yang tersimpan (tidak ditulis ulang, tanpa audit)."
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lateReason",
+          "unchanged",
+          "message"
         ],
         "additionalProperties": false
       },
@@ -38882,6 +39313,17 @@
               "string",
               "null"
             ]
+          },
+          "lateReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceLateReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alasan terlambat dari siswa (A1). Tetap dikirim setelah koreksi admin (tampilkan sebagai 'sebelum dikoreksi' bila status/sumber berubah)."
           }
         },
         "required": [
@@ -38895,7 +39337,8 @@
           "hasAnomaly",
           "flags",
           "leaveRequestId",
-          "note"
+          "note",
+          "lateReason"
         ],
         "additionalProperties": false
       },
@@ -39069,6 +39512,25 @@
                     ]
                   },
                   "description": "Kode flag anomali (terurut). Label & keparahan: lihat detail catatan."
+                },
+                "lateReasonCategory": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "TRANSPORT",
+                        "WEATHER",
+                        "OVERSLEPT",
+                        "FAMILY",
+                        "HEALTH",
+                        "OTHER"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Kategori alasan terlambat dari siswa (A1); null bila belum diisi."
                 }
               },
               "required": [
@@ -39084,7 +39546,8 @@
                 "distanceM",
                 "checkInTimeLocal",
                 "hasAnomaly",
-                "flags"
+                "flags",
+                "lateReasonCategory"
               ],
               "additionalProperties": false
             }
@@ -40389,6 +40852,78 @@
         ],
         "additionalProperties": false
       },
+      "MonitorLateReasonCounts": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-01"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-30"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "filled + unfilled."
+          },
+          "filled": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Catatan TERLAMBAT yang berkategori alasan (sumber apa pun)."
+          },
+          "unfilled": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Check-in sendiri berstatus TERLAMBAT yang belum diisi alasannya."
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "TRANSPORT",
+                    "WEATHER",
+                    "OVERSLEPT",
+                    "FAMILY",
+                    "HEALTH",
+                    "OTHER"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "category",
+                "count"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Semua kategori, urut kode; tanpa catatan = 0."
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "total",
+          "filled",
+          "unfilled",
+          "categories"
+        ],
+        "additionalProperties": false
+      },
       "MonitorAttendanceDetail": {
         "type": "object",
         "properties": {
@@ -40554,6 +41089,17 @@
               "string",
               "null"
             ]
+          },
+          "lateReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceLateReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alasan terlambat dari siswa (A1). Tetap dikirim setelah koreksi admin (tampilkan sebagai 'sebelum dikoreksi' bila status/sumber berubah)."
           },
           "classId": {
             "type": [
@@ -40777,6 +41323,7 @@
           "flags",
           "leaveRequestId",
           "note",
+          "lateReason",
           "classId",
           "className",
           "student",

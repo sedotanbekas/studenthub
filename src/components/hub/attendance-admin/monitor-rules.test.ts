@@ -21,7 +21,7 @@ import {
 
 const point = (over: Partial<MapPoint>): MapPoint => ({
   attendanceId: "a1", studentId: "s1", name: "Alya Putri", nis: "2026001", className: "X IPA 1", status: "HADIR",
-  latitude: -6.1754, longitude: 106.8272, accuracyM: 12, distanceM: 30, checkInTimeLocal: "06:40", hasAnomaly: false, flags: [], ...over,
+  latitude: -6.1754, longitude: 106.8272, accuracyM: 12, distanceM: 30, checkInTimeLocal: "06:40", hasAnomaly: false, flags: [], lateReasonCategory: null, ...over,
 });
 const data: MonitorData = {
   date: "2026-09-25", isSchoolDay: true, truncated: false,

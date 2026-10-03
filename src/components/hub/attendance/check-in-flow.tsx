@@ -4,7 +4,7 @@ import type { CheckInResultDto, PrecheckResultDto, TodayDto } from "@/lib/attend
 import { ACCURACY_TOLERANCE_CAP_M } from "@/lib/attendance/constants";
 import { haversineMeters } from "@/lib/attendance/geo";
 import { api, ApiError } from "@/lib/frontend/api";
-import { accuracyAdvice, fixAgeOk, simulateDemoFix, TEST_MODE_NOTE, webDeviceId, type FaceCheck } from "@/lib/frontend/attendance";
+import { accuracyAdvice, demoWouldBeLate, fixAgeOk, simulateDemoFix, TEST_MODE_NOTE, webDeviceId, type FaceCheck } from "@/lib/frontend/attendance";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { useHub } from "../context";
 import { Icon } from "../icon";
@@ -12,6 +12,8 @@ import { AccessGate } from "./access-gate";
 import { AttendanceMap, type SchoolArea } from "./attendance-map";
 import { bestPosition, useDeviceAccess, useLivePosition } from "./device-access";
 import { FaceCamera } from "./face-camera";
+import { DoneLateReason, EMPTY_LATE_DRAFT, LateReasonPicker } from "./late-reason-form";
+import type { LateReasonDraft } from "@/lib/attendance/late-reason-rules";
 
 /**
  * Alur absensi layar penuh: (0) izin lokasi + kamera WAJIB -> (1) peta & cek lokasi ke server ->
@@ -43,6 +45,8 @@ export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClo
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [result, setResult] = useState<CheckInResultDto | null>(null);
+  // Draf alasan terlambat di atas langkah-langkah agar bertahan saat lokasi/foto diulang (A1).
+  const [reasonDraft, setReasonDraft] = useState<LateReasonDraft>(EMPTY_LATE_DRAFT);
   const watched = useLivePosition(access.ready, access.fix, access.blockLocation);
   // Mode demo: sekolah disimulasikan di dekat pengguna, akurasi GPS juga disimulasikan (laptop tidak punya GPS).
   const live: Fix | null = watched && demo ? { coords: simulateDemoFix(watched.coords), timestamp: watched.timestamp } : watched;
@@ -70,8 +74,8 @@ export function CheckInFlow({ today, onClose, onDone }: { today: TodayDto; onClo
       {!access.ready ? <AccessGate access={access} />
         : step === "location" ? <LocationStep today={today} school={school} live={live} distance={distance} inside={inside} verdict={verdict} onVerdict={setVerdict} onNext={() => setStep("face")} />
         : step === "face" && access.stream ? <section className="checkin-step-body"><div className="step-intro"><h2>Hadapkan wajah ke kamera</h2><p>Lepas masker/kacamata hitam dan pastikan wajahmu terang. Foto tetap bisa diambil walau wajah belum terdeteksi; admin sekolah akan memeriksanya.</p></div><FaceCamera stream={access.stream} onCapture={(blob, faceCheck) => { setPhoto({ blob, url: URL.createObjectURL(blob), faceCheck }); setStep("review"); }} /></section>
-        : step === "review" && photo ? <ReviewStep maxAccuracyM={today.geofence.maxAccuracyM} photo={photo} distance={distance} verdict={verdict} onRetake={() => setStep("face")} onLocationError={message => { setVerdict({ ok: false, message, wouldBeLate: false }); setStep("location"); }} onImageError={() => setStep("face")} onDone={done => { setResult(done); setStep("done"); }} />
-        : result ? <DoneStep result={result} onFinish={() => { onDone(); onClose(); }} /> : null}
+        : step === "review" && photo ? <ReviewStep maxAccuracyM={today.geofence.maxAccuracyM} photo={photo} distance={distance} verdict={verdict} draft={reasonDraft} onDraft={setReasonDraft} onRetake={() => setStep("face")} onLocationError={message => { setVerdict({ ok: false, message, wouldBeLate: false }); setStep("location"); }} onImageError={() => setStep("face")} onDone={done => { setResult(done); setStep("done"); }} />
+        : result ? <DoneStep result={result} draft={reasonDraft} onFinish={() => { onDone(); onClose(); }} /> : null}
     </div>
   </dialog>;
 }
@@ -88,7 +92,7 @@ function LocationStep({ today, school, live, distance, inside, verdict, onVerdic
     if (!live) return;
     setBusy(true); setError("");
     try {
-      if (demo) { onVerdict({ ok: Boolean(inside), message: inside ? "Lokasi valid (simulasi demo)." : "Di luar area sekolah (simulasi demo).", wouldBeLate: false }); return; }
+      if (demo) { onVerdict({ ok: Boolean(inside), message: inside ? "Lokasi valid (simulasi demo)." : "Di luar area sekolah (simulasi demo).", wouldBeLate: demoWouldBeLate(today, new Date()) }); return; }
       const response = await api("/student/attendance/precheck", { method: "POST", body: JSON.stringify(fixBody(live)) });
       onVerdict(response.data as PrecheckResultDto);
     } catch (e) { setError(e instanceof Error ? e.message : "Lokasi belum dapat diperiksa."); }
@@ -107,9 +111,9 @@ function LocationStep({ today, school, live, distance, inside, verdict, onVerdic
 }
 
 interface CapturedPhoto { blob: Blob; url: string; faceCheck: FaceCheck }
-interface ReviewProps { maxAccuracyM: number; photo: CapturedPhoto; distance: number | null; verdict: Verdict | null; onRetake: () => void; onLocationError: (message: string) => void; onImageError: () => void; onDone: (result: CheckInResultDto) => void }
+interface ReviewProps { maxAccuracyM: number; photo: CapturedPhoto; distance: number | null; verdict: Verdict | null; draft: LateReasonDraft; onDraft: (draft: LateReasonDraft) => void; onRetake: () => void; onLocationError: (message: string) => void; onImageError: () => void; onDone: (result: CheckInResultDto) => void }
 
-function ReviewStep({ maxAccuracyM, photo, distance, verdict, onRetake, onLocationError, onImageError, onDone }: ReviewProps) {
+function ReviewStep({ maxAccuracyM, photo, distance, verdict, draft, onDraft, onRetake, onLocationError, onImageError, onDone }: ReviewProps) {
   const { demo } = useHub();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -124,6 +128,7 @@ function ReviewStep({ maxAccuracyM, photo, distance, verdict, onRetake, onLocati
       form.set("faceCheck", photo.faceCheck);
       form.set("selfie", new File([photo.blob], "selfie.jpg", { type: "image/jpeg" }));
       const response = await api("/student/attendance/check-in", { method: "POST", body: form });
+      // Konfirmasi absen tidak menunggu alasan terlambat: draf alasan dikirim terpisah dari layar "tercatat".
       onDone(response.data as CheckInResultDto);
     } catch (e) {
       const code = e instanceof ApiError ? e.code : "";
@@ -137,6 +142,7 @@ function ReviewStep({ maxAccuracyM, photo, distance, verdict, onRetake, onLocati
     {/* eslint-disable-next-line @next/next/no-img-element -- pratinjau blob lokal, bukan aset yang dioptimasi */}
     <img className="selfie-preview" src={photo.url} alt="Foto wajah yang akan dikirim" />
     <dl className="location-facts"><div><dt>Jarak ke sekolah</dt><dd>{distance === null ? "—" : `${distance} m`}</dd></div><div><dt>Status</dt><dd>{verdict?.wouldBeLate ? "Terlambat" : "Tepat waktu"}</dd></div></dl>
+    {verdict?.wouldBeLate && <section className="late-reason-review" aria-labelledby="late-reason-title"><h3 id="late-reason-title">Kenapa terlambat?</h3><p className="muted">Opsional · bisa diisi nanti, sampai jam sekolah usai.</p><LateReasonPicker draft={draft} onChange={onDraft} beforeCheckIn /></section>}
     {error && <p className="error-message" role="alert">{error}</p>}
     <div className="step-actions"><button className="button secondary block" disabled={busy} onClick={onRetake}><Icon name="camera" size={18} />Foto ulang</button><button className="button primary block large" disabled={busy} onClick={() => void send()}>{busy ? "Mengirim…" : "Kirim absensi"}<Icon name="check" size={20} /></button></div>
   </section>;
@@ -152,13 +158,14 @@ function AccuracyHint({ live, maxAccuracyM }: { live: Fix | null; maxAccuracyM: 
   return <div className={advice.level === "coarse" ? "error-message" : "warning-message"} role="status"><span>{advice.message}</span><small className="gps-wait">Akurasi terus diperbarui otomatis · {seconds} dtk</small></div>;
 }
 
-function DoneStep({ result, onFinish }: { result: CheckInResultDto; onFinish: () => void }) {
+function DoneStep({ result, draft, onFinish }: { result: CheckInResultDto; draft: LateReasonDraft; onFinish: () => void }) {
   const late = result.attendance.status === "TERLAMBAT";
   return <section className="checkin-step-body done-step">
     <span className={`done-icon ${late ? "late" : ""}`}><Icon name="check" size={44} /></span>
     <h2>{late ? `Tercatat terlambat ${result.attendance.lateMinutes ?? 0} menit` : "Kamu hadir tepat waktu"}</h2>
     <p className="done-time">Pukul {result.attendance.checkInTimeLocal}</p>
     <p>{result.message}</p>
+    {late && <DoneLateReason attendance={result.attendance} draft={draft} />}
     <button className="button primary block large" onClick={onFinish}>Selesai</button>
   </section>;
 }

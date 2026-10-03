@@ -67,6 +67,8 @@ test("HADIR: baris + StoredFile + berkas di disk; respons tanpa flag anomali", a
     checkInTimeLocal: "07:10",
     distanceM: 20,
     source: "CHECKIN",
+    lateReason: null,
+    lateReasonEditable: false,
   });
   assert.equal(out.result.replayed, false);
   assert.match(out.result.message, /Hadir pukul 07:10/);

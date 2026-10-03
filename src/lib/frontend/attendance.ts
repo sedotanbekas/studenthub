@@ -1,6 +1,6 @@
 import type { FaceCheck } from "@/lib/attendance/anomaly-rules";
 import { isMobileBrowserAgent } from "@/lib/auth/device";
-import { TZ_IANA } from "@/lib/time/zone";
+import { localParts, TZ_IANA, type SchoolTz } from "@/lib/time/zone";
 
 /**
  * Aturan murni alur absensi web (tanpa DOM): verdict deteksi wajah, pesan izin perangkat, id perangkat
@@ -239,4 +239,14 @@ export interface PlainFix {
 export function simulateDemoFix(fix: PlainFix): PlainFix {
   // Salin eksplisit: pada GeolocationCoordinates asli, field adalah getter di prototype (spread = kosong).
   return { latitude: fix.latitude, longitude: fix.longitude, accuracy: Math.min(fix.accuracy, DEMO_ACCURACY_M) };
+}
+
+/**
+ * Mode demo: precheck disimulasikan, jadi "akan terlambat" dihitung dari jam lokal sekolah demo terhadap batas
+ * tepat waktu (window.lateAfter) agar pemilih alasan terlambat (A1) bisa dicoba setelah jam masuk.
+ */
+export function demoWouldBeLate(today: { readonly timezone: string; readonly window: { readonly lateAfter: string } }, now: Date): boolean {
+  const zone: SchoolTz = today.timezone === "WITA" || today.timezone === "WIT" ? today.timezone : "WIB";
+  const [hours, minutes] = today.window.lateAfter.split(":").map(Number);
+  return localParts(now, zone).minuteOfDay > (hours ?? 0) * 60 + (minutes ?? 0);
 }

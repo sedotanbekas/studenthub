@@ -1,3 +1,5 @@
+import { LATE_REASON_LABELS } from "@/lib/attendance/late-reason-rules";
+
 /** Label Bahasa Indonesia untuk kode enum API (dipakai frontend lewat GET /api/v1/meta/enums). */
 export const ENUM_LABELS = {
   UserRole: { SUPER_ADMIN: "Super Admin", SCHOOL_ADMIN: "Admin Sekolah", SPONSOR: "Sponsor", STUDENT: "Siswa" },
@@ -8,6 +10,7 @@ export const ENUM_LABELS = {
   AttendanceStatus: { HADIR: "Hadir", TERLAMBAT: "Terlambat", IZIN: "Izin", SAKIT: "Sakit", ALPHA: "Alpha" },
   AttendanceSource: { CHECKIN: "Check-in", LEAVE: "Pengajuan izin/sakit", AUTO_ALPHA: "Alpha otomatis", ADMIN: "Koreksi admin" },
   LeaveType: { IZIN: "Izin", SAKIT: "Sakit" },
+  LateReasonCategory: LATE_REASON_LABELS,
   ReviewStatus: { PENDING: "Menunggu", APPROVED: "Disetujui", REJECTED: "Ditolak", CANCELLED: "Dibatalkan" },
   ReportCardStatus: { DRAFT: "Draf", PUBLISHED: "Terbit" },
   InvoiceStatus: { UNPAID: "Belum Bayar", PARTIAL: "Sebagian", PAID: "Lunas", VOID: "Dibatalkan" },

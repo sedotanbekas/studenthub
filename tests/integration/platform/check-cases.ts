@@ -105,6 +105,20 @@ export function attendanceCases(get: GetFixture): readonly CheckCase[] {
       },
     },
     {
+      constraint: "chk_attendance_late_reason",
+      violations: [
+        () => attendance(get(), { lateReasonCategory: "OTHER", lateReasonAt: CHECKIN_AT }),
+        () => attendance(get(), { lateReasonCategory: "OTHER", lateReasonNote: "abcd", lateReasonAt: CHECKIN_AT }),
+        () => attendance(get(), { lateReasonCategory: "TRANSPORT" }),
+        () => attendance(get(), { lateReasonNote: "Tanpa kategori", lateReasonAt: CHECKIN_AT }),
+        () => attendance(get(), { lateReasonAt: CHECKIN_AT }),
+      ],
+      valid: async () => {
+        await attendance(get(), { lateReasonCategory: "TRANSPORT", lateReasonAt: CHECKIN_AT });
+        await attendance(get(), { lateReasonCategory: "OTHER", lateReasonNote: "Ban bocor", lateReasonAt: CHECKIN_AT });
+      },
+    },
+    {
       constraint: "chk_leave_range",
       violations: [() => leave(get(), "2026-09-22", "2026-09-21"), () => leave(get(), "2026-09-01", "2026-10-02")],
       valid: () => leave(get(), "2026-09-01", "2026-10-01"),

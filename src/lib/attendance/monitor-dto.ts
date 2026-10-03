@@ -1,6 +1,7 @@
 import { formatMinute, localParts, type SchoolTz } from "@/lib/time/zone";
 import { ANOMALY_LABELS, ANOMALY_SEVERITY, parseFlags, type AnomalyCode, type AnomalySeverity } from "./anomaly-rules";
 import type { AttendanceStatusValue } from "./attendance-stats";
+import { toLateReasonDto, type LateReasonCode, type LateReasonDto } from "./late-reason-rules";
 
 /**
  * Pemetaan baris absensi ke DTO monitoring admin (murni; tipe baris struktural agar teruji tanpa Prisma).
@@ -77,6 +78,9 @@ export interface AttendanceRowLike {
   readonly anomalyFlags: unknown;
   readonly leaveRequestId: string | null;
   readonly note: string | null;
+  readonly lateReasonCategory: LateReasonCode | null;
+  readonly lateReasonNote: string | null;
+  readonly lateReasonAt: Date | null;
 }
 
 export interface AttendanceBrief {
@@ -91,6 +95,8 @@ export interface AttendanceBrief {
   readonly flags: AnomalyCode[];
   readonly leaveRequestId: string | null;
   readonly note: string | null;
+  /** Alasan terlambat dari siswa (A1); tetap dikirim setelah koreksi, UI memberi label "sebelum dikoreksi". */
+  readonly lateReason: LateReasonDto | null;
 }
 
 export function toAttendanceBrief(row: AttendanceRowLike, tz: SchoolTz): AttendanceBrief {
@@ -106,6 +112,7 @@ export function toAttendanceBrief(row: AttendanceRowLike, tz: SchoolTz): Attenda
     flags: parseFlags(row.anomalyFlags),
     leaveRequestId: row.leaveRequestId,
     note: row.note,
+    lateReason: toLateReasonDto(row, tz),
   };
 }
 

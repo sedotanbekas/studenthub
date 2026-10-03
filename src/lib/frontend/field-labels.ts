@@ -52,6 +52,8 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   unclosedDates: "Tanggal belum ditutup", latePct: "Terlambat (%)", izinPct: "Izin (%)", sakitPct: "Sakit (%)", alphaPct: "Alpa (%)",
   prevMonth: "Bulan lalu", prevPresentPct: "Kehadiran bulan lalu (%)", deltaPp: "Selisih (poin)", locationCapturedAt: "Lokasi diambil pada",
   severity: "Tingkat", purged: "Dihapus", rejectionsSameDay: "Penolakan hari yang sama", audit: "Audit", attendanceToday: "Kehadiran hari ini",
+  lateReason: "Alasan terlambat", lateReasonCategory: "Alasan terlambat", lateReasonEditable: "Alasan bisa diubah", filled: "Sudah diisi",
+  unfilled: "Belum diisi", categories: "Per kategori",
   // Rapor
   reportCardStatus: "Status rapor", blockedReason: "Alasan terhambat", createdReportCards: "Rapor dibuat", isMapped: "Dipetakan ke kelas",
   isSnapshot: "Salinan saat terbit", ready: "Siap terbit", incomplete: "Belum lengkap", noReportCard: "Belum punya rapor",

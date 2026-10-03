@@ -120,7 +120,9 @@ test("today -> check-in HADIR (201) -> today tercatat -> replay 200", async () =
   assert.equal(JSON.stringify(created.body).includes("anomal"), false);
 
   const afterCheckIn = (await getToday(st.token)).body!.data;
-  assert.deepEqual(afterCheckIn.record, { id: created.body?.data.attendance.id, status: "HADIR", source: "CHECKIN", checkInTimeLocal: "07:10", lateMinutes: null });
+  assert.deepEqual(afterCheckIn.record, {
+    id: created.body?.data.attendance.id, status: "HADIR", source: "CHECKIN", checkInTimeLocal: "07:10", lateMinutes: null, lateReason: null, lateReasonEditable: false,
+  });
   assert.equal(afterCheckIn.canCheckIn, false);
   assert.equal(afterCheckIn.blockReason, "ALREADY_CHECKED_IN");
 

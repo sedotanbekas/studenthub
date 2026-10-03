@@ -17,6 +17,14 @@ test("label enum publik memakai envelope", async ({ request }) => {
   const body = await res.json();
   expect(body.success).toBe(true);
   expect(body.data.AttendanceStatus.HADIR).toBe("Hadir");
+  expect(Object.keys(body.data.LateReasonCategory)).toEqual(["TRANSPORT", "WEATHER", "OVERSLEPT", "FAMILY", "HEALTH", "OTHER"]);
+  expect(body.data.LateReasonCategory.OTHER).toBe("Lainnya");
+});
+
+test("alasan terlambat membutuhkan login", async ({ request }) => {
+  const res = await request.put("/api/v1/student/attendance/today/late-reason", { data: { category: "TRANSPORT" } });
+  expect(res.status()).toBe(401);
+  expect((await res.json()).error.code).toBe("UNAUTHENTICATED");
 });
 
 test("wilayah membutuhkan login", async ({ request }) => {

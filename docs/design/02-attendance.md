@@ -42,6 +42,7 @@ Every response uses the envelope `{success, data, error:{code,message,details}, 
 |---|---|---|---|---|---|
 | GET | /api/v1/student/attendance/today | ST | Data for the Absensi screen | – | `date, serverTime, timezone, ianaTimezone, schoolDay{isSchoolDay, reason?, holidayName?}, window{opensAt, lateAfter, closesAt, state: BEFORE_OPEN\|OPEN\|CLOSED}, geofence{latitude, longitude, radiusM, maxAccuracyM}, record\|null{id, status, source, checkInTimeLocal, lateMinutes}, pendingLeave\|null, canCheckIn, blockReason?` |
 | POST | /api/v1/student/attendance/check-in | ST | Check-in (multipart; contract in §3.2) | `selfie, latitude, longitude, accuracy, mocked?, locationTimestamp, clientTime, deviceId` | 201/200 `{attendance{id, date, status, lateMinutes, checkInAt, checkInTimeLocal, distanceM, source}, replayed, message}`. No anomaly flags are returned. |
+| PUT | /api/v1/student/attendance/today/late-reason | ST | Late reason for today's own late check-in (A1, 2026-10-03; §3.11) | `category (6 codes), note?` | `{lateReason{category, note, timeLocal, updatedAt}, unchanged, message}` |
 | GET | /api/v1/student/attendance?month=YYYY-MM | ST | History for one month (the month is the page) | `month` (last 24 months, not in the future) | `days[{date, status, source, checkInTimeLocal, lateMinutes, leaveRequestId}], nonSchoolDays[{date, reason, name?}], summary{recorded, present, late, izin, sakit, alpha, presentPct}`, `meta{prevMonth, nextMonth}` |
 | GET | /api/v1/student/attendance/summary?termId= | ST | Counts for a semester (default: the term that covers today, else the latest one) | `termId?` | `term{id, label}, recorded, hadir, terlambat, izin, sakit, alpha, presentPct, closedThrough` |
 | GET | /api/v1/student/leave-requests | ST | The student's own leave requests | `status?, page, limit` | `[{id, type, startDate, endDate, schoolDayCount, reason, status, attachmentFileId, reviewNote, reviewedAt, createdAt}]` + pagination |
@@ -56,6 +57,7 @@ Every response uses the envelope `{success, data, error:{code,message,details}, 
 | PUT | /api/v1/admin/attendance/students/:studentId/days/:date | SA, SU | Manual correction (upsert) | `status, lateMinutes? (required for TERLAMBAT), reason (5–255)` | `{attendance, unchanged}` |
 | GET | /api/v1/admin/attendance/anomalies | SA, SU | Anomaly review queue | `from, to (≤92 days), reviewed? (default false), classId?, page, limit` | rows as in `daily` + `flags` with severity |
 | POST | /api/v1/admin/attendance/:id/anomaly-review | SA, SU | Mark an anomaly valid or invalid | `decision: VALID\|INVALID, note (5–255)` | record. INVALID also corrects the record to ALPHA (source ADMIN). |
+| GET | /api/v1/school/attendance/late-reasons | SA, SU | Late reasons per category (A1) | `from?, to? (≤92 days), classId?` | `{from, to, total, filled, unfilled, categories[{category, count}]}` |
 | GET | /api/v1/admin/attendance/rejections | SA, SU | Rejected attempts | `date, studentId?, page, limit` | `[{id, student, reason, latitude, longitude, accuracyM, distanceM, isMocked, deviceId, createdAt}]` |
 | GET | /api/v1/admin/attendance/analytics/classes | SA, SU | Bar chart per class for a month | `month` | `period{from, to, closedThrough, isPartial, unclosedDates[]}, classes[{classId, className, recorded, presentPct, latePct, izinPct, sakitPct, alphaPct, counts{…}}]` |
 | GET | /api/v1/admin/attendance/analytics/summary | SA, SU | Donut with change vs last month | `month` | `{month, presentPct, counts, prevMonth, prevPresentPct, deltaPp, isPartial}` |
@@ -331,6 +333,8 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
   - same status and same `lateMinutes` → `unchanged:true`, with no audit and no notification
 - **Also written:** AuditLog `attendance.correct` with `before/after {status, source, lateMinutes, note}`, and Notification `ATTENDANCE_CORRECTED` (category STUDENT_AFFAIRS, push).
 - **Anomaly review INVALID** = this correction with status ALPHA and the review note as the reason, plus the reviewed fields set.
+- **Late reason (A1):** a correction never touches `lateReason*`. Any row with `source=ADMIN` locks the student's
+  late-reason edit (409 `LATE_REASON_LOCKED`); the stored reason stays as the student's statement.
 
 ### 3.10 Percentages (`attendance-stats.ts`)
 
@@ -350,6 +354,23 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
   - On a non-school day, `presentPct` is null.
 - **Rounding:** `round1(x) = Math.round(x·10)/10` on the computed percentage. Counts are always returned too. `pct(n, 0) = null`.
 - **Queries:** `groupBy(['classId','status'])` over `[schoolId, date, classId, status]`, which the index fully covers. The student trend fetches at most about 260 rows and aggregates them in a pure function.
+
+### 3.11 Late reason (A1, owner decision 2026-10-03; implemented 2026-10-03, PLAN wins on conflict)
+
+- **Columns** on `Attendance`: `lateReasonCategory` (enum `LateReasonCategory`, append-only codes), `lateReasonNote`
+  (≤200 code points), `lateReasonAt`. CHECK `chk_attendance_late_reason`: all three NULL, or category + time set and
+  OTHER needs a note of ≥5 characters (`CHAR_LENGTH`).
+- **Who/when** (`lateReasonBlock`, pure): the row of the student's **local today**, before `dayEndMinute`
+  (`DAY_CLOSED` → 422 `LATE_REASON_DAY_CLOSED`), `source=ADMIN` → 409 `LATE_REASON_LOCKED`, not TERLAMBAT/CHECKIN →
+  422 `ATTENDANCE_NOT_LATE`, no row → 422 `NO_ATTENDANCE_TODAY`. The reason never blocks a check-in.
+- **Transaction:** AppLock `attendance:<studentId>` → re-read `Student.status` (403 when no longer ACTIVE) → read
+  today's row → same value = `unchanged` (no write, no audit) → compare-and-set `updateMany` on
+  `{id, schoolId, status: TERLAMBAT, source: CHECKIN}` → AuditLog `attendance.late_reason` with
+  `{category, noteLength}` only (the free text is not copied into the permanent log). No notification.
+- **Counts** (`countLateReasons`): rows whose current status is TERLAMBAT. `filled` = has a category (any source,
+  so a correction that keeps TERLAMBAT still counts); `unfilled` = CHECKIN without a category; admin-entered
+  TERLAMBAT rows without a reason are not counted (the student cannot fill them).
+- **Rate limit:** `LATE_REASON` 10 / 10 minutes per user (separate from `CHECK_IN`).
 
 ## 4. Service modules and pure modules
 

@@ -139,3 +139,21 @@ test("detail demo: sesuai titik peta; izin tanpa koordinat; id tak dikenal -> nu
   assert.equal(leaveDetail.selfie, null);
   assert.equal(demoAttendanceDetail("tidak-ada"), null);
 });
+
+test("alasan terlambat demo konsisten di peta, data lengkap, detail; hitungan 6 terlambat / 5 diisi / 1 belum", () => {
+  const counts = demoMonitorRows("/school/attendance/late-reasons") as { total: number; filled: number; unfilled: number; categories: { category: string; count: number }[] };
+  assert.deepEqual([counts.total, counts.filled, counts.unfilled], [6, 5, 1]);
+  assert.equal(counts.categories.length, 6);
+  const rows = demoDailyRows(map.date);
+  for (const p of map.points) {
+    const row = rows.find(r => r.student.id === p.studentId);
+    const detail = demoAttendanceDetail(p.attendanceId, map.date);
+    assert.equal(row?.attendance?.lateReason?.category ?? null, p.lateReasonCategory, p.name);
+    assert.equal(detail?.lateReason?.category ?? null, p.lateReasonCategory, p.name);
+    if (p.lateReasonCategory) assert.equal(p.status, "TERLAMBAT", "alasan hanya untuk siswa terlambat");
+  }
+  const citra = map.points.find(p => p.studentId === "s3");
+  assert.equal(citra?.status, "TERLAMBAT");
+  assert.equal(citra?.lateReasonCategory, null, "Citra belum mengisi alasan");
+  assert.equal(demoAttendanceDetail("demo-att-d16", map.date)?.lateReason?.category, "TRANSPORT");
+});

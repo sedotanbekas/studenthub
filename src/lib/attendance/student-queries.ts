@@ -9,6 +9,7 @@ import { formatMinute, fromDbDate, localParts, monthRange, toDbDate, TZ_IANA, ty
 import { todayBlockReason, windowState } from "./check-in-rules";
 import { loadCheckInContext, loadStudentSchool, type CheckInContext, type CheckInStudent } from "./check-in-context";
 import { closedThrough } from "./auto-alpha-rules";
+import { lateReasonClock } from "./late-reason-rules";
 import { HISTORY_MAX_MONTHS_BACK, MAX_ACCEPTED_ACCURACY_M } from "./constants";
 import {
   ATTENDANCE_ROW_SELECT,
@@ -61,7 +62,7 @@ export async function getTodayAttendance(ctx: ActionContext): Promise<TodayDto> 
     schoolDay: { isSchoolDay: day.isSchoolDay, reason: day.reason, holidayName: day.holidayName },
     window,
     geofence: { radiusM: school.geofence.radiusM, maxAccuracyM: MAX_ACCEPTED_ACCURACY_M, latitude: school.geofence.latitude, longitude: school.geofence.longitude },
-    record: toTodayRecord(existing, school.timezone),
+    record: toTodayRecord(existing, school.timezone, lateReasonClock(local, school.dayEndMinute)),
     pendingLeave: await pendingLeaveCovering(context.student, local.ymd),
     canCheckIn: blockReason === null,
     blockReason,

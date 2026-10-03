@@ -175,6 +175,7 @@ button.monitor-row:hover { background: color-mix(in srgb, var(--primary) 6%, tra
 .monitor-row-main small { overflow: hidden; color: var(--muted); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .monitor-row-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .row-tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.row-tag.is-neutral { background: var(--line-soft); color: var(--ink-2); }
 .row-tag.is-warning { background: var(--warning-soft); color: var(--warning-ink); }
 .row-tag.is-danger { background: var(--danger-soft); color: var(--danger-ink); }
 .monitor-row-side { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; gap: 4px; }

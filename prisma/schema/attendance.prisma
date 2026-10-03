@@ -18,6 +18,16 @@ enum LeaveType {
   SAKIT
 }
 
+/// Kategori alasan terlambat (A1). Nilai baru HANYA di ujung; jangan pernah ganti nama (rekap lama harus sebanding).
+enum LateReasonCategory {
+  TRANSPORT
+  WEATHER
+  OVERSLEPT
+  FAMILY
+  HEALTH
+  OTHER
+}
+
 /// Nama sama dengan kode error 422 check-in.
 enum CheckInRejectReason {
   OUTSIDE_GEOFENCE
@@ -58,6 +68,12 @@ model Attendance {
   anomalyFlags       Json?
   leaveRequestId     String?
   note               String?          @db.VarChar(255)
+  /// Alasan terlambat dari siswa (A1): hanya baris CHECKIN TERLAMBAT, hari yang sama. Koreksi admin tidak menghapusnya.
+  lateReasonCategory LateReasonCategory?
+  /// Keterangan (wajib >= 5 karakter untuk OTHER), spasi dinormalkan.
+  lateReasonNote     String?             @db.VarChar(200)
+  /// Instant server terakhir siswa mengisi/mengubah alasan.
+  lateReasonAt       DateTime?
 
   school       School        @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   student      Student       @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)

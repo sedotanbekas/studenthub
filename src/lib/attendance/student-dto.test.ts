@@ -27,10 +27,14 @@ const ROW: AttendanceRow = {
   lateMinutes: 16,
   distanceM: 42,
   leaveRequestId: null,
+  lateReasonCategory: null,
+  lateReasonNote: null,
+  lateReasonAt: null,
 };
+const DAY = { today: "2026-09-21", dayClosed: false };
 
 test("DTO check-in memakai jam lokal sekolah (WIB 07:16, WIT 09:16)", () => {
-  assert.deepEqual(toCheckInAttendanceDto(ROW, "WIB"), {
+  assert.deepEqual(toCheckInAttendanceDto(ROW, "WIB", DAY), {
     id: "att_1",
     date: "2026-09-21",
     status: "TERLAMBAT",
@@ -39,15 +43,30 @@ test("DTO check-in memakai jam lokal sekolah (WIB 07:16, WIT 09:16)", () => {
     checkInTimeLocal: "07:16",
     distanceM: 42,
     source: "CHECKIN",
+    lateReason: null,
+    lateReasonEditable: true,
   });
-  assert.equal(toCheckInAttendanceDto(ROW, "WIT").checkInTimeLocal, "09:16");
-  assert.throws(() => toCheckInAttendanceDto({ ...ROW, checkInAt: null }, "WIB"));
+  assert.equal(toCheckInAttendanceDto(ROW, "WIT", DAY).checkInTimeLocal, "09:16");
+  assert.throws(() => toCheckInAttendanceDto({ ...ROW, checkInAt: null }, "WIB", DAY));
+});
+
+test("alasan terlambat: tersimpan dikirim; bisa diubah hanya hari yang sama untuk CHECKIN TERLAMBAT", () => {
+  const reasoned: AttendanceRow = { ...ROW, lateReasonCategory: "WEATHER", lateReasonNote: "Hujan", lateReasonAt: new Date("2026-09-21T00:20:00.000Z") };
+  const dto = toCheckInAttendanceDto(reasoned, "WIB", DAY);
+  assert.deepEqual(dto.lateReason, { category: "WEATHER", note: "Hujan", timeLocal: "07:20", updatedAt: "2026-09-21T00:20:00.000Z" });
+  assert.equal(dto.lateReasonEditable, true);
+  assert.equal(toCheckInAttendanceDto(reasoned, "WIB", { today: "2026-09-22", dayClosed: false }).lateReasonEditable, false, "kemarin tidak bisa diubah");
+  assert.equal(toCheckInAttendanceDto(reasoned, "WIB", { ...DAY, dayClosed: true }).lateReasonEditable, false, "hari sekolah sudah ditutup");
+  assert.equal(toTodayRecord({ ...reasoned, source: "ADMIN" }, "WIB", DAY)?.lateReasonEditable, false, "dikoreksi admin");
+  assert.equal(toTodayRecord({ ...reasoned, status: "HADIR", lateMinutes: null }, "WIB", DAY)?.lateReasonEditable, false);
 });
 
 test("record hari ini & hari riwayat: baris tanpa check-in -> jam null", () => {
   const leave: AttendanceRow = { ...ROW, status: "IZIN", source: "LEAVE", checkInAt: null, lateMinutes: null, leaveRequestId: "lr_1" };
-  assert.deepEqual(toTodayRecord(leave, "WIB"), { id: "att_1", status: "IZIN", source: "LEAVE", checkInTimeLocal: null, lateMinutes: null });
-  assert.equal(toTodayRecord(null, "WIB"), null);
+  assert.deepEqual(toTodayRecord(leave, "WIB", DAY), {
+    id: "att_1", status: "IZIN", source: "LEAVE", checkInTimeLocal: null, lateMinutes: null, lateReason: null, lateReasonEditable: false,
+  });
+  assert.equal(toTodayRecord(null, "WIB", DAY), null);
   assert.deepEqual(toHistoryDay(leave, "WITA"), {
     date: "2026-09-21", status: "IZIN", source: "LEAVE", checkInTimeLocal: null, lateMinutes: null, leaveRequestId: "lr_1",
   });

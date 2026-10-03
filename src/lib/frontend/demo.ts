@@ -1,4 +1,7 @@
+import type { LateReasonValue } from "@/lib/attendance/late-reason-rules";
+import type { LateReasonResultDto } from "@/lib/attendance/late-reason-schemas";
 import type { TodayDto } from "@/lib/attendance/student-schemas";
+import { formatMinute, localParts } from "@/lib/time/zone";
 import type { Row } from "./types";
 import { demoPersona } from "./demo-personas";
 import { demoAdsDetail, demoAdsRows } from "./demo-ads";
@@ -80,3 +83,8 @@ export function demoTodayFor(key: string): TodayDto {
   return record ? { ...base, record, canCheckIn: false, blockReason: "ALREADY_CHECKED_IN" } : base;
 }
 export const demoHistory = { month: "2026-09", days: ["22", "23", "24"].map((d, i) => ({ date: `2026-09-${d}`, status: i === 1 ? "TERLAMBAT" : "HADIR", source: "CHECKIN", checkInTimeLocal: i === 1 ? "07:26" : `06:4${i}`, lateMinutes: i === 1 ? 26 : null, leaveRequestId: null })), nonSchoolDays: [], summary: { recorded: 3, present: 2, late: 1, izin: 0, sakit: 0, alpha: 0, presentPct: 100 } };
+/** Simpan alasan terlambat pada mode demo: tanpa jaringan dan tidak tersimpan (A1). */
+export function demoSaveLateReason(body: LateReasonValue, now: Date): LateReasonResultDto {
+  const lateReason = { category: body.category, note: body.note, timeLocal: formatMinute(localParts(now, "WIB").minuteOfDay), updatedAt: now.toISOString() };
+  return { lateReason, unchanged: false, message: "Mode demo: alasan tersimpan (simulasi) — hilang saat halaman dimuat ulang." };
+}

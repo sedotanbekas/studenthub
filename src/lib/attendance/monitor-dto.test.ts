@@ -42,12 +42,14 @@ test("toStudentBrief & toAttendanceBrief: kelas snapshot didahulukan, flag diura
     {
       id: "a1", status: "TERLAMBAT", source: "CHECKIN", checkInAt: new Date("2026-09-21T00:20:00Z"), lateMinutes: 20,
       distanceM: 42, accuracyM: 12, hasAnomaly: true, anomalyFlags: ["STALE_FIX", "KODE_TAK_DIKENAL", 7], leaveRequestId: null, note: null,
+      lateReasonCategory: "FAMILY", lateReasonNote: null, lateReasonAt: new Date("2026-09-21T00:22:00Z"),
     },
     "WIB",
   );
   assert.deepEqual(brief, {
     id: "a1", status: "TERLAMBAT", source: "CHECKIN", checkInTimeLocal: "07:20", lateMinutes: 20, distanceM: 42, accuracyM: 12,
     hasAnomaly: true, flags: ["STALE_FIX"], leaveRequestId: null, note: null,
+    lateReason: { category: "FAMILY", note: null, timeLocal: "07:22", updatedAt: "2026-09-21T00:22:00.000Z" },
   });
 });
 

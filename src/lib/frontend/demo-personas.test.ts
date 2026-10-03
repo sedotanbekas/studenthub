@@ -27,8 +27,13 @@ test("kunci tak dikenal / kosong jatuh ke admin sekolah; persona dapat ditemukan
 test("status absen hari ini berbeda per siswa: belum absen, hadir, terlambat", () => {
   assert.equal(demoTodayFor("STUDENT").canCheckIn, true);
   assert.equal(demoTodayFor("STUDENT").record, null);
-  assert.deepEqual(demoTodayFor("STUDENT_BIMA").record, { id: "demo-att-bima", status: "HADIR", source: "CHECKIN", checkInTimeLocal: "06:42", lateMinutes: null });
+  assert.deepEqual(demoTodayFor("STUDENT_BIMA").record, {
+    id: "demo-att-bima", status: "HADIR", source: "CHECKIN", checkInTimeLocal: "06:42", lateMinutes: null, lateReason: null, lateReasonEditable: false,
+  });
   assert.equal(demoTodayFor("STUDENT_BIMA").blockReason, "ALREADY_CHECKED_IN");
   assert.equal(demoTodayFor("STUDENT_CITRA").record?.status, "TERLAMBAT");
   assert.equal(demoTodayFor("STUDENT_CITRA").canCheckIn, false);
+  // Citra terlambat dan belum mengisi alasan: kartu hari ini menawarkan "Isi alasan" (A1).
+  assert.equal(demoTodayFor("STUDENT_CITRA").record?.lateReason, null);
+  assert.equal(demoTodayFor("STUDENT_CITRA").record?.lateReasonEditable, true);
 });

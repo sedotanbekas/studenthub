@@ -1,5 +1,26 @@
 # A1 — Alasan terlambat (late reason)
 
+## 0. Revisi setelah kritik (2026-10-03) — berlaku di atas draf di bawah
+
+Sumber: `A1-late-reason.critique.md`. Semua temuan diterima; yang mengubah desain:
+
+| # Kritik | Keputusan (sudah diimplementasikan) |
+|---|---|
+| 1 | Kasus `chk_attendance_late_reason` ditambahkan ke `tests/integration/platform/check-cases.ts`. |
+| 2 | Urutan `lateReasonBlock`: tanpa baris / bukan hari ini → `NO_RECORD`; hari ditutup → `DAY_CLOSED`; `source=ADMIN` → `LOCKED` (409, termasuk koreksi ke HADIR dan "Tidak valid" B1); bukan CHECKIN TERLAMBAT → `NOT_LATE`. |
+| 3 | Panjang keterangan dihitung per code point (`lateReasonNoteLength`, sama dengan `CHAR_LENGTH`), juga untuk penghitung UI; karakter format tak terlihat (`\p{Cf}`) dibuang saat normalisasi. Pesan memakai "karakter". |
+| 4 | Hitungan: `filled` = TERLAMBAT berkategori (sumber apa pun); `unfilled` = CHECKIN TERLAMBAT tanpa alasan; TERLAMBAT yang dicatat admin tanpa alasan tidak dihitung. `groupBy(["source","lateReasonCategory"])`. |
+| 5 | Test bentuk persis di `check-in-service.test.ts` & `check-in-route.test.ts` diperbarui; test balapan memakai `holdLock`; penjaga katalog `scripts/frontend-catalog.test.ts`. |
+| 6 | Alasan hanya bisa diisi/diubah **sebelum `dayEndMinute`** (422 `LATE_REASON_DAY_CLOSED`), selaras dengan hari final di rekap A3. `lateReasonGroups` tidak diklaim untuk A3 (A3 memakai `countLateReasons`). |
+| 7 | `from` default = awal bulan dari `to` (atau hari ini). |
+| 8 | Audit: `entityType Attendance`, `entityId`, `schoolId`; `before/after` hanya `{category, noteLength}` (teks bebas tidak disalin ke log permanen). Status siswa dibaca ulang di bawah kunci (403 bila tidak lagi ACTIVE). |
+| 9 | Konfirmasi absen tidak menunggu alasan: `onDone` dulu, alasan dikirim dari layar "tercatat" ("Menyimpan alasan…", batas 8 detik, "Coba lagi"). |
+| 10 | Copy: "Alasan tersimpan. Admin sekolah bisa membacanya."; di bawah keterangan "Dibaca admin sekolah. Tidak perlu menulis detail kesehatan."; "absen tetap terkirim" hanya di langkah tinjau. |
+| 11 | Demo: "akan terlambat" dihitung dari jam lokal vs `lateAfter`; pesan simpan "Mode demo: alasan tersimpan (simulasi) — hilang saat halaman dimuat ulang." |
+| 12 | UI selalu memakai `LATE_REASON_LABELS`/`lateReasonShort`, bukan `display(code)`. |
+| 13 | Tag daftar memakai `.row-tag.is-neutral`; jendela deploy 03:00–20:00 UTC (lihat `00-integration.md`); catatan backlog berupa bagian `###`. |
+
+
 Owner decision 2026-10-03. Branch `feat/alasan-terlambat`.
 
 ## 1. Goal & non-goals

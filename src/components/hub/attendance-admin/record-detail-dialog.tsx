@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { lateReasonAdminView } from "@/lib/attendance/late-reason-rules";
 import type { RecordDetailDto } from "@/lib/attendance/monitor-schemas";
 import { display, initials } from "@/lib/frontend/format";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
@@ -39,10 +40,12 @@ export function RecordDetailDialog({ target, date, onClose }: { target: DetailTa
 function DetailBody({ data }: { data: RecordDetailDto }) {
   const mocked = data.isMocked === null ? "—" : data.isMocked ? "Terdeteksi" : "Tidak terdeteksi";
   const coordinate = data.latitude !== null && data.longitude !== null ? `${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}` : "—";
+  const reason = lateReasonAdminView(data);
   return <div className="monitor-detail-grid">
     <Selfie data={data} />
     <div className="monitor-detail-main">
       <div className="monitor-detail-status"><AttPill status={data.status} />{data.lateMinutes ? <span className="muted">Terlambat {data.lateMinutes} menit</span> : null}</div>
+      {reason && <p className="monitor-note monitor-late-reason"><strong>{reason.title}:</strong> {reason.text}</p>}
       <dl className="monitor-facts">
         <Fact label="Jam masuk" value={data.checkInTimeLocal ?? "—"} />
         <Fact label="Sumber" value={SOURCE_LABEL[data.source]} />

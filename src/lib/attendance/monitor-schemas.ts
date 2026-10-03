@@ -3,6 +3,8 @@ import { pageQuerySchema } from "@/lib/http/pagination";
 import { diffDays, monthRange, parseLocalDate } from "@/lib/time/zone";
 import { ANOMALY_CODES } from "./anomaly-rules";
 import { ANALYTICS_MAX_RANGE_DAYS, ATTENDANCE_STATUSES, STUDENT_TREND_DEFAULT_MONTHS, STUDENT_TREND_MAX_MONTHS } from "./attendance-stats";
+import { LATE_REASON_CATEGORIES } from "./late-reason-rules";
+import { lateReasonSchema } from "./late-reason-schemas";
 
 /** Skema zod monitoring & analitik absensi admin (sumber validasi runtime + OpenAPI). */
 
@@ -80,6 +82,9 @@ export const anomaliesQuery = monitorScopeQuery
   .extend({ ...rangeShape, classId: classField, ...pageQuerySchema.shape })
   .superRefine(refineRange);
 
+/** Hitungan alasan terlambat (A1): default dari awal bulan `to` (atau bulan berjalan) s.d. hari ini. */
+export const lateReasonsQuery = monitorScopeQuery.extend({ ...rangeShape, classId: classField }).superRefine(refineRange);
+
 export const rejectionsQuery = monitorScopeQuery.extend({
   date: localDateInput.optional().meta({ description: "Default hari ini bila studentId kosong; dengan studentId tanpa date -> semua tanggal." }),
   studentId: idString.optional().meta({ description: "Siswa sekolah lain -> 404." }),
@@ -110,6 +115,7 @@ export type DailyQuery = z.infer<typeof dailyQuery>;
 export type MapQuery = z.infer<typeof mapQuery>;
 export type DateScopeQuery = z.infer<typeof dateScopeQuery>;
 export type AnomaliesQuery = z.infer<typeof anomaliesQuery>;
+export type LateReasonsQuery = z.infer<typeof lateReasonsQuery>;
 export type RejectionsQuery = z.infer<typeof rejectionsQuery>;
 export type MonthScopeQuery = z.infer<typeof monthScopeQuery>;
 export type ClassTrendQuery = z.infer<typeof classTrendQuery>;
@@ -122,6 +128,9 @@ const pctOut = z.number().nullable().meta({ description: "Persen satu desimal; n
 const statusOut = z.enum(ATTENDANCE_STATUSES);
 const sourceOut = z.enum(ATTENDANCE_SOURCES);
 const flagCodesOut = z.array(z.enum(ANOMALY_CODES)).meta({ description: "Kode flag anomali (terurut). Label & keparahan: lihat detail catatan." });
+const lateReasonOut = lateReasonSchema
+  .nullable()
+  .meta({ description: "Alasan terlambat dari siswa (A1). Tetap dikirim setelah koreksi admin (tampilkan sebagai 'sebelum dikoreksi' bila status/sumber berubah)." });
 
 export const countsSchema = z
   .object({ hadir: z.int(), terlambat: z.int(), izin: z.int(), sakit: z.int(), alpha: z.int() })
@@ -170,6 +179,7 @@ export const attendanceBriefSchema = z
     flags: flagCodesOut,
     leaveRequestId: z.string().nullable(),
     note: z.string().nullable(),
+    lateReason: lateReasonOut,
   })
   .meta({ id: "MonitorAttendanceBrief" });
 
@@ -213,6 +223,7 @@ const mapPointSchema = z.object({
   checkInTimeLocal: z.string().nullable(),
   hasAnomaly: z.boolean(),
   flags: flagCodesOut,
+  lateReasonCategory: z.enum(LATE_REASON_CATEGORIES).nullable().meta({ description: "Kategori alasan terlambat dari siswa (A1); null bila belum diisi." }),
 });
 
 const unlocatedSchema = z.object({
@@ -288,6 +299,7 @@ export const recordDetailSchema = z
     flags: z.array(z.object({ code: z.enum(ANOMALY_CODES), label: z.string(), severity: z.enum(["LOW", "MEDIUM", "HIGH"]) })),
     leaveRequestId: z.string().nullable(),
     note: z.string().nullable(),
+    lateReason: lateReasonOut,
     classId: z.string().nullable(),
     className: z.string().nullable().meta({ description: "Kelas snapshot saat dicatat." }),
     student: studentBriefSchema,

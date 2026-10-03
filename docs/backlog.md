@@ -60,3 +60,7 @@ TOTP super admin lain" ditunda (butuh step-up di atas agar tidak menjadi jalan p
 ### Kode pemulihan (recovery codes) TOTP
 Tidak ada kode cadangan; HP hilang = reset oleh operator via CLI. Kerjakan bila super admin tidak lagi
 punya akses shell ke VPS.
+
+### Alasan terlambat hari lampau / diisi wali kelas atas nama siswa (A1)
+Siswa hanya bisa mengisi alasan untuk absen hari ini, sebelum jam akhir hari sekolah; admin memakai catatan
+koreksi. Kerjakan bila wali kelas meminta mengisi alasan atas nama siswa atau siswa meminta mengubah hari lampau.

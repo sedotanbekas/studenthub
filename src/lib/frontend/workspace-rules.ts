@@ -126,6 +126,7 @@ export const VIEW_LABELS: Readonly<Record<string, string>> = {
   monitorAttendanceRecap: "Rekap kelas",
   monitorAttendanceAnomalies: "Perlu ditinjau",
   monitorCheckInRejections: "Absen ditolak",
+  monitorLateReasons: "Alasan terlambat",
   listSchoolLeaveRequests: "Izin & sakit",
 };
 

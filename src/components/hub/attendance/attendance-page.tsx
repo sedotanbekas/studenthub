@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import type { LateReasonDto } from "@/lib/attendance/late-reason-rules";
+import type { LateReasonResultDto } from "@/lib/attendance/late-reason-schemas";
 import type { HistoryDto, TodayDto } from "@/lib/attendance/student-schemas";
 import { isMobileBrowserAgent } from "@/lib/auth/device";
 import { api, ApiError } from "@/lib/frontend/api";
@@ -12,6 +14,7 @@ import { Status } from "../data-view";
 import { Icon } from "../icon";
 import { afterPageSlide } from "../page-slide";
 import { CheckInFlow } from "./check-in-flow";
+import { LateReasonPanel } from "./late-reason-form";
 
 /** Halaman "Absensi" siswa: status hari ini + tombol absen (alur layar penuh) + riwayat bulanan. */
 type TodayState = { kind: "loading" } | { kind: "ready"; today: TodayDto } | { kind: "error"; code: string; message: string };
@@ -30,9 +33,13 @@ function useToday(version: number): TodayState {
 }
 
 export function AttendancePage() {
+  const { demo } = useHub();
   const [version, setVersion] = useState(0);
   const [open, setOpen] = useState(false);
+  // Mode demo tidak menyimpan: alasan yang baru diisi ditampilkan dari state lokal (muat ulang = hilang).
+  const [demoReason, setDemoReason] = useState<LateReasonDto | null>(null);
   const state = useToday(version);
+  const onReasonSaved = (result: LateReasonResultDto) => { if (demo) setDemoReason(result.lateReason); else setVersion(v => v + 1); };
   const canCheckIn = state.kind === "ready" && state.today.canCheckIn;
   useEffect(() => {
     if (!canCheckIn || new URLSearchParams(window.location.search).get("absen") !== "1") return;
@@ -44,18 +51,23 @@ export function AttendancePage() {
     <div className="page-heading"><div><h1>Absensi</h1><p>Absen masuk dengan lokasi dan foto wajah dari HP.</p></div></div>
     {state.kind === "loading" ? <div className="panel"><div className="skeleton" /><div className="skeleton" /></div>
       : state.kind === "error" ? state.code === "CHECKIN_MOBILE_ONLY" ? <MobileOnly /> : <div className="error-message" role="alert">{state.message}<button className="text-button" onClick={() => setVersion(v => v + 1)}>Coba lagi</button></div>
-      : <TodayCard today={state.today} onStart={() => setOpen(true)} />}
+      : <TodayCard today={state.today} demoReason={demoReason} onStart={() => setOpen(true)} onReasonSaved={onReasonSaved} />}
     <HistoryPanel version={version} />
     {open && state.kind === "ready" && <CheckInFlow today={state.today} onClose={() => setOpen(false)} onDone={() => setVersion(v => v + 1)} />}
   </div>;
 }
 
-function TodayCard({ today, onStart }: { today: TodayDto; onStart: () => void }) {
+interface TodayCardProps { today: TodayDto; demoReason: LateReasonDto | null; onStart: () => void; onReasonSaved: (result: LateReasonResultDto) => void }
+
+function TodayCard({ today, demoReason, onStart, onReasonSaved }: TodayCardProps) {
   const headline = todayHeadline(today);
+  const record = today.record;
+  const late = record?.status === "TERLAMBAT";
   return <section className={`today-card tone-${headline.tone}`} aria-labelledby="today-title">
     <div><span className="kicker">Hari ini</span><h2 id="today-title">{headline.title}</h2><p>{headline.note}</p>
       {today.pendingLeave && <p className="today-leave">Pengajuan {label(today.pendingLeave.type).toLowerCase()} kamu masih menunggu persetujuan. Absen masuk akan menggantikannya.</p>}</div>
     {today.canCheckIn && <button className="button primary large" onClick={onStart}><Icon name="location" size={20} />Absen sekarang</button>}
+    {late && record && <LateReasonPanel reason={demoReason ?? record.lateReason} editable={record.lateReasonEditable} onSaved={onReasonSaved} />}
   </section>;
 }
 

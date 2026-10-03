@@ -1,6 +1,8 @@
 import type { AnomalyCode, AnomalySeverity } from "@/lib/attendance/anomaly-rules";
+import { countLateReasons, type LateReasonCode, type LateReasonDto } from "@/lib/attendance/late-reason-rules";
+import type { LateReasonCountsDto } from "@/lib/attendance/late-reason-schemas";
 import type { DailyRowDto, MapDto, RecordDetailDto } from "@/lib/attendance/monitor-schemas";
-import { instantAtLocal, localParts } from "@/lib/time/zone";
+import { formatMinute, instantAtLocal, localParts } from "@/lib/time/zone";
 
 /**
  * Data contoh monitoring absensi admin sekolah (peta check-in) untuk mode demo. Bentuk persis DTO
@@ -69,6 +71,16 @@ const UNLOCATED: readonly (readonly [string, LeaveStatus, string | null])[] = [
   ["s1", "BELUM_ABSEN", null], ["d33", "BELUM_ABSEN", null], ["d35", "BELUM_ABSEN", null], ["d42", "BELUM_ABSEN", null],
 ];
 
+/** Alasan terlambat contoh (A1): diisi siswa 2 menit setelah absen; Citra (s3) belum mengisi. */
+const LATE_REASONS: Readonly<Record<string, readonly [LateReasonCode, string | null]>> = {
+  d16: ["TRANSPORT", null],
+  d29: ["WEATHER", "Hujan deras, menunggu reda di halte."],
+  d18: ["OVERSLEPT", null],
+  d23: ["FAMILY", "Mengantar adik ke SD dulu."],
+  d20: ["OTHER", "Ban sepeda bocor di jalan."],
+};
+const REASON_DELAY_MINUTES = 2;
+
 const FLAG_TEXT: Readonly<Partial<Record<AnomalyCode, readonly [string, AnomalySeverity]>>> = {
   DEVICE_SESSION_MISMATCH: ["Perangkat berbeda dengan perangkat saat login", "MEDIUM"],
   GEOFENCE_TOLERANCE: ["Di luar radius, diterima karena toleransi akurasi GPS", "LOW"],
@@ -103,7 +115,7 @@ function toPoint([id, time, spot, accuracyM, flags = []]: LocatedSpec): MapPoint
   return {
     attendanceId: attendanceIdOf(id), studentId: id, name: s.name, nis: s.nis, className: s.className,
     status: time > LATE_AFTER ? "TERLAMBAT" : "HADIR", ...coord, accuracyM, distanceM: distanceFromSchool(coord),
-    checkInTimeLocal: time, hasAnomaly: flagsHaveAnomaly(flags), flags: [...flags],
+    checkInTimeLocal: time, hasAnomaly: flagsHaveAnomaly(flags), flags: [...flags], lateReasonCategory: LATE_REASONS[id]?.[0] ?? null,
   };
 }
 
@@ -143,23 +155,38 @@ export function demoDailyRows(date: string = todayWib()): DailyRowDto[] {
   const brief = (id: string) => { const s = student(id); return { id, nis: s.nis, nisn: s.nisn, name: s.name, className: s.className }; };
   const located = map.points.map((p): DailyRowDto => ({
     student: brief(p.studentId),
-    attendance: { id: p.attendanceId, status: p.status, source: "CHECKIN", checkInTimeLocal: p.checkInTimeLocal, lateMinutes: p.status === "TERLAMBAT" ? minuteOf(p.checkInTimeLocal ?? "07:00") - DAY_START_MINUTE : null, distanceM: p.distanceM, accuracyM: p.accuracyM, hasAnomaly: p.hasAnomaly, flags: p.flags, leaveRequestId: null, note: null },
+    attendance: { id: p.attendanceId, status: p.status, source: "CHECKIN", checkInTimeLocal: p.checkInTimeLocal, lateMinutes: p.status === "TERLAMBAT" ? minuteOf(p.checkInTimeLocal ?? "07:00") - DAY_START_MINUTE : null, distanceM: p.distanceM, accuracyM: p.accuracyM, hasAnomaly: p.hasAnomaly, flags: p.flags, leaveRequestId: null, note: null, lateReason: lateReasonOf(p, date) },
   }));
   const others = map.unlocated.map((u): DailyRowDto => {
     const detail = u.attendanceId ? demoAttendanceDetail(u.attendanceId, date) : null;
-    return { student: brief(u.studentId), attendance: detail && { id: detail.id, status: detail.status, source: detail.source, checkInTimeLocal: null, lateMinutes: null, distanceM: null, accuracyM: null, hasAnomaly: false, flags: [], leaveRequestId: detail.leaveRequestId, note: detail.note } };
+    return { student: brief(u.studentId), attendance: detail && { id: detail.id, status: detail.status, source: detail.source, checkInTimeLocal: null, lateMinutes: null, distanceM: null, accuracyM: null, hasAnomaly: false, flags: [], leaveRequestId: detail.leaveRequestId, note: detail.note, lateReason: null } };
   });
   return [...located, ...others].sort((a, b) => (a.student.className ?? "").localeCompare(b.student.className ?? "") || a.student.name.localeCompare(b.student.name));
+}
+
+/** Hitungan alasan terlambat contoh dari data peta yang SAMA (6 terlambat: 5 diisi, 1 belum). */
+export function demoLateReasonCounts(date: string = todayWib()): LateReasonCountsDto {
+  const late = demoAttendanceMap({ date }).points.filter(p => p.status === "TERLAMBAT");
+  const counts = countLateReasons(late.map(p => ({ category: p.lateReasonCategory, source: "CHECKIN", count: 1 })));
+  return { from: `${date.slice(0, 7)}-01`, to: date, ...counts };
 }
 
 export function demoMonitorRows(path: string): unknown {
   if (path === "/school/attendance/map") return demoAttendanceMap();
   if (path === "/school/attendance/daily") return demoDailyRows();
+  if (path === "/school/attendance/late-reasons") return demoLateReasonCounts();
   return undefined;
 }
 
 const minuteOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 const isoAt = (date: string, minute: number, secondsBack = 0) => new Date(instantAtLocal(date, minute, "WIB").getTime() - secondsBack * 1000).toISOString();
+
+function lateReasonOf(point: MapPoint, date: string): LateReasonDto | null {
+  const reason = point.status === "TERLAMBAT" ? LATE_REASONS[point.studentId] : undefined;
+  if (!reason) return null;
+  const minute = minuteOf(point.checkInTimeLocal ?? "07:00") + REASON_DELAY_MINUTES;
+  return { category: reason[0], note: reason[1], timeLocal: formatMinute(minute), updatedAt: isoAt(date, minute) };
+}
 
 function detailBase(id: string, date: string): Omit<RecordDetailDto, "status" | "source"> {
   const s = student(id);
@@ -167,7 +194,7 @@ function detailBase(id: string, date: string): Omit<RecordDetailDto, "status" | 
   return {
     id: attendanceIdOf(id), date, checkInAt: null, checkInTimeLocal: null, lateMinutes: null, latitude: null, longitude: null,
     accuracyM: null, distanceM: null, isMocked: null, deviceId: null, locationCapturedAt: null, hasAnomaly: false, flags: [],
-    leaveRequestId: null, note: null, classId: null, className: s.className, student: { id, nis: s.nis, nisn: s.nisn, name: s.name, className: s.className },
+    leaveRequestId: null, note: null, lateReason: null, classId: null, className: s.className, student: { id, nis: s.nis, nisn: s.nisn, name: s.name, className: s.className },
     selfie: null, rejectionsSameDay: [], audit: [], createdAt: created, updatedAt: created,
   };
 }
@@ -182,7 +209,7 @@ function pointDetail(point: MapPoint, date: string): RecordDetailDto {
     ...detailBase(point.studentId, date), status: point.status, source: "CHECKIN", checkInAt: at, checkInTimeLocal: point.checkInTimeLocal,
     lateMinutes: point.status === "TERLAMBAT" ? minute - DAY_START_MINUTE : null, latitude: point.latitude, longitude: point.longitude,
     accuracyM: point.accuracyM, distanceM: point.distanceM, isMocked: false, deviceId, locationCapturedAt: isoAt(date, minute, 6),
-    hasAnomaly: point.hasAnomaly, flags: point.flags.map(code => ({ code, label: FLAG_TEXT[code]?.[0] ?? code, severity: FLAG_TEXT[code]?.[1] ?? "LOW" })),
+    hasAnomaly: point.hasAnomaly, flags: point.flags.map(code => ({ code, label: FLAG_TEXT[code]?.[0] ?? code, severity: FLAG_TEXT[code]?.[1] ?? "LOW" })), lateReason: lateReasonOf(point, date),
     selfie: { fileId: `demo-selfie-${point.studentId}`, url: null, purged: false }, rejectionsSameDay: outside ? [rejection] : [], createdAt: at, updatedAt: at,
   };
 }

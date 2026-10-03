@@ -5,6 +5,7 @@ import { DEVICE_ID_PATTERN } from "@/lib/auth/constants";
 import { DAY_REASONS } from "@/lib/calendar/rules";
 import { FACE_CHECKS } from "./anomaly-rules";
 import { LOCATION_REJECT_CODES } from "./check-in-rules";
+import { lateReasonSchema } from "./late-reason-schemas";
 
 /** Skema zod v4 endpoint absensi siswa: hari ini, precheck, check-in, riwayat bulanan, ringkasan semester. */
 
@@ -125,6 +126,11 @@ export const PRECHECK_REASONS = [...BLOCK_REASONS, ...LOCATION_REJECT_CODES] as 
 
 const statusSchema = z.enum(AttendanceStatus);
 const sourceSchema = z.enum(AttendanceSource);
+/** Alasan terlambat (A1): tersimpan + boleh diisi/diubah sekarang (hanya CHECKIN TERLAMBAT hari ini). */
+const lateReasonShape = {
+  lateReason: lateReasonSchema.nullable().meta({ description: "Alasan terlambat yang diisi siswa; null bila belum ada." }),
+  lateReasonEditable: z.boolean().meta({ description: "true bila siswa boleh mengisi/mengubah alasan sekarang (PUT /student/attendance/today/late-reason)." }),
+};
 
 export const todaySchema = z
   .object({
@@ -148,7 +154,7 @@ export const todaySchema = z
       })
       .meta({ description: "Area absensi sekolah. Titik pusat dikirim untuk peta (keputusan klien 2026-09-25: lokasi sekolah sendiri bukan rahasia)." }),
     record: z
-      .object({ id: z.string(), status: statusSchema, source: sourceSchema, checkInTimeLocal: TIME_LOCAL.nullable(), lateMinutes: z.int().nullable() })
+      .object({ id: z.string(), status: statusSchema, source: sourceSchema, checkInTimeLocal: TIME_LOCAL.nullable(), lateMinutes: z.int().nullable(), ...lateReasonShape })
       .nullable(),
     pendingLeave: z
       .object({ id: z.string(), type: z.enum(LeaveType), startDate: dateOutSchema, endDate: dateOutSchema })
@@ -171,6 +177,7 @@ export const checkInAttendanceSchema = z
     checkInTimeLocal: TIME_LOCAL,
     distanceM: z.int().nullable(),
     source: sourceSchema,
+    ...lateReasonShape,
   })
   .meta({ id: "AttendanceCheckInRecord" });
 

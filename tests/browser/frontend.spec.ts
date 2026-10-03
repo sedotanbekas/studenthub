@@ -168,6 +168,24 @@ test("sesi demo: keluar dari halaman admin lalu masuk sebagai siswa mendarat di 
   await expect(page.getByRole("heading", { level: 1, name: "Bima Aditya Pratama" })).toBeVisible();
 });
 
+test("siswa (demo) terlambat: isi alasan dari kartu hari ini; Nanti saja menutup formulir", async ({ page }) => {
+  const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
+  await page.goto("/hub");
+  await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Citra" }).click();
+  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Absensi" }).click();
+  await expect(page.getByText("Alasan terlambat belum diisi.")).toBeVisible();
+  await page.getByRole("button", { name: "Isi alasan" }).click();
+  await page.getByRole("button", { name: "Nanti saja" }).click();
+  await expect(page.getByRole("radiogroup", { name: "Alasan terlambat" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Isi alasan" }).click();
+  await expect(page.getByRole("button", { name: "Simpan alasan" })).toBeDisabled();
+  await page.getByRole("radio", { name: "Hujan / cuaca" }).click();
+  await page.getByRole("button", { name: "Simpan alasan" }).click();
+  await expect(page.locator(".late-reason-line")).toContainText("Alasan: Hujan / cuaca");
+  await expect(page.getByText(/Mode demo: alasan tersimpan \(simulasi\)/)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("privasi demo: siswa hanya melihat rapor dan tagihan miliknya", async ({ page }) => {
   await page.goto("/hub");
   await page.getByRole("button", { name: "Masuk demo sebagai Siswa · Citra" }).click();

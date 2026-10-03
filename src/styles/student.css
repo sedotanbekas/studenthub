@@ -40,6 +40,17 @@
 .today-card.tone-warning { border-left-color: var(--warning); }
 .today-card.tone-neutral { border-left-color: var(--muted); }
 .today-leave { font-weight: 600; color: var(--warning-ink); }
+/* Alasan terlambat (A1): selalu sebaris di halaman, tidak pernah modal. */
+.late-reason-panel { flex-basis: 100%; display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.late-reason-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; font-weight: 600; }
+.late-reason-review, .late-reason-done { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--radius); background: var(--paper); border: 2px solid var(--line-soft); text-align: left; width: 100%; }
+.late-reason-review h3, .late-reason-done h3 { font-size: 17px; }
+.late-reason-picker, .late-reason-form { display: flex; flex-direction: column; gap: 10px; }
+.late-reason-chips .review-chip[aria-checked="true"] { border-color: var(--primary-line); background: var(--primary-soft); color: var(--primary-ink); }
+.late-reason-note { display: flex; flex-direction: column; gap: 4px; font-weight: 700; }
+.late-reason-note textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-weight: 500; }
+.late-reason-note small { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; }
+.late-reason-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .month-nav { display: flex; gap: 4px; }
 .summary-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
 .summary-strip div { padding: 12px; border-radius: var(--radius-sm); background: var(--bg); text-align: center; }

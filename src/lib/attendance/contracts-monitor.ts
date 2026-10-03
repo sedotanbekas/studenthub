@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
+import { lateReasonCountsSchema } from "./late-reason-schemas";
 import {
   anomaliesQuery,
   anomalyRowSchema,
@@ -11,6 +12,7 @@ import {
   dailyQuery,
   dailyRowSchema,
   dateScopeQuery,
+  lateReasonsQuery,
   mapMetaSchema,
   mapQuery,
   mapSchema,
@@ -218,6 +220,22 @@ export const recordDetailContract = defineContract({
   errors: ["SCHOOL_NOT_FOUND"],
 });
 
+export const lateReasonsContract = defineContract({
+  id: "monitorLateReasons",
+  method: "GET",
+  path: "/api/v1/school/attendance/late-reasons",
+  tag: TAG,
+  summary: "Alasan terlambat per kategori",
+  description:
+    "Catatan berstatus TERLAMBAT dalam rentang (default awal bulan `to` / bulan berjalan s.d. hari ini, termasuk hari berjalan; maks. 92 hari) per kategori alasan siswa. " +
+    "filled = berkategori (juga bila dikoreksi tetap TERLAMBAT); unfilled = check-in sendiri tanpa alasan; TERLAMBAT yang dicatat admin tanpa alasan dan " +
+    `catatan yang dikoreksi menjadi status lain tidak dihitung. classId = kelas snapshot. ${SCOPE_NOTE}`,
+  action: ACTION,
+  query: lateReasonsQuery,
+  response: lateReasonCountsSchema,
+  errors: ["SCHOOL_NOT_FOUND", "CLASS_NOT_FOUND"],
+});
+
 export const attendanceMonitorContracts: readonly AnyContract[] = [
   todayStatsContract,
   dailyContract,
@@ -231,5 +249,6 @@ export const attendanceMonitorContracts: readonly AnyContract[] = [
   schoolTrendContract,
   studentTrendContract,
   studentMonthContract,
+  lateReasonsContract,
   recordDetailContract,
 ];

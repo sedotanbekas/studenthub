@@ -1,5 +1,6 @@
 import { defineContract, type AnyContract } from "@/lib/http/contract";
 import { CHECKIN_MAX_BODY_BYTES, HISTORY_MAX_MONTHS_BACK } from "./constants";
+import { lateReasonBody, lateReasonResultSchema } from "./late-reason-schemas";
 import {
   checkInBody,
   checkInResultSchema,
@@ -86,6 +87,25 @@ export const checkInAttendanceContract = defineContract({
   ],
 });
 
+export const lateReasonContract = defineContract({
+  id: "setOwnLateReason",
+  method: "PUT",
+  path: "/api/v1/student/attendance/today/late-reason",
+  tag: TAG,
+  summary: "Isi/ubah alasan terlambat hari ini",
+  description:
+    "Opsional: alasan TIDAK PERNAH menahan atau menolak absen; server sendiri yang menentukan terlambat. Hanya untuk catatan check-in sendiri " +
+    "berstatus TERLAMBAT pada tanggal lokal hari ini (422 NO_ATTENDANCE_TODAY / ATTENDANCE_NOT_LATE); setelah dikoreksi admin -> 409 LATE_REASON_LOCKED; " +
+    "setelah jam akhir hari sekolah (dayEndMinute) -> 422 LATE_REASON_DAY_CLOSED. Boleh diubah sebelum itu (setiap perubahan diaudit tanpa teks keterangan); " +
+    "alasan sama -> unchanged=true tanpa audit. Tanpa notifikasi. Tidak harus sesi HP. " +
+    `Rate limit LATE_REASON 10 / 10 menit. ${SELF_NOTE}`,
+  action: "attendance.self",
+  body: lateReasonBody,
+  response: lateReasonResultSchema,
+  rateLimit: { limiter: "LATE_REASON", key: "user" },
+  errors: ["STUDENT_NOT_ACTIVE", "NO_ATTENDANCE_TODAY", "ATTENDANCE_NOT_LATE", "LATE_REASON_DAY_CLOSED", "LATE_REASON_LOCKED", "CONFLICT_RETRY"],
+});
+
 export const attendanceMonthContract = defineContract({
   id: "listOwnAttendanceMonth",
   method: "GET",
@@ -116,6 +136,7 @@ export const attendanceStudentContracts: readonly AnyContract[] = [
   todayAttendanceContract,
   precheckAttendanceContract,
   checkInAttendanceContract,
+  lateReasonContract,
   attendanceMonthContract,
   attendanceSummaryContract,
 ];

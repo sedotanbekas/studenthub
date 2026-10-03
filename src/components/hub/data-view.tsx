@@ -1,4 +1,5 @@
 "use client";
+import { lateReasonShort, type LateReasonCode } from "@/lib/attendance/late-reason-rules";
 import { display, initials, label } from "@/lib/frontend/format";
 import type { Row } from "@/lib/frontend/types";
 import { isHiddenField } from "@/lib/frontend/workspace-rules";
@@ -13,8 +14,15 @@ export function Status({ value }: { value: unknown }) {
 function Cell({ value, name }: { value: unknown; name: string }) {
   if (name === "status" || name === "displayStatus") return <Status value={value} />;
   if (name === "name" || name === "student") return <span className="person-cell"><span className="avatar table-avatar">{initials(display(value))}</span><span><strong>{display(value)}</strong>{typeof value === "object" && value && <small>{String((value as Row).nisn ?? (value as Row).className ?? "")}</small>}</span></span>;
-  if (name === "attendance" && value && typeof value === "object") return <span className="attendance-cell"><Status value={(value as Row).status} /><small>{String((value as Row).checkInTimeLocal ?? "")}</small></span>;
+  if (name === "attendance" && value && typeof value === "object") return <AttendanceCell row={value as Row} />;
   return <span className="cell-text">{display(value, name)}</span>;
+}
+/** Status + jam masuk; siswa terlambat yang mengisi alasan: "07:31 · Hujan / cuaca" (A1). */
+function AttendanceCell({ row }: { row: Row }) {
+  const reason = row.status === "TERLAMBAT" ? (row.lateReason as { category: LateReasonCode } | null | undefined) ?? null : null;
+  const time = String(row.checkInTimeLocal ?? "");
+  const text = reason ? [time, lateReasonShort(reason)].filter(Boolean).join(" · ") : time;
+  return <span className="attendance-cell"><Status value={row.status} /><small>{text}</small></span>;
 }
 /** Kolom pilihan per tampilan; selain itu 6 kolom pertama data. */
 export function DataTable({ rows, onSelect, columns }: { rows: Row[]; onSelect?: (row: Row) => void; columns?: readonly string[] }) {

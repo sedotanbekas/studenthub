@@ -2,7 +2,7 @@ import { ADMINS, type PolicyRule } from "./types";
 
 /** Aksi POLICY domain absensi (check-in, izin/sakit, monitoring, koreksi). */
 export const attendancePolicy = {
-  /** Siswa aktif: lihat status hari ini, precheck lokasi, check-in. */
+  /** Siswa aktif: lihat status hari ini, precheck lokasi, check-in, isi/ubah alasan terlambat hari ini (A1). */
   "attendance.self": { roles: ["STUDENT"] },
   /** Riwayat & ringkasan milik sendiri (siswa lulus tetap boleh membaca). */
   "attendance.self.read": { roles: ["STUDENT"], studentStatuses: ["ACTIVE", "GRADUATED"] },

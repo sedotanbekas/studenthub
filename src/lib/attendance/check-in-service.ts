@@ -25,6 +25,7 @@ import { decisionInputOf, findAttendance, loadAnomalyEvidence, loadCheckInContex
 import { LEAVE_CONVERSION_NOTE, SHARED_DEVICE_MAX_ROWS, STORED_COORD_DECIMALS } from "./constants";
 import { haversineMeters } from "./geo";
 import { logRejectionSafely } from "./rejection-log";
+import { lateReasonClock } from "./late-reason-rules";
 import { ATTENDANCE_ROW_SELECT, checkInMessage, toCheckInAttendanceDto, type AttendanceRow } from "./student-dto";
 import type { CheckInBody, CheckInResultDto } from "./student-schemas";
 
@@ -105,7 +106,7 @@ function requireRow(row: AttendanceRow | null): AttendanceRow {
 }
 
 function replayOutcome(row: AttendanceRow, context: CheckInContext): CheckInOutcome {
-  const attendance = toCheckInAttendanceDto(row, context.school.timezone);
+  const attendance = toCheckInAttendanceDto(row, context.school.timezone, lateReasonClock(context.local, context.school.dayEndMinute));
   return { status: 200, result: { attendance, replayed: true, message: checkInMessage(attendance, true) } };
 }
 
@@ -154,7 +155,7 @@ async function acceptCheckIn(
   const outcome = await writeCheckIn(plan);
   if (outcome.kind === "REPLAY") return replayOutcome(outcome.row, context);
   if (outcome.kind === "CONFLICT") throw alreadyRecorded(outcome.row);
-  const attendance = toCheckInAttendanceDto(outcome.row, context.school.timezone);
+  const attendance = toCheckInAttendanceDto(outcome.row, context.school.timezone, lateReasonClock(context.local, context.school.dayEndMinute));
   return { status: 201, result: { attendance, replayed: false, message: checkInMessage(attendance, false) } };
 }
 

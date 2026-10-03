@@ -1,6 +1,7 @@
-import type { AttendanceSource, AttendanceStatus } from "@prisma/client";
+import type { AttendanceSource, AttendanceStatus, LateReasonCategory } from "@prisma/client";
 import { formatMinute, fromDbDate, localParts, type LocalDate, type SchoolTz } from "@/lib/time/zone";
 import { HISTORY_MAX_MONTHS_BACK } from "./constants";
+import { canEditLateReason, toLateReasonDto, type LateReasonClock, type LateReasonDto } from "./late-reason-rules";
 import type { HistoryDto, SummaryDto, TodayDto } from "./student-schemas";
 
 /**
@@ -17,6 +18,9 @@ export const ATTENDANCE_ROW_SELECT = {
   lateMinutes: true,
   distanceM: true,
   leaveRequestId: true,
+  lateReasonCategory: true,
+  lateReasonNote: true,
+  lateReasonAt: true,
 } as const;
 
 export interface AttendanceRow {
@@ -28,6 +32,22 @@ export interface AttendanceRow {
   readonly lateMinutes: number | null;
   readonly distanceM: number | null;
   readonly leaveRequestId: string | null;
+  readonly lateReasonCategory: LateReasonCategory | null;
+  readonly lateReasonNote: string | null;
+  readonly lateReasonAt: Date | null;
+}
+
+/** Alasan terlambat tersimpan + boleh diisi/diubah siswa (hanya CHECKIN TERLAMBAT hari ini sebelum hari ditutup, A1). */
+export interface LateReasonFields {
+  lateReason: LateReasonDto | null;
+  lateReasonEditable: boolean;
+}
+
+export function lateReasonFieldsOf(row: AttendanceRow, tz: SchoolTz, clock: LateReasonClock): LateReasonFields {
+  return {
+    lateReason: toLateReasonDto(row, tz),
+    lateReasonEditable: canEditLateReason({ status: row.status, source: row.source, date: fromDbDate(row.date) }, clock),
+  };
 }
 
 export type CheckInAttendanceDto = {
@@ -39,7 +59,7 @@ export type CheckInAttendanceDto = {
   checkInTimeLocal: string;
   distanceM: number | null;
   source: AttendanceSource;
-};
+} & LateReasonFields;
 
 export type StatusCounts = Readonly<Record<AttendanceStatus, number>>;
 export type HistoryDay = HistoryDto["days"][number];
@@ -51,7 +71,7 @@ export function localTimeOf(instant: Date | null, tz: SchoolTz): string | null {
   return instant === null ? null : formatMinute(localParts(instant, tz).minuteOfDay);
 }
 
-export function toCheckInAttendanceDto(row: AttendanceRow, tz: SchoolTz): CheckInAttendanceDto {
+export function toCheckInAttendanceDto(row: AttendanceRow, tz: SchoolTz, clock: LateReasonClock): CheckInAttendanceDto {
   if (row.checkInAt === null) throw new Error("Baris CHECKIN tanpa checkInAt (melanggar chk_attendance_checkin)");
   return {
     id: row.id,
@@ -62,12 +82,20 @@ export function toCheckInAttendanceDto(row: AttendanceRow, tz: SchoolTz): CheckI
     checkInTimeLocal: formatMinute(localParts(row.checkInAt, tz).minuteOfDay),
     distanceM: row.distanceM,
     source: row.source,
+    ...lateReasonFieldsOf(row, tz, clock),
   };
 }
 
-export function toTodayRecord(row: AttendanceRow | null, tz: SchoolTz): TodayDto["record"] {
+export function toTodayRecord(row: AttendanceRow | null, tz: SchoolTz, clock: LateReasonClock): TodayDto["record"] {
   if (row === null) return null;
-  return { id: row.id, status: row.status, source: row.source, checkInTimeLocal: localTimeOf(row.checkInAt, tz), lateMinutes: row.lateMinutes };
+  return {
+    id: row.id,
+    status: row.status,
+    source: row.source,
+    checkInTimeLocal: localTimeOf(row.checkInAt, tz),
+    lateMinutes: row.lateMinutes,
+    ...lateReasonFieldsOf(row, tz, clock),
+  };
 }
 
 export function toHistoryDay(row: AttendanceRow, tz: SchoolTz): HistoryDay {

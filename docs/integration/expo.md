@@ -207,6 +207,16 @@ Penolakan (urutan pemeriksaan server):
 
 Precheck + check-in berbagi limiter `CHECK_IN`: 10 permintaan / 10 menit per siswa.
 
+**Alasan terlambat (opsional, A1).** Bila precheck `wouldBeLate=true`, tampilkan pilihan "Kenapa terlambat?" di layar
+tinjau tanpa pernah menahan tombol kirim. Setelah check-in (201/200) berstatus `TERLAMBAT` dengan
+`attendance.lateReason = null` dan `lateReasonEditable = true`, kirim `PUT /student/attendance/today/late-reason`
+`{category, note?}` **terpisah** (gagal = coba lagi; absen tetap tercatat). Kode kategori dan label dari
+`GET /meta/enums` (`LateReasonCategory`); `OTHER` wajib keterangan ≥ 5 karakter. `today.record` membawa
+`lateReason` + `lateReasonEditable` agar kartu hari ini bisa menawarkan "Isi alasan"/"Ubah". Error: 422
+`NO_ATTENDANCE_TODAY` / `ATTENDANCE_NOT_LATE` / `LATE_REASON_DAY_CLOSED` (setelah jam akhir hari sekolah), 409
+`LATE_REASON_LOCKED` (sudah dikoreksi sekolah). Limiter terpisah `LATE_REASON` (10 / 10 menit). Tidak perlu sesi
+perangkat absen.
+
 Riwayat: `GET /student/attendance?month=YYYY-MM` (meta `{prevMonth, nextMonth}`, maks 24 bulan ke
 belakang, 422 `MONTH_OUT_OF_RANGE`), ringkasan semester `GET /student/attendance/summary?termId=…`.
 Siswa LULUS tetap bisa membaca riwayat.
@@ -323,6 +333,7 @@ const deviceType = Device.DeviceType[Device.deviceType ?? Device.DeviceType.UNKN
 | `REFRESH_IP` | 600 / menit | `/auth/refresh` | IP |
 | `CHANGE_PASSWORD` | 5 kata sandi lama salah / 15 menit | `/auth/change-password` | akun |
 | `CHECK_IN` | 10 / 10 menit | precheck + check-in | siswa |
+| `LATE_REASON` | 10 / 10 menit | `/student/attendance/today/late-reason` | siswa |
 | `UPLOAD` | 30 / 10 menit | izin + bukti SPP | siswa |
 | `AD_IMPRESSION` | 30 / menit | `/student/ads/impressions` | siswa |
 | `AD_CLICK` | 10 / menit | `/student/ads/clicks` | siswa |
@@ -336,6 +347,7 @@ Semua 429 membawa `Retry-After` (detik) dan `error.details.retryAfterSeconds`. L
 - [ ] Login pertama → wajib ganti kata sandi → menu terbuka tanpa login ulang.
 - [ ] Check-in: precheck dulu, foto dikompres JPEG, ulang kirim aman (200 `replayed`).
 - [ ] Lokasi palsu di Android menampilkan pesan penolakan (tidak ada jalan pintas di klien).
+- [ ] Terlambat: alasan opsional tidak pernah menahan kirim; PUT alasan gagal tidak membatalkan absen.
 - [ ] Unggahan izin & bukti SPP menangani 413/415/422 gambar.
 - [ ] Push dibuka → navigasi sesuai `screen` → `/notifications/{id}/read`.
 - [ ] Slider: impresi hanya saat terlihat, klik membuka `targetUrl` dari respons klik.

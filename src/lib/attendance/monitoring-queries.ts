@@ -147,6 +147,9 @@ export const attendanceBriefSelect = {
   anomalyFlags: true,
   leaveRequestId: true,
   note: true,
+  lateReasonCategory: true,
+  lateReasonNote: true,
+  lateReasonAt: true,
 } satisfies Prisma.AttendanceSelect;
 
 // ----------------------------------------------------------------------------- kartu hari ini
@@ -425,6 +428,7 @@ const mapRowSelect = {
   checkInAt: true,
   hasAnomaly: true,
   anomalyFlags: true,
+  lateReasonCategory: true,
   student: { select: mapStudentSelect },
   schoolClass: { select: { name: true } },
 } satisfies Prisma.AttendanceSelect;
@@ -449,6 +453,7 @@ function toMapPoint(row: MapRow, tz: SchoolTz): MapDto["points"][number] {
     checkInTimeLocal: timeLocal(row.checkInAt, tz),
     hasAnomaly: row.hasAnomaly,
     flags: parseFlags(row.anomalyFlags),
+    lateReasonCategory: row.lateReasonCategory,
   };
 }
 

@@ -179,3 +179,11 @@ test("cameraHint: wajah belum/tidak terdeteksi tetap boleh memotret, dengan cata
   assert.match(cameraHint("loading", notYet, false), /^Menyiapkan pendeteksi wajah… Foto tetap bisa diambil/);
   assert.match(cameraHint("failed", notYet, false), /^Pendeteksi wajah tidak tersedia. Foto tetap bisa diambil/);
 });
+
+test("demoWouldBeLate: setelah batas tepat waktu (jam lokal sekolah) -> terlambat", async () => {
+  const { demoWouldBeLate } = await import("./attendance");
+  const today = { timezone: "WIB", window: { lateAfter: "07:15" } };
+  assert.equal(demoWouldBeLate(today, new Date("2026-09-25T00:15:00.000Z")), false, "07:15 WIB masih tepat waktu");
+  assert.equal(demoWouldBeLate(today, new Date("2026-09-25T00:16:00.000Z")), true);
+  assert.equal(demoWouldBeLate({ timezone: "WIT", window: { lateAfter: "07:15" } }, new Date("2026-09-25T00:16:00.000Z")), true, "09:16 WIT");
+});

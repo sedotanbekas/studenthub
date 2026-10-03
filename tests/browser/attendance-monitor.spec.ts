@@ -189,3 +189,16 @@ test("desktop: baris terpilih digulir sampai lepas dari label sticky daftar", as
   await expect.poll(async () => (await rowTop()) - (await labelBottom())).toBeGreaterThanOrEqual(0);
   expect(await scroller.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
 });
+
+test("alasan terlambat: tag di daftar dan blok di detail (Putra Mahendra · Transportasi / macet)", async ({ page }) => {
+  await openAsSchoolAdmin(page);
+  const located = page.getByRole("list", { name: "Siswa dengan lokasi" });
+  const row = located.getByRole("button", { name: /Putra Mahendra/ });
+  await expect(row).toContainText("Alasan: Transportasi / macet");
+  await row.click();
+  await page.locator(".leaflet-popup-content").getByRole("button", { name: "Lihat detail" }).click();
+  const dialog = page.getByRole("dialog", { name: "Putra Mahendra" });
+  await expect(dialog).toContainText("Alasan terlambat: Transportasi / macet · diisi pukul 07:20");
+  await dialog.getByRole("button", { name: "Selesai" }).click();
+  await expect(located.getByRole("button", { name: /Citra Ayu Lestari/ })).not.toContainText("Alasan:");
+});
