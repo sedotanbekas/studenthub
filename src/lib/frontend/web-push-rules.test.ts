@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  navigationKind,
   appBadgeAction,
   base64UrlToBytes,
   blockedHelpSteps,
@@ -97,4 +98,11 @@ test("appBadgeAction: ikut jumlah belum dibaca bila diizinkan", () => {
   assert.equal(appBadgeAction(null, ok), null);
   assert.equal(appBadgeAction(5, { ...ok, permission: "default" }), null);
   assert.equal(appBadgeAction(5, { ...ok, supported: false }), null);
+});
+
+test("navigationKind: tujuan di halaman yang sama -> muat penuh (?notif= & ?absen=1 diproses saat pasang); halaman lain -> router", () => {
+  assert.equal(navigationKind("/hub/my-attendance", "/hub/my-attendance?absen=1&notif=n1"), "reload");
+  assert.equal(navigationKind("/hub/billing", "/hub/billing?notif=n2"), "reload");
+  assert.equal(navigationKind("/hub/notifications", "/hub/my-attendance?absen=1&notif=n1"), "push");
+  assert.equal(navigationKind("/hub", "/hub/billing"), "push");
 });

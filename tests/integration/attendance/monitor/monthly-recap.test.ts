@@ -215,3 +215,11 @@ test("kuota ekspor: hanya unduhan berhasil yang dihitung; ke-31 -> 429", async (
   assert.equal(limited.status, 429);
   assert.equal((limited.body as Envelope | null)?.error?.code, "RATE_LIMITED");
 });
+
+test("ekspor bersamaan: akun yang sama ditolak 429 selagi ekspornya berjalan (tanpa memakai kuota); setelah selesai boleh lagi", async () => {
+  const ctx = adminCtx(tenant, CLOSED_NOW);
+  const first = exportMonthlyRecap(ctx, { month: MONTH });
+  await assert.rejects(exportMonthlyRecap(ctx, { month: MONTH }), { status: 429, code: "RATE_LIMITED" });
+  assert.equal((await first).status, 200);
+  assert.equal((await exportMonthlyRecap(ctx, { month: MONTH })).status, 200);
+});

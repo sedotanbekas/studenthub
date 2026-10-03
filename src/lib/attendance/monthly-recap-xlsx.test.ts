@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import ExcelJS from "exceljs";
 import type { DayCheck } from "@/lib/calendar/rules";
-import { MAX_EXPORT_STUDENTS, buildClassRecap, buildRecapDays, type MonthlyRecapCandidate, type MonthlyRecapRow } from "./monthly-recap-rules";
+import { MAX_EXPORT_STUDENTS, buildClassRecap, buildRecapDays, partitionByClass, recapClassKeys, type MonthlyRecapCandidate, type MonthlyRecapRow } from "./monthly-recap-rules";
 import { buildRecapWorkbook, type RecapWorkbookInput } from "./monthly-recap-xlsx";
 
 const school = (date: string): DayCheck => ({ date, isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null });
@@ -80,16 +80,22 @@ test("workbook final: tanpa baris peringatan", async () => {
   assert.equal(workbook.getWorksheet("X IPA 1")!.getCell("A3").value, null);
 });
 
-test(`batas ekspor ${MAX_EXPORT_STUDENTS} siswa (120 kelas × 31 hari) dibangun < 15 detik`, async () => {
+test(`batas ekspor ${MAX_EXPORT_STUDENTS} siswa (120 kelas × 30 hari), jalur semua kelas yang sesungguhnya, dibangun < 15 detik`, async () => {
   const days = buildRecapDays(Array.from({ length: 30 }, (_, i) => school(`2026-09-${String(i + 1).padStart(2, "0")}`)), "2026-09-30", []);
   const perClass = Math.ceil(MAX_EXPORT_STUDENTS / 120);
   const statuses = ["HADIR", "HADIR", "HADIR", "TERLAMBAT", "IZIN", "SAKIT", "ALPHA"] as const;
-  const sheets = Array.from({ length: 120 }, (_, k) => {
-    const candidates = Array.from({ length: perClass }, (_, i) => candidate(`c${k}s${i}`, `Siswa ${k}-${i}`, `C${k}`));
-    const rows = candidates.flatMap((c, i) => days.map((d, j) => ({ ...row(c.id, d.date, statuses[(i + j) % statuses.length]!), classId: `C${k}` })));
-    return { className: `Kelas ${k}`, recap: buildClassRecap({ classKey: `C${k}`, days, closedThrough: "2026-09-30", candidates, rows }), classLabel: () => "" };
-  });
+  const candidates = Array.from({ length: 120 }, (_, k) => Array.from({ length: perClass }, (_, i) => candidate(`c${k}s${i}`, `Siswa ${k}-${i}`, `C${k}`))).flat();
+  const rows = candidates.flatMap((c, i) => days.map((d, j) => ({ ...row(c.id, d.date, statuses[(i + j) % statuses.length]!), classId: c.currentClassId })));
   const started = Date.now();
+  // Sama dengan allClassesPlan di monthly-recap-export.ts: kunci kelas -> bagi sekali -> rekap per kelas -> workbook.
+  const keys = recapClassKeys(candidates, rows, new Map());
+  const parts = partitionByClass(keys, candidates, rows);
+  const sheets = keys.map((classKey) => ({
+    className: String(classKey),
+    recap: buildClassRecap({ classKey, days, closedThrough: "2026-09-30", candidates: [], rows: [], ...parts.get(classKey) }),
+    classLabel: () => "",
+  }));
+  assert.equal(sheets.length, 120);
   const bytes = await buildRecapWorkbook({ ...input(sheets, null), days });
   assert.ok(bytes.byteLength > 0);
   assert.ok(Date.now() - started < 15_000, `butuh ${Date.now() - started} ms`);

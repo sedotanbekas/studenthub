@@ -279,9 +279,21 @@ Lalu jalankan skenario demo di staging (docs/PLAN.md § Verifikasi).
 
 ## Operasional
 
-- **Rollback**: migrasi selalu aditif, jadi kode lama cocok dengan skema baru:
+- **Rollback**: migrasi selalu aditif, jadi skema baru tetap cocok dengan kode lama:
   `cd /www/wwwroot/studenthub && git fetch --depth 50 origin master && git reset --hard <sha-lama> && bash scripts/deploy/remote-deploy.sh production`
-  (sebagai `studenthub`). Push berikutnya ke `master` memasang ulang versi terbaru.
+  (sebagai `studenthub`). Push berikutnya ke `master` memasang ulang versi terbaru. Utamakan perbaikan di atas
+  versi baru (roll-forward); rollback kode hanya bila mendesak.
+  - **Pengecualian nilai enum baru.** Klien Prisma versi lama gagal membaca baris yang memakai nilai enum yang
+    belum dikenalnya, sehingga kotak masuk, badge, dan antrean push pengguna itu menjadi 500. Selama build, kode
+    yang sedang berjalan masih bisa membuat baris seperti itu (job tiap tick), jadi hapus barisnya **segera setelah**
+    `remote-deploy.sh` selesai dan `/api/health` melaporkan sha lama (kode lama tidak pernah membuatnya):
+    - sha tujuan **sebelum `d14e29f`** (N4, mis. `cf0e88b`):
+      `DELETE FROM Notification WHERE category = 'ATTENDANCE' OR type IN ('ATTENDANCE_ALPHA', 'ATTENDANCE_DAY_SUMMARY', 'ATTENDANCE_REMINDER');`
+    - sha tujuan **`d14e29f` s.d. sebelum `ba79e8f`** (N5): `DELETE FROM Notification WHERE type = 'ATTENDANCE_REMINDER';`
+
+    Notifikasi itu hilang permanen (data absensi tidak tersentuh). Tabel yang belum dikenal versi lama
+    (`NotificationMute`, `WebPushSubscription`) tidak dibacanya dan boleh dibiarkan. Setiap fitur yang kelak
+    menambah nilai enum wajib menambahkan barisnya di sini (sha penambah + DELETE-nya).
 - **Ganti versi Node**: ubah `NODE_BIN_DIR` bawaan di `scripts/deploy/common.sh` dan
   `bootstrap-vps.sh`, lalu `bash /root/bootstrap-vps.sh tooling pm2` dan `systemctl restart pm2-studenthub`.
 - **Rotasi kunci deploy**: ulangi langkah 1 dengan kunci baru, hapus baris lama di

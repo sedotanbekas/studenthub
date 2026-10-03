@@ -274,7 +274,7 @@ interface WebPushTransport { readonly name: "vapid" | "memory"; send(items: read
 - `forgetWebPush()`: `unsubscribe()` and clear the mark. Called on logout; the server row is already gone through the revoke.
 
 **`useWebPushBridge()`** (`src/components/hub/web-push-bridge.ts`):
-- `studenthub:navigate` → `router.push(url)`, but only for `/hub` URLs.
+- `studenthub:navigate` → `router.push(url)`, but only for `/hub` URLs. Revision after the deploy review (2026-10-03): a target on the SAME pathname is loaded in full (`navigationKind`), because `?notif=` and intents such as `?absen=1` are only read on mount; the service worker only posts to `/hub` windows and otherwise opens a new window.
 - `studenthub:push` → `unreadBadge.refresh()` (N1).
 - `?notif=<cuid>` when not in demo:
   - `POST /notifications/{id}/read`.

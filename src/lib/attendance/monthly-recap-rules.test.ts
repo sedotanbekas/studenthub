@@ -8,6 +8,7 @@ import {
   buildClassRecap,
   buildRecapDays,
   cellDisplay,
+  partitionByClass,
   recapClassKeys,
   recapFileName,
   sheetNameFor,
@@ -79,6 +80,27 @@ test("buildClassRecap: keanggotaan (snapshot kelas + anggota layak tanpa baris),
 
   const none = buildClassRecap({ classKey: null, days: DAYS, closedThrough: "2026-09-02", candidates, rows });
   assert.deepEqual(none.students.map((s) => [s.studentId, s.cells]), [["pindah", ["K", "I", "K", null]], ["tanpa", ["H", null, null, null]]]);
+});
+
+test("partitionByClass: tiap kelas hanya anggotanya + SELURUH baris anggota (sel K); rekap identik dengan sumber penuh", () => {
+  const candidates = [
+    candidate("ani", "Ani", "001", "X"), candidate("pindah", "Citra", "004", "X"), candidate("keluar", "Dedi", "005", "Y"),
+    candidate("diY", "Eka", "006", "X"), candidate("baru", "Fajar", "007", "X", false), candidate("tanpa", "Gita", "008", null),
+    candidate("kosongY", "Hana", "009", "Y"),
+  ];
+  const rows = [
+    row("ani", 1, "X"), row("ani", 2, "X", "TERLAMBAT"), row("pindah", 1, "Y"), row("pindah", 2, null, "IZIN"), row("pindah", 3, "X"),
+    row("keluar", 1, "X", "ALPHA"), row("diY", 1, "Y"), row("tanpa", 1, null), row("yatim", 1, "X"),
+  ];
+  const keys = recapClassKeys(candidates, rows, new Map([["X", "X"], ["Y", "Y"]]));
+  const parts = partitionByClass(keys, candidates, rows);
+  assert.deepEqual([...parts.keys()], keys);
+  assert.deepEqual(parts.get("Y")?.candidates.map((c) => c.id), ["pindah", "diY", "kosongY"]);
+  assert.equal(parts.get("Y")?.rows.length, 4, "seluruh baris Citra (3, termasuk di kelas lain) + Eka (1) + Hana (0)");
+  for (const classKey of keys) {
+    const input = { classKey, days: DAYS, closedThrough: "2026-09-02" };
+    assert.deepEqual(buildClassRecap({ ...input, ...parts.get(classKey)! }), buildClassRecap({ ...input, candidates, rows }), String(classKey));
+  }
 });
 
 test("recapClassKeys: kelas dari baris & anggota layak tanpa baris (aturan keanggotaan), urut nama numerik, tanpa kelas terakhir", () => {

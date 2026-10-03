@@ -12,6 +12,7 @@ import {
   feedbackText,
   IOS_INSTALL_STEPS,
   isPromptDeferred,
+  navigationKind,
   promptDeferValue,
   promptModeOf,
   promptText,
@@ -134,7 +135,9 @@ function useWorkerMessages(enabled: boolean): void {
     const onMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; url?: string } | null;
       if (data?.type === "studenthub:push") unreadBadge.refresh();
-      if (data?.type === "studenthub:navigate" && typeof data.url === "string" && data.url.startsWith("/hub")) router.push(data.url, { scroll: false });
+      if (data?.type !== "studenthub:navigate" || typeof data.url !== "string" || !data.url.startsWith("/hub")) return;
+      if (navigationKind(window.location.pathname, data.url) === "reload") window.location.assign(data.url);
+      else router.push(data.url, { scroll: false });
     };
     navigator.serviceWorker.addEventListener("message", onMessage);
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);

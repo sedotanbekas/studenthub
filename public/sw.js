@@ -81,7 +81,8 @@ self.addEventListener("notificationclick", (event) => {
   const url = safeUrl(event.notification.data && event.notification.data.url);
   event.waitUntil((async () => {
     const windows = await windowClients();
-    const target = windows.find((client) => new URL(client.url).pathname.startsWith("/hub")) || windows[0];
+    // Hanya jendela /hub yang mendengarkan pesan navigasi; beranda/dokumen tidak dipakai -> jendela baru.
+    const target = windows.find((client) => new URL(client.url).pathname.startsWith("/hub"));
     if (target) {
       // Tanpa navigate(): butuh kontrol SW & memuat ulang halaman. Halaman berpindah sendiri lewat router.
       await target.focus();

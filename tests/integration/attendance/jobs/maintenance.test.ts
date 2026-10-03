@@ -158,7 +158,7 @@ test("pengingat absen push-only > 30 hari dihapus; yang lebih baru & notifikasi 
   const school = await createSchool();
   const st = await createStudent(school.id);
   const note = (type: "ATTENDANCE_REMINDER" | "ATTENDANCE_CORRECTED", createdAt: Date) =>
-    prisma.notification.create({ data: { userId: st.user.id, type, category: "ATTENDANCE", title: "Uji", body: "Uji retensi", readAt: createdAt, createdAt } });
+    prisma.notification.create({ data: { userId: st.user.id, type, category: type === "ATTENDANCE_REMINDER" ? "ATTENDANCE" : "STUDENT_AFFAIRS", title: "Uji", body: "Uji retensi", readAt: createdAt, createdAt } });
   await note("ATTENDANCE_REMINDER", daysAgo(31));
   const keptReminder = await note("ATTENDANCE_REMINDER", daysAgo(29));
   const keptNormal = await note("ATTENDANCE_CORRECTED", daysAgo(31));

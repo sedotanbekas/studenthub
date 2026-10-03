@@ -155,3 +155,11 @@ export function appBadgeAction(count: number | null, i: { readonly supported: bo
   if (!i.supported || i.permission !== "granted" || count === null) return null;
   return count > 0 ? { kind: "set", count } : { kind: "clear" };
 }
+
+/**
+ * Klik notifikasi saat hub terbuka: pindah halaman lewat router; tujuan di halaman yang SAMA dimuat penuh, karena
+ * `?notif=` (tandai dibaca) dan intent seperti `?absen=1` hanya dibaca saat halaman dipasang.
+ */
+export function navigationKind(currentPathname: string, url: string): "push" | "reload" {
+  return new URL(url, "https://studenthub.invalid").pathname === currentPathname ? "reload" : "push";
+}

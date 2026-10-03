@@ -18,6 +18,7 @@ import {
 import type { LateReasonResultDto } from "@/lib/attendance/late-reason-schemas";
 import { api } from "@/lib/frontend/api";
 import { demoSaveLateReason } from "@/lib/frontend/demo";
+import { timeoutSignal } from "@/lib/frontend/timeout-signal";
 import { useHub } from "../context";
 
 /**
@@ -36,7 +37,8 @@ export async function saveLateReason(body: LateReasonValue, demo: boolean, signa
 }
 
 const draftOf = (reason: LateReasonDto | null): LateReasonDraft => (reason ? { category: reason.category, note: reason.note ?? "" } : EMPTY_LATE_DRAFT);
-const errorText = (e: unknown): string => (e instanceof DOMException && e.name === "TimeoutError" ? "Koneksi lambat." : e instanceof Error ? e.message : "Alasan belum tersimpan.");
+// Browser lama mengabaikan alasan abort sehingga waktu habis tampil sebagai AbortError (sinyal ini hanya dibatalkan oleh batas waktu).
+const errorText = (e: unknown): string => (e instanceof DOMException && (e.name === "TimeoutError" || e.name === "AbortError") ? "Koneksi lambat." : e instanceof Error ? e.message : "Alasan belum tersimpan.");
 
 interface PickerProps { readonly draft: LateReasonDraft; readonly onChange: (draft: LateReasonDraft) => void; readonly beforeCheckIn?: boolean }
 
@@ -106,7 +108,7 @@ function useAutoSubmit(attendance: LateReasonAttendance, draft: LateReasonDraft)
     const body = lateReasonBodyOf(draft);
     if (!body) return;
     setPhase({ kind: "saving" });
-    saveLateReason(body, demo, AbortSignal.timeout(AUTO_SAVE_TIMEOUT_MS))
+    saveLateReason(body, demo, timeoutSignal(AUTO_SAVE_TIMEOUT_MS))
       .then(result => setPhase({ kind: "saved", reason: result.lateReason }), (e: unknown) => setPhase({ kind: "error", message: errorText(e) }));
   };
   useEffect(() => {

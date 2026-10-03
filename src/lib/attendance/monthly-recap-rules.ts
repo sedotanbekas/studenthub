@@ -18,8 +18,8 @@ export type RecapCode = (typeof RECAP_CODES)[number];
 export const STATUS_CODE: Readonly<Record<AttendanceStatusValue, Exclude<RecapCode, "K">>> = { HADIR: "H", TERLAMBAT: "T", IZIN: "I", SAKIT: "S", ALPHA: "A" };
 
 /**
- * Batas: layar per kelas; ekspor (siswa & baris). 4.000 siswa × 30 hari dibangun ≈ 2,6 detik (benchmark di
- * monthly-recap-xlsx.test.ts) — jauh di bawah batas memori PM2.
+ * Batas: layar per kelas; ekspor (siswa & baris). Jalur ekspor semua kelas yang sesungguhnya (recapClassKeys ->
+ * partitionByClass -> buildClassRecap -> workbook) untuk 4.000 siswa × 30 hari diukur di monthly-recap-xlsx.test.ts.
  */
 export const MAX_RECAP_STUDENTS = 200;
 export const MAX_EXPORT_STUDENTS = 4000;
@@ -91,7 +91,11 @@ export interface ClassRecap {
 
 function rowsByStudent(rows: readonly MonthlyRecapRow[]): Map<string, MonthlyRecapRow[]> {
   const map = new Map<string, MonthlyRecapRow[]>();
-  for (const row of rows) map.set(row.studentId, [...(map.get(row.studentId) ?? []), row]);
+  for (const row of rows) {
+    const list = map.get(row.studentId);
+    if (list) list.push(row);
+    else map.set(row.studentId, [row]);
+  }
   return map;
 }
 
@@ -146,6 +150,32 @@ export function recapClassKeys(candidates: readonly MonthlyRecapCandidate[], row
   for (const c of candidates) if (c.isCurrentEligible && !withRows.has(c.id)) keys.add(c.currentClassId);
   const nameOf = (key: string) => names.get(key) ?? "";
   return [...keys].sort((a, b) => (a === null ? (b === null ? 0 : 1) : b === null ? -1 : nameOf(a).localeCompare(nameOf(b), "id", { numeric: true })));
+}
+
+export interface ClassPart {
+  readonly candidates: MonthlyRecapCandidate[];
+  readonly rows: MonthlyRecapRow[];
+}
+
+/**
+ * Ekspor semua kelas: bagi sumber sekolah per kunci kelas SEKALI — anggota kelas (aturan isMember) beserta SELURUH
+ * baris mereka (untuk sel K & kelas lain). buildClassRecap per bagian = hasil yang sama dengan sumber penuh, tetapi
+ * kerjanya O(baris) alih-alih O(kelas × baris) di proses Node tunggal.
+ */
+export function partitionByClass(classKeys: ReadonlyArray<string | null>, candidates: readonly MonthlyRecapCandidate[], rows: readonly MonthlyRecapRow[]): Map<string | null, ClassPart> {
+  const own = rowsByStudent(rows);
+  const parts = new Map<string | null, ClassPart>(classKeys.map((key) => [key, { candidates: [], rows: [] }]));
+  for (const candidate of candidates) {
+    const mine = own.get(candidate.id) ?? [];
+    const keys = mine.length ? new Set(mine.map((r) => r.classId)) : candidate.isCurrentEligible ? new Set([candidate.currentClassId]) : new Set<string | null>();
+    for (const key of keys) {
+      const part = parts.get(key);
+      if (!part) continue;
+      part.candidates.push(candidate);
+      for (const r of mine) part.rows.push(r);
+    }
+  }
+  return parts;
 }
 
 // ----------------------------------------------------------------------------- tampilan sel

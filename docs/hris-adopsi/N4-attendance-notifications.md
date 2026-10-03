@@ -237,7 +237,7 @@ Run `pnpm test:int` in full: existing tests that close days now also create noti
 ## 9. Edge cases & risks
 
 - **Enum list drift between features.** B1 (earlier) or N5 (later, `20261003060000`, which copies N4's list) may also append values. Copy the list from the schema at merge time, then run `prisma validate` and the integration tests.
-- **Rollback after rows exist.** Old code's Prisma client cannot parse the new enum values, so `/notifications` would fail for users who have such rows. Runbook: `DELETE FROM Notification WHERE type IN ('ATTENDANCE_ALPHA','ATTENDANCE_DAY_SUMMARY')` before rolling back the code.
+- **Rollback after rows exist.** Old code's Prisma client cannot parse the new enum values, so `/notifications` would fail for users who have such rows. Runbook: right after the old code is live, `DELETE FROM Notification WHERE category = 'ATTENDANCE' OR type IN ('ATTENDANCE_ALPHA','ATTENDANCE_DAY_SUMMARY','ATTENDANCE_REMINDER')` (N5 adds `ATTENDANCE_REMINDER`; per-sha rules live in `docs/deploy/BOOTSTRAP.md` → Rollback).
 - **Longer closure transaction.** It adds about 4 queries plus chunked inserts, within the 60 s timeout (`auto-alpha-job.ts:41`). INSERT IGNORE only swallows duplicates: title, body and key are length-bounded (`notify.ts:38-39`) and `userId` comes from the database.
 - **Catch-up spam.** Bounded to 4 student notices and 2 summaries per outage. Night catch-up can push at night; this is accepted and goes to the backlog.
 - **Onboarding schools** where many students never logged in: skipped (Q3), so there is no pile of notices on first login.

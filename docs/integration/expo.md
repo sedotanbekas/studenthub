@@ -276,9 +276,14 @@ sasaran sebagai notifikasi (`announcementId` terisi).
 - `POST /notifications/{id}/read` (idempoten), `POST /notifications/read-all` `{before?, kind?}` —
   kirim `before` = waktu daftar diambil agar notifikasi yang baru tiba tidak ikut tertandai.
 - `GET /notifications/unread-count` untuk badge.
-- Navigasi dari `data.screen`: `announcement`, `attendance`, `leave-request`, `invoice`, `invoices`
-  (id = periode `YYYY-MM`), `report-card`, `notification` (default). Payload push memuat
-  `{notificationId, screen, id}` yang sama — saat push dibuka, navigasi lalu panggil `/read`.
+- Navigasi dari `data.screen`: `announcement`, `attendance`, `attendance-alpha` (id = tanggal Alpa; tawarkan
+  ajukan izin/sakit), `check-in` (pengingat absen N5, id = tanggal; buka alur absen), `leave-request`, `invoice`,
+  `invoices` (id = periode `YYYY-MM`), `report-card`, `notification` (default). Screen staf (mis. `attendance-day`)
+  tidak dikirim ke siswa. Payload push memuat `{notificationId, screen, id}` yang sama — saat push dibuka, navigasi
+  lalu panggil `/read`.
+- Parsing harus toleran: respons dapat bertambah field dan nilai enum (`type`, `category`) baru; nilai/screen yang
+  tidak dikenal diperlakukan sebagai `notification`. Tipe push-only (`ATTENDANCE_REMINDER`) tidak pernah muncul di
+  inbox maupun badge.
 
 ## 10. Berkas privat
 

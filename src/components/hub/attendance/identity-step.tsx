@@ -5,6 +5,7 @@ import { demoRows } from "@/lib/frontend/demo";
 import { demoPersonaForUser } from "@/lib/frontend/demo-personas";
 import { initials } from "@/lib/frontend/format";
 import { EMPTY_FACTS, identityCard, identityFacts, type IdentityFacts } from "@/lib/frontend/identity-confirm-rules";
+import { timeoutSignal } from "@/lib/frontend/timeout-signal";
 import { useHub } from "../context";
 import { Icon } from "../icon";
 
@@ -23,7 +24,7 @@ function useIdentityFacts(): IdentityFacts | undefined {
     let active = true;
     const load = demo
       ? Promise.resolve(demoRows("/student/profile", demoPersonaForUser(userId)))
-      : api("/student/profile", { signal: AbortSignal.timeout(PROFILE_TIMEOUT_MS) }).then(r => r.data);
+      : api("/student/profile", { signal: timeoutSignal(PROFILE_TIMEOUT_MS) }).then(r => r.data);
     load.then(identityFacts, () => EMPTY_FACTS).then(value => { if (active) setState({ userId, value }); });
     return () => { active = false; };
   }, [demo, userId]);

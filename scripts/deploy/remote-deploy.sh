@@ -14,7 +14,8 @@
 # Variabel opsional: NODE_BIN_DIR (bin Node aaPanel), BACKUP_ROOT (bawaan /home/studenthub/backups),
 # BACKUP_KEEP (bawaan 14), DEPLOY_MIN_FREE_MB (bawaan 3072).
 #
-# Deploy manual / rollback (migrasi selalu aditif, jadi kode lama tetap cocok dengan skema baru):
+# Deploy manual / rollback (migrasi selalu aditif, jadi kode lama tetap cocok dengan skema baru — KECUALI baris yang
+# memakai nilai enum baru: lihat "Rollback" di docs/deploy/BOOTSTRAP.md sebelum memasang sha lama):
 #   cd /www/wwwroot/studenthub && git fetch --depth 50 origin master && git reset --hard <sha>
 #   bash scripts/deploy/remote-deploy.sh production
 set -euo pipefail
@@ -173,7 +174,8 @@ ensure_vapid_keys() {
       printf '\n# Kunci VAPID Web Push (remote-deploy.sh %s). JANGAN diganti: semua langganan push akan putus.\n%s\n' "$(date -u +%F)" "$keys" >> .env
       sh_log ".env: kunci VAPID ditambahkan (nilai tidak ditampilkan)"
       ;;
-    *) sh_die "kunci VAPID di .env tidak lengkap/tidak sah — perbaiki manual (jangan dibuat ulang: semua langganan push putus)" ;;
+    2) sh_die "kunci VAPID di .env tidak lengkap/tidak sah — perbaiki manual (jangan dibuat ulang: semua langganan push putus)" ;;
+    *) sh_die "skrip kunci VAPID gagal dijalankan (kode $status, lihat galat di atas) — JANGAN ubah baris VAPID_* di .env" ;;
   esac
 }
 

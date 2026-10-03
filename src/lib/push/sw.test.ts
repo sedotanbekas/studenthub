@@ -83,6 +83,15 @@ test("klik: jendela /hub difokuskan & diberi pesan navigasi; tanpa jendela -> op
   assert.deepEqual(empty.opened, ["/hub"]);
 });
 
+test("klik tanpa jendela /hub (hanya beranda/dokumen): jendela lain tidak dipakai, tujuan dibuka di jendela baru", async () => {
+  const landing = client(`${ORIGIN}/`);
+  const docs = client(`${ORIGIN}/docs`);
+  const sw = worker({ clients: [landing, docs] });
+  await sw.dispatch("notificationclick", { notification: { close() {}, data: { url: "/hub/my-attendance?absen=1&notif=n1" } } });
+  assert.deepEqual(sw.opened, ["/hub/my-attendance?absen=1&notif=n1"]);
+  assert.deepEqual(plain([landing.messages, docs.messages]), [[], []]);
+});
+
 test("pushsubscriptionchange -> langganan ulang lalu PUT; 401 -> refresh -> PUT sekali lagi", async () => {
   const calls: string[] = [];
   let puts = 0;

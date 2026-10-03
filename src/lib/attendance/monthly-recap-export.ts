@@ -1,12 +1,13 @@
 import { writeAudit } from "@/lib/audit";
 import { requirePrincipal, type ActionContext } from "@/lib/auth/principal";
 import { formatLocalDate } from "@/lib/billing/format";
+import { tooManyRequests } from "@/lib/http/errors";
 import { assertRateLimit, getLimiter } from "@/lib/http/rate-limits";
 import { XLSX_MIME } from "@/lib/students/import/constants";
 import { formatMinute, localParts, type SchoolTz } from "@/lib/time/zone";
 import { withTx } from "@/lib/tx";
 import { assertClassInSchool } from "./monitoring-queries";
-import { buildClassRecap, recapClassKeys, recapFileName } from "./monthly-recap-rules";
+import { buildClassRecap, partitionByClass, recapClassKeys, recapFileName } from "./monthly-recap-rules";
 import {
   EXPORT_CAPS,
   EXPORT_TOO_LARGE,
@@ -25,8 +26,24 @@ import { buildRecapWorkbook, type RecapSheetInput } from "./monthly-recap-xlsx";
 /**
  * GET /school/attendance/monthly-recap/export (A3): XLSX satu kelas atau semua kelas (satu sheet per kelas).
  * Kuota EXPORT dicek sebelum dan dihitung SETELAH berkas berhasil dibuat (unduhan gagal tidak memakan kuota).
- * Diaudit attendance.recap_export (AuditLog saja, urutan kunci terakhir).
+ * Karena itu ekspor yang sedang berjalan dibatasi terpisah: satu per akun dan dua untuk seluruh proses (PM2 satu
+ * proses fork; pembuatan workbook memakai CPU & memori proses yang sama dengan absen). Diaudit attendance.recap_export
+ * (AuditLog saja, urutan kunci terakhir).
  */
+const MAX_EXPORTS_IN_FLIGHT = 2;
+const EXPORT_BUSY_RETRY_SECONDS = 10;
+const EXPORT_BUSY_MESSAGE = "Ekspor lain sedang dibuat. Coba lagi beberapa detik lagi.";
+const exportsInFlight = new Set<string>();
+
+async function withExportSlot<T>(key: string, run: () => Promise<T>): Promise<T> {
+  if (exportsInFlight.has(key) || exportsInFlight.size >= MAX_EXPORTS_IN_FLIGHT) throw tooManyRequests(EXPORT_BUSY_RETRY_SECONDS, EXPORT_BUSY_MESSAGE);
+  exportsInFlight.add(key);
+  try {
+    return await run();
+  } finally {
+    exportsInFlight.delete(key);
+  }
+}
 
 interface ExportPlan {
   readonly sheets: RecapSheetInput[];
@@ -55,9 +72,11 @@ async function allClassesPlan(base: RecapBase, caps: RecapCaps): Promise<ExportP
   const ids = [...source.rows.map((r) => r.classId), ...source.candidates.map((c) => c.currentClassId)];
   const labels = await classLabels(base.school.id, ids);
   const classLabel = (id: string | null) => classLabelOf(id, labels);
-  const sheets = recapClassKeys(source.candidates, source.rows, labels).map((classKey) => ({
+  const keys = recapClassKeys(source.candidates, source.rows, labels);
+  const parts = partitionByClass(keys, source.candidates, source.rows);
+  const sheets = keys.map((classKey) => ({
     className: classLabel(classKey),
-    recap: buildClassRecap({ classKey, days: base.days, closedThrough: base.closed, ...source }),
+    recap: buildClassRecap({ classKey, days: base.days, closedThrough: base.closed, candidates: [], rows: [], ...parts.get(classKey) }),
     classLabel,
   }));
   return { sheets, className: null, entityType: "School", entityId: base.school.id, studentCount: new Set(sheets.flatMap((s) => s.recap.students.map((st) => st.studentId))).size };
@@ -97,6 +116,10 @@ function xlsxResponse(bytes: Uint8Array, filename: string): Response {
 export async function exportMonthlyRecap(ctx: ActionContext, query: MonthlyRecapExportQuery, caps: RecapCaps = EXPORT_CAPS): Promise<Response> {
   const limitKey = `export:${requirePrincipal(ctx).userId}`;
   assertRateLimit("EXPORT", limitKey);
+  return withExportSlot(limitKey, () => buildExport(ctx, query, caps, limitKey));
+}
+
+async function buildExport(ctx: ActionContext, query: MonthlyRecapExportQuery, caps: RecapCaps, limitKey: string): Promise<Response> {
   const base = await loadRecapBase(ctx, query.schoolId, query.month);
   const plan = query.classId ? await oneClassPlan(base, query.classId, caps) : await allClassesPlan(base, caps);
   const bytes = await buildRecapWorkbook({

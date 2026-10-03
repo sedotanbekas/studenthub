@@ -79,3 +79,24 @@ berubah. Coverage CI: lines/functions/statements ≥ 80 %, branches ≥ 75 %.
 
 Sesi cloud ini mengikuti instruksi branch: semua fitur di-commit ke `feat/hris-adopsi` dan di-push ke branch itu.
 **Merge ke `master` (= deploy produksi) diserahkan ke pemilik**, dengan memperhatikan jendela migrasi di §1.
+
+### 5.1 Tinjauan risiko deploy (2026-10-03, PR sedotanbekas/studenthub#1)
+
+Tinjauan multi-agen (6 dimensi, tiap temuan diverifikasi dua lensa: fakta kode & dampak produksi) sebelum merge.
+Migrasi lolos (enum = prefiks persis + nilai di ujung, kolom baru nullable/ber-default, kode lama aman selama jendela
+build, indeks unik aman untuk data lama). Diperbaiki di branch ini sebelum merge:
+
+| Temuan | Perbaikan |
+|---|---|
+| A2/A1: `AbortSignal.timeout` melempar sinkron di Safari < 16 / Chrome < 103 → alur absen jatuh ke halaman galat | `timeoutSignal()` (`src/lib/frontend/timeout-signal.ts`) dengan cadangan AbortController |
+| A3: "semua kelas" menghitung ulang SELURUH baris sekolah per kelas (O(kelas × baris)) di proses Node tunggal; kuota baru dihitung sesudah selesai sehingga permintaan paralel lolos semua | `partitionByClass` (bagi sekali, O(baris)), pengelompokan tanpa spread, benchmark mengukur jalur sesungguhnya; ekspor berjalan maks. 1 per akun & 2 per proses (429) |
+| Rollback ke kode sebelum N4/N5 membuat kotak masuk & badge 500 bila sudah ada notifikasi ber-enum baru | Runbook "Rollback" di `docs/deploy/BOOTSTRAP.md` (DELETE per sha tujuan, segera setelah kode lama aktif) + komentar `remote-deploy.sh` + N4 §9 |
+| `ensure_vapid_keys`: crash skrip (kode 1) dilaporkan sebagai kunci rusak → operator bisa menghapus kunci | Kode 2 = kunci tidak sah; kode lain = "skrip gagal, JANGAN ubah VAPID_*" |
+| N3/N5: klik notifikasi memfokuskan tab beranda/dokumen tanpa berpindah; tujuan di halaman yang sama tidak menandai dibaca / tidak membuka alur absen | SW hanya memakai jendela `/hub` (selain itu jendela baru); `navigationKind` → muat penuh bila halaman sama |
+| `docs/integration/expo.md` belum memuat screen baru | Daftar screen + aturan parsing toleran |
+
+Tetap terbuka (bukan pemblokir, dicatat untuk pemilik): data terlambat sebelum A1 terhitung "belum diisi" di hitungan
+alasan & rekap; isi lengkap notifikasi admin (mis. NISN pada NISN_RELEASED) tampil di layar kunci bila Web Push aktif
+(default §10 N3); penahanan Alpa N4 gugur oleh satu check-in (termasuk mode uji); tab hub di layar masuk tidak
+menerima navigasi klik notifikasi. Merge memakai fast-forward dari akun `sedotanbekas` (bukan tombol merge GitHub,
+yang membuat commit/committer baru).
