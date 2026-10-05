@@ -43,6 +43,7 @@ export function toStudentDetail(row: StudentRow, gaps: readonly ActivationGap[])
     ...familyOf(row),
     guardianName: row.guardianName,
     guardianPhone: row.guardianPhone,
+    currentClassId: row.currentClassId,
     class: klass === null ? null : { id: klass.id, name: klass.name, isActive: klass.isActive, academicYearId: klass.academicYearId },
     sppAmount: row.sppAmount,
     hasActiveNisn: row.activeNisn !== null,

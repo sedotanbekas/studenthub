@@ -91,10 +91,15 @@ function assertStillComplete(row: StudentRow, school: SchoolContext, changes: St
   if (introduced.length > 0) throw activationIncomplete(introduced);
 }
 
-function studentUpdateData(row: StudentRow, changes: StudentPatch) {
+/**
+ * `updatedAt` selalu ikut agar UPDATE tetap dijalankan: perubahan HANYA nama (kolom User) membuat data Student
+ * kosong, dan Prisma `updateMany` dengan data kosong tidak menjalankan SQL (count 0 -> 409 palsu).
+ */
+function studentUpdateData(row: StudentRow, changes: StudentPatch, now: Date) {
   const { name: _name, birthDate, nisn, ...rest } = changes;
   return {
     ...rest,
+    updatedAt: now,
     ...(birthDate !== undefined ? { birthDate: birthDate === null ? null : toDbDate(birthDate) } : {}),
     ...(nisn !== undefined ? { nisn, ...(row.activeNisn !== null ? { activeNisn: nisn } : {}) } : {}),
   };
@@ -106,7 +111,7 @@ async function persistChanges(tx: Tx, school: SchoolContext, row: StudentRow, ch
   // koreksi NISN eksplisit oleh super admin dianggap persetujuan pelepasan (tetap diaudit & dilaporkan).
   const policy = { confirmRelease: true, claimer: school };
   const released = reclaim ? await claimNisn(tx, { studentId: row.id, nisn: changes.nisn as string }, ctx, policy) : null;
-  const updated = await tx.student.updateMany({ where: { id: row.id, schoolId: school.id, status: row.status }, data: studentUpdateData(row, changes) });
+  const updated = await tx.student.updateMany({ where: { id: row.id, schoolId: school.id, status: row.status }, data: studentUpdateData(row, changes, ctx.now) });
   if (updated.count !== 1) throw studentStateChanged();
   if (changes.name !== undefined) await tx.user.update({ where: { id: row.userId }, data: { name: changes.name } });
   if (reclaim) await revokeAllSessions(tx, row.userId, "ADMIN_REVOKED", ctx.now);

@@ -212,6 +212,38 @@ describe("GET/PATCH/DELETE /school/students/{id}", () => {
     assert.ok(await prisma.auditLog.findFirst({ where: { action: "student.update", entityId: student.id } }));
   });
 
+  test("detail memuat currentClassId agar formulir ubah langsung memilih kelas siswa", async () => {
+    const { student } = await createStudent(a.school.id, { classId: a.klass.id });
+    const res = await callRoute<{ data: Detail & { currentClassId: string | null } }>(getOne, {
+      method: "GET", url: detailUrl(student.id), params: { id: student.id }, bearer: a.adminToken,
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body?.data.currentClassId, a.klass.id);
+  });
+
+  test("PATCH hanya nama (tanpa kolom Student) -> 200, bukan 409 STUDENT_STATE_CHANGED", async () => {
+    const { student, user } = await createStudent(a.school.id, { classId: a.klass.id });
+    const res = await callRoute<{ data: Detail }>(patchOne, {
+      method: "PATCH", url: detailUrl(student.id), params: { id: student.id }, bearer: a.adminToken, json: { name: "Nama Saja Berubah" },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body?.data.name, "Nama Saja Berubah");
+    assert.equal((await prisma.user.findUnique({ where: { id: user.id } }))?.name, "Nama Saja Berubah");
+  });
+
+  test("PATCH ala formulir (nama + currentClassId sama, kelas sudah nonaktif) -> 200, kelas tetap", async () => {
+    const klass = await createClass(a.school.id, a.academicYearId);
+    const { student } = await createStudent(a.school.id, { classId: klass.id });
+    await prisma.schoolClass.update({ where: { id: klass.id }, data: { isActive: false } });
+    const res = await callRoute<{ data: Detail }>(patchOne, {
+      method: "PATCH", url: detailUrl(student.id), params: { id: student.id }, bearer: a.adminToken, json: { name: "Nama Formulir", currentClassId: klass.id },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body?.data.class?.id, klass.id);
+    const audit = await prisma.auditLog.findFirst({ where: { action: "student.update", entityId: student.id } });
+    assert.deepEqual(Object.keys((audit?.after ?? {}) as object).sort(), ["name", "nisnReleased"]);
+  });
+
   test("PATCH siswa AKTIF yang mengosongkan data wajib -> 422", async () => {
     const { student } = await createStudent(a.school.id, { classId: a.klass.id });
     const res = await callRoute(patchOne, { method: "PATCH", url: detailUrl(student.id), params: { id: student.id }, bearer: a.adminToken, json: { guardianPhone: null } });

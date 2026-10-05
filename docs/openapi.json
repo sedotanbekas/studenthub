@@ -38597,6 +38597,12 @@
               "null"
             ]
           },
+          "currentClassId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "class": {
             "anyOf": [
               {
@@ -38730,6 +38736,7 @@
           "guardianName",
           "guardianOccupation",
           "guardianPhone",
+          "currentClassId",
           "class",
           "sppAmount",
           "hasActiveNisn",

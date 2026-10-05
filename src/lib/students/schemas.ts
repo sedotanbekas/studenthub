@@ -244,6 +244,8 @@ export const studentDetailSchema = z
     birthDate: localDate.nullable(),
     address: z.string().nullable(),
     ...familyResponseFields,
+    /** Sama dengan class.id; dipakai formulir ubah agar pilihan kelas langsung terisi. */
+    currentClassId: z.string().nullable(),
     class: z.object({ id: z.string(), name: z.string(), isActive: z.boolean(), academicYearId: z.string() }).nullable(),
     sppAmount: z.int().nullable(),
     /** true bila siswa memegang NISN sebagai kunci login nasional (activeNisn terisi). */
