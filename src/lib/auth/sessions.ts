@@ -24,8 +24,9 @@ export async function revokeAllSessions(
   now: Date,
   exceptSessionId?: string,
 ): Promise<number> {
+  // Termasuk sesi "Masuk sebagai" yang DIBUKA akun ini (super admin keluar semua/ganti sandi/direset -> ikut mati).
   const result = await tx.authSession.updateMany({
-    where: { userId, revokedAt: null, ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}) },
+    where: { OR: [{ userId }, { impersonatorId: userId }], revokedAt: null, ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}) },
     data: { revokedAt: now, revokeReason: reason, expoPushToken: null },
   });
   await forgetRevokedWebPush(tx, { userId });

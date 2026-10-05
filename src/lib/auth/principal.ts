@@ -21,6 +21,8 @@ export interface Principal {
   readonly isPrimarySchoolAdmin: boolean;
   readonly platform: ClientPlatform;
   readonly deviceId: string | null;
+  /** "Masuk sebagai": super admin yang memakai sesi ini atas nama userId (null = pemilik akun sendiri). */
+  readonly impersonatorId: string | null;
 }
 
 /** Konteks aksi yang diteruskan ke setiap service. */

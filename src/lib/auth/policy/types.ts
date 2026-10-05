@@ -15,6 +15,10 @@ export interface PolicyRule {
   readonly allowDuringTotpEnrollment?: boolean;
   /** SCHOOL_ADMIN wajib admin utama sekolahnya (Principal.isPrimarySchoolAdmin); peran lain tidak terpengaruh. */
   readonly primarySchoolAdminOnly?: boolean;
+  /** Keamanan akun milik pemiliknya: ditolak IMPERSONATION_FORBIDDEN pada sesi "Masuk sebagai" super admin. */
+  readonly blockedWhenImpersonating?: boolean;
+  /** Pengecualian mode lihat "Masuk sebagai": perubahan (non-GET) aksi ini tetap boleh (hanya keluar/akhiri). */
+  readonly allowWhenImpersonating?: boolean;
 }
 
 export const ALL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"];

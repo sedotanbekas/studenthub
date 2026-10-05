@@ -8,6 +8,7 @@ import {
   loginEmailResultSchema,
   logoutAllResultSchema,
   logoutResultSchema,
+  endImpersonationResultSchema,
   meSchema,
   pushTokenBodySchema,
   pushTokenRegisteredSchema,
@@ -80,7 +81,7 @@ export const logoutAllContract = defineContract({
   path: "/api/v1/auth/logout-all",
   tag: TAG,
   summary: "Logout dari semua perangkat (termasuk sesi saat ini)",
-  action: "auth.self",
+  action: "auth.account",
   response: logoutAllResultSchema,
 });
 
@@ -95,6 +96,18 @@ export const meContract = defineContract({
   response: meSchema,
 });
 
+export const endImpersonationContract = defineContract({
+  id: "endImpersonation",
+  method: "POST",
+  path: "/api/v1/auth/impersonation/end",
+  tag: TAG,
+  summary: "Akhiri \"Masuk sebagai\" (kembali ke akun super admin)",
+  description: "Mencabut sesi Masuk sebagai ini. Sesi biasa -> 409 `NOT_IMPERSONATING`. Proxy web lalu memulihkan sesi super admin.",
+  action: "auth.self",
+  response: endImpersonationResultSchema,
+  errors: ["NOT_IMPERSONATING"],
+});
+
 export const changePasswordContract = defineContract({
   id: "authChangePassword",
   method: "POST",
@@ -107,7 +120,7 @@ export const changePasswordContract = defineContract({
     "Bila kata sandi diubah/direset di tempat lain saat permintaan berjalan: sesi ikut dicabut -> 401 `SESSION_INVALID`,",
     "atau 409 `PASSWORD_CHANGED_CONCURRENTLY` (muat ulang lalu coba lagi).",
   ].join(" "),
-  action: "auth.self",
+  action: "auth.account",
   body: changePasswordBodySchema,
   response: changePasswordResultSchema,
   errors: ["CURRENT_PASSWORD_INVALID", "PASSWORD_POLICY", "PASSWORD_REUSED", "PASSWORD_CHANGED_CONCURRENTLY", "RATE_LIMITED"],
@@ -130,7 +143,7 @@ export const revokeMySessionContract = defineContract({
   tag: TAG,
   summary: "Cabut salah satu sesi milik sendiri",
   description: "Sesi milik pengguna lain -> 404.",
-  action: "auth.self",
+  action: "auth.account",
   params: sessionIdParams,
   response: logoutResultSchema,
 });
@@ -142,7 +155,7 @@ export const registerPushTokenContract = defineContract({
   tag: TAG,
   summary: "Pasang token push Expo pada sesi mobile saat ini",
   description: "Token dipindahkan dari sesi lain yang memegangnya (satu HP hanya menerima push satu akun).",
-  action: "auth.self",
+  action: "auth.account",
   body: pushTokenBodySchema,
   response: pushTokenRegisteredSchema,
   errors: ["PUSH_TOKEN_INVALID", "PUSH_TOKEN_WEB_SESSION"],
@@ -154,7 +167,7 @@ export const removePushTokenContract = defineContract({
   path: "/api/v1/me/push-token",
   tag: TAG,
   summary: "Hapus token push Expo dari sesi mobile saat ini",
-  action: "auth.self",
+  action: "auth.account",
   response: pushTokenRemovedSchema,
   errors: ["PUSH_TOKEN_WEB_SESSION"],
 });
@@ -222,6 +235,7 @@ export const authContracts: readonly AnyContract[] = [
   logoutContract,
   logoutAllContract,
   meContract,
+  endImpersonationContract,
   changePasswordContract,
   listMySessionsContract,
   revokeMySessionContract,

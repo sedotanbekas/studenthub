@@ -20,6 +20,7 @@ function viewer(role: UserRole, over: Partial<Principal> = {}): Principal {
     isPrimarySchoolAdmin: false,
     platform: "WEB",
     deviceId: null,
+    impersonatorId: null,
     ...over,
   };
 }

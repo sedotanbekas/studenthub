@@ -103,14 +103,22 @@ export async function findAttendance(db: Tx, student: Pick<CheckInStudent, "id" 
  * tidak mengikat perangkat sehingga flag DEVICE_SESSION_MISMATCH/NEW_DEVICE mustahil menyala -> jalur
  * "titip absen" tak terlihat; karena itu ditolak 403 sebelum membaca apa pun.
  */
-export function assertCheckInSession(principal: Principal, userAgent: string | null): void {
+export function assertCheckInSession(principal: Principal, userAgent: string | null, mode: CheckInMode = "checkin"): void {
+  // "Masuk sebagai" super admin: boleh MELIHAT status hari ini, tidak pernah absen/precheck atas nama siswa.
+  if (principal.impersonatorId !== null) {
+    if (mode === "today") return;
+    throw forbidden("IMPERSONATION_FORBIDDEN", "Absen tidak tersedia saat Masuk sebagai: absen hanya sah dari HP siswa sendiri.");
+  }
   if (canCheckInFromSession({ platform: principal.platform, deviceId: principal.deviceId, userAgent })) return;
   throw forbidden("CHECKIN_MOBILE_ONLY", "Absensi hanya dapat dilakukan dari HP: aplikasi studenthub.id atau browser HP.");
 }
 
+/** "today" = hanya membaca status hari ini; "checkin" = precheck/absen masuk. */
+export type CheckInMode = "today" | "checkin";
+
 /** Konteks lengkap untuk today/precheck/check-in. Sesi mobile ber-deviceId; siswa harus ACTIVE (dicek ulang dari DB). */
-export async function loadCheckInContext(ctx: ActionContext): Promise<CheckInContext> {
-  assertCheckInSession(requirePrincipal(ctx), ctx.userAgent);
+export async function loadCheckInContext(ctx: ActionContext, mode: CheckInMode = "checkin"): Promise<CheckInContext> {
+  assertCheckInSession(requirePrincipal(ctx), ctx.userAgent, mode);
   const base = await loadStudentSchool(ctx);
   if (base.student.status !== "ACTIVE") throw forbidden("STUDENT_NOT_ACTIVE", "Akun siswa tidak aktif untuk absensi.");
   const local = localParts(ctx.now, base.school.timezone);

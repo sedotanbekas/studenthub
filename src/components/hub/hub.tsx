@@ -13,6 +13,7 @@ import type { Identity } from "@/lib/frontend/types";
 import { unreadBadge } from "@/lib/frontend/unread-badge";
 import { HubContext } from "./context";
 import { DemoBanner, Sidebar, TabBar, Topbar, deviceMemory } from "./frame";
+import { ImpersonationBanner, endImpersonation } from "./impersonation-banner";
 import { Brand } from "./icon";
 import { Login } from "./login";
 import { cancelPageSlide, playPageSlide } from "./page-slide";
@@ -121,17 +122,19 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
   const value = { me, demo, schoolId, setSchoolId: session.setSchoolId, toast: session.setNotice, reloadMe: session.reloadMe, logout: session.logout, saveDemoTheme: session.saveDemoTheme };
   return <HubContext.Provider value={value}><div className="app-shell">
     {drawer.open && <button className="sidebar-overlay" aria-label="Tutup navigasi" onClick={() => drawer.hide()} />}
-    <Sidebar me={me} env={env} modules={modulesFor(me.user.role)} current={current} home={home} unread={unread} open={drawer.open} onNavigate={() => drawer.hide(false)} onLogout={session.logout} />
+    {/* "Masuk sebagai": Keluar = kembali ke akun super admin (sesi super admin disimpan proxy web). */}
+    <Sidebar me={me} env={env} modules={modulesFor(me.user.role)} current={current} home={home} unread={unread} open={drawer.open} onNavigate={() => drawer.hide(false)} onLogout={me.impersonation ? endImpersonation : session.logout} />
     <div className="main-shell" inert={drawer.open}><Topbar key={me.user.id} title={current?.title ?? "Beranda"} home={home || restricted} unread={unread} me={me} env={env} onMenu={drawer.show} />
       {/* .hub-view = seluruh isi yang ikut tergulir, digeser utuh saat pindah halaman (page-slide.ts). */}
-      <main id="main-content" className="page-content"><div className="hub-view">{demo && <DemoBanner me={me} onPersona={session.switchPersona} onExit={session.logout} />}
+      <main id="main-content" className="page-content"><div className="hub-view">{me.impersonation && <ImpersonationBanner me={me} />}{demo && <DemoBanner me={me} onPersona={session.switchPersona} onExit={session.logout} />}
         {me.user.role === "SUPER_ADMIN" && current?.paths.some(p => p.startsWith("/school/")) && <label className="scope-select">Sekolah yang dikelola<select value={schoolId} onChange={e => session.setSchoolId(e.target.value)}><option value="">Pilih sekolah terlebih dahulu</option>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
         {/* Akun terbatas: pesan + formulir/tombolnya tampil bersama di kartu tugas halaman Keamanan akun (security-panel.tsx). */}
         {children}
       </div></main></div>
     <TabBar me={me} section={restricted ? "security" : section} menuOpen={drawer.open} inert={drawer.open} onMenu={drawer.show} />
-    <WebPushBridge key={me.user.id} me={me} demo={demo} />
-    <WebPushPrompt key={`push-${me.user.id}`} me={me} demo={demo} home={home && !drawer.open} toast={session.setNotice} />
+    {/* Notifikasi HP mengikat browser ke sesi: tidak pada sesi "Masuk sebagai" (ditolak server IMPERSONATION_FORBIDDEN). */}
+    {!me.impersonation && <WebPushBridge key={me.user.id} me={me} demo={demo} />}
+    {!me.impersonation && <WebPushPrompt key={`push-${me.user.id}`} me={me} demo={demo} home={home && !drawer.open} toast={session.setNotice} />}
     {toast}
   </div></HubContext.Provider>;
 }

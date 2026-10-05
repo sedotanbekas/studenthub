@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makePrincipal } from "../test-principal";
-import { authorize, can, isAction, listAllowedActions } from "./index";
+import { assertImpersonationAllowed, authorize, can, isAction, listAllowedActions } from "./index";
 
 const codeOf = (fn: () => void): string | null => {
   try {
@@ -23,6 +23,32 @@ test("mustChangePassword memblokir kecuali aksi allowlist", () => {
   assert.equal(codeOf(() => authorize(p, "auth.self")), null);
 });
 
+test("Masuk sebagai: keamanan akun milik pemilik ditolak IMPERSONATION_FORBIDDEN; aksi lain tetap jalan", () => {
+  const impersonated = makePrincipal({ role: "SCHOOL_ADMIN", impersonatorId: "sa1" });
+  for (const action of ["auth.account", "auth.email", "notification.push"] as const) {
+    assert.equal(codeOf(() => authorize(impersonated, action)), "IMPERSONATION_FORBIDDEN", action);
+  }
+  assert.equal(codeOf(() => authorize(impersonated, "auth.self")), null, "me/logout tetap boleh");
+  assert.equal(codeOf(() => authorize(impersonated, "notification.self")), null);
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SCHOOL_ADMIN" }), "auth.account")), null, "pemilik akun sendiri boleh");
+  assert.equal(codeOf(() => authorize(makePrincipal({ mustChangePassword: true }), "auth.account")), null, "ganti sandi saat wajib ganti");
+  assert.ok(!listAllowedActions(impersonated).includes("auth.account"));
+});
+
+test("Masuk sebagai = mode lihat: semua perubahan (non-GET) ditolak kecuali auth.self (keluar/akhiri)", () => {
+  const impersonated = makePrincipal({ role: "SCHOOL_ADMIN", impersonatorId: "sa1" });
+  assert.equal(codeOf(() => assertImpersonationAllowed(impersonated, "students.manage", "PATCH")), "IMPERSONATION_FORBIDDEN");
+  assert.equal(codeOf(() => assertImpersonationAllowed(impersonated, "notification.self", "POST")), "IMPERSONATION_FORBIDDEN");
+  assert.equal(codeOf(() => assertImpersonationAllowed(impersonated, "students.manage", "GET")), null);
+  assert.equal(codeOf(() => assertImpersonationAllowed(impersonated, "auth.self", "POST")), null);
+  assert.equal(codeOf(() => assertImpersonationAllowed(makePrincipal({ role: "SCHOOL_ADMIN" }), "students.manage", "PATCH")), null, "sesi biasa tidak terpengaruh");
+});
+
+test("users.impersonate: hanya super admin", () => {
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SUPER_ADMIN", schoolId: null }), "users.impersonate")), null);
+  assert.equal(codeOf(() => authorize(makePrincipal({ role: "SCHOOL_ADMIN" }), "users.impersonate")), "FORBIDDEN");
+});
+
 test("status siswa & sponsor mengikuti aturan", () => {
   const graduated = makePrincipal({ role: "STUDENT", studentStatus: "GRADUATED" });
   assert.equal(can(graduated, "notification.self"), true);
@@ -37,14 +63,14 @@ test("isAction & listAllowedActions", () => {
   assert.ok(listAllowedActions(makePrincipal({ role: "SUPER_ADMIN", schoolId: null })).includes("platform.jobs.read"));
 });
 
-test("SUPER_ADMIN tanpa TOTP aktif: hanya auth.self & auth.totp; aksi /platform ditolak TOTP_ENROLLMENT_REQUIRED", () => {
+test("SUPER_ADMIN tanpa TOTP aktif: hanya auth.self, auth.account & auth.totp; aksi /platform ditolak TOTP_ENROLLMENT_REQUIRED", () => {
   const pending = makePrincipal({ role: "SUPER_ADMIN", schoolId: null, totpEnrollmentRequired: true });
   assert.equal(codeOf(() => authorize(pending, "platform.jobs.read")), "TOTP_ENROLLMENT_REQUIRED");
   assert.equal(codeOf(() => authorize(pending, "users.manage")), "TOTP_ENROLLMENT_REQUIRED");
   assert.equal(codeOf(() => authorize(pending, "notification.self")), "TOTP_ENROLLMENT_REQUIRED");
   assert.equal(codeOf(() => authorize(pending, "auth.self")), null);
   assert.equal(codeOf(() => authorize(pending, "auth.totp")), null);
-  assert.deepEqual(listAllowedActions(pending).sort(), ["auth.self", "auth.totp"]);
+  assert.deepEqual(listAllowedActions(pending).sort(), ["auth.account", "auth.self", "auth.totp"]);
 });
 
 test("auth.totp: hanya SUPER_ADMIN, dan ditolak selama wajib ganti kata sandi", () => {

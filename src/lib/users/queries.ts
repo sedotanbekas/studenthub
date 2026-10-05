@@ -126,6 +126,6 @@ export async function getUserDto(userId: string, now: Date, db: Tx = prisma): Pr
 
 export async function getUserDetail(userId: string, now: Date): Promise<PlatformUserDetailDto> {
   const user = await getUserDto(userId, now);
-  const activeSessionCount = await prisma.authSession.count({ where: { userId, revokedAt: null, expiresAt: { gt: now } } });
+  const activeSessionCount = await prisma.authSession.count({ where: { userId, revokedAt: null, expiresAt: { gt: now }, impersonatorId: null } });
   return { ...user, activeSessionCount };
 }

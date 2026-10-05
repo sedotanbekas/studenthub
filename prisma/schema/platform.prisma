@@ -14,15 +14,15 @@ enum JobRunStatus {
 
 /// Singleton (id = 1), dibuat oleh migrasi.
 model PlatformSetting {
-  id                 Int     @id @default(1)
-  defaultCpcAmount   Int
-  minTopUpAmount     Int
+  id                      Int       @id @default(1)
+  defaultCpcAmount        Int
+  minTopUpAmount          Int
   /// Rekening tujuan top-up yang ditampilkan ke sponsor.
-  topUpBankName      String? @db.VarChar(50)
-  topUpAccountNumber String? @db.VarChar(30)
-  topUpAccountHolder String? @db.VarChar(100)
+  topUpBankName           String?   @db.VarChar(50)
+  topUpAccountNumber      String?   @db.VarChar(30)
+  topUpAccountHolder      String?   @db.VarChar(100)
   /// Skema aplikasi pihak ketiga yang boleh dipakai iklan DEEP_LINK, mis. ["shopee","tokopedia"].
-  deepLinkSchemes    Json
+  deepLinkSchemes         Json
   /// Mode uji absensi (SEMENTARA, keputusan pemilik 2026-10-02): terisi = aktif sejak waktu itu; jarak ke
   /// sekolah dan jam/hari absen tidak diperiksa untuk semua sekolah. NULL = terkunci (normal).
   attendanceTestModeSince DateTime?
@@ -77,18 +77,20 @@ model StoredFile {
 
 /// Append-only. before/after tanpa data rahasia (hash password, token).
 model AuditLog {
-  id         String    @id @default(cuid())
-  actorId    String?
-  actorRole  UserRole?
-  schoolId   String?
+  id             String    @id @default(cuid())
+  actorId        String?
+  actorRole      UserRole?
+  schoolId       String?
   /// mis. "student.activate", "invoice.void", "topup.approve"
-  action     String    @db.VarChar(64)
-  entityType String    @db.VarChar(40)
-  entityId   String    @db.VarChar(191)
-  before     Json?
-  after      Json?
-  ipAddress  String?   @db.VarChar(45)
-  userAgent  String?   @db.VarChar(255)
+  action         String    @db.VarChar(64)
+  entityType     String    @db.VarChar(40)
+  entityId       String    @db.VarChar(191)
+  before         Json?
+  after          Json?
+  ipAddress      String?   @db.VarChar(45)
+  userAgent      String?   @db.VarChar(255)
+  /// Tindakan dilakukan super admin lewat "Masuk sebagai" atas nama actorId (2026-10-05); NULL = pemilik akun sendiri.
+  impersonatorId String?   @db.VarChar(191)
 
   actor  User?   @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   school School? @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)

@@ -1,4 +1,5 @@
 import type { SchoolThemeDto } from "@/lib/schools/theme-schemas";
+import type { ImpersonationView } from "./impersonation-view";
 /** Tema sekolah seperti dikirim API (SchoolTheme) — tipe dari kontrak backend. */
 export type { SchoolThemeDto };
 export type Row = Record<string, unknown>;
@@ -10,6 +11,8 @@ export interface Identity {
   school: { id: string; name: string; timezone: string; theme?: SchoolThemeDto } | null;
   sponsor: { id: string; companyName: string } | null;
   permissions: string[];
+  /** "Masuk sebagai" super admin (GET /auth/me); opsional agar mock/persona lama tetap valid. */
+  impersonation?: ImpersonationView | null;
 }
 export interface Schema {
   $ref?: string; type?: string | string[]; properties?: Record<string, Schema>; required?: string[];

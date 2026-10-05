@@ -50,7 +50,7 @@ function todayWindow(context: CheckInContext): TodayDto["window"] {
 }
 
 export async function getTodayAttendance(ctx: ActionContext): Promise<TodayDto> {
-  const context = await loadCheckInContext(ctx);
+  const context = await loadCheckInContext(ctx, "today");
   const { school, local, day, existing } = context;
   const window = todayWindow(context);
   const blockReason = todayBlockReason({ testMode: context.testMode, existingSource: existing?.source ?? null, day, window: window.state });

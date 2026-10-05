@@ -53,6 +53,8 @@ export async function writeAudit(tx: Tx, entry: AuditEntry, ctx: AuditActor): Pr
       after: toJson(entry.after),
       ipAddress: ctx.ip?.slice(0, 45) ?? null,
       userAgent: ctx.userAgent?.slice(0, 255) ?? null,
+      // "Masuk sebagai": aktor = akun yang dibuka, impersonatorId = super admin yang sebenarnya bertindak.
+      impersonatorId: ctx.principal?.impersonatorId ?? null,
     },
   });
 }

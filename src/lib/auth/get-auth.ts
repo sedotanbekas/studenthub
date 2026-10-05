@@ -35,6 +35,8 @@ async function loadSession(sessionId: string): Promise<SessionRow | null> {
       deviceId: true,
       revokedAt: true,
       expiresAt: true,
+      impersonatorId: true,
+      impersonator: { select: { isActive: true, role: true } },
       user: {
         select: {
           id: true,

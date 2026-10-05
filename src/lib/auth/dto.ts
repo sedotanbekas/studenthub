@@ -76,7 +76,8 @@ export interface MeRow {
 }
 
 /** `totpEnrollmentRequired` diambil dari Principal (sudah memperhitungkan sakelar SUPER_ADMIN_TOTP). */
-export function toMe(row: MeRow, permissions: readonly string[], totpEnrollmentRequired: boolean): MeDto {
+/** Tanpa `impersonation` (ditambahkan getMe dari sesi). */
+export function toMe(row: MeRow, permissions: readonly string[], totpEnrollmentRequired: boolean): Omit<MeDto, "impersonation"> {
   return {
     user: {
       id: row.id,

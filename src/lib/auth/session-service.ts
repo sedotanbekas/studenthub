@@ -71,8 +71,9 @@ async function revokeReplacedSessions(tx: Tx, input: NewSessionInput): Promise<v
     });
     await forgetRevokedWebPush(tx, { deviceId: input.deviceId, userId: { not: input.userId } });
   }
+  // Sesi "Masuk sebagai" super admin tidak dihitung batas sesi pemilik akun dan tidak pernah mengusir sesi aslinya.
   const liveSessions = await tx.authSession.findMany({
-    where: { userId: input.userId, revokedAt: null, expiresAt: { gt: input.now } },
+    where: { userId: input.userId, revokedAt: null, expiresAt: { gt: input.now }, impersonatorId: null },
     select: { id: true, platform: true, deviceId: true, lastUsedAt: true, createdAt: true },
   });
   const ids = planLoginRevocations({ role: input.role, platform: input.platform, deviceId: input.deviceId, userAgent: input.userAgent, liveSessions });
@@ -135,7 +136,8 @@ export async function logoutEverywhere(ctx: ActionContext): Promise<{ revokedCou
 export async function listOwnSessions(ctx: ActionContext): Promise<SessionItem[]> {
   const principal = requirePrincipal(ctx);
   const rows = await prisma.authSession.findMany({
-    where: { userId: principal.userId, revokedAt: null, expiresAt: { gt: ctx.now } },
+    // Sesi "Masuk sebagai" bukan perangkat pemilik akun: tidak ditampilkan di daftar perangkat aktifnya.
+    where: { userId: principal.userId, revokedAt: null, expiresAt: { gt: ctx.now }, impersonatorId: null },
     select: { id: true, platform: true, deviceName: true, ipAddress: true, lastUsedAt: true, createdAt: true },
     orderBy: [{ lastUsedAt: "desc" }, { id: "asc" }],
     take: SESSION_LIST_MAX,

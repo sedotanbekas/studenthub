@@ -824,7 +824,7 @@
           "Auth"
         ],
         "summary": "Logout dari semua perangkat (termasuk sesi saat ini)",
-        "description": "Aksi POLICY: `auth.self`.",
+        "description": "Aksi POLICY: `auth.account`.",
         "security": [
           {
             "bearerAuth": []
@@ -1028,6 +1028,126 @@
         }
       }
     },
+    "/api/v1/auth/impersonation/end": {
+      "post": {
+        "operationId": "endImpersonation",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Akhiri \"Masuk sebagai\" (kembali ke akun super admin)",
+        "description": "Mencabut sesi Masuk sebagai ini. Sesi biasa -> 409 `NOT_IMPERSONATING`. Proxy web lalu memulihkan sesi super admin.\n\nAksi POLICY: `auth.self`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "ended": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "ended"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: NOT_IMPERSONATING.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/change-password": {
       "post": {
         "operationId": "authChangePassword",
@@ -1035,7 +1155,7 @@
           "Auth"
         ],
         "summary": "Ganti kata sandi (sukarela atau wajib saat login pertama)",
-        "description": "Kebijakan: minimal 8 karakter, maks 72 byte, huruf + angka, tidak memuat NISN/NIS/email/tanggal lahir, bukan kata sandi umum. Sesi saat ini tetap berlaku; semua sesi lain dicabut. 5 kali kata sandi lama salah -> 429 `RATE_LIMITED`. Bila kata sandi diubah/direset di tempat lain saat permintaan berjalan: sesi ikut dicabut -> 401 `SESSION_INVALID`, atau 409 `PASSWORD_CHANGED_CONCURRENTLY` (muat ulang lalu coba lagi).\n\nAksi POLICY: `auth.self`.",
+        "description": "Kebijakan: minimal 8 karakter, maks 72 byte, huruf + angka, tidak memuat NISN/NIS/email/tanggal lahir, bukan kata sandi umum. Sesi saat ini tetap berlaku; semua sesi lain dicabut. 5 kali kata sandi lama salah -> 429 `RATE_LIMITED`. Bila kata sandi diubah/direset di tempat lain saat permintaan berjalan: sesi ikut dicabut -> 401 `SESSION_INVALID`, atau 409 `PASSWORD_CHANGED_CONCURRENTLY` (muat ulang lalu coba lagi).\n\nAksi POLICY: `auth.account`.",
         "security": [
           {
             "bearerAuth": []
@@ -1314,7 +1434,7 @@
           "Auth"
         ],
         "summary": "Cabut salah satu sesi milik sendiri",
-        "description": "Sesi milik pengguna lain -> 404.\n\nAksi POLICY: `auth.self`.",
+        "description": "Sesi milik pengguna lain -> 404.\n\nAksi POLICY: `auth.account`.",
         "security": [
           {
             "bearerAuth": []
@@ -1435,7 +1555,7 @@
           "Auth"
         ],
         "summary": "Pasang token push Expo pada sesi mobile saat ini",
-        "description": "Token dipindahkan dari sesi lain yang memegangnya (satu HP hanya menerima push satu akun).\n\nAksi POLICY: `auth.self`.",
+        "description": "Token dipindahkan dari sesi lain yang memegangnya (satu HP hanya menerima push satu akun).\n\nAksi POLICY: `auth.account`.",
         "security": [
           {
             "bearerAuth": []
@@ -1583,7 +1703,7 @@
           "Auth"
         ],
         "summary": "Hapus token push Expo dari sesi mobile saat ini",
-        "description": "Aksi POLICY: `auth.self`.",
+        "description": "Aksi POLICY: `auth.account`.",
         "security": [
           {
             "bearerAuth": []
@@ -5633,6 +5753,129 @@
           },
           "422": {
             "description": "Pelanggaran aturan bisnis. Kode: PASSWORD_POLICY.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/users/{id}/impersonate": {
+      "post": {
+        "operationId": "impersonatePlatformUser",
+        "tags": [
+          "Super Admin - Pengguna"
+        ],
+        "summary": "Masuk sebagai akun ini (super admin, sesi terpisah 30 menit)",
+        "description": "Untuk memverifikasi keluhan tanpa kata sandi pemilik akun. Semua peran kecuali super admin (403 `IMPERSONATION_NOT_ALLOWED`); akun yang tidak bisa login sendiri -> 403 `ACCOUNT_INACTIVE`. Sesi baru (WEB, tanpa perangkat, 30 menit) TIDAK mengeluarkan sesi asli pemilik akun dan tidak dihitung batas sesinya. MODE LIHAT: semua perubahan (selain keluar/akhiri) ditolak 403 `IMPERSONATION_FORBIDDEN`, juga notifikasi HP & absen; mulai/akhir tercatat di audit sekolah atas nama super admin. Mencabut semua sesi super admin ikut mencabut sesi ini. Proxy web menyimpan sesi super admin dan memulihkannya lewat POST /auth/impersonation/end.\n\nAksi POLICY: `users.impersonate`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID pengguna."
+            },
+            "required": true,
+            "description": "ID pengguna."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthTokens"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, IMPERSONATION_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
             "content": {
               "application/json": {
                 "schema": {
@@ -35985,6 +36228,45 @@
               "type": "string"
             },
             "description": "Aksi POLICY yang boleh dijalankan pemanggil saat ini."
+          },
+          "impersonation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "by": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  }
+                },
+                "required": [
+                  "by",
+                  "expiresAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Terisi bila sesi ini dibuka super admin lewat \"Masuk sebagai\" (berakhir pada expiresAt)."
           }
         },
         "required": [
@@ -35992,7 +36274,8 @@
           "school",
           "student",
           "sponsor",
-          "permissions"
+          "permissions",
+          "impersonation"
         ],
         "additionalProperties": false
       },

@@ -1,12 +1,13 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { accountBadge, loginKindLabel, passwordSummary, shortDateTime, type AccountRow } from "@/lib/frontend/account-rules";
+import { accountBadge, canImpersonate, loginKindLabel, passwordSummary, shortDateTime, type AccountRow } from "@/lib/frontend/account-rules";
 import { initials } from "@/lib/frontend/format";
 import { useHub } from "../../context";
+import { Icon } from "../../icon";
 import { CopyValue } from "./copy-value";
-import { LoginHistoryDialog, ResetPasswordDialog } from "./account-dialogs";
+import { ImpersonateDialog, LoginHistoryDialog, ResetPasswordDialog } from "./account-dialogs";
 
-type OpenDialog = "reset" | "history" | null;
+type OpenDialog = "reset" | "history" | "impersonate" | null;
 
 function LoginLine({ account }: { account: AccountRow }) {
   const logins = account.logins ?? [];
@@ -50,10 +51,12 @@ export function AccountCard({ account, showSchool = false, onChanged, extraActio
     </dl>
     <div className="account-actions">
       {extraActions}
+      {canImpersonate(account) && me.user.role === "SUPER_ADMIN" && <button type="button" className="button primary small-button" onClick={() => setOpen("impersonate")}><Icon name="arrow" size={15} />Masuk sebagai</button>}
       <button type="button" className="button secondary small-button" onClick={() => setOpen("history")}>Riwayat masuk</button>
       {!self && <button type="button" className="button secondary small-button" onClick={() => setOpen("reset")}>Reset sandi</button>}
     </div>
     {open === "reset" && <ResetPasswordDialog account={account} onClose={() => setOpen(null)} onDone={onChanged} />}
     {open === "history" && <LoginHistoryDialog account={account} onClose={() => setOpen(null)} />}
+    {open === "impersonate" && <ImpersonateDialog account={account} onClose={() => setOpen(null)} />}
   </article>;
 }

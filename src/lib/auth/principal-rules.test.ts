@@ -11,6 +11,8 @@ const row = (over: Partial<SessionRow> = {}, user: Partial<SessionRow["user"]> =
   deviceId: "dev-12345678",
   revokedAt: null,
   expiresAt: new Date("2026-10-01T00:00:00Z"),
+  impersonatorId: null,
+  impersonator: null,
   ...over,
   user: {
     id: "u1", role: "STUDENT", name: "Siswa", isActive: true, mustChangePassword: false, totpEnabledAt: null,
@@ -34,6 +36,17 @@ test("sesi hilang/dicabut/kedaluwarsa/sub beda -> SESSION_INVALID", () => {
   assert.deepEqual(evaluatePrincipal(row({ revokedAt: NOW }), CLAIMS, NOW), invalid);
   assert.deepEqual(evaluatePrincipal(row({ expiresAt: NOW }), CLAIMS, NOW), invalid);
   assert.deepEqual(evaluatePrincipal(row(), { sub: "u2", sid: "sess" }, NOW), invalid);
+});
+
+test("Masuk sebagai: principal membawa impersonatorId; super admin pemiliknya nonaktif/bukan SA lagi -> SESSION_INVALID", () => {
+  const invalid = { ok: false, code: "SESSION_INVALID" };
+  const impersonated = evaluatePrincipal(row({ impersonatorId: "sa1", impersonator: { isActive: true, role: "SUPER_ADMIN" } }), CLAIMS, NOW);
+  assert.equal(impersonated.ok && impersonated.principal.impersonatorId, "sa1");
+  const normal = evaluatePrincipal(row(), CLAIMS, NOW);
+  assert.equal(normal.ok && normal.principal.impersonatorId, null);
+  assert.deepEqual(evaluatePrincipal(row({ impersonatorId: "sa1", impersonator: { isActive: false, role: "SUPER_ADMIN" } }), CLAIMS, NOW), invalid);
+  assert.deepEqual(evaluatePrincipal(row({ impersonatorId: "sa1", impersonator: { isActive: true, role: "SCHOOL_ADMIN" } }), CLAIMS, NOW), invalid);
+  assert.deepEqual(evaluatePrincipal(row({ impersonatorId: "sa1", impersonator: null }), CLAIMS, NOW), invalid);
 });
 
 test("akun/sekolah nonaktif atau siswa DRAFT -> ACCOUNT_INACTIVE", () => {

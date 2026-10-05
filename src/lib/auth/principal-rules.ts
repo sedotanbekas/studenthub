@@ -1,5 +1,6 @@
 import type { ClientPlatform, SponsorStatus, StudentStatus, UserRole } from "@prisma/client";
 import type { Principal } from "./principal";
+import { impersonatorStillValid } from "./impersonation-rules";
 import { requiresTotpEnrollment } from "./totp-rules";
 
 /** Bentuk baris sesi yang dimuat getAuth (satu query per request). */
@@ -10,6 +11,9 @@ export interface SessionRow {
   deviceId: string | null;
   revokedAt: Date | null;
   expiresAt: Date;
+  /** "Masuk sebagai": super admin pembuka sesi + statusnya saat ini (null = sesi login biasa). */
+  impersonatorId: string | null;
+  impersonator: { isActive: boolean; role: UserRole } | null;
   user: {
     id: string;
     role: UserRole;
@@ -65,6 +69,8 @@ export function evaluatePrincipal(
   if (!row || row.revokedAt !== null || row.expiresAt.getTime() <= now.getTime() || row.userId !== claims.sub) {
     return { ok: false, code: "SESSION_INVALID" };
   }
+  // Sesi "Masuk sebagai" mati seketika bila super admin pembukanya dinonaktifkan / bukan super admin lagi.
+  if (row.impersonatorId !== null && !impersonatorStillValid(row.impersonator)) return { ok: false, code: "SESSION_INVALID" };
   const { user } = row;
   const eligible = checkLoginEligibility({
     isActive: user.isActive,
@@ -88,6 +94,7 @@ export function evaluatePrincipal(
     isPrimarySchoolAdmin: user.role === "SCHOOL_ADMIN" && user.primarySchoolId !== null && user.primarySchoolId === user.schoolId,
     platform: row.platform,
     deviceId: row.deviceId,
+    impersonatorId: row.impersonatorId,
   });
   return { ok: true, principal };
 }

@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { resetRequest, shortDateTime, type AccountRow } from "@/lib/frontend/account-rules";
+import { accountBadge, resetRequest, shortDateTime, type AccountRow } from "@/lib/frontend/account-rules";
 import { api } from "@/lib/frontend/api";
+import { IMPERSONATION_RETURN_KEY } from "@/lib/frontend/impersonation-view";
 import { isOwnDialogCancel } from "@/lib/frontend/dialog-events";
 import { display } from "@/lib/frontend/format";
 import { useHub } from "../../context";
@@ -49,6 +50,42 @@ export function ResetPasswordDialog({ account, onClose, onDone }: { account: Acc
     {result === null
       ? <p>Kata sandi lama tidak berlaku lagi dan <strong>semua perangkat yang sedang masuk akan dikeluarkan</strong>. Pengguna wajib mengganti kata sandi baru saat masuk.</p>
       : <div className="success-message"><Icon name="check" size={19} /><span>Berhasil. {result ? <>Kata sandi baru: <CopyValue label="Kata sandi" value={result} /></> : "Kata sandi baru sudah ditetapkan."}</span></div>}
+    {error && <div className="error-message" role="alert">{error}</div>}
+  </AccountDialog>;
+}
+
+const IMPERSONATED_HOME = "/hub";
+
+/**
+ * "Masuk sebagai": konfirmasi lalu buka akun ini di browser ini (proxy web menyimpan sesi super admin). Alamat halaman
+ * sekarang disimpan agar "Kembali ke super admin" pulang ke sini.
+ */
+export function ImpersonateDialog({ account, onClose }: { account: AccountRow; onClose: () => void }) {
+  const { demo } = useHub();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function start() {
+    if (demo) { setError("Mode demo: Masuk sebagai hanya bisa dilakukan dengan akun sungguhan."); return; }
+    setBusy(true); setError("");
+    try { sessionStorage.setItem(IMPERSONATION_RETURN_KEY, `${window.location.pathname}${window.location.search}`); } catch { /* diblokir: kembali ke halaman Pengguna */ }
+    try {
+      await api(`/platform/users/${encodeURIComponent(account.id)}/impersonate`, { method: "POST" });
+      // Muat ulang PENUH (bukan router.push): identitas berganti, seluruh keadaan super admin di tab ini harus hilang.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- muat ulang penuh disengaja (lihat atas)
+      window.location.assign(IMPERSONATED_HOME);
+    } catch (e) {
+      setError(errorText(e, "Belum berhasil masuk sebagai akun ini. Silakan coba lagi."));
+      setBusy(false);
+    }
+  }
+  const footer = <><button type="button" className="button secondary" disabled={busy} onClick={onClose}>Batal</button><button type="button" className="button primary" disabled={busy} onClick={start}>{busy ? "Membuka akun…" : "Masuk sebagai"}</button></>;
+  return <AccountDialog eyebrow="MASUK SEBAGAI" title={`${account.name} · ${accountBadge(account)}`} busy={busy} onClose={onClose} footer={footer}>
+    <p>Kamu akan membuka akun ini <strong>di browser ini selama 30 menit</strong> tanpa kata sandinya, untuk melihat persis apa yang dilihat pemiliknya.</p>
+    <ul className="impersonate-notes">
+      <li><strong>Mode lihat:</strong> semua halaman bisa dibuka, tetapi data tidak bisa diubah atas nama pemiliknya. Untuk mengubah data, pakai akun super admin (Kelola data sekolah).</li>
+      <li>Sesi asli pemilik akun tidak terganggu dan tidak dikeluarkan.</li>
+      <li>Mulai & akhir sesi ini tercatat di riwayat aktivitas sekolah atas namamu.</li>
+    </ul>
     {error && <div className="error-message" role="alert">{error}</div>}
   </AccountDialog>;
 }

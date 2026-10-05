@@ -62,7 +62,7 @@ test("SA tanpa TOTP: login boleh, /platform/* 403 TOTP_ENROLLMENT_REQUIRED, /aut
   const user = mine.body?.data.user as unknown as { totpEnabled: boolean; totpEnrollmentRequired: boolean };
   assert.equal(user.totpEnabled, false);
   assert.equal(user.totpEnrollmentRequired, true);
-  assert.deepEqual([...(mine.body?.data.permissions ?? [])].sort(), ["auth.self", "auth.totp"]);
+  assert.deepEqual([...(mine.body?.data.permissions ?? [])].sort(), ["auth.account", "auth.self", "auth.totp"]);
   const out = await callRoute<Envelope<{ revoked: true }>>(logoutRoute, { method: "POST", url: "/api/v1/auth/logout", bearer: tokens.accessToken });
   assert.equal(out.status, 200);
 });

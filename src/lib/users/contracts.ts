@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { authTokensSchema } from "@/lib/auth/auth-schemas";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
 import { auditLogSchema, platformAuditQuery, schoolAuditQuery } from "./audit-schemas";
 import {
@@ -150,6 +151,26 @@ export const resetPlatformUserPasswordContract = defineContract({
   errors: ["USE_STUDENT_ENDPOINT", "USE_CHANGE_PASSWORD", "PASSWORD_POLICY"],
 });
 
+export const impersonatePlatformUserContract = defineContract({
+  id: "impersonatePlatformUser",
+  method: "POST",
+  path: "/api/v1/platform/users/{id}/impersonate",
+  tag: USERS_TAG,
+  summary: "Masuk sebagai akun ini (super admin, sesi terpisah 30 menit)",
+  description: [
+    "Untuk memverifikasi keluhan tanpa kata sandi pemilik akun. Semua peran kecuali super admin (403 `IMPERSONATION_NOT_ALLOWED`);",
+    "akun yang tidak bisa login sendiri -> 403 `ACCOUNT_INACTIVE`. Sesi baru (WEB, tanpa perangkat, 30 menit) TIDAK mengeluarkan",
+    "sesi asli pemilik akun dan tidak dihitung batas sesinya. MODE LIHAT: semua perubahan (selain keluar/akhiri) ditolak 403",
+    "`IMPERSONATION_FORBIDDEN`, juga notifikasi HP & absen; mulai/akhir tercatat di audit sekolah atas nama super admin. Mencabut",
+    "semua sesi super admin ikut mencabut sesi ini. Proxy web menyimpan sesi super admin dan memulihkannya lewat POST /auth/impersonation/end.",
+  ].join(" "),
+  action: "users.impersonate",
+  params: userIdParams,
+  response: authTokensSchema,
+  rateLimit: { limiter: "ADMIN_RESET", key: "user" },
+  errors: ["IMPERSONATION_NOT_ALLOWED", "ACCOUNT_INACTIVE"],
+});
+
 export const listPlatformAuditLogsContract = defineContract({
   id: "listPlatformAuditLogs",
   method: "GET",
@@ -185,6 +206,7 @@ export const usersContracts: readonly AnyContract[] = [
   activatePlatformUserContract,
   revokePlatformUserSessionsContract,
   resetPlatformUserPasswordContract,
+  impersonatePlatformUserContract,
   listPlatformAuditLogsContract,
   listSchoolAuditLogsContract,
 ];

@@ -59,7 +59,8 @@ model User {
   sponsor Sponsor? @relation("SponsorMembers", fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   student                  Student?
-  sessions                 AuthSession[]
+  sessions                 AuthSession[]         @relation("SessionOwner")
+  impersonatedSessions     AuthSession[]         @relation("SessionImpersonator")
   trustedDevices           TrustedDevice[]
   notifications            Notification[]
   announcementsAuthored    Announcement[]
@@ -92,23 +93,27 @@ model User {
 /// Satu login pada satu perangkat = satu "family" refresh token.
 /// Token pengganti yang dipakai ulang di luar jendela balapan -> seluruh sesi dicabut (TOKEN_REUSE).
 model AuthSession {
-  id            String               @id @default(cuid())
-  userId        String
-  platform      ClientPlatform
+  id             String               @id @default(cuid())
+  userId         String
+  platform       ClientPlatform
   /// Wajib untuk sesi STUDENT di ANDROID/IOS (aturan service).
-  deviceId      String?              @db.VarChar(100)
-  deviceName    String?              @db.VarChar(100)
+  deviceId       String?              @db.VarChar(100)
+  deviceName     String?              @db.VarChar(100)
   /// Token Expo milik sesi ini. Unik: satu HP hanya menerima push milik SATU sesi aktif.
-  expoPushToken String?              @unique @db.VarChar(255)
-  ipAddress     String?              @db.VarChar(45)
-  userAgent     String?              @db.VarChar(255)
-  lastUsedAt    DateTime             @default(now())
+  expoPushToken  String?              @unique @db.VarChar(255)
+  ipAddress      String?              @db.VarChar(45)
+  userAgent      String?              @db.VarChar(255)
+  lastUsedAt     DateTime             @default(now())
   /// Batas umur absolut family (tidak diperpanjang oleh rotasi).
-  expiresAt     DateTime
-  revokedAt     DateTime?
-  revokeReason  SessionRevokeReason?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  revokeReason   SessionRevokeReason?
+  /// "Masuk sebagai" (2026-10-05): super admin yang membuka sesi ini atas nama `userId` (30 menit, tidak dihitung
+  /// batas sesi pemilik akun). NULL = sesi login biasa.
+  impersonatorId String?
 
-  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user                User                 @relation("SessionOwner", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  impersonator        User?                @relation("SessionImpersonator", fields: [impersonatorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   refreshTokens       RefreshToken[]
   webPushSubscription WebPushSubscription?
 
@@ -117,6 +122,7 @@ model AuthSession {
 
   @@index([userId, revokedAt])
   @@index([deviceId, revokedAt])
+  @@index([impersonatorId])
   @@index([expiresAt])
   /// Retensi sesi dicabut > 90 hari (maintenance-daily) tanpa scan seluruh tabel.
   @@index([revokedAt])

@@ -159,8 +159,14 @@ export const meSchema = z
       .nullable(),
     sponsor: z.object({ id: z.string(), companyName: z.string(), status: z.enum(SPONSOR_STATUSES) }).nullable(),
     permissions: z.array(z.string()).meta({ description: "Aksi POLICY yang boleh dijalankan pemanggil saat ini." }),
+    impersonation: z
+      .object({ by: z.object({ id: z.string(), name: z.string() }), expiresAt: instant })
+      .nullable()
+      .meta({ description: "Terisi bila sesi ini dibuka super admin lewat \"Masuk sebagai\" (berakhir pada expiresAt)." }),
   })
   .meta({ id: "AuthMe" });
+
+export const endImpersonationResultSchema = z.object({ ended: z.literal(true) });
 
 export const sessionItemSchema = z
   .object({

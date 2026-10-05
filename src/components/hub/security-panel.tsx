@@ -17,6 +17,11 @@ import { WebPushCard } from "./web-push-card";
 
 export function SecurityPanel() {
   const { me } = useHub();
+  // "Masuk sebagai": keamanan akun hanya milik pemiliknya (server menolak IMPERSONATION_FORBIDDEN).
+  if (me.impersonation) {
+    const pending = me.user.mustChangePassword ? " Akun ini masih wajib mengganti kata sandi awal: pemiliknya akan diminta saat masuk." : "";
+    return <div className="security-panel"><SecurityCard icon="shield" title="Keamanan akun milik pemiliknya" text={`Kamu sedang Masuk sebagai ${me.user.name}. Ganti kata sandi, email, notifikasi HP, dan keluar dari semua perangkat hanya bisa dilakukan pemilik akun.${pending}`} /></div>;
+  }
   if (me.user.mustChangePassword) {
     return <div className="security-panel"><SecurityCard task icon="key" title="Ganti kata sandi awal" text="Sebelum melanjutkan, buat kata sandi baru untuk mengamankan akunmu."><PasswordForm forced submitLabel="Simpan kata sandi baru" /></SecurityCard></div>;
   }

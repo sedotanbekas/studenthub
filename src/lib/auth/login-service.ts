@@ -28,7 +28,7 @@ import { isTrustedDevice, issueTrustedDevice, type IssuedTrustedDevice } from ".
  * akun -> satu transaksi pembuatan sesi (kunci user, baca ulang kredensial & kelayakan, CAS langkah TOTP,
  * compare-and-set lastLoginAt) -> access token.
  */
-const ACCOUNT_INACTIVE_MESSAGES: Readonly<Record<IneligibleReason, string>> = {
+export const ACCOUNT_INACTIVE_MESSAGES: Readonly<Record<IneligibleReason, string>> = {
   USER_INACTIVE: "Akun Anda dinonaktifkan. Hubungi admin.",
   SCHOOL_INACTIVE: "Sekolah Anda sedang dinonaktifkan. Hubungi admin.",
   STUDENT_DRAFT: "Akun belum diaktivasi sekolah.",

@@ -79,7 +79,7 @@ export function passwordSummary(password: PasswordView | undefined): PasswordSum
       return {
         tone: "muted",
         title: "Sudah diganti pemiliknya",
-        detail: `${password.changedAt ? `Diganti ${shortDateTime(password.changedAt)}. ` : ""}Tidak dapat dilihat (tersimpan satu arah) — pakai Reset bila perlu.`,
+        detail: `${password.changedAt ? `Diganti ${shortDateTime(password.changedAt)}. ` : ""}Tidak dapat dilihat (tersimpan satu arah) — pakai Masuk sebagai, atau Reset bila perlu.`,
         plain: null,
       };
   }

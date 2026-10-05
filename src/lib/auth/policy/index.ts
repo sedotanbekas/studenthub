@@ -48,6 +48,9 @@ export function authorize(principal: Principal, action: Action): void {
   if (!rule.roles.includes(principal.role)) {
     throw forbidden("FORBIDDEN", "Anda tidak memiliki akses untuk aksi ini.");
   }
+  if (rule.blockedWhenImpersonating && principal.impersonatorId !== null) {
+    throw forbidden("IMPERSONATION_FORBIDDEN", "Tidak tersedia saat Masuk sebagai: keamanan akun hanya bisa diubah pemiliknya.");
+  }
   if (rule.primarySchoolAdminOnly && principal.role === "SCHOOL_ADMIN" && !principal.isPrimarySchoolAdmin) {
     throw forbidden("PRIMARY_ADMIN_ONLY", "Hanya admin utama sekolah yang dapat mengelola akun admin.");
   }
@@ -73,6 +76,17 @@ export function authorize(principal: Principal, action: Action): void {
       );
     }
   }
+}
+
+/**
+ * "Masuk sebagai" = MODE LIHAT (tinjauan keamanan 2026-10-05): semua perubahan (metode selain GET) ditolak kecuali aksi
+ * allowWhenImpersonating (keluar/akhiri). Default-deny agar endpoint baru tidak terbuka diam-diam atas nama pemilik akun.
+ */
+export function assertImpersonationAllowed(principal: Principal, action: Action, method: string): void {
+  if (principal.impersonatorId === null || method === "GET") return;
+  const rule: PolicyRule = POLICY[action];
+  if (rule.allowWhenImpersonating) return;
+  throw forbidden("IMPERSONATION_FORBIDDEN", "Mode lihat: perubahan data tidak tersedia saat Masuk sebagai. Pakai akun super admin untuk mengubah data.");
 }
 
 export function can(principal: Principal, action: Action): boolean {

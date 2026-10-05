@@ -155,3 +155,94 @@ test("BFF logout saat backend tidak terjangkau tetap menghapus cookie di browser
   const response = await POST(req, params("auth/logout"));
   assert.equal(cleared(response).length, 2);
 });
+
+const IMP_TOKENS = { accessToken: "imp-access", refreshToken: "imp-refresh", accessTokenExpiresAt: "2030-01-01T00:00:00Z", refreshTokenExpiresAt: "2030-01-01T00:30:00Z", user: { id: "u1", name: "Siswa" } };
+const cookieNames = (response: Response) => response.headers.getSetCookie().map(c => c.split(";")[0]);
+
+test("Masuk sebagai: token akun target jadi cookie, refresh super admin disimpan di cookie stash HttpOnly", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ success: true, data: IMP_TOKENS }));
+  const response = await POST(request("platform/users/u1/impersonate", "POST", { cookie: "studenthub_access=sa-access; studenthub_refresh=sa-refresh" }), params("platform/users/u1/impersonate"));
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.data.accessToken, undefined);
+  assert.equal(body.data.refreshToken, undefined);
+  const names = cookieNames(response);
+  assert.ok(names.includes("studenthub_access=imp-access") && names.includes("studenthub_refresh=imp-refresh"));
+  const stash = response.headers.getSetCookie().find(c => c.startsWith("studenthub_impersonator=")) ?? "";
+  assert.match(stash, /^studenthub_impersonator=sa-refresh; Path=\/api\/web;.*HttpOnly/);
+});
+
+test("Akhiri Masuk sebagai: sesi dicabut di backend lalu sesi super admin dipulihkan dari stash", async t => {
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ success: true, data: { ended: true } }));
+  const cookie = "studenthub_access=imp-access; studenthub_refresh=imp-refresh; studenthub_impersonator=sa-refresh";
+  const response = await POST(request("auth/impersonation/end", "POST", { cookie }), params("auth/impersonation/end"));
+  assert.equal(response.status, 200);
+  const [url, init] = fetch.mock.calls[0]?.arguments as [string, RequestInit];
+  assert.match(url, /\/api\/v1\/auth\/impersonation\/end$/);
+  assert.equal(new Headers(init.headers).get("authorization"), "Bearer imp-access");
+  const names = cookieNames(response);
+  assert.ok(names.includes("studenthub_refresh=sa-refresh"), names.join(","));
+  assert.ok(names.includes("studenthub_access=") && names.includes("studenthub_impersonator=") && names.includes("studenthub_session=1"));
+});
+
+test("refresh Masuk sebagai ditolak (30 menit habis): sesi super admin dipulihkan + header X-Impersonation-Ended", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ success: false, error: { code: "SESSION_INVALID", message: "x" } }, { status: 401 }));
+  const cookie = "studenthub_refresh=imp-refresh; studenthub_impersonator=sa-refresh; studenthub_session=1";
+  const response = await POST(request("auth/refresh", "POST", { cookie }), params("auth/refresh"));
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("x-impersonation-ended"), "1");
+  const names = cookieNames(response);
+  assert.ok(names.includes("studenthub_refresh=sa-refresh") && names.includes("studenthub_impersonator="));
+  assert.ok(!names.includes("studenthub_session="), "penanda sesi tidak dihapus: sesi super admin berlanjut");
+});
+
+test("login biasa menghapus stash lama; keluar saat Masuk sebagai juga mencabut sesi super admin yang disimpan", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ success: true, data: IMP_TOKENS }));
+  const login = await POST(request("auth/login", "POST", { cookie: "studenthub_impersonator=lama" }), params("auth/login"));
+  assert.ok(cookieNames(login).includes("studenthub_impersonator="));
+  t.mock.restoreAll();
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ success: true, data: { accessToken: "sa-access2", revoked: true } }));
+  const cookie = "studenthub_access=imp-access; studenthub_refresh=imp-refresh; studenthub_impersonator=sa-refresh";
+  const logout = await POST(request("auth/logout", "POST", { cookie }), params("auth/logout"));
+  assert.equal(logout.status, 200);
+  const bodies = fetch.mock.calls.map(c => String((c.arguments[1] as RequestInit | undefined)?.body ?? ""));
+  assert.ok(bodies.some(b => b.includes("sa-refresh")), "stash ditukar lalu sesi super admin dicabut");
+  assert.ok(cookieNames(logout).includes("studenthub_impersonator="));
+});
+
+test("Akhiri Masuk sebagai: refresh token super admin langsung ditukar sehingga sesi siap tanpa 401 pertama", async t => {
+  const fetch = t.mock.method(globalThis, "fetch", async (url: string) => String(url).endsWith("/auth/refresh")
+    ? Response.json({ success: true, data: { accessToken: "sa-access-new", refreshToken: "sa-refresh-new", accessTokenExpiresAt: "2030-01-01T00:00:00Z", refreshTokenExpiresAt: "2030-02-01T00:00:00Z" } })
+    : Response.json({ success: true, data: { ended: true } }));
+  const cookie = "studenthub_access=imp-access; studenthub_refresh=imp-refresh; studenthub_impersonator=sa-refresh";
+  const response = await POST(request("auth/impersonation/end", "POST", { cookie }), params("auth/impersonation/end"));
+  assert.equal(response.status, 200);
+  const refreshBody = String((fetch.mock.calls.find(c => String(c.arguments[0]).endsWith("/auth/refresh"))?.arguments[1] as RequestInit | undefined)?.body ?? "");
+  assert.match(refreshBody, /sa-refresh/);
+  const names = cookieNames(response);
+  assert.ok(names.includes("studenthub_access=sa-access-new") && names.includes("studenthub_refresh=sa-refresh-new"), names.join(","));
+  assert.ok(names.includes("studenthub_impersonator="));
+});
+
+test("Akhiri pada sesi biasa (409 NOT_IMPERSONATING) tidak memulihkan stash; balapan refresh 409 tidak menimpa cookie", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ success: false, error: { code: "NOT_IMPERSONATING", message: "x" } }, { status: 409 }));
+  const normal = await POST(request("auth/impersonation/end", "POST", { cookie: "studenthub_access=a; studenthub_refresh=r; studenthub_impersonator=basi" }), params("auth/impersonation/end"));
+  assert.equal(normal.status, 409);
+  assert.deepEqual(cookieNames(normal), []);
+  t.mock.restoreAll();
+  t.mock.method(globalThis, "fetch", async (url: string) => String(url).endsWith("/auth/refresh")
+    ? Response.json({ success: false, error: { code: "REFRESH_RACE", message: "x" } }, { status: 409 })
+    : Response.json({ success: true, data: { ended: true } }));
+  const race = await POST(request("auth/impersonation/end", "POST", { cookie: "studenthub_access=imp; studenthub_refresh=imp-r; studenthub_impersonator=sa-refresh" }), params("auth/impersonation/end"));
+  assert.equal(race.status, 200);
+  assert.deepEqual(cookieNames(race), [], "tab lain sudah memulihkan sesi super admin");
+});
+
+test("login baru dengan stash tertinggal: sesi super admin yang tersimpan dicabut, bukan sekadar dibuang", async t => {
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ success: true, data: IMP_TOKENS }));
+  const login = await POST(request("auth/login", "POST", { cookie: "studenthub_impersonator=sa-lama" }), params("auth/login"));
+  assert.equal(login.status, 200);
+  const bodies = fetch.mock.calls.map(c => String((c.arguments[1] as RequestInit | undefined)?.body ?? ""));
+  assert.ok(bodies.some(b => b.includes("sa-lama")), "stash ditukar lalu dicabut");
+  assert.ok(cookieNames(login).includes("studenthub_impersonator="));
+});

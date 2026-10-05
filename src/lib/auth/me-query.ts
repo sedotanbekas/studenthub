@@ -3,6 +3,7 @@ import { notFound } from "@/lib/http/errors";
 import { SCHOOL_THEME_SELECT } from "@/lib/schools/theme-dto";
 import type { MeDto } from "./auth-schemas";
 import { toMe } from "./dto";
+import { loadImpersonation } from "./impersonation-service";
 import { listAllowedActions } from "./policy";
 import { requirePrincipal, type ActionContext } from "./principal";
 
@@ -26,5 +27,5 @@ export async function getMe(ctx: ActionContext): Promise<MeDto> {
     },
   });
   if (!user) throw notFound("Akun tidak ditemukan.");
-  return toMe(user, listAllowedActions(principal), principal.totpEnrollmentRequired);
+  return { ...toMe(user, listAllowedActions(principal), principal.totpEnrollmentRequired), impersonation: await loadImpersonation(principal) };
 }

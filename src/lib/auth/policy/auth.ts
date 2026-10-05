@@ -9,6 +9,6 @@ import type { PolicyRule } from "./types";
  * menambah/mengubah email login sendiri (PUT /me/email), setelah kata sandi awal diganti.
  */
 export const authPolicy = {
-  "auth.totp": { roles: ["SUPER_ADMIN"], allowDuringTotpEnrollment: true },
-  "auth.email": { roles: ["SCHOOL_ADMIN"] },
+  "auth.totp": { roles: ["SUPER_ADMIN"], allowDuringTotpEnrollment: true, blockedWhenImpersonating: true },
+  "auth.email": { roles: ["SCHOOL_ADMIN"], blockedWhenImpersonating: true },
 } as const satisfies Record<string, PolicyRule>;

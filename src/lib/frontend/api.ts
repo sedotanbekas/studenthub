@@ -1,4 +1,5 @@
 import { REFRESH_RACE_WAIT_MS, afterRefresh } from "./badge-poll-rules";
+import { IMPERSONATION_ENDED_HEADER, impersonationReturnPath } from "./impersonation-view";
 import type { Envelope } from "./types";
 export class ApiError extends Error {
   constructor(message: string, public code: string, public details?: unknown) { super(message); }
@@ -27,21 +28,33 @@ export async function apiFetch(path: string, init: RequestInit = {}, options: Ap
   if (response.status !== 401 || ["/auth/login", "/auth/refresh"].includes(path)) return response;
   const recovered = await recoverSession(send, init.signal ?? null);
   if (recovered) return recovered;
-  if (path !== "/auth/me" && !options.background) window.dispatchEvent(new Event("studenthub:expired"));
+  if (path !== "/auth/me" && !options.background && !leavingImpersonation) window.dispatchEvent(new Event("studenthub:expired"));
   return response;
+}
+
+let leavingImpersonation = false;
+
+/** Refresh lalu putuskan langkahnya. Sesi "Masuk sebagai" berakhir: proxy sudah memulihkan sesi super admin -> muat ulang ke sana. */
+async function refreshOutcome(): Promise<ReturnType<typeof afterRefresh>> {
+  const refreshed = await sharedRefresh();
+  if (refreshed.headers.get(IMPERSONATION_ENDED_HEADER) === "1" && !leavingImpersonation) {
+    leavingImpersonation = true;
+    window.location.assign(impersonationReturnPath());
+  }
+  return afterRefresh(refreshed.status);
 }
 
 /** Segarkan sesi lalu ulangi permintaan; null = sesi benar-benar berakhir. */
 async function recoverSession(send: () => Promise<Response>, signal: AbortSignal | null): Promise<Response | null> {
   const check = () => { if (signal?.aborted) throw abortError(); };
-  let outcome = afterRefresh((await sharedRefresh()).status);
+  let outcome = await refreshOutcome();
   check();
   if (outcome === "wait-retry") {
     await pause(REFRESH_RACE_WAIT_MS);
     check();
     const again = await send();
     if (again.status !== 401) return again;
-    outcome = afterRefresh((await sharedRefresh()).status);
+    outcome = await refreshOutcome();
     check();
   }
   return outcome === "retry" ? send() : null;

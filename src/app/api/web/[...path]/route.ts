@@ -13,6 +13,13 @@ const TRUSTED = "studenthub_trusted";
 const trustedOptions = { ...cookieOptions, path: "/api/web/auth/login" };
 /** Penanda sesi (tanpa rahasia) terbaca server di /hub: src/lib/frontend/session-hint.ts. */
 const hintOptions = { ...cookieOptions, path: "/" };
+/**
+ * "Masuk sebagai" (2026-10-05): refresh token super admin disimpan di sini selama browser memakai sesi akun lain;
+ * dipulihkan saat Akhiri, saat sesi itu kedaluwarsa (refresh ditolak), dan dicabut bersama saat Keluar.
+ */
+const STASH = "studenthub_impersonator";
+const IMPERSONATE_PATH = /^\/platform\/users\/[^/]+\/impersonate$/;
+const END_IMPERSONATION_PATH = "/auth/impersonation/end";
 /** Umur penanda untuk sesi yang kedaluwarsa refresh token-nya tidak diketahui (= umur sesi web). */
 const HINT_MAX_AGE_S = Math.floor(SESSION_ABSOLUTE_TTL_MS.WEB / 1000);
 function failure(message: string, status: number) {
@@ -73,22 +80,69 @@ function withHeader(headers: Headers, name: string, value: string): Headers {
   return next;
 }
 /** Access token tidak ada/ditolak: tukar refresh token lalu cabut sesi itu di server (tanpa refresh token: tak ada yang dicabut). */
-async function revokeWithRefresh(request: NextRequest, path: string, headers: Headers): Promise<void> {
-  const refreshToken = request.cookies.get(REFRESH)?.value;
+async function revokeWithRefresh(request: NextRequest, path: string, headers: Headers, refreshToken = request.cookies.get(REFRESH)?.value): Promise<void> {
   if (!refreshToken) return;
   const refreshed = await fetch(upstreamUrl(request, "/auth/refresh"), { method: "POST", headers: withHeader(headers, "Content-Type", "application/json"), body: JSON.stringify({ refreshToken }), cache: "no-store", redirect: "error" });
   const access = refreshed.ok ? ((await refreshed.json()) as { data?: { accessToken?: string } }).data?.accessToken : undefined;
   if (access) await fetch(upstreamUrl(request, path), { method: "POST", headers: withHeader(headers, "Authorization", `Bearer ${access}`), cache: "no-store", redirect: "error" });
 }
+/** POST ke backend dengan access token cookie; null bila tidak ada access token. */
+function postWithAccess(request: NextRequest, path: string, headers: Headers): Promise<Response> | null {
+  const access = request.cookies.get(ACCESS)?.value;
+  return access ? fetch(upstreamUrl(request, path), { method: "POST", headers: withHeader(headers, "Authorization", `Bearer ${access}`), cache: "no-store", redirect: "error" }) : null;
+}
+function clearStash(request: NextRequest, response: NextResponse): NextResponse {
+  if (request.cookies.has(STASH)) response.cookies.set(STASH, "", { ...cookieOptions, maxAge: 0 });
+  return response;
+}
+/** Kembali ke sesi super admin: refresh token tersimpan dipasang lagi; access token dibuang (klien menyegarkan sendiri). */
+function restoreStash(request: NextRequest, response: NextResponse, stash: string): NextResponse {
+  response.cookies.set(REFRESH, stash, { ...cookieOptions, maxAge: HINT_MAX_AGE_S });
+  response.cookies.set(ACCESS, "", { ...cookieOptions, maxAge: 0 });
+  response.cookies.set(SESSION_HINT, "1", { ...hintOptions, maxAge: HINT_MAX_AGE_S });
+  return clearStash(request, response);
+}
 /** Keluar: cabut sesi di server (lewat refresh token bila access token tidak ada/ditolak), lalu SELALU hapus cookie. */
 async function logout(request: NextRequest, path: string, headers: Headers): Promise<NextResponse> {
-  const access = request.cookies.get(ACCESS)?.value;
+  const stash = request.cookies.get(STASH)?.value;
   try {
-    const upstream = access ? await fetch(upstreamUrl(request, path), { method: "POST", headers: withHeader(headers, "Authorization", `Bearer ${access}`), cache: "no-store", redirect: "error" }) : null;
-    if (upstream && upstream.status !== 401) return clearTokens(NextResponse.json(await upstream.json().catch(() => OK), { status: upstream.status, headers: NO_STORE }));
-    await revokeWithRefresh(request, path, headers);
-    return clearTokens(NextResponse.json(OK, { headers: NO_STORE }));
-  } catch { return clearTokens(failure("Layanan sedang tidak tersedia. Sesi di perangkat ini sudah diakhiri.", 502)); }
+    const upstream = await postWithAccess(request, path, headers);
+    let response: NextResponse;
+    if (upstream && upstream.status !== 401) {
+      response = NextResponse.json(await upstream.json().catch(() => OK), { status: upstream.status, headers: NO_STORE });
+    } else {
+      await revokeWithRefresh(request, path, headers);
+      response = NextResponse.json(OK, { headers: NO_STORE });
+    }
+    // Keluar saat "Masuk sebagai": sesi super admin yang tersimpan ikut diakhiri.
+    if (stash) await revokeWithRefresh(request, "/auth/logout", headers, stash);
+    return clearStash(request, clearTokens(response));
+  } catch { return clearStash(request, clearTokens(failure("Layanan sedang tidak tersedia. Sesi di perangkat ini sudah diakhiri.", 502))); }
+}
+/** Akhiri "Masuk sebagai": cabut sesi akun yang dibuka (lewat refresh bila access habis), lalu pulihkan sesi super admin. */
+async function endImpersonation(request: NextRequest, headers: Headers): Promise<NextResponse> {
+  const stash = request.cookies.get(STASH)?.value;
+  let upstream: Response | null = null;
+  try {
+    upstream = await postWithAccess(request, END_IMPERSONATION_PATH, headers);
+    if (!upstream || upstream.status === 401) await revokeWithRefresh(request, END_IMPERSONATION_PATH, headers);
+  } catch { if (!stash) return failure("Layanan sedang tidak tersedia. Silakan coba lagi.", 502); }
+  // 409 NOT_IMPERSONATING: sesi ini sesi biasa -> stash (sisa lama) TIDAK dipulihkan.
+  if (upstream?.status === 409) return NextResponse.json(await upstream.json().catch(() => OK), { status: 409, headers: NO_STORE });
+  if (stash) return restoreSuperAdmin(request, headers, stash);
+  return upstream ? NextResponse.json(await upstream.json().catch(() => OK), { status: upstream.status, headers: NO_STORE }) : NextResponse.json(OK, { headers: NO_STORE });
+}
+/** Tukar refresh token super admin tersimpan agar sesi langsung siap; gagal -> pasang refresh token apa adanya (klien menyegarkan). */
+async function restoreSuperAdmin(request: NextRequest, headers: Headers, stash: string): Promise<NextResponse> {
+  const response = NextResponse.json({ ...OK, data: { ended: true } }, { headers: NO_STORE });
+  try {
+    const refreshed = await fetch(upstreamUrl(request, "/auth/refresh"), { method: "POST", headers: withHeader(headers, "Content-Type", "application/json"), body: JSON.stringify({ refreshToken: stash }), cache: "no-store", redirect: "error" });
+    // 409 REFRESH_RACE: tab lain baru saja menukar token yang sama dan sudah memasang cookie -> jangan ditimpa token basi.
+    if (refreshed.status === 409) return response;
+    const data = refreshed.ok ? ((await refreshed.json()) as { data?: Record<string, unknown> }).data : undefined;
+    if (typeof data?.accessToken === "string") { setTokens(response, data); return clearStash(request, response); }
+  } catch { /* jaringan ke backend gagal: pulihkan refresh token apa adanya di bawah */ }
+  return restoreStash(request, response, stash);
 }
 function forwardedHeaders(request: NextRequest): Headers {
   const headers = new Headers();
@@ -107,6 +161,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   if (request.method !== "GET" && !sameOrigin(request)) return failure("Asal permintaan tidak valid. Muat ulang halaman.", 403);
   const headers = forwardedHeaders(request);
   if (LOGOUT_PATHS.includes(path)) return logout(request, path, headers);
+  if (path === END_IMPERSONATION_PATH) return endImpersonation(request, headers);
   const isPublic = path === "/auth/login" || path === "/auth/refresh";
   const access = request.cookies.get(ACCESS)?.value;
   if (!isPublic && access) headers.set("Authorization", `Bearer ${access}`);
@@ -130,15 +185,41 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       result.headers.set("Content-Security-Policy", "default-src none; sandbox");
       return result;
     }
-    const payload = await upstream.json();
-    const tokens = isPublic && upstream.ok ? { ...payload.data } : null;
-    if (tokens) { delete payload.data.accessToken; delete payload.data.refreshToken; delete payload.data.trustedDevice; }
-    const response = NextResponse.json(payload, { status: upstream.status, headers: NO_STORE });
-    if (tokens) { setTokens(response, tokens); setTrustedDevice(response, tokens); }
-    // Refresh token ditolak: sesi sudah berakhir, halaman berikutnya langsung dirender sebagai halaman masuk.
-    // Kecuali 409 REFRESH_RACE: tab lain baru saja memutar token (sesi masih hidup; N1).
-    if (path === "/auth/refresh" && upstream.status >= 400 && upstream.status < 500 && upstream.status !== 409) clearHint(response);
-    return response;
+    // Login baru saat stash tertinggal (mis. tab ditutup saat "Masuk sebagai"): cabut sesi super admin yang tersimpan.
+    const stash = request.cookies.get(STASH)?.value;
+    if (path === "/auth/login" && upstream.ok && stash) await revokeWithRefresh(request, "/auth/logout", headers, stash).catch(() => undefined);
+    return jsonResponse(request, path, upstream.status, await upstream.json());
   } catch { return failure("Layanan sedang tidak tersedia. Silakan coba lagi.", 502); }
+}
+/**
+ * Respons JSON backend. Token dari login/refresh/"Masuk sebagai" dipindah ke cookie (tidak pernah terbaca JS halaman).
+ * Masuk sebagai: refresh token super admin saat ini disimpan di STASH; login baru membuang STASH lama.
+ */
+function jsonResponse(request: NextRequest, path: string, status: number, payload: { data?: Record<string, unknown> | null }): NextResponse {
+  const impersonating = IMPERSONATE_PATH.test(path);
+  const issuesTokens = path === "/auth/login" || path === "/auth/refresh" || impersonating;
+  const tokens = issuesTokens && status >= 200 && status < 300 && payload.data ? { ...payload.data } : null;
+  if (tokens && payload.data) { delete payload.data.accessToken; delete payload.data.refreshToken; delete payload.data.trustedDevice; }
+  const response = NextResponse.json(payload, { status, headers: NO_STORE });
+  if (tokens) {
+    const current = request.cookies.get(REFRESH)?.value;
+    if (impersonating && current) response.cookies.set(STASH, current, { ...cookieOptions, maxAge: HINT_MAX_AGE_S });
+    if (path === "/auth/login") clearStash(request, response);
+    setTokens(response, tokens);
+    setTrustedDevice(response, tokens);
+  }
+  // Kecuali 409 REFRESH_RACE: tab lain baru saja memutar token (sesi masih hidup; N1).
+  if (path === "/auth/refresh" && status >= 400 && status < 500 && status !== 409) refreshRejected(request, response);
+  return response;
+}
+/**
+ * Refresh token ditolak. Sesi "Masuk sebagai" berakhir (30 menit/dicabut): pulihkan sesi super admin + header agar klien
+ * memuat ulang sebagai super admin. Selain itu sesi sudah berakhir: halaman berikutnya langsung dirender sebagai halaman masuk.
+ */
+function refreshRejected(request: NextRequest, response: NextResponse): void {
+  const stash = request.cookies.get(STASH)?.value;
+  if (!stash) { clearHint(response); return; }
+  restoreStash(request, response, stash);
+  response.headers.set("X-Impersonation-Ended", "1");
 }
 export { proxy as GET, proxy as POST, proxy as PATCH, proxy as PUT, proxy as DELETE };

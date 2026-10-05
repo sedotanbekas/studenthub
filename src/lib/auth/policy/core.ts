@@ -8,6 +8,20 @@ export const corePolicy = {
     sponsorStatuses: ALL_SPONSOR_STATUSES,
     allowDuringPasswordChange: true,
     allowDuringTotpEnrollment: true,
+    // Keluar & akhiri "Masuk sebagai" tetap boleh pada mode lihat.
+    allowWhenImpersonating: true,
+  },
+  /**
+   * Keamanan akun milik pemiliknya (ganti kata sandi, keluar dari semua perangkat, cabut sesi, token push HP): seperti
+   * auth.self tetapi ditolak pada sesi "Masuk sebagai" super admin (2026-10-05).
+   */
+  "auth.account": {
+    roles: ALL_ROLES,
+    studentStatuses: ALL_STUDENT_STATUSES,
+    sponsorStatuses: ALL_SPONSOR_STATUSES,
+    allowDuringPasswordChange: true,
+    allowDuringTotpEnrollment: true,
+    blockedWhenImpersonating: true,
   },
   "notification.self": {
     roles: ALL_ROLES,

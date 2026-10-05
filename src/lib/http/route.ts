@@ -3,7 +3,7 @@ import { after, type NextRequest } from "next/server";
 import type { z } from "zod";
 import { getAuth } from "@/lib/auth/get-auth";
 import type { ActionContext, Principal } from "@/lib/auth/principal";
-import { authorize } from "@/lib/auth/policy";
+import { assertImpersonationAllowed, authorize } from "@/lib/auth/policy";
 import { getEnv } from "@/lib/env";
 import { log, safeErrorFields } from "@/lib/log";
 import { readJsonBody, readMultipart, formDataToObject } from "./body";
@@ -63,6 +63,7 @@ async function authenticate(contract: AnyContract, req: Request, now: Date): Pro
   const principal = await getAuth(req, now);
   if (!principal) throw unauthorized("UNAUTHENTICATED", "Silakan login terlebih dahulu.");
   authorize(principal, contract.action);
+  assertImpersonationAllowed(principal, contract.action, contract.method);
   return principal;
 }
 
@@ -168,6 +169,8 @@ function logRequest(req: NextRequest, contract: AnyContract, status: number, sta
     ms: Math.round(performance.now() - started),
     userId: principal?.userId,
     role: principal?.role,
+    // "Masuk sebagai": super admin yang sebenarnya memakai sesi ini.
+    ...(principal?.impersonatorId ? { impersonatorId: principal.impersonatorId } : {}),
     schoolId: principal?.schoolId ?? undefined,
   });
 }
