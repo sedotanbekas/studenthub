@@ -4,8 +4,9 @@ import type { ClientPlatform, DeviceType, UserRole } from "@prisma/client";
 /**
  * Aturan murni riwayat masuk (tanpa Prisma). Tujuan (pemilik, 2026-10-02): membedakan SIAPA yang memakai
  * akun super admin setelah TOTP dimatikan — dari perangkat/browser, IP, ISP, dan perkiraan lokasi.
+ * Sejak 2026-10-05 semua peran dicatat agar keluhan "tidak bisa masuk" langsung terlihat penyebabnya.
  */
-export const LOGIN_HISTORY_ROLES: readonly UserRole[] = ["SUPER_ADMIN"];
+export const LOGIN_HISTORY_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"];
 
 export function shouldRecordLogin(role: UserRole): boolean {
   return LOGIN_HISTORY_ROLES.includes(role);

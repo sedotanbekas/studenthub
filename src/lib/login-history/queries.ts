@@ -5,7 +5,7 @@ import { toSkipTake } from "@/lib/http/pagination";
 import { deviceSummary, failureCodeOf } from "./rules";
 import type { LoginEventDto, LoginHistoryQuery } from "./schemas";
 
-/** Riwayat masuk terbaru dulu (SUPER_ADMIN, limit <= 100). */
+/** Riwayat masuk semua akun, terbaru dulu (dibaca SUPER_ADMIN, limit <= 100). */
 const EVENT_SELECT = {
   id: true,
   createdAt: true,
@@ -26,7 +26,7 @@ const EVENT_SELECT = {
   countryCode: true,
   asn: true,
   isp: true,
-  user: { select: { id: true, name: true, email: true } },
+  user: { select: { id: true, name: true, email: true, role: true, school: { select: { id: true, name: true } } } },
 } as const satisfies Prisma.LoginEventSelect;
 
 type EventRow = Prisma.LoginEventGetPayload<{ select: typeof EVENT_SELECT }>;
@@ -59,6 +59,7 @@ export function toLoginEventDto(row: EventRow): LoginEventDto {
 function historyWhere(query: LoginHistoryQuery): Prisma.LoginEventWhereInput {
   return {
     ...(query.userId ? { userId: query.userId } : {}),
+    ...(query.role || query.schoolId ? { user: { ...(query.role ? { role: query.role } : {}), ...(query.schoolId ? { schoolId: query.schoolId } : {}) } } : {}),
     ...(query.status ? { succeeded: query.status === "SUCCESS" } : {}),
     ...(query.isNewDevice !== undefined ? { isNewDevice: query.isNewDevice } : {}),
   };

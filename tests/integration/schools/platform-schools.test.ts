@@ -156,6 +156,19 @@ describe("GET /platform/schools & /platform/schools/{id}", () => {
     assert.equal(inactive.body?.data.length, 0);
   });
 
+  test("jumlah akun per sekolah: admin sekolah & siswa (semua status) untuk halaman Pengguna", async () => {
+    const marker = uniq("akun");
+    const school = await createSchool({ data: { name: `SMA ${marker}` } });
+    await Promise.all([createSchoolAdmin(school.id), createStudent(school.id), createStudent(school.id, { status: "DRAFT" })]);
+    const res = await callRoute<Envelope<Array<{ id: string; accountCounts: { schoolAdmins: number; students: number } }>>>(listSchools, {
+      method: "GET",
+      url: `/api/v1/platform/schools?q=${encodeURIComponent(marker)}`,
+      bearer: fx.sa.token,
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body?.data[0]?.accountCounts, { schoolAdmins: 1, students: 2 });
+  });
+
   test("q dengan % dan _ dicari harfiah pada nama dan awalan NPSN", async () => {
     const marker = uniq("like");
     const npsn = uniqNpsn();

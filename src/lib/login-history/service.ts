@@ -55,8 +55,7 @@ export async function recordLoginSuccess(tx: Tx, base: LoginEventBase, sessionId
   await tx.loginEvent.create({ data: { ...base, succeeded: true, sessionId, isNewDevice: firstTime } });
 }
 
-/** Tidak pernah melempar: galat pencatatan hanya dilog. Pemanggil tidak menunggu (`void`). */
-export async function recordLoginFailure(attempt: LoginAttempt, error: unknown): Promise<void> {
+async function writeFailure(attempt: LoginAttempt, error: unknown): Promise<void> {
   const failureCode = failureCodeOf(isAppError(error) ? error.code : null);
   if (failureCode === null) return;
   try {
@@ -65,4 +64,22 @@ export async function recordLoginFailure(attempt: LoginAttempt, error: unknown):
   } catch (cause) {
     log.error("login_history.failure_record_failed", safeErrorFields(cause));
   }
+}
+
+/** Pencatatan gagal yang masih berjalan (pemanggil tidak menunggu agar waktu respons gagal tetap seragam). */
+const pendingFailures = new Set<Promise<void>>();
+
+/**
+ * Tidak pernah melempar: galat pencatatan hanya dilog. Pemanggil tidak menunggu (`void`): menunggu membuat login gagal
+ * ke akun yang ADA lebih lambat daripada ke akun yang tidak ada (petunjuk enumerasi akun).
+ */
+export function recordLoginFailure(attempt: LoginAttempt, error: unknown): Promise<void> {
+  const task: Promise<void> = writeFailure(attempt, error).finally(() => pendingFailures.delete(task));
+  pendingFailures.add(task);
+  return task;
+}
+
+/** Tunggu semua pencatatan gagal yang tertunda selesai sebelum koneksi DB ditutup (dipakai helper test `disconnect`). */
+export async function flushLoginHistory(): Promise<void> {
+  await Promise.allSettled([...pendingFailures]);
 }

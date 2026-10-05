@@ -5,6 +5,8 @@
  */
 export const FIELD_LABELS: Readonly<Record<string, string>> = {
   // Akun, sesi, & keamanan
+  logins: "ID login", plain: "Kata sandi", expired: "Kedaluwarsa", changedAt: "Diganti pada", adminKind: "Jenis admin",
+  accountCounts: "Jumlah akun", schoolAdmins: "Admin sekolah",
   accessToken: "Token akses", accessTokenExpiresAt: "Token akses berlaku sampai", refreshToken: "Token penyegar", refreshTokenExpiresAt: "Token penyegar berlaku sampai",
   user: "Pengguna", trustedDevice: "Perangkat tepercaya", token: "Token", expiresAt: "Berlaku sampai", revoked: "Dicabut", revokedCount: "Sesi dicabut",
   totpEnabled: "Verifikasi 2 langkah aktif", totpEnrollmentRequired: "Wajib daftar verifikasi 2 langkah", permissions: "Hak akses", changed: "Diubah",

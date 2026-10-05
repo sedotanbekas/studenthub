@@ -10,6 +10,7 @@ import "../styles/sponsor.css";
 import "../styles/monitor.css";
 import "../styles/campaigns.css";
 import "../styles/review.css";
+import "../styles/accounts.css";
 import "../styles/school-charts.css";
 import "../styles/academics.css";
 import "../styles/wizards.css";

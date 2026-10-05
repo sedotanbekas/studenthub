@@ -13,7 +13,9 @@ import { AcademicsPage } from "./academics/academics-page";
 import { AttendancePage } from "./attendance/attendance-page";
 import { AttendanceMonitorPage } from "./attendance-admin/attendance-monitor-page";
 import { AdReviewPage } from "./platform/ad-review-page";
+import { SchoolsPage } from "./platform/schools-page";
 import { TopUpReviewPage } from "./platform/topup-review-page";
+import { UsersPage } from "./platform/users-page";
 import { SponsorAnalyticsPage } from "./sponsor/analytics-page";
 import { BalancePage } from "./sponsor/balance-page";
 import { CampaignsPage } from "./sponsor/campaigns-page";
@@ -29,6 +31,8 @@ const DEDICATED: Record<string, (module: Module) => ReactNode> = {
   balance: module => <BalancePage module={module} />,
   "ad-review": module => <AdReviewPage module={module} />,
   topups: module => <TopUpReviewPage module={module} />,
+  schools: module => <SchoolsPage module={module} />,
+  users: module => <UsersPage module={module} />,
 };
 
 /** Isi satu bagian hub; alamat yang tidak dikenal -> "tidak ditemukan". */

@@ -62,6 +62,13 @@ test("linkDirection: ke beranda = kembali, selain itu masuk halaman", () => {
   assert.equal(linkDirection("/hub/my-attendance?absen=1"), "forward");
 });
 
+test("linkDirection: ke halaman induk (detail -> daftar) = kembali; ke detail = masuk", () => {
+  assert.equal(linkDirection("/hub/schools", "/hub/schools/abc"), "back");
+  assert.equal(linkDirection("/hub/schools?q=a", "/hub/schools/abc"), "back");
+  assert.equal(linkDirection("/hub/schools/abc", "/hub/schools"), "forward");
+  assert.equal(linkDirection("/hub/school", "/hub/schools/abc"), "forward", "awalan nama bukan induk");
+});
+
 test("traverseDirection: indeks tujuan lebih besar = maju; tanpa info = kembali", () => {
   assert.equal(traverseDirection(3, 4), "back");
   assert.equal(traverseDirection(5, 4), "forward");

@@ -5,9 +5,10 @@ import { GET as getUserRoute, PATCH as patchUserRoute } from "@/app/api/v1/platf
 import { GET as listProvinces } from "@/app/api/v1/regions/provinces/route";
 import { TEMP_PASSWORD_TTL_MS, verifyPassword } from "@/lib/auth/password";
 import { resetAllLimiters } from "@/lib/http/rate-limits";
+import { DEFAULT_STUDENT_PASSWORD } from "@/lib/students/constants";
 import { createSessionToken } from "../helpers/auth";
 import { disconnect, prisma, uniq } from "../helpers/db";
-import { createSchool, createSchoolAdmin, uniqEmail } from "../helpers/factories";
+import { createSchool, createSchoolAdmin, createStudent, uniqEmail } from "../helpers/factories";
 import { callRoute, type Envelope } from "../helpers/request";
 import { setupTwoSchools, type TwoSchools } from "../schools/fixtures";
 
@@ -208,5 +209,58 @@ describe("akun super admin baru dapat dipakai", () => {
     const res = await callRoute(listProvinces, { method: "GET", url: "/api/v1/regions/provinces", bearer: token });
     assert.equal(res.status, 403);
     assert.equal(res.body?.error?.code, "PASSWORD_CHANGE_REQUIRED");
+  });
+});
+
+type CredentialBody = UserBody & {
+  logins: Array<{ kind: string; value: string }>;
+  password: { kind: string; plain: string | null; expired: boolean };
+  adminKind: string | null;
+  student: { id: string; nisn: string; className: string | null } | null;
+};
+const listAccounts = (token: string, query: string) =>
+  callRoute<Envelope<CredentialBody[]>>(listUsersRoute, { method: "GET", url: `/api/v1/platform/users?${query}`, bearer: token });
+
+describe("GET /platform/users: ID login & status kata sandi", () => {
+  test("siswa yang masih memakai kata sandi bawaan -> DEFAULT + teks; setelah diganti -> OWN tanpa teks", async () => {
+    const school = await createSchool();
+    const { user, student } = await createStudent(school.id, { password: DEFAULT_STUDENT_PASSWORD, mustChangePassword: true });
+    await prisma.user.update({ where: { id: user.id }, data: { tempPasswordExpiresAt: new Date(Date.now() + TEMP_PASSWORD_TTL_MS) } });
+    const res = await listAccounts(fx.sa.token, `schoolId=${school.id}&role=STUDENT`);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const row = res.body?.data.find((u) => u.id === user.id);
+    assert.deepEqual(row?.logins, [{ kind: "NISN", value: student.nisn }]);
+    assert.equal(row?.password.kind, "DEFAULT");
+    assert.equal(row?.password.plain, DEFAULT_STUDENT_PASSWORD);
+    assert.equal(row?.student?.id, student.id);
+    assert.ok(!JSON.stringify(res.body).includes("passwordHash"));
+    await prisma.user.update({ where: { id: user.id }, data: { mustChangePassword: false, tempPasswordExpiresAt: null } });
+    const after = (await listAccounts(fx.sa.token, `schoolId=${school.id}&role=STUDENT`)).body?.data.find((u) => u.id === user.id);
+    assert.equal(after?.password.kind, "OWN");
+    assert.equal(after?.password.plain, null);
+  });
+
+  test("siswa dengan kata sandi sementara lain -> TEMPORARY tanpa teks; pencarian NISN menemukan siswa", async () => {
+    const school = await createSchool();
+    const { user, student } = await createStudent(school.id, { password: "AcakSementara9", mustChangePassword: true });
+    await prisma.user.update({ where: { id: user.id }, data: { tempPasswordExpiresAt: new Date(Date.now() - 60_000) } });
+    const res = await listAccounts(fx.sa.token, `q=${student.nisn}`);
+    const row = res.body?.data.find((u) => u.id === user.id);
+    assert.equal(row?.password.kind, "TEMPORARY");
+    assert.equal(row?.password.plain, null);
+    assert.equal(row?.password.expired, true);
+  });
+
+  test("admin utama masuk dengan NPSN (+ email); admin tambahan dengan email", async () => {
+    const school = await createSchool({ data: { npsn: `9${Date.now().toString().slice(-7)}` } });
+    const primary = await createSchoolAdmin(school.id);
+    await prisma.user.update({ where: { id: primary.id }, data: { primarySchoolId: school.id } });
+    const extra = await createSchoolAdmin(school.id);
+    const res = await listAccounts(fx.sa.token, `schoolId=${school.id}&role=SCHOOL_ADMIN`);
+    const byId = new Map(res.body?.data.map((u) => [u.id, u]));
+    assert.equal(byId.get(primary.id)?.adminKind, "PRIMARY");
+    assert.deepEqual(byId.get(primary.id)?.logins.map((l) => l.kind), ["NPSN", "EMAIL"]);
+    assert.equal(byId.get(extra.id)?.adminKind, "ADDITIONAL");
+    assert.deepEqual(byId.get(extra.id)?.logins, [{ kind: "EMAIL", value: extra.email }]);
   });
 });

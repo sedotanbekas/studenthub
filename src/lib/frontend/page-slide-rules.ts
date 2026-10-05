@@ -63,9 +63,11 @@ export function traverseKind(steps: SlideSteps, from: string, to: string, tabs: 
 }
 
 /** Tautan ke beranda = kembali (kiri ke kanan); selain itu masuk halaman (kanan ke kiri). */
-export function linkDirection(href: string): SlideDirection {
-  const path = href.split(/[?#]/)[0];
-  return path === "/hub" || path === "/hub/" ? "back" : "forward";
+export function linkDirection(href: string, from = ""): SlideDirection {
+  const path = href.split(/[?#]/)[0] ?? "";
+  if (path === "/hub" || path === "/hub/") return "back";
+  // Halaman induk (mis. detail sekolah -> daftar sekolah) = kembali.
+  return from.startsWith(`${path.replace(/\/$/, "")}/`) ? "back" : "forward";
 }
 
 /** Arah tombol kembali/maju dari indeks entri Navigation API; tanpa info (browser lama) dianggap kembali. */

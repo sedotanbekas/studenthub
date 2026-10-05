@@ -15,14 +15,14 @@ const school: Module[] = [
 ];
 const platform: Module[] = [
   moduleOf("schools", "Sekolah", "Hubungkan sekolah dan bangun ekosistem pendidikan.", "school", "PLATFORM", ["/platform/schools"], "listPlatformSchools"),
-  moduleOf("users", "Pengguna", "Kelola akun dan akses administrator.", "users", "PLATFORM", ["/platform/users"], "listPlatformUsers"),
+  moduleOf("users", "Pengguna", "Semua akun per sekolah: ID login, status kata sandi, dan riwayat masuk.", "users", "PLATFORM", ["/platform/users"], "listPlatformUsers"),
   moduleOf("sponsors", "Sponsor", "Kelola mitra dan persetujuan sponsor.", "heart", "PLATFORM", ["/platform/sponsors"], "listSponsors"),
   moduleOf("ad-review", "Moderasi iklan", "Tinjau konten sebelum menjangkau siswa.", "image", "PLATFORM", ["/platform/ads"], "listPlatformAds"),
   moduleOf("topups", "Verifikasi top-up", "Tinjau bukti transfer dan pengisian saldo sponsor.", "wallet", "PLATFORM", ["/platform/topups"], "listPlatformTopUps"),
   moduleOf("national-calendar", "Libur nasional", "Satu kalender bersama untuk seluruh sekolah.", "calendar", "PLATFORM", ["/platform/holidays"], "listNationalHolidays"),
   moduleOf("platform-settings", "Pengaturan platform", "Atur tarif iklan, rekening, dan penutupan absensi.", "settings", "LAINNYA", ["/platform/settings", "/platform/attendance"], "getAdSettings"),
   moduleOf("platform-audit", "Audit platform", "Telusuri aktivitas pengelolaan platform.", "history", "LAINNYA", ["/platform/audit-logs"], "listPlatformAuditLogs"),
-  moduleOf("login-history", "Riwayat masuk", "Siapa yang masuk ke akun super admin: perangkat, IP, dan perkiraan lokasi.", "key", "LAINNYA", ["/platform/login-history"], "listLoginHistory"),
+  moduleOf("login-history", "Riwayat masuk", "Siapa yang masuk ke akun mana pun: perangkat, IP, perkiraan lokasi, dan alasan gagal.", "key", "LAINNYA", ["/platform/login-history"], "listLoginHistory"),
 ];
 const sponsor: Module[] = [
   moduleOf("campaigns", "Kampanye saya", "Ide baik layak menjangkau lebih banyak orang.", "megaphone", "SPONSOR", ["/sponsor/ads", "/sponsor/banners", "/sponsor/targeting"], "listOwnAds"),
@@ -50,6 +50,12 @@ export function modulesFor(role: Role): Module[] {
 /** Bagian hub dari pathname: /hub -> "dashboard", /hub/x/... -> "x". */
 export function sectionFromPath(pathname: string): string {
   return pathname.split("/").filter(Boolean)[1] ?? "dashboard";
+}
+/** Halaman detail di dalam bagian: /hub/x/<id> -> id (mis. detail sekolah); selain itu null. */
+export function sectionDetailId(pathname: string): string | null {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length !== 3 || !parts[2]) return null;
+  try { return decodeURIComponent(parts[2]); } catch { return null; }
 }
 const ALL_SECTION_KEYS = new Set(["dashboard", ...[...platform, ...school, ...sponsor, ...student, ...common].map(m => m.key)]);
 /** Bagian yang ada untuk salah satu peran (URL asal-asalan tetap "tidak ditemukan"). */

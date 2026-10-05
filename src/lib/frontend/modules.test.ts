@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionFromPath, tabItems } from "./modules";
+import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionDetailId, sectionFromPath, tabItems } from "./modules";
 
 test("beranda selalu boleh; modul hanya untuk peran pemiliknya", () => {
   assert.equal(sectionAllowed("STUDENT", "dashboard"), true);
@@ -41,6 +41,14 @@ test("tab bar HP: beranda + 3 tujuan utama per peran, semuanya modul milik peran
     assert.ok(items.every(i => sectionAllowed(role as "STUDENT", i.key) && i.label.length <= 10), role);
     assert.equal(items[0]!.href, "/hub");
   }
+});
+
+test("sectionDetailId: /hub/x/<id> -> id (didekode); tanpa id atau lebih dalam -> null", () => {
+  assert.equal(sectionDetailId("/hub/schools/abc123"), "abc123");
+  assert.equal(sectionDetailId("/hub/schools/a%20b/"), "a b");
+  assert.equal(sectionDetailId("/hub/schools"), null);
+  assert.equal(sectionDetailId("/hub/schools/abc/extra"), null);
+  assert.equal(sectionDetailId("/hub"), null);
 });
 
 test("sectionFromPath: /hub -> beranda, /hub/x/y -> x", () => {

@@ -23,7 +23,25 @@ function listWhere(query: ListSchoolsQuery): Prisma.SchoolWhereInput {
   };
 }
 
-/** Daftar sekolah (SUPER_ADMIN) + jumlah siswa aktif per baris. */
+type AccountCounts = SchoolListItemDto["accountCounts"];
+
+/** Jumlah akun admin sekolah & siswa (semua status) untuk sekolah pada halaman ini; satu groupBy. */
+async function accountCountsBySchool(schoolIds: readonly string[]): Promise<Map<string, AccountCounts>> {
+  const groups = await prisma.user.groupBy({
+    by: ["schoolId", "role"],
+    where: { schoolId: { in: [...schoolIds] }, role: { in: ["SCHOOL_ADMIN", "STUDENT"] } },
+    _count: { _all: true },
+  });
+  const counts = new Map<string, AccountCounts>(schoolIds.map((id) => [id, { schoolAdmins: 0, students: 0 }]));
+  for (const group of groups) {
+    const current = group.schoolId ? counts.get(group.schoolId) : undefined;
+    if (!current || !group.schoolId) continue;
+    counts.set(group.schoolId, group.role === "SCHOOL_ADMIN" ? { ...current, schoolAdmins: group._count._all } : { ...current, students: group._count._all });
+  }
+  return counts;
+}
+
+/** Daftar sekolah (SUPER_ADMIN) + jumlah siswa aktif & jumlah akun per baris. */
 export async function listSchools(query: ListSchoolsQuery): Promise<{ items: SchoolListItemDto[]; total: number }> {
   const where = listWhere(query);
   const [total, rows] = await Promise.all([
@@ -35,6 +53,7 @@ export async function listSchools(query: ListSchoolsQuery): Promise<{ items: Sch
       include: { ...SCHOOL_INCLUDE, _count: { select: { students: { where: { status: "ACTIVE" } } } } },
     }),
   ]);
+  const accounts = await accountCountsBySchool(rows.map((row) => row.id));
   const items = rows.map((row) => ({
     id: row.id,
     npsn: row.npsn,
@@ -44,6 +63,7 @@ export async function listSchools(query: ListSchoolsQuery): Promise<{ items: Sch
     timezone: row.timezone,
     isActive: row.isActive,
     activeStudentCount: row._count.students,
+    accountCounts: accounts.get(row.id) ?? { schoolAdmins: 0, students: 0 },
     createdAt: row.createdAt.toISOString(),
   }));
   return { items, total };

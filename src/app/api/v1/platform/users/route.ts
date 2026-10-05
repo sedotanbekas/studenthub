@@ -6,8 +6,8 @@ import { createUser } from "@/lib/users/service";
 
 export const runtime = "nodejs";
 
-export const GET = defineRoute(listPlatformUsersContract, async ({ query }) => {
-  const { items, total } = await listUsers(query);
+export const GET = defineRoute(listPlatformUsersContract, async ({ query }, ctx) => {
+  const { items, total } = await listUsers(query, ctx.now);
   return { data: items, meta: pageMeta(total, query.page, query.limit) };
 });
 

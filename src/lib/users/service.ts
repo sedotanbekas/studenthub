@@ -89,7 +89,7 @@ export async function createUser(input: CreateUserInput, ctx: ActionContext): Pr
     await writeAudit(tx, { action: "user.create", entityType: "User", entityId: created.id, schoolId, after }, ctx);
     return created.id;
   }).catch(mapEmailRace);
-  const user = await getUserDto(userId);
+  const user = await getUserDto(userId, ctx.now);
   return plan.kind === "GENERATED" ? { user, temporaryPassword: plan.plain } : { user };
 }
 
@@ -108,7 +108,7 @@ export async function updateUser(userId: string, patch: UpdateUserInput, ctx: Ac
     const before = Object.fromEntries(Object.keys(changes).map((key) => [key, target[key as keyof typeof changes]]));
     await writeAudit(tx, { action: "user.update", entityType: "User", entityId: userId, schoolId: target.schoolId, before, after: changes }, ctx);
   }).catch(mapEmailRace);
-  return getUserDto(userId);
+  return getUserDto(userId, ctx.now);
 }
 
 type DeactivateResult = { id: string; isActive: boolean; revokedSessions: number };

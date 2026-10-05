@@ -9,6 +9,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { prisma } from "../../../src/lib/db";
+import { flushLoginHistory } from "../../../src/lib/login-history/service";
 
 export { prisma };
 export type { Db, Tx } from "../../../src/lib/db";
@@ -28,5 +29,7 @@ export function uniq(prefix = "t"): string {
 
 /** Tutup pool koneksi agar proses test bisa keluar. Pasang di `after(disconnect)`. */
 export async function disconnect(): Promise<void> {
+  // Pencatatan login gagal sengaja tidak ditunggu login(); selesaikan dulu agar tidak membuka koneksi baru setelah ditutup.
+  await flushLoginHistory();
   await prisma.$disconnect();
 }

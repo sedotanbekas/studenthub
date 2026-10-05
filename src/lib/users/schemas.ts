@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { pageQuerySchema } from "@/lib/http/pagination";
+import { STUDENT_STATUSES } from "@/lib/students/constants";
+import { LOGIN_KINDS, PASSWORD_KINDS } from "./credential-rules";
 
 /** Skema zod pengelolaan akun oleh SUPER_ADMIN (/api/v1/platform/users*). */
 export const USER_ROLES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"] as const;
@@ -15,7 +17,7 @@ const booleanQuery = z.enum(["true", "false"]).transform((value) => value === "t
 export const userIdParams = z.object({ id: idString.meta({ description: "ID pengguna." }) });
 
 export const listUsersQuery = pageQuerySchema.extend({
-  q: z.string().trim().min(1).max(100).optional().meta({ description: "Cari nama atau email." }),
+  q: z.string().trim().min(1).max(100).optional().meta({ description: "Cari nama, email, atau NISN siswa." }),
   role: userRoleSchema.optional(),
   schoolId: idString.optional(),
   sponsorId: idString.optional(),
@@ -51,6 +53,22 @@ export const resetPasswordBody = z.strictObject({
 
 const iso = z.iso.datetime();
 
+const loginIdentifierSchema = z.object({ kind: z.enum(LOGIN_KINDS), value: z.string() });
+
+export const passwordStateSchema = z
+  .object({
+    kind: z.enum(PASSWORD_KINDS).meta({
+      description:
+        "DEFAULT = masih kata sandi bawaan siswa (lihat `plain`); TEMPORARY = sementara acak (hanya tampil sekali saat dibuat/di-reset); " +
+        "ADMIN_SET = ditentukan admin, wajib diganti; OWN = sudah diganti pemilik akun (tidak dapat dibaca: disimpan sebagai hash).",
+    }),
+    plain: z.string().nullable().meta({ description: "Hanya untuk DEFAULT: kata sandi bawaan apa adanya." }),
+    expiresAt: iso.nullable(),
+    expired: z.boolean().meta({ description: "true = kata sandi sementara kedaluwarsa (login ditolak TEMP_PASSWORD_EXPIRED)." }),
+    changedAt: iso.nullable(),
+  })
+  .meta({ id: "PasswordState" });
+
 export const platformUserSchema = z
   .object({
     id: z.string(),
@@ -67,6 +85,12 @@ export const platformUserSchema = z
     passwordChangedAt: iso.nullable(),
     createdAt: iso,
     updatedAt: iso,
+    logins: z.array(loginIdentifierSchema).meta({ description: "ID yang dipakai untuk masuk; kosong = belum bisa masuk (siswa tanpa NISN aktif)." }),
+    password: passwordStateSchema,
+    adminKind: z.enum(["PRIMARY", "ADDITIONAL"]).nullable().meta({ description: "Admin sekolah: PRIMARY = admin utama (masuk dengan NPSN)." }),
+    student: z
+      .object({ id: z.string(), nisn: z.string(), nis: z.string(), status: z.enum(STUDENT_STATUSES), className: z.string().nullable() })
+      .nullable(),
   })
   .meta({ id: "PlatformUser" });
 

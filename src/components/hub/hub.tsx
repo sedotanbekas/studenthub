@@ -118,7 +118,7 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
   if (!me) return <><Suspense fallback={null}><Login env={env} notice={session.loginNotice} onLogin={session.login} onDemo={session.startDemo} /></Suspense>{toast}</>;
   const restricted = isRestricted(me);
   const { home, module: current } = resolveSection(me.user.role, restricted, section);
-  const value = { me, demo, schoolId, toast: session.setNotice, reloadMe: session.reloadMe, logout: session.logout, saveDemoTheme: session.saveDemoTheme };
+  const value = { me, demo, schoolId, setSchoolId: session.setSchoolId, toast: session.setNotice, reloadMe: session.reloadMe, logout: session.logout, saveDemoTheme: session.saveDemoTheme };
   return <HubContext.Provider value={value}><div className="app-shell">
     {drawer.open && <button className="sidebar-overlay" aria-label="Tutup navigasi" onClick={() => drawer.hide()} />}
     <Sidebar me={me} env={env} modules={modulesFor(me.user.role)} current={current} home={home} unread={unread} open={drawer.open} onNavigate={() => drawer.hide(false)} onLogout={session.logout} />

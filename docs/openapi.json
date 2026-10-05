@@ -4419,12 +4419,12 @@
             "in": "query",
             "name": "q",
             "schema": {
-              "description": "Cari nama atau email.",
+              "description": "Cari nama, email, atau NISN siswa.",
               "type": "string",
               "minLength": 1,
               "maxLength": 100
             },
-            "description": "Cari nama atau email."
+            "description": "Cari nama, email, atau NISN siswa."
           },
           {
             "in": "query",
@@ -6076,8 +6076,8 @@
         "tags": [
           "Log Audit"
         ],
-        "summary": "Riwayat masuk super admin (terbaru dulu)",
-        "description": "Setiap login berhasil dan percobaan gagal (kata sandi salah dsb.) ke akun super admin: perangkat & browser, IP, perkiraan lokasi + ISP dari IP (DB-IP Lite, bukan GPS — wajib atribusi \"IP Geolocation by DB-IP\"), dan penanda perangkat baru. Pembeda pemakai akun sejak TOTP super admin dimatikan (2026-10-02).\n\nAksi POLICY: `audit.login.read`.",
+        "summary": "Riwayat masuk semua akun (terbaru dulu)",
+        "description": "Setiap login berhasil dan percobaan gagal (kata sandi salah, akun nonaktif, kata sandi sementara kedaluwarsa, dsb.) ke akun mana pun (sejak 2026-10-05; sebelumnya hanya super admin): perangkat & browser, IP, perkiraan lokasi + ISP dari IP (DB-IP Lite, bukan GPS — wajib atribusi \"IP Geolocation by DB-IP\"), dan penanda perangkat baru. Filter `userId`, `role`, `schoolId`.\n\nAksi POLICY: `audit.login.read`.",
         "security": [
           {
             "bearerAuth": []
@@ -6114,12 +6114,38 @@
             "in": "query",
             "name": "userId",
             "schema": {
-              "description": "Filter satu akun super admin.",
+              "description": "Filter satu akun.",
               "type": "string",
               "minLength": 1,
               "maxLength": 64
             },
-            "description": "Filter satu akun super admin."
+            "description": "Filter satu akun."
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "schema": {
+              "description": "Filter peran akun.",
+              "type": "string",
+              "enum": [
+                "SUPER_ADMIN",
+                "SCHOOL_ADMIN",
+                "SPONSOR",
+                "STUDENT"
+              ]
+            },
+            "description": "Filter peran akun."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Filter akun milik satu sekolah.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Filter akun milik satu sekolah."
           },
           {
             "in": "query",
@@ -36236,6 +36262,27 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "accountCounts": {
+            "type": "object",
+            "properties": {
+              "schoolAdmins": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "students": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "schoolAdmins",
+              "students"
+            ],
+            "additionalProperties": false,
+            "description": "Jumlah akun per peran (semua status) untuk halaman Pengguna super admin."
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -36251,6 +36298,7 @@
           "timezone",
           "isActive",
           "activeStudentCount",
+          "accountCounts",
           "createdAt"
         ],
         "additionalProperties": false
@@ -37433,6 +37481,94 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "logins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "NISN",
+                    "NPSN",
+                    "EMAIL"
+                  ]
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "description": "ID yang dipakai untuk masuk; kosong = belum bisa masuk (siswa tanpa NISN aktif)."
+          },
+          "password": {
+            "$ref": "#/components/schemas/PasswordState"
+          },
+          "adminKind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PRIMARY",
+                  "ADDITIONAL"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Admin sekolah: PRIMARY = admin utama (masuk dengan NPSN)."
+          },
+          "student": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "nisn": {
+                    "type": "string"
+                  },
+                  "nis": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "ACTIVE",
+                      "INACTIVE",
+                      "GRADUATED",
+                      "MOVED"
+                    ]
+                  },
+                  "className": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "nisn",
+                  "nis",
+                  "status",
+                  "className"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -37449,7 +37585,69 @@
           "lastLoginAt",
           "passwordChangedAt",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "logins",
+          "password",
+          "adminKind",
+          "student"
+        ],
+        "additionalProperties": false
+      },
+      "PasswordState": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "TEMPORARY",
+              "ADMIN_SET",
+              "OWN"
+            ],
+            "description": "DEFAULT = masih kata sandi bawaan siswa (lihat `plain`); TEMPORARY = sementara acak (hanya tampil sekali saat dibuat/di-reset); ADMIN_SET = ditentukan admin, wajib diganti; OWN = sudah diganti pemilik akun (tidak dapat dibaca: disimpan sebagai hash)."
+          },
+          "plain": {
+            "description": "Hanya untuk DEFAULT: kata sandi bawaan apa adanya.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expired": {
+            "type": "boolean",
+            "description": "true = kata sandi sementara kedaluwarsa (login ditolak TEMP_PASSWORD_EXPIRED)."
+          },
+          "changedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "plain",
+          "expiresAt",
+          "expired",
+          "changedAt"
         ],
         "additionalProperties": false
       },
@@ -37582,6 +37780,94 @@
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
           },
+          "logins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "NISN",
+                    "NPSN",
+                    "EMAIL"
+                  ]
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "description": "ID yang dipakai untuk masuk; kosong = belum bisa masuk (siswa tanpa NISN aktif)."
+          },
+          "password": {
+            "$ref": "#/components/schemas/PasswordState"
+          },
+          "adminKind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PRIMARY",
+                  "ADDITIONAL"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Admin sekolah: PRIMARY = admin utama (masuk dengan NPSN)."
+          },
+          "student": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "nisn": {
+                    "type": "string"
+                  },
+                  "nis": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "ACTIVE",
+                      "INACTIVE",
+                      "GRADUATED",
+                      "MOVED"
+                    ]
+                  },
+                  "className": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "nisn",
+                  "nis",
+                  "status",
+                  "className"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "activeSessionCount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -37604,6 +37890,10 @@
           "passwordChangedAt",
           "createdAt",
           "updatedAt",
+          "logins",
+          "password",
+          "adminKind",
+          "student",
           "activeSessionCount"
         ],
         "additionalProperties": false
@@ -37737,12 +38027,46 @@
                   "string",
                   "null"
                 ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "SUPER_ADMIN",
+                  "SCHOOL_ADMIN",
+                  "SPONSOR",
+                  "STUDENT"
+                ]
+              },
+              "school": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
               "id",
               "name",
-              "email"
+              "email",
+              "role",
+              "school"
             ],
             "additionalProperties": false
           },

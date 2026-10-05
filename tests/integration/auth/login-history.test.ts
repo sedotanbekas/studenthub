@@ -67,7 +67,7 @@ test("riwayat masuk: login berhasil mencatat perangkat, IP, sesi, dan penanda pe
   assert.equal(rows[2]?.deviceModel, "Apple iPhone");
 });
 
-test("riwayat masuk: kata sandi salah ke akun super admin dicatat gagal; akun peran lain tidak dicatat", async () => {
+test("riwayat masuk: kata sandi salah ke akun super admin dicatat gagal; akun peran lain juga dicatat", async () => {
   const sa = await createSuperAdmin();
   const wrong = await login(sa.email ?? "", { password: "SalahSekali#2026", userAgent: IPHONE_SAFARI });
   assert.equal(wrong.status, 401);
@@ -79,8 +79,10 @@ test("riwayat masuk: kata sandi salah ke akun super admin dicatat gagal; akun pe
   const school = await createSchool();
   const admin = await createSchoolAdmin(school.id);
   assert.equal((await login(admin.email ?? "", { password: "SalahSekali#2026" })).status, 401);
+  await waitForFailures(admin.id, 1);
   await loginOk(admin.email ?? "");
-  assert.equal(await prisma.loginEvent.count({ where: { userId: admin.id } }), 0);
+  const events = await prisma.loginEvent.findMany({ where: { userId: admin.id }, orderBy: { createdAt: "asc" } });
+  assert.deepEqual(events.map((e) => [e.succeeded, e.failureCode]), [[false, "WRONG_PASSWORD"], [true, null]]);
 });
 
 test("GET /platform/login-history: terbaru dulu, filter status & akun; admin sekolah 403", async () => {
@@ -104,4 +106,25 @@ test("GET /platform/login-history: terbaru dulu, filter status & akun; admin sek
   const school = await createSchool();
   const admin = await createSessionToken((await createSchoolAdmin(school.id)).id);
   assert.equal((await history(admin.token)).status, 403);
+});
+
+test("GET /platform/login-history: semua peran tercatat; filter peran & sekolah; baris memuat peran + sekolah", async () => {
+  const school = await createSchool();
+  const other = await createSchool();
+  const admin = await createSchoolAdmin(school.id);
+  const outsider = await createSchoolAdmin(other.id);
+  await loginOk(admin.email ?? "", { userAgent: WINDOWS_CHROME });
+  await loginOk(outsider.email ?? "", { userAgent: WINDOWS_CHROME });
+  const viewer = await createSessionToken((await createSuperAdmin()).id);
+
+  const bySchool = await history(viewer.token, `?schoolId=${school.id}`);
+  assert.equal(bySchool.status, 200);
+  const rows = (bySchool.body?.data ?? []) as unknown as Array<LoginEventBody & { user: { role: string; school: { id: string } | null } }>;
+  assert.deepEqual(rows.map((r) => r.user.id), [admin.id]);
+  assert.equal(rows[0]?.user.role, "SCHOOL_ADMIN");
+  assert.equal(rows[0]?.user.school?.id, school.id);
+
+  const admins = await history(viewer.token, `?role=SCHOOL_ADMIN&schoolId=${other.id}`);
+  assert.deepEqual(admins.body?.data.map((r) => r.user.id), [outsider.id]);
+  assert.equal((await history(viewer.token, `?role=STUDENT&schoolId=${school.id}`)).body?.data.length, 0);
 });

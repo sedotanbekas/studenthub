@@ -25,8 +25,11 @@ import { useLeaveIntent } from "./use-url-intent";
 /** Dialog baris khusus halaman pemilik (mis. detail kehadiran + tinjau anomali); null = dialog generik. */
 export type RecordDialogRenderer = (args: { row: Row; viewPath: string | undefined; onClose: () => void; onChanged: () => void }) => ReactNode | null;
 
-/** `embedded`: dipasang di dalam halaman khusus yang sudah punya judul -> judul & deskripsi modul disembunyikan. */
-export function Workspace({ module, embedded = false, recordDialog }: { module: Module; embedded?: boolean; recordDialog?: RecordDialogRenderer }) {
+/**
+ * `embedded`: dipasang di dalam halaman khusus yang sudah punya judul -> judul & deskripsi modul disembunyikan.
+ * `onRowSelect`: halaman pemilik membuka halamannya sendiri untuk baris (mis. detail sekolah), bukan dialog detail.
+ */
+export function Workspace({ module, embedded = false, recordDialog, onRowSelect }: { module: Module; embedded?: boolean; recordDialog?: RecordDialogRenderer; onRowSelect?: (row: Row) => void }) {
   const { me, schoolId, demo } = useHub();
   const available = operations.filter(op => module.paths.some(path => op.path === path || op.path.startsWith(`${path}/`)) && (demo || !op.action || me.permissions.includes(op.action)));
   const views = viewsFor(available, module.primary);
@@ -41,7 +44,7 @@ export function Workspace({ module, embedded = false, recordDialog }: { module: 
   const [action, setAction] = useState<{ op: Operation; initial?: Row; fallback?: boolean } | null>(null);
   useLeaveIntent(module.key === "my-leave" && available.some(op => op.id === "createOwnLeaveRequest"), setAction);
   const [selected, setSelected] = useState<{ row: Row; path?: string } | null>(null);
-  const selectRow = (row: Row) => setSelected({ row });
+  const selectRow = (row: Row) => (onRowSelect ? onRowSelect(row) : setSelected({ row }));
   const [version, setVersion] = useState(0);
   const [query, setQuery] = useState("");
   const needsSchool = me.user.role === "SUPER_ADMIN" && module.paths.some(p => p.startsWith("/school/")) && !schoolId && !demo;

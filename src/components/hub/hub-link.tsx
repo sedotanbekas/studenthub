@@ -25,6 +25,6 @@ export function HubLink({ onClick, tab = false, ...props }: HubLinkProps) {
     if (!isPlainClick(event)) return;
     if (isSamePage(href, window.location.pathname)) scrollPageToTop();
     else if (tab) captureTabSwitch(href);
-    else capturePage(linkDirection(href));
+    else capturePage(linkDirection(href, window.location.pathname));
   }} />;
 }

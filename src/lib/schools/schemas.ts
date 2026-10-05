@@ -150,6 +150,9 @@ export const schoolListItemSchema = z
     timezone: z.enum(SCHOOL_TIMEZONES),
     isActive: z.boolean(),
     activeStudentCount: z.int(),
+    accountCounts: z
+      .object({ schoolAdmins: z.int(), students: z.int() })
+      .meta({ description: "Jumlah akun per peran (semua status) untuk halaman Pengguna super admin." }),
     createdAt: iso,
   })
   .meta({ id: "SchoolListItem" });
