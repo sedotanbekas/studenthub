@@ -77,6 +77,10 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   estimatedClicksRemaining: "Perkiraan sisa klik", seq: "Urutan", balanceAfter: "Saldo setelahnya", duplicateProofOf: "Duplikat bukti dari", topUp: "Top-up",
   ledgerEntry: "Catatan saldo", defaultCpcAmount: "Biaya per klik bawaan", minTopUpAmount: "Minimal top-up", topUpBankName: "Bank top-up",
   topUpAccountNumber: "Nomor rekening top-up", topUpAccountHolder: "Pemilik rekening top-up", deepLinkSchemes: "Skema tautan aplikasi",
+  // Analitik SPP (2026-10-07).
+  asOf: "Per tanggal", billed: "Total tagihan", breakdown: "Rincian", childLevel: "Tingkat rincian", collectionRate: "Tingkat penagihan (%)", invoices: "Jumlah tagihan",
+  lateInvoices: "Lunas telat", lateStudents: "Siswa lunas telat", notDue: "Belum jatuh tempo", oldestDueDate: "Jatuh tempo terlama", onTime: "Lunas tepat waktu",
+  outstanding: "Sisa tunggakan", overdue: "Menunggak", overdueInvoices: "Tagihan menunggak", overdueStudents: "Siswa menunggak", trend: "Tren",
   appName: "Nama aplikasi", defaultAppName: "Nama bawaan", logoUrl: "Alamat logo", logoUpdatedAt: "Logo diganti",
   lowBalanceThreshold: "Batas saldo menipis", topUpAccount: "Rekening top-up", mimeType: "Jenis berkas", width: "Lebar", height: "Tinggi",
   sizeBytes: "Ukuran (byte)", imageUrl: "Gambar", cpcAmount: "Biaya per klik", submittedAt: "Diajukan pada", ad: "Iklan", ads: "Iklan",

@@ -1,0 +1,13 @@
+/* Analitik SPP per lingkup (src/components/hub/spp/*, 2026-10-07). Memakai pola panel analitik sponsor (sponsor.css). */
+.panel.spp-filters { flex-flow: row wrap; align-items: flex-end; gap: 12px 16px; padding: 14px 16px; }
+.spp-select { min-width: 200px; flex: 1 1 200px; max-width: 320px; margin: 0; }
+.spp-donut { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
+.spp-table td { text-align: right; white-space: nowrap; }
+.spp-table tbody th { text-align: left; }
+.spp-table .text-button { padding: 0; font-weight: 700; text-align: left; }
+.spp-sub { display: block; color: var(--muted); font-size: 13px; }
+.spp-analytics .insight-panel { display: grid; }
+@media (max-width: 760px) {
+  .spp-select { max-width: none; }
+  .spp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

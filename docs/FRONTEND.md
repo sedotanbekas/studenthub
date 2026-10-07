@@ -77,6 +77,14 @@ Permintaan pemilik 2026-10-07: akun pemerintah daerah yang MEMANTAU sekolah di w
 - Cakupan: `getAuth` memverifikasi `?schoolId=` berada di provinsi/kota akun (`principal.regionSchoolId`); `resolveSchoolScope` menolak sekolah lain dengan 404 `SCHOOL_NOT_FOUND` (tidak bisa dienumerasi).
 - Frontend: menu **Sekolah wilayah** (klik sekolah = jadi "Sekolah yang dipantau" lalu buka Data siswa), pemilih sekolah memakai `/region/schools` (`picksSchool` di modules.ts), kotak sidebar = nama wilayah.
 
+## Analitik SPP
+
+Permintaan pemilik 2026-10-07: grafik SPP telat / belum terbayar dan siswanya, lingkup bisa diatur. Menu **Analitik SPP** (hak `billing.read`) untuk super admin, Admin Pemda, dan admin sekolah; `GET /analytics/spp`.
+
+- Lingkup: **keseluruhan / provinsi / kabupaten-kota / sekolah** — super admin bebas; Admin Pemda di dalam wilayahnya ("Wilayah" = provinsi/kotanya; di luar -> 404); admin sekolah selalu sekolahnya (tanpa pemilih). Rentang 3/6/12 bulan tagihan berakhir bulan berjalan.
+- Kategori tagihan (VOID diabaikan): **lunas tepat waktu** (tanggal lunas lokal sekolah <= jatuh tempo), **lunas telat**, **menunggak** (belum lunas & lewat jatuh tempo; nominal = sisa), **belum jatuh tempo**. "Hari ini" per zona sekolah dikirim sebagai parameter SQL.
+- Tampilan: 4 KPI (total, terbayar + tingkat penagihan, menunggak, lunas telat), tren bertumpuk per bulan, donat status, rincian satu tingkat di bawah lingkup (provinsi -> kota -> sekolah -> kelas; klik = turun tingkat), dan daftar maks. 50 siswa menunggak/telat (grafik 10 tunggakan terbesar + tabel). Aturan: `src/lib/spp-analytics/rules.ts`, `src/lib/frontend/spp-analytics-rules.ts`; demo: `demo-spp.ts`.
+
 ## Pengaturan aplikasi (App Setting)
 
 Permintaan pemilik 2026-10-07: semua pengaturan platform dalam satu menu **Pengaturan aplikasi** (dulu "Pengaturan platform", kunci modul tetap `platform-settings`).

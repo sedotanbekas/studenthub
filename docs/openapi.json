@@ -1295,6 +1295,163 @@
         }
       }
     },
+    "/api/v1/analytics/spp": {
+      "get": {
+        "operationId": "getSppAnalytics",
+        "tags": [
+          "Analitik SPP"
+        ],
+        "summary": "Analitik SPP: lunas tepat waktu, telat, menunggak per lingkup + daftar siswa",
+        "description": "Lingkup keseluruhan / provinsi / kabupaten-kota / sekolah. Super admin: semua; Admin Pemda: hanya wilayahnya (keseluruhan = wilayahnya); admin sekolah: sekolahnya sendiri. Berisi total, tren per bulan tagihan, rincian satu tingkat di bawah lingkup (provinsi -> kota -> sekolah -> kelas), dan paling banyak 50 siswa menunggak/telat. Di luar cakupan -> 404.\n\nAksi POLICY: `billing.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "schema": {
+              "default": "all",
+              "description": "all = keseluruhan (Admin Pemda: wilayahnya; admin sekolah: sekolahnya), province, city, school.",
+              "type": "string",
+              "enum": [
+                "all",
+                "province",
+                "city",
+                "school"
+              ]
+            },
+            "description": "all = keseluruhan (Admin Pemda: wilayahnya; admin sekolah: sekolahnya), province, city, school."
+          },
+          {
+            "in": "query",
+            "name": "provinceCode",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{2}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cityCode",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{2}\\.\\d{2}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "in": "query",
+            "name": "months",
+            "schema": {
+              "description": "Jumlah bulan tagihan (periode SPP) yang dihitung, berakhir bulan berjalan.",
+              "default": "6",
+              "type": "string",
+              "enum": [
+                "3",
+                "6",
+                "12"
+              ]
+            },
+            "description": "Jumlah bulan tagihan (periode SPP) yang dihitung, berakhir bulan berjalan."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SppAnalytics"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, PROVINCE_REQUIRED, CITY_REQUIRED, SCHOOL_ID_REQUIRED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, REGION_NOT_FOUND, SCHOOL_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "authLogin",
@@ -38470,6 +38627,588 @@
           "page",
           "limit",
           "totalPages"
+        ],
+        "additionalProperties": false
+      },
+      "SppAnalytics": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "province",
+                  "city",
+                  "school"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "provinceCode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "cityCode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "schoolId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "childLevel": {
+                "type": "string",
+                "enum": [
+                  "province",
+                  "city",
+                  "school",
+                  "class"
+                ]
+              }
+            },
+            "required": [
+              "level",
+              "label",
+              "provinceCode",
+              "cityCode",
+              "schoolId",
+              "childLevel"
+            ],
+            "additionalProperties": false
+          },
+          "period": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "months": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "months"
+            ],
+            "additionalProperties": false
+          },
+          "asOf": {
+            "type": "string",
+            "description": "Tanggal acuan jatuh tempo (WIB; sekolah WITA/WIT memakai tanggal lokalnya)."
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "onTime": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "count",
+                  "amount"
+                ],
+                "additionalProperties": false,
+                "description": "Lunas tepat waktu (tanggal lunas <= jatuh tempo); amount = nominal tagihan."
+              },
+              "late": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "count",
+                  "amount"
+                ],
+                "additionalProperties": false,
+                "description": "Lunas TELAT (tanggal lunas > jatuh tempo); amount = nominal tagihan."
+              },
+              "overdue": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "count",
+                  "amount"
+                ],
+                "additionalProperties": false,
+                "description": "Belum lunas & sudah lewat jatuh tempo (menunggak); amount = sisa tagihan."
+              },
+              "notDue": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "count",
+                  "amount"
+                ],
+                "additionalProperties": false,
+                "description": "Belum lunas & belum jatuh tempo; amount = sisa tagihan."
+              },
+              "billed": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Total nominal tagihan (tanpa yang dibatalkan)."
+              },
+              "paid": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Total terbayar (termasuk cicilan)."
+              },
+              "outstanding": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "collectionRate": {
+                "description": "Persen terbayar dari tertagih.",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "invoices": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "students": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "overdueStudents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Siswa yang punya tagihan menunggak."
+              },
+              "lateStudents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Siswa yang pernah melunasi dengan telat pada periode ini."
+              }
+            },
+            "required": [
+              "onTime",
+              "late",
+              "overdue",
+              "notDue",
+              "billed",
+              "paid",
+              "outstanding",
+              "collectionRate",
+              "invoices",
+              "students",
+              "overdueStudents",
+              "lateStudents"
+            ],
+            "additionalProperties": false
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "period": {
+                  "type": "string"
+                },
+                "onTime": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "amount"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Lunas tepat waktu (tanggal lunas <= jatuh tempo); amount = nominal tagihan."
+                },
+                "late": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "amount"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Lunas TELAT (tanggal lunas > jatuh tempo); amount = nominal tagihan."
+                },
+                "overdue": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "amount"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Belum lunas & sudah lewat jatuh tempo (menunggak); amount = sisa tagihan."
+                },
+                "notDue": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "amount"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Belum lunas & belum jatuh tempo; amount = sisa tagihan."
+                },
+                "billed": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Total nominal tagihan (tanpa yang dibatalkan)."
+                },
+                "paid": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Total terbayar (termasuk cicilan)."
+                },
+                "outstanding": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "collectionRate": {
+                  "description": "Persen terbayar dari tertagih.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "period",
+                "onTime",
+                "late",
+                "overdue",
+                "notDue",
+                "billed",
+                "paid",
+                "outstanding",
+                "collectionRate"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "breakdown": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "onTime": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "amount"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Lunas tepat waktu (tanggal lunas <= jatuh tempo); amount = nominal tagihan."
+                },
+                "late": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "amount"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Lunas TELAT (tanggal lunas > jatuh tempo); amount = nominal tagihan."
+                },
+                "overdue": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "amount"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Belum lunas & sudah lewat jatuh tempo (menunggak); amount = sisa tagihan."
+                },
+                "notDue": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "amount"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Belum lunas & belum jatuh tempo; amount = sisa tagihan."
+                },
+                "billed": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Total nominal tagihan (tanpa yang dibatalkan)."
+                },
+                "paid": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Total terbayar (termasuk cicilan)."
+                },
+                "outstanding": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "collectionRate": {
+                  "description": "Persen terbayar dari tertagih.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "students": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "overdueStudents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "onTime",
+                "late",
+                "overdue",
+                "notDue",
+                "billed",
+                "paid",
+                "outstanding",
+                "collectionRate",
+                "students",
+                "overdueStudents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "students": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "studentId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "nisn": {
+                  "type": "string"
+                },
+                "className": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "schoolName": {
+                  "type": "string"
+                },
+                "overdueInvoices": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "outstanding": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "oldestDueDate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "lateInvoices": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "studentId",
+                "name",
+                "nisn",
+                "className",
+                "schoolName",
+                "overdueInvoices",
+                "outstanding",
+                "oldestDueDate",
+                "lateInvoices"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Paling banyak 50 siswa menunggak / pernah telat, urut sisa tunggakan terbesar."
+          }
+        },
+        "required": [
+          "scope",
+          "period",
+          "asOf",
+          "totals",
+          "trend",
+          "breakdown",
+          "students"
         ],
         "additionalProperties": false
       },

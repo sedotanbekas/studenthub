@@ -57,7 +57,7 @@ test("buat akun: provinsi wajib, kota harus di provinsinya, tanpa sekolah; wilay
   assert.equal((await createRegionAdmin({})).body?.error?.code, "REGION_REQUIRED");
   assert.equal((await createRegionAdmin({ regionProvinceCode: "32", regionCityCode: "31.71" })).body?.error?.code, "CITY_NOT_IN_PROVINCE");
   assert.equal((await createRegionAdmin({ regionProvinceCode: "32", schoolId: depok.id })).body?.error?.code, "SCHOOL_ID_NOT_ALLOWED");
-  assert.equal((await createRegionAdmin({ regionProvinceCode: "99" })).body?.error?.code, "REGION_NOT_FOUND");
+  assert.equal((await createRegionAdmin({ regionProvinceCode: "99" })).body?.error?.code, "REGION_INVALID");
   const ok = await createRegionAdmin({ regionProvinceCode: "32", regionCityCode: "32.76" });
   assert.equal(ok.status, 201);
   assert.deepEqual([ok.body?.data.user.role, ok.body?.data.user.region?.cityName], ["REGION_ADMIN", "Kota Depok"]);

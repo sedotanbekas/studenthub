@@ -71,7 +71,7 @@ async function assertRegionExists(tx: Tx, provinceCode: string, cityCode: string
   const found = cityCode
     ? await tx.city.findFirst({ where: { code: cityCode, provinceCode }, select: { code: true } })
     : await tx.province.findUnique({ where: { code: provinceCode }, select: { code: true } });
-  if (!found) throw unprocessable("REGION_NOT_FOUND", "Provinsi atau kabupaten/kota tidak ditemukan.");
+  if (!found) throw unprocessable("REGION_INVALID", "Provinsi atau kabupaten/kota tidak ditemukan.");
 }
 
 /** Sekolah harus aktif; admin sekolah pertama menjadi admin utama (login NPSN). true = admin utama. */

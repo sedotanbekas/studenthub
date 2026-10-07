@@ -22,6 +22,7 @@ import { CampaignsPage } from "./sponsor/campaigns-page";
 import { RolesPage } from "./platform/roles/roles-page";
 import { AppSettingsPage } from "./platform/app-settings-page";
 import { RegionSchoolsPage } from "./platform/region-schools-page";
+import { SppAnalyticsPage } from "./spp/spp-analytics-page";
 
 /** Halaman khusus per kunci modul; modul lain memakai Workspace generik berbasis katalog. */
 const DEDICATED: Record<string, (module: Module) => ReactNode> = {
@@ -39,6 +40,7 @@ const DEDICATED: Record<string, (module: Module) => ReactNode> = {
   "access-roles": module => <RolesPage module={module} />,
   "platform-settings": module => <AppSettingsPage module={module} />,
   "region-schools": module => <RegionSchoolsPage module={module} />,
+  "spp-analytics": module => <SppAnalyticsPage module={module} />,
 };
 
 /** Isi satu bagian hub; alamat yang tidak dikenal -> "tidak ditemukan". */

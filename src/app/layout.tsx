@@ -7,6 +7,7 @@ import "../styles/student.css";
 import "../styles/charts.css";
 import "../styles/ads.css";
 import "../styles/sponsor.css";
+import "../styles/spp.css";
 import "../styles/monitor.css";
 import "../styles/campaigns.css";
 import "../styles/review.css";

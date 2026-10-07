@@ -32,7 +32,9 @@ function useReminderSettings(version: number) {
 }
 
 export function AttendanceReminderCard() {
-  const { demo, schoolId, toast } = useHub();
+  const { demo, schoolId, toast, me } = useHub();
+  // Pemantau (Admin Pemda, peran tanpa hak ubah): kartu baca saja.
+  const readOnly = !demo && !me.permissions.includes("schools.settings.update");
   const [version, setVersion] = useState(0);
   const { data, error } = useReminderSettings(version);
   const [draft, setDraft] = useState<{ enabled: boolean; leadMinutes: number } | null>(null);
@@ -58,9 +60,9 @@ export function AttendanceReminderCard() {
   const text = <>{reminderPreview(view).map(line => <span key={line} className="reminder-line">{line}</span>)}</>;
   return <SecurityCard icon="bell" title="Pengingat absen" text={text}>
     <div className="reminder-form">
-      <label className="check-field"><input type="checkbox" checked={current.enabled} onChange={e => setDraft({ ...current, enabled: e.target.checked })} /><span>Kirim pengingat absen</span></label>
-      <label className="field reminder-lead">Menit sebelum jam masuk<input type="number" inputMode="numeric" min={REMINDER_LEAD_MIN} max={REMINDER_LEAD_MAX} step={1} disabled={!current.enabled} value={Number.isFinite(current.leadMinutes) ? current.leadMinutes : ""} onChange={e => setDraft({ ...current, leadMinutes: e.target.value === "" ? Number.NaN : Number(e.target.value) })} /></label>
-      <button type="button" className="button primary small-button" disabled={busy || !changed || !isValidLead(current.leadMinutes)} onClick={() => void save()}>{busy ? "Menyimpan…" : "Simpan"}</button>
+      <label className="check-field"><input type="checkbox" checked={current.enabled} disabled={readOnly} onChange={e => setDraft({ ...current, enabled: e.target.checked })} /><span>Kirim pengingat absen</span></label>
+      <label className="field reminder-lead">Menit sebelum jam masuk<input type="number" inputMode="numeric" min={REMINDER_LEAD_MIN} max={REMINDER_LEAD_MAX} step={1} disabled={readOnly || !current.enabled} value={Number.isFinite(current.leadMinutes) ? current.leadMinutes : ""} onChange={e => setDraft({ ...current, leadMinutes: e.target.value === "" ? Number.NaN : Number(e.target.value) })} /></label>
+      {!readOnly && <button type="button" className="button primary small-button" disabled={busy || !changed || !isValidLead(current.leadMinutes)} onClick={() => void save()}>{busy ? "Menyimpan…" : "Simpan"}</button>}
       {saveError && <p className="error-message" role="alert">{saveError}</p>}
     </div>
     <p className="reminder-reach">{reachText(data)}</p>

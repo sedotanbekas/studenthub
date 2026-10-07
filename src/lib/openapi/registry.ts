@@ -21,6 +21,7 @@ import { schoolAdminsContracts } from "@/lib/school-admins/contracts";
 import { accessRolesContracts } from "@/lib/roles/contracts";
 import { appSettingsContracts } from "@/lib/app-settings/contracts";
 import { regionContracts } from "@/lib/region/contracts";
+import { sppAnalyticsContracts } from "@/lib/spp-analytics/contracts";
 
 /** Semua kontrak route /api/v1. Setiap domain WAJIB terdaftar di sini (dicek guard test). */
 export const ALL_CONTRACTS: readonly AnyContract[] = [
@@ -28,6 +29,7 @@ export const ALL_CONTRACTS: readonly AnyContract[] = [
   ...filesContracts,
   ...appSettingsContracts,
   ...regionContracts,
+  ...sppAnalyticsContracts,
   ...authContracts,
   ...schoolsContracts,
   ...usersContracts,

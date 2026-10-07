@@ -6,6 +6,8 @@ const school: Module[] = [
   moduleOf("academics", "Akademik", "Susun tahun ajaran, kelas, dan mata pelajaran.", "book", "SEKOLAH", ["/school/academic-years", "/school/terms", "/school/active-term", "/school/classes", "/school/subjects"], "listSchoolClasses"),
   moduleOf("reports", "Rapor siswa", "Catat proses belajar. Rayakan setiap kemajuan.", "report", "SEKOLAH", ["/school/report-cards"], "listReportCards"),
   moduleOf("billing", "Tagihan & pembayaran", "Kelola SPP dan verifikasi pembayaran dengan mudah.", "wallet", "MANAJEMEN", ["/school/invoices", "/school/payment-submissions", "/school/payments"], "listSchoolInvoices"),
+  // Analitik SPP per lingkup (2026-10-07): super admin (semua), Admin Pemda (wilayahnya), admin sekolah (sekolahnya).
+  moduleOf("spp-analytics", "Analitik SPP", "Lunas tepat waktu, telat, dan tunggakan per wilayah, sekolah, kelas, dan siswa.", "chart", "MANAJEMEN", ["/analytics/spp"], "getSppAnalytics"),
   moduleOf("announcements", "Pengumuman", "Informasi yang tepat, untuk semua yang membutuhkan.", "megaphone", "MANAJEMEN", ["/school/announcements"], "listSchoolAnnouncements"),
   moduleOf("calendar", "Kalender sekolah", "Rencanakan hari belajar dan hari libur bersama.", "calendar", "MANAJEMEN", ["/school/holidays"], "listSchoolHolidays"),
   moduleOf("school-admins", "Admin & guru", "Akun masuk untuk guru dan wali kelas yang ikut mengelola sekolah.", "key", "MANAJEMEN", ["/school/admins"], "listSchoolAdmins"),
@@ -60,7 +62,7 @@ export const MODULE_ACTIONS: Readonly<Record<string, string>> = {
   "school-settings": "schools.profile.read", "school-theme": "schools.theme.read", audit: "audit.school.read",
   schools: "schools.manage", users: "users.manage", sponsors: "sponsor.admin", "ad-review": "ads.review", topups: "topup.review",
   "national-calendar": "calendar.national.read", "platform-settings": "app.settings", "platform-audit": "audit.platform.read",
-  "login-history": "audit.login.read", "access-roles": "roles.read", "region-schools": "region.monitor",
+  "login-history": "audit.login.read", "access-roles": "roles.read", "region-schools": "region.monitor", "spp-analytics": "billing.read",
   campaigns: "ads.own.read", analytics: "ads.analytics.read", balance: "sponsor.self.read", company: "sponsor.self.read",
   "my-attendance": "attendance.self", "my-leave": "leave.self.read", "my-reports": "reportCards.self.read", "my-billing": "billing.self.read",
   "my-calendar": "calendar.student.read", "my-profile": "students.profile.read",
@@ -126,7 +128,7 @@ const TAB_KEYS: Record<Role, readonly [string, string][]> = {
   SCHOOL_ADMIN: [["students", "Siswa"], ["attendance", "Kehadiran"], ["billing", "Tagihan"]],
   SPONSOR: [["campaigns", "Kampanye"], ["analytics", "Analitik"], ["balance", "Saldo"]],
   SUPER_ADMIN: [["schools", "Sekolah"], ["users", "Pengguna"], ["sponsors", "Sponsor"]],
-  REGION_ADMIN: [["region-schools", "Sekolah"], ["attendance", "Kehadiran"], ["billing", "Tagihan"]],
+  REGION_ADMIN: [["region-schools", "Sekolah"], ["spp-analytics", "SPP"], ["attendance", "Kehadiran"]],
 };
 export function tabItems(role: Role, permissions?: readonly string[]): TabItem[] {
   const modules = modulesFor(role, permissions);
