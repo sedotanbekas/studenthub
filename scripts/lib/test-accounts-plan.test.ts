@@ -4,7 +4,7 @@ import { cityInProvince } from "../../src/lib/region/rules";
 import { normalizeIdPhone } from "../../src/lib/students/phone";
 import { isValidNisn } from "../../src/lib/students/constants";
 import { DEMO_EMAIL_DOMAIN, DEMO_SCHOOLS, demoAdminEmail } from "./demo-data";
-import { TEST_DEPOK_SCHOOL, TEST_EMAIL_DOMAIN, TEST_REGION_ADMIN, TEST_SCHOOL, TEST_SPONSOR, TEST_SUPER_ADMIN, checkTestAccountPassword, testAccountLogins } from "./test-accounts-plan";
+import { TEST_DEPOK_SCHOOL, TEST_EMAIL_DOMAIN, TEST_PROVINCE_ADMIN, TEST_REGION_ADMIN, TEST_SCHOOL, TEST_SPONSOR, TEST_SUPER_ADMIN, checkTestAccountPassword, testAccountLogins } from "./test-accounts-plan";
 
 const TEST_SCHOOLS = [TEST_SCHOOL, TEST_DEPOK_SCHOOL];
 
@@ -24,9 +24,10 @@ test("sekolah uji tidak bertabrakan dengan sekolah demo (NPSN kunci upsert)", ()
   assert.notEqual(TEST_SCHOOL.npsn, TEST_DEPOK_SCHOOL.npsn);
 });
 
-test("akun contoh Admin Kota Depok (email pilihan pemilik) memantau kota sekolah uji Depok", () => {
+test("akun contoh Admin Pemda (email pilihan pemilik): Jawa Barat (provinsi) & Kota Depok (kota sekolah uji)", () => {
+  assert.deepEqual([TEST_PROVINCE_ADMIN.email, TEST_PROVINCE_ADMIN.provinceCode, TEST_PROVINCE_ADMIN.cityCode], ["adminjabar@gmail.com", "32", null]);
   assert.equal(TEST_REGION_ADMIN.email, "admindepok@gmail.com");
-  assert.ok(cityInProvince(TEST_REGION_ADMIN.cityCode, TEST_REGION_ADMIN.provinceCode));
+  assert.ok(cityInProvince(TEST_REGION_ADMIN.cityCode ?? "", TEST_REGION_ADMIN.provinceCode));
   assert.deepEqual([TEST_DEPOK_SCHOOL.provinceCode, TEST_DEPOK_SCHOOL.cityCode], [TEST_REGION_ADMIN.provinceCode, TEST_REGION_ADMIN.cityCode]);
 });
 
@@ -53,10 +54,10 @@ test("daftar login per peran: siswa login dengan NISN, lainnya dengan email", ()
   const logins = testAccountLogins();
   assert.deepEqual(logins.map((l) => l.role), [
     "SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", ...TEST_SCHOOL.students.map(() => "STUDENT"),
-    "REGION_ADMIN", "SCHOOL_ADMIN", ...TEST_DEPOK_SCHOOL.students.map(() => "STUDENT"),
+    "REGION_ADMIN", "REGION_ADMIN", "SCHOOL_ADMIN", ...TEST_DEPOK_SCHOOL.students.map(() => "STUDENT"),
   ]);
   assert.equal(logins[0]?.login, TEST_SUPER_ADMIN.email);
-  assert.equal(logins.find((l) => l.role === "REGION_ADMIN")?.login, "admindepok@gmail.com");
+  assert.deepEqual(logins.filter((l) => l.role === "REGION_ADMIN").map((l) => l.login), ["adminjabar@gmail.com", "admindepok@gmail.com"]);
   assert.equal(logins.at(-1)?.login, TEST_DEPOK_SCHOOL.students.at(-1)?.nisn);
 });
 

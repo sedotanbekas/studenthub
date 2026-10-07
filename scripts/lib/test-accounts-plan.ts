@@ -4,8 +4,8 @@
  * peran. Semua email ber-domain uji.studenthub.id (tanpa kotak surat), NISN 99100000xx, NPSN 99990100,
  * sehingga mudah dikenali lalu dinonaktifkan (super admin: nonaktifkan sekolah & sponsor uji) menjelang rilis.
  * Kata sandi SEMUA akun uji dari env TEST_ACCOUNT_PASSWORD — tidak pernah dari kode dan tidak pernah dicetak.
- * Sejak 2026-10-07 juga sekolah uji Kota Depok (NPSN 99990101) + akun contoh Admin Kota Depok (Admin Pemda);
- * email akun contoh itu dipilih pemilik (admindepok@gmail.com), satu-satunya yang tidak ber-domain uji.
+ * Sejak 2026-10-07 juga sekolah uji Kota Depok (NPSN 99990101) + akun contoh Admin Pemda Jawa Barat & Admin Kota
+ * Depok; email akun contoh itu mengikuti pilihan pemilik (@gmail.com), satu-satunya yang tidak ber-domain uji.
  */
 import type { Gender } from "@prisma/client";
 import { checkPasswordPolicy, PASSWORD_VIOLATION_MESSAGES } from "../../src/lib/auth/password";
@@ -124,8 +124,12 @@ export const TEST_DEPOK_SCHOOL: DemoSchoolSpec = {
   students: DEPOK_ROSTER.map((entry, i) => testStudent(entry, i, DEPOK)),
 };
 
-/** Akun contoh Admin Pemda (pemilik 2026-10-07): memantau sekolah di Kota Depok, baca saja. */
-export const TEST_REGION_ADMIN = { email: "admindepok@gmail.com", name: "Admin Kota Depok", provinceCode: "32", cityCode: "32.76" } as const;
+export interface TestRegionAdmin { readonly email: string; readonly name: string; readonly provinceCode: string; readonly cityCode: string | null }
+
+/** Akun contoh Admin Pemda (pemilik 2026-10-07), baca saja: admin provinsi Jawa Barat & admin Kota Depok. */
+export const TEST_PROVINCE_ADMIN: TestRegionAdmin = { email: "adminjabar@gmail.com", name: "Admin Pemda Jawa Barat", provinceCode: "32", cityCode: null };
+export const TEST_REGION_ADMIN: TestRegionAdmin = { email: "admindepok@gmail.com", name: "Admin Kota Depok", provinceCode: "32", cityCode: "32.76" };
+export const TEST_REGION_ADMINS: readonly TestRegionAdmin[] = [TEST_PROVINCE_ADMIN, TEST_REGION_ADMIN];
 
 export interface TestAccountLogin {
   readonly role: "SUPER_ADMIN" | "SCHOOL_ADMIN" | "SPONSOR" | "STUDENT" | "REGION_ADMIN";
@@ -140,7 +144,7 @@ export function testAccountLogins(): TestAccountLogin[] {
     { role: "SCHOOL_ADMIN", name: TEST_SCHOOL.adminName, login: TEST_SCHOOL.adminEmail ?? "" },
     { role: "SPONSOR", name: TEST_SPONSOR.loginName, login: TEST_SPONSOR.email },
     ...TEST_SCHOOL.students.map((s) => ({ role: "STUDENT" as const, name: `${s.name} (${s.className})`, login: s.nisn })),
-    { role: "REGION_ADMIN", name: TEST_REGION_ADMIN.name, login: TEST_REGION_ADMIN.email },
+    ...TEST_REGION_ADMINS.map((a) => ({ role: "REGION_ADMIN" as const, name: a.name, login: a.email })),
     { role: "SCHOOL_ADMIN", name: TEST_DEPOK_SCHOOL.adminName, login: TEST_DEPOK_SCHOOL.adminEmail ?? "" },
     ...TEST_DEPOK_SCHOOL.students.map((s) => ({ role: "STUDENT" as const, name: `${s.name} (${s.className})`, login: s.nisn })),
   ];

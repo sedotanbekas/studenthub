@@ -5,13 +5,13 @@
  * Idempoten (kunci alami: email, NPSN, NISN): dijalankan ulang = kata sandi di-reset ke TEST_ACCOUNT_PASSWORD,
  * akun diaktifkan lagi, dan 3 siswa uji dikembalikan ke data awal. Data lain yang dibuat lewat aplikasi (siswa,
  * tagihan, pengumuman baru, dst.) tidak disentuh. Rencana data: ./test-accounts-plan.ts.
- * Sejak 2026-10-07: sekolah uji Kota Depok + akun contoh Admin Kota Depok (REGION_ADMIN).
+ * Sejak 2026-10-07: sekolah uji Kota Depok + akun contoh Admin Pemda Jawa Barat & Admin Kota Depok (REGION_ADMIN).
  */
 import type { Tx } from "../../src/lib/db";
 import { withTx } from "../../src/lib/tx";
 import { ensureSuperAdmin, seedDemoSchool, type DemoSchoolBaseSummary } from "./demo-seed";
 import { upsertSponsorLogin } from "./demo-sponsor";
-import { TEST_DEPOK_SCHOOL, TEST_REGION_ADMIN, TEST_SCHOOL, TEST_SPONSOR, TEST_SUPER_ADMIN } from "./test-accounts-plan";
+import { TEST_DEPOK_SCHOOL, TEST_REGION_ADMINS, TEST_SCHOOL, TEST_SPONSOR, TEST_SUPER_ADMIN, type TestRegionAdmin } from "./test-accounts-plan";
 
 export interface TestAccountsOptions {
   /** Hash bcrypt TEST_ACCOUNT_PASSWORD (CLI: cost 10). Dipakai semua akun uji. */
@@ -24,15 +24,16 @@ export interface TestAccountsSummary {
   readonly school: DemoSchoolBaseSummary;
   readonly sponsorId: string;
   readonly depokSchool: DemoSchoolBaseSummary;
-  readonly regionAdminId: string;
+  /** Urutan = TEST_REGION_ADMINS (Jawa Barat, Kota Depok). */
+  readonly regionAdminIds: readonly string[];
 }
 
 /**
- * Akun contoh Admin Kota Depok. Email sudah dipakai akun jenis lain -> DITOLAK (seed tidak pernah mengubah jenis
+ * Akun contoh Admin Pemda. Email sudah dipakai akun jenis lain -> DITOLAK (seed tidak pernah mengubah jenis
  * akun orang lain); akun Admin Pemda yang sama -> kata sandi di-reset & diaktifkan lagi.
  */
-async function ensureRegionAdmin(tx: Tx, passwordHash: string): Promise<string> {
-  const { email, name, provinceCode, cityCode } = TEST_REGION_ADMIN;
+async function ensureRegionAdmin(tx: Tx, account: TestRegionAdmin, passwordHash: string): Promise<string> {
+  const { email, name, provinceCode, cityCode } = account;
   const existing = await tx.user.findUnique({ where: { email }, select: { role: true } });
   if (existing && existing.role !== "REGION_ADMIN") throw new Error(`Email ${email} sudah dipakai akun berjenis ${existing.role}; akun contoh Admin Pemda tidak dibuat.`);
   const fields = { name, passwordHash, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, role: "REGION_ADMIN" as const, schoolId: null, sponsorId: null, regionProvinceCode: provinceCode, regionCityCode: cityCode };
@@ -44,6 +45,10 @@ export async function runTestAccountsSeed(options: TestAccountsOptions): Promise
   const school = await seedDemoSchool(TEST_SCHOOL, options, options.now ?? new Date());
   const { sponsorId } = await upsertSponsorLogin(TEST_SPONSOR, options.passwordHash);
   const depokSchool = await seedDemoSchool(TEST_DEPOK_SCHOOL, options, options.now ?? new Date());
-  const regionAdminId = await withTx((tx) => ensureRegionAdmin(tx, options.passwordHash));
-  return { superAdminId, school, sponsorId, depokSchool, regionAdminId };
+  const regionAdminIds = await withTx(async (tx) => {
+    const ids: string[] = [];
+    for (const account of TEST_REGION_ADMINS) ids.push(await ensureRegionAdmin(tx, account, options.passwordHash));
+    return ids;
+  });
+  return { superAdminId, school, sponsorId, depokSchool, regionAdminIds };
 }
