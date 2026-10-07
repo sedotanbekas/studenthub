@@ -9,9 +9,11 @@ Rencana induk: `docs/PLAN.md` (disetujui klien 2026-09-21). Dokumen desain rinci
 - Conventional Commits berbahasa Indonesia: `feat`, `fix`, `chore`, `test`, `docs`, `refactor`, `perf`, `ci`.
 
 ## Deploy
-- Push ke `master` = CI (gate) → deploy **staging** → deploy **produksi** di VPS. Perlakukan setiap
-  merge ke `master` sebagai penerbitan. Kerjakan di branch `feat/...`, merge setelah gate hijau.
-- Sebelum push: `pnpm typecheck`, `pnpm lint` (0 error), `pnpm test:unit`, `pnpm test:int` harus bersih.
+- Push ke `master` = cek cepat (typecheck + lint, ±1 menit) → deploy **produksi** → deploy **staging** (pola
+  deploy MyMedialab/HRIS, disetujui pemilik 2026-10-07). Pemeriksaan lengkap (unit, integration, coverage, build,
+  e2e) jalan PARALEL dan TIDAK menahan deploy — perlakukan setiap push ke `master` sebagai penerbitan langsung.
+- Karena itu pemeriksaan lokal WAJIB bersih sebelum push: `pnpm typecheck`, `pnpm lint` (0 error),
+  `pnpm test:unit`, `pnpm test:int`. Pemeriksaan lengkap merah di Actions = perbaiki di commit berikutnya.
 
 ## Konvensi kode
 - Identifier Bahasa Inggris; pesan error, komentar, dan dokumen Bahasa Indonesia.

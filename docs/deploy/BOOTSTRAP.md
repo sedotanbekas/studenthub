@@ -2,7 +2,7 @@
 
 Panduan penyiapan awal VPS medialab (`38.47.176.211`, Ubuntu 24.04 + aaPanel) untuk studenthub.id
 produksi & staging. Setelah bootstrap selesai, setiap push ke `master` men-deploy otomatis lewat
-`.github/workflows/ci-cd.yml` (gerbang → staging → produksi).
+`.github/workflows/ci-cd.yml` (cek cepat → produksi → staging; pemeriksaan lengkap paralel).
 
 Bagian yang bisa diotomatiskan dikerjakan **`scripts/deploy/bootstrap-vps.sh`** (root, idempoten,
 aman diulang). Langkah yang butuh UI atau komputer lokal (DNS, situs & SSL aaPanel, secret GitHub)
@@ -52,7 +52,7 @@ ubah semuanya bersamaan bila perlu.
    setelah bootstrap selesai cukup **Re-run failed jobs** di tab Actions.
 4. Branch yang di-clone harus sudah memuat `scripts/deploy/` dan `docs/deploy/`. Bila `master`
    belum memuatnya, jalankan bootstrap dengan `STUDENTHUB_BRANCH=<branch fitur>`; deploy berikutnya
-   tetap memasang sha `master` yang lulus gerbang.
+   tetap memasang sha `master` yang lulus cek cepat.
 
 ## Langkah 1 — Kunci deploy & secret GitHub (komputer lokal, Git Bash)
 

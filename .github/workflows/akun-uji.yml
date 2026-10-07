@@ -12,7 +12,7 @@ on:
         options: [keduanya, production, staging]
         default: keduanya
 
-# Grup sendiri (bukan deploy-studenthub): antrean workflow ini tidak boleh membatalkan deploy yang menunggu.
+# Grup sendiri (bukan grup deploy-studenthub-*): antrean workflow ini tidak boleh membatalkan deploy yang menunggu.
 concurrency:
   group: akun-uji
   cancel-in-progress: false

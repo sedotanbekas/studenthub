@@ -1,17 +1,24 @@
 name: CI/CD studenthub
 
-# Push ke master = gerbang (gate) -> deploy staging -> deploy produksi. workflow_dispatch hanya
-# menjalankan gerbang (deploy khusus push ke master).
+# Pola deploy MyMedialab (HRIS, permintaan pemilik 2026-10-07: deploy harus cepat): push ke master langsung
+# di-deploy ke PRODUKSI lewat SSH, TANPA menunggu test lengkap (dulu gerbang ±9 menit -> staging -> produksi,
+# total ±16 menit; kini ±4-5 menit sampai produksi).
+#
+#   cek-cepat (typecheck + lint, ±1 menit) -> deploy produksi -> deploy staging
+#   pemeriksaan lengkap (unit, integration, coverage, build, e2e) berjalan PARALEL sebagai laporan:
+#   merah = perbaiki di commit berikutnya, tetapi tidak menahan deploy.
+#
+# Cek cepat tetap menahan deploy karena galat tipe membuat `pnpm build` di VPS gagal di tengah jalan, dan build
+# setengah jadi di folder .next merusak aplikasi yang sedang berjalan. Pengaman lain ada di
+# scripts/deploy/remote-deploy.sh (kunci deploy, cadangan DB sebelum migrasi, health check versi).
+# Jalankan tetap pemeriksaan lokal sebelum push (CLAUDE.md). workflow_dispatch = pemeriksaan saja (tanpa deploy).
 on:
   push:
     branches: [master]
+    # Dokumen saja (tanpa kode) tidak perlu membangun ulang & me-restart aplikasi.
+    paths-ignore:
+      - "**/*.md"
   workflow_dispatch:
-
-# Dua push beruntun tidak boleh deploy bersamaan, dan deploy yang sedang berjalan TIDAK dibatalkan:
-# memutus SSH di tengah migrasi MariaDB meninggalkan skema setengah jadi (DDL tidak transaksional).
-concurrency:
-  group: deploy-studenthub
-  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -22,10 +29,109 @@ defaults:
     shell: bash
 
 jobs:
-  gate:
-    name: Gerbang (typecheck, lint, test, coverage, build, e2e)
+  quick-check:
+    name: Cek cepat (typecheck, lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pasang pnpm (versi dari packageManager di package.json)
+        uses: pnpm/action-setup@v4
+
+      - name: Pasang Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Pasang dependensi
+        run: pnpm install --frozen-lockfile
+
+      - name: Validasi skema Prisma
+        run: pnpm exec prisma validate
+
+      - name: Periksa tipe TypeScript
+        run: pnpm typecheck
+
+      - name: Lint (0 error)
+        run: pnpm lint
+
+  deploy-production:
+    name: Deploy produksi
+    needs: quick-check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Deploy TIDAK boleh jalan berbarengan dan yang sedang berjalan TIDAK dibatalkan: memutus SSH di tengah
+    # migrasi MariaDB meninggalkan skema setengah jadi (DDL tidak transaksional). Push berikutnya mengantre.
+    concurrency:
+      group: deploy-studenthub-production
+      cancel-in-progress: false
+    steps:
+      # Aksi pihak ketiga yang menerima kunci SSH dipin ke sha commit (= tag v1.2.2).
+      - name: Deploy ke produksi via SSH (user studenthub)
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          # Opsional tetapi disarankan: sidik jari host key VPS (SHA256:...) untuk mencegah MITM.
+          fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
+          envs: DEPLOY_SHA
+          command_timeout: 30m
+          # Yang dipasang adalah sha push ini (lolos cek cepat), bukan ujung master terbaru.
+          script: |
+            set -euo pipefail
+            [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DEPLOY_SHA tidak sah" >&2; exit 1; }
+            cd /www/wwwroot/studenthub
+            git fetch --depth 50 origin master
+            git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null || git fetch --depth 1 origin "$DEPLOY_SHA"
+            git reset --hard "$DEPLOY_SHA"
+            bash scripts/deploy/remote-deploy.sh production
+
+  # Staging (data demo) menyusul SETELAH produksi agar tidak memperlambat produksi (build berbagi kunci VPS).
+  deploy-staging:
+    name: Deploy staging
+    needs: deploy-production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    concurrency:
+      group: deploy-studenthub-staging
+      cancel-in-progress: false
+    steps:
+      - name: Deploy ke staging via SSH (user studenthub)
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
+          envs: DEPLOY_SHA
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DEPLOY_SHA tidak sah" >&2; exit 1; }
+            cd /www/wwwroot/studenthub-staging
+            git fetch --depth 50 origin master
+            git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null || git fetch --depth 1 origin "$DEPLOY_SHA"
+            git reset --hard "$DEPLOY_SHA"
+            bash scripts/deploy/remote-deploy.sh staging
+
+  full-check:
+    name: Pemeriksaan lengkap (paralel, tidak menahan deploy)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Push baru membatalkan pemeriksaan lengkap yang sudah usang (hanya laporan, tidak menyentuh server).
+    concurrency:
+      group: full-check-${{ github.ref }}
+      cancel-in-progress: true
     services:
       mariadb:
         image: mariadb:10.11
@@ -82,15 +188,6 @@ jobs:
       - name: Siapkan direktori storage
         run: mkdir -p "$STORAGE_ROOT"
 
-      - name: Validasi skema Prisma
-        run: pnpm exec prisma validate
-
-      - name: Periksa tipe TypeScript
-        run: pnpm typecheck
-
-      - name: Lint (0 error)
-        run: pnpm lint
-
       - name: Dokumen OpenAPI sinkron dengan kontrak
         run: pnpm openapi:check
 
@@ -101,7 +198,7 @@ jobs:
           set -o pipefail
           NODE_OPTIONS=--test-reporter=tap pnpm exec c8 --reporter=none --check-coverage=false pnpm test:unit 2>&1 | tee "$RUNNER_TEMP/unit.log"
           grep -Eq '^# pass [1-9][0-9]*$' "$RUNNER_TEMP/unit.log" || {
-            echo "::error::Tidak ada unit test yang lulus (pass 0) — gerbang menolak"
+            echo "::error::Tidak ada unit test yang lulus (pass 0)"
             exit 1
           }
 
@@ -113,7 +210,7 @@ jobs:
           set -o pipefail
           NODE_OPTIONS=--test-reporter=tap pnpm exec c8 --clean=false --reporter=none --check-coverage=false pnpm test:int 2>&1 | tee "$RUNNER_TEMP/int.log"
           grep -Eq '^# pass [1-9][0-9]*$' "$RUNNER_TEMP/int.log" || {
-            echo "::error::Tidak ada integration test yang lulus (pass 0) — gerbang menolak"
+            echo "::error::Tidak ada integration test yang lulus (pass 0)"
             exit 1
           }
 
@@ -131,68 +228,10 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: gate-reports
+          name: full-check-reports
           path: |
             playwright-report/
             coverage/
             !coverage/tmp/
           if-no-files-found: ignore
           retention-days: 7
-
-  deploy-staging:
-    name: Deploy staging
-    needs: gate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      # Aksi pihak ketiga yang menerima kunci SSH dipin ke sha commit (= tag v1.2.2).
-      - name: Deploy ke staging via SSH (user studenthub)
-        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
-        env:
-          DEPLOY_SHA: ${{ github.sha }}
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          # Opsional tetapi disarankan: sidik jari host key VPS (SHA256:...) untuk mencegah MITM.
-          fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
-          envs: DEPLOY_SHA
-          command_timeout: 30m
-          # Yang dipasang adalah sha yang lulus gerbang, bukan ujung master terbaru (push berikutnya
-          # yang belum lulus gerbang tidak ikut terpasang).
-          script: |
-            set -euo pipefail
-            [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DEPLOY_SHA tidak sah" >&2; exit 1; }
-            cd /www/wwwroot/studenthub-staging
-            git fetch --depth 50 origin master
-            git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null || git fetch --depth 1 origin "$DEPLOY_SHA"
-            git reset --hard "$DEPLOY_SHA"
-            bash scripts/deploy/remote-deploy.sh staging
-
-  deploy-production:
-    name: Deploy produksi
-    needs: deploy-staging
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - name: Deploy ke produksi via SSH (user studenthub)
-        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
-        env:
-          DEPLOY_SHA: ${{ github.sha }}
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT }}
-          envs: DEPLOY_SHA
-          command_timeout: 30m
-          script: |
-            set -euo pipefail
-            [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "DEPLOY_SHA tidak sah" >&2; exit 1; }
-            cd /www/wwwroot/studenthub
-            git fetch --depth 50 origin master
-            git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null || git fetch --depth 1 origin "$DEPLOY_SHA"
-            git reset --hard "$DEPLOY_SHA"
-            bash scripts/deploy/remote-deploy.sh production

@@ -38,4 +38,4 @@ pnpm dev                                       # http://localhost:3030 — dokum
 - Data milik sekolah lain selalu dijawab **404**.
 
 ## Deploy
-Push ke `master` → CI (gate) → staging → produksi (VPS, PM2 non-root). Lihat `docs/deploy/`.
+Push ke `master` → cek cepat (typecheck + lint) → produksi → staging (VPS, PM2 non-root); pemeriksaan lengkap jalan paralel tanpa menahan deploy. Lihat `docs/deploy/`.
