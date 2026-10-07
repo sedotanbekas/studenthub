@@ -9,6 +9,7 @@ import type { LoginNotice } from "@/lib/frontend/identity-confirm-rules";
 import { EnvSwitch } from "./env-switch";
 import { Brand, Icon } from "./icon";
 import { PasswordInput } from "./password-input";
+import { SchoolArt } from "./school-art";
 import { loadSections } from "./sections";
 import { cancelSplash, centerOf, playLoginSplash } from "./splash";
 
@@ -50,7 +51,7 @@ export function Login({ env, notice, onLogin, onDemo }: LoginProps) {
     finally { setBusy(false); }
   }
   return <main className="login-page">
-    <section className="login-story" aria-hidden="true"><Brand /><div><h1>Sekolah dan siswa, dalam satu tempat.</h1><p>Absensi, rapor, tagihan, dan pengumuman sekolah.</p></div></section>
+    <section className="login-story" aria-hidden="true"><Brand /><div><h1>Sekolah dan siswa, dalam satu tempat.</h1><p>Absensi, rapor, tagihan, dan pengumuman sekolah.</p></div><SchoolArt className="login-art" /></section>
     <section className="login-form-side"><div className="login-box"><span className="login-brand"><Brand /></span><h2>Senang bertemu lagi.</h2><p>Masuk dengan NISN (siswa), NPSN (admin sekolah), atau email.</p>{notice && <div className="info-message login-notice" role="status" id="login-notice"><span><strong>{notice.title}</strong><small>{notice.note}</small></span></div>}<form method="post" aria-describedby={notice ? "login-notice" : undefined} onSubmit={submit} onInput={() => void loadSections()}>
       <label className="field">NISN, NPSN, atau email<input name="identifier" autoComplete="username" inputMode="email" placeholder="NISN, NPSN sekolah, atau email" required autoFocus /></label>
       <label className="field">Kata sandi<PasswordInput name="password" autoComplete="current-password" placeholder="Masukkan kata sandi" required /></label>

@@ -73,8 +73,7 @@
 }
 @media (max-width: 760px) {
   .login-page { grid-template-columns: minmax(0, 1fr); }
-  .login-story { display: none; }
-  .login-brand { display: block; }
+  /* Panel cerita tampil sebagai sampul di HP -- src/styles/login-art.css. */
 }
 
 /* Pilihan persona demo di bawah form login */

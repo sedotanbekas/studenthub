@@ -43,7 +43,7 @@
 .review-empty-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--primary-soft); color: var(--primary-ink); }
 
 /* Detail (panel kanan di layar lebar) */
-.review-detail-panel { position: sticky; top: 96px; max-height: calc(100dvh - 116px); overflow: auto; overscroll-behavior: contain; padding: 0; gap: 0; }
+.review-detail-panel { position: sticky; top: 84px; max-height: calc(100dvh - 104px); overflow: auto; overscroll-behavior: contain; padding: 0; gap: 0; }
 .review-detail { display: flex; flex-direction: column; min-width: 0; container-type: inline-size; }
 .review-detail-head { display: flex; flex-direction: column; gap: 6px; padding: 20px 22px 0; }
 .review-detail-head h2 { font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }

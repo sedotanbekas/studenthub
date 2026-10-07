@@ -46,6 +46,11 @@
   --blob-3: color-mix(in srgb, var(--animation) 15%, transparent);
   /* Kanvas bergradasi warna sekolah (latar aplikasi & latar pekat halaman yang sedang bergeser). */
   --canvas: radial-gradient(70vmax 55vmax at 100% 0%, var(--blob-1), transparent 62%), radial-gradient(60vmax 50vmax at 0% 100%, var(--blob-2), transparent 60%), radial-gradient(40vmax 36vmax at 60% 40%, var(--blob-3), transparent 65%);
+  /* Grid kotak-kotak tipis di latar halaman (permintaan pemilik 2026-10-07); ukuran tiap lapisan ikut di
+     dalam nilai, jadi aman ditumpuk di depan --canvas. Mode kontras tinggi membuatnya transparan. */
+  --grid-line: color-mix(in srgb, var(--primary) 9%, transparent);
+  --grid-size: 28px;
+  --grid: linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) var(--grid-size), linear-gradient(180deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) var(--grid-size);
   /* Material kaca. */
   --glass-filter: blur(24px) saturate(180%);
   --glass-bar: rgb(255 255 255 / 0.72);

@@ -7,10 +7,10 @@
  * dalamnya (alur absen layar penuh, toast) akan terkurung.
  */
 
-/* Kanvas: satu lapisan fixed berisi gradien warna sekolah (tanpa filter blur, tanpa animasi). */
+/* Kanvas: satu lapisan fixed berisi grid kotak-kotak (2026-10-07) di atas gradien warna sekolah (tanpa filter blur, tanpa animasi). */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: var(--canvas);
+  background: var(--grid), var(--canvas);
 }
 .login-page { background: transparent; }
 
@@ -53,27 +53,30 @@ input, textarea, select { border-radius: 14px; }
 .quick-icon.tone-2 { background: var(--animation-soft); color: var(--ink); }
 .quick-icon.tone-3 { background: var(--logo); color: var(--on-logo); }
 
-/* Topbar kaca mengambang. */
+/* Topbar kaca MENEMPEL di tepi atas, tidak melayang (permintaan pemilik 2026-10-07). */
 .topbar {
-  top: 12px; margin: 12px 16px 0; border-radius: var(--radius-bar);
-  background: var(--glass-bar); border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-1);
+  top: 0; margin: 0; border-radius: 0;
+  background: var(--glass-bar); border: 0; border-bottom: 1px solid var(--glass-edge);
+  box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.6), 0 8px 20px -18px rgb(15 23 42 / 0.35);
   -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
 }
 body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { -webkit-backdrop-filter: none; backdrop-filter: none; }
 
-/* Sidebar desktop: panel melayang (kanvas statis di belakang -> tanpa blur). */
+/* Sidebar desktop: panel setinggi layar yang menempel di tepi kiri, tidak melayang (2026-10-07). */
 @media (min-width: 961px) {
-  .app-shell { grid-template-columns: 284px minmax(0, 1fr); }
+  .app-shell { grid-template-columns: 272px minmax(0, 1fr); }
   .sidebar {
-    top: 12px; height: calc(100dvh - 24px); margin: 12px 0 12px 12px; border-radius: 26px;
-    border: 1px solid var(--glass-border); background: var(--glass-sheen), var(--glass-card);
-    box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-2);
+    top: 0; height: 100dvh; margin: 0; border-radius: 0;
+    border: 0; border-right: 1px solid var(--glass-edge); background: var(--glass-sheen), var(--surface-strong);
+    box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.7);
   }
 }
 .school-switch, .account-button { background: rgb(255 255 255 / 60%); border: 1px solid var(--glass-border); border-radius: 16px; }
 .nav-item { border-radius: 14px; transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out); }
 .nav-item:hover { background: rgb(255 255 255 / 65%); }
+/* Menu aktif tetap berwarna primer saat disorot -- dulu hover di atas memutihkannya padahal tulisannya
+   putih, sehingga menu aktif tampak seperti kotak putih kosong. */
+.nav-item.active:hover { background: var(--primary-hover); color: var(--on-primary); }
 @media (forced-colors: active) { .nav-item.active { outline: 2px solid Highlight; } }
 
 /* Dialog kaca tebal; kepala & kaki sticky padat (tanpa blur bertingkat). */
@@ -118,7 +121,7 @@ body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { 
   .toast { background: var(--ink); }
 }
 @supports not (color: color-mix(in srgb, red 50%, blue)) {
-  :root { --blob-1: rgb(30 58 138 / 15%); --blob-2: rgb(15 118 110 / 14%); --blob-3: rgb(56 189 248 / 15%); --primary-glow: rgb(29 78 216 / 45%); --animation-glow: rgb(56 189 248 / 40%); --focus-glow: rgb(56 189 248 / 40%); }
+  :root { --grid-line: rgb(29 78 216 / 9%); --blob-1: rgb(30 58 138 / 15%); --blob-2: rgb(15 118 110 / 14%); --blob-3: rgb(56 189 248 / 15%); --primary-glow: rgb(29 78 216 / 45%); --animation-glow: rgb(56 189 248 / 40%); --focus-glow: rgb(56 189 248 / 40%); }
 }
 :root[data-glass="lite"] { --glass-filter: none; --glass-bar: rgb(255 255 255 / 95%); --glass-thick: rgb(255 255 255 / 97%); --glass-drawer: rgb(255 255 255 / 97%); }
 /* Mode padat (kontras tinggi): duplikasi disengaja — media query tidak bisa di-OR dengan selektor. */
@@ -127,12 +130,12 @@ body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { 
   .toast { background: var(--ink); }
   .action-dialog::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
-:root[data-glass="off"] { --glass-filter: none; --glass-bar: var(--paper); --glass-thick: var(--paper); --glass-card: var(--paper); --glass-drawer: var(--paper); --surface-strong: var(--paper); --glass-sheen: none; --glass-rim: 0 0 #0000; --glass-border: var(--line); --glass-edge: transparent; --blob-1: transparent; --blob-2: transparent; --blob-3: transparent; --muted: var(--ink-2); }
+:root[data-glass="off"] { --grid-line: transparent; --glass-filter: none; --glass-bar: var(--paper); --glass-thick: var(--paper); --glass-card: var(--paper); --glass-drawer: var(--paper); --surface-strong: var(--paper); --glass-sheen: none; --glass-rim: 0 0 #0000; --glass-border: var(--line); --glass-edge: transparent; --blob-1: transparent; --blob-2: transparent; --blob-3: transparent; --muted: var(--ink-2); }
 :root[data-glass="off"] .toast { background: var(--ink); }
 :root[data-glass="off"] .action-dialog::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
 :root[data-glass="off"] :is(.login-story, .id-card)::before { display: none; }
 @media (prefers-contrast: more) {
-  :root { --glass-filter: none; --glass-bar: var(--paper); --glass-thick: var(--paper); --glass-card: var(--paper); --glass-drawer: var(--paper); --surface-strong: var(--paper); --glass-sheen: none; --glass-rim: 0 0 #0000; --glass-border: var(--ink-2); --glass-edge: transparent; --line-soft: var(--line); --muted: var(--ink-2); --focus: var(--ink); --blob-1: transparent; --blob-2: transparent; --blob-3: transparent; }
+  :root { --grid-line: transparent; --glass-filter: none; --glass-bar: var(--paper); --glass-thick: var(--paper); --glass-card: var(--paper); --glass-drawer: var(--paper); --surface-strong: var(--paper); --glass-sheen: none; --glass-rim: 0 0 #0000; --glass-border: var(--ink-2); --glass-edge: transparent; --line-soft: var(--line); --muted: var(--ink-2); --focus: var(--ink); --blob-1: transparent; --blob-2: transparent; --blob-3: transparent; }
   :focus-visible { outline-width: 4px; }
   .login-story::before, .id-card::before { display: none; }
 }
@@ -142,12 +145,14 @@ body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { 
 .topbar-mark .brand-logo { width: 36px; height: 36px; }
 .tab-bar { display: none; }
 @media (max-width: 960px) {
-  .topbar { top: 8px; margin: 8px 8px 0; min-height: 56px; padding: 6px 10px; box-shadow: var(--glass-rim), 0 0 0 1px var(--glass-edge), var(--elev-2); }
+  /* HP: topbar & laci juga menempel ke tepi layar (tidak melayang). */
+  .topbar { top: 0; margin: 0; min-height: 56px; padding: calc(6px + env(safe-area-inset-top)) 10px 6px; }
   .back-button, .topbar-mark { display: inline-flex; align-items: center; }
   .sidebar {
-    top: 8px; left: 8px; height: calc(100dvh - 16px); border-radius: 26px; border: 1px solid var(--glass-border);
+    top: 0; left: 0; height: 100dvh; border-radius: 0 24px 24px 0; border: 0; border-right: 1px solid var(--glass-border);
+    padding-top: calc(20px + env(safe-area-inset-top)); padding-bottom: calc(20px + env(safe-area-inset-bottom));
     background: var(--glass-drawer); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
-    transform: translateX(calc(-100% - 16px)); transition: transform 0.34s var(--ease-page), visibility 0.34s;
+    transform: translateX(-100%); transition: transform 0.34s var(--ease-page), visibility 0.34s;
     box-shadow: var(--glass-rim), var(--elev-3);
   }
   .sidebar-overlay { background: rgb(11 18 32 / 40%); }
@@ -195,7 +200,7 @@ body:has(.action-dialog[open]) .topbar, .app-shell:has(.sidebar.open) .topbar { 
 .env-badge { flex: none; padding: 4px 10px; border-radius: 999px; border: 2px solid var(--warning); background: var(--warning-soft); color: var(--warning-ink); font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 
 /* Fokus tidak tertutup bar mengambang (WCAG 2.4.11): gulir menyisakan ruang topbar & tab bar. */
-@media (max-width: 960px) { html { scroll-padding-top: 84px; } }
+@media (max-width: 960px) { html { scroll-padding-top: 72px; } }
 @media (max-width: 760px) { html { scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom)); } }
 /* Mode warna paksa (Windows High Contrast): tab aktif & sakelar tetap terlihat. */
 @media (forced-colors: active) {

@@ -18,7 +18,7 @@
 
 .hub-view, .hub-page { display: flex; flex-direction: column; gap: inherit; min-width: 0; }
 .page-ghost { position: fixed; z-index: 15; display: flex; flex-direction: column; gap: inherit; min-width: 0; margin: 0; overflow: hidden; pointer-events: none; }
-.page-ghost, :root[data-page-slide]:not([data-page-slide="fade"]) .hub-view { background: var(--canvas), var(--bg); background-attachment: fixed; }
+.page-ghost, :root[data-page-slide]:not([data-page-slide="fade"]) .hub-view { background: var(--grid), var(--canvas), var(--bg); background-attachment: fixed; }
 :root[data-page-slide]:not([data-page-slide="fade"]) .hub-view { position: relative; z-index: 16; min-height: 100dvh; }
 :root[data-page-slide="back"] .page-ghost { z-index: 17; }
 /* Isi yang sedang di luar layar tidak boleh melebarkan dokumen: di HP viewport akan diperbesar dan
