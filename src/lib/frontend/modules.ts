@@ -20,7 +20,8 @@ const platform: Module[] = [
   moduleOf("ad-review", "Moderasi iklan", "Tinjau konten sebelum menjangkau siswa.", "image", "PLATFORM", ["/platform/ads"], "listPlatformAds"),
   moduleOf("topups", "Verifikasi top-up", "Tinjau bukti transfer dan pengisian saldo sponsor.", "wallet", "PLATFORM", ["/platform/topups"], "listPlatformTopUps"),
   moduleOf("national-calendar", "Libur nasional", "Satu kalender bersama untuk seluruh sekolah.", "calendar", "PLATFORM", ["/platform/holidays"], "listNationalHolidays"),
-  moduleOf("platform-settings", "Pengaturan platform", "Atur tarif iklan, rekening, dan penutupan absensi.", "settings", "LAINNYA", ["/platform/settings", "/platform/attendance"], "getAdSettings"),
+  // "App Setting" (pemilik 2026-10-07): semua pengaturan platform dalam satu menu -- identitas aplikasi + iklan + absensi.
+  moduleOf("platform-settings", "Pengaturan aplikasi", "Nama & logo aplikasi, tarif iklan, rekening top-up, dan penutupan absensi.", "settings", "LAINNYA", ["/platform/app-settings", "/platform/settings", "/platform/attendance"], "getAppSettings"),
   moduleOf("platform-audit", "Audit platform", "Telusuri aktivitas pengelolaan platform.", "history", "LAINNYA", ["/platform/audit-logs"], "listPlatformAuditLogs"),
   moduleOf("login-history", "Riwayat masuk", "Siapa yang masuk ke akun mana pun: perangkat, IP, perkiraan lokasi, dan alasan gagal.", "key", "LAINNYA", ["/platform/login-history"], "listLoginHistory"),
   moduleOf("access-roles", "Peran & hak akses", "Atur peran, centang hak akses tiap fitur, dan pasang peran ke akun.", "shield", "LAINNYA", ["/access-roles"], "listAccessRoles"),
@@ -54,7 +55,7 @@ export const MODULE_ACTIONS: Readonly<Record<string, string>> = {
   billing: "billing.read", announcements: "announcements.read", calendar: "calendar.read", "school-admins": "schoolAdmins.read",
   "school-settings": "schools.profile.read", "school-theme": "schools.theme.read", audit: "audit.school.read",
   schools: "schools.manage", users: "users.manage", sponsors: "sponsor.admin", "ad-review": "ads.review", topups: "topup.review",
-  "national-calendar": "calendar.national.read", "platform-settings": "sponsor.admin", "platform-audit": "audit.platform.read",
+  "national-calendar": "calendar.national.read", "platform-settings": "app.settings", "platform-audit": "audit.platform.read",
   "login-history": "audit.login.read", "access-roles": "roles.read",
   campaigns: "ads.own.read", analytics: "ads.analytics.read", balance: "sponsor.self.read", company: "sponsor.self.read",
   "my-attendance": "attendance.self", "my-leave": "leave.self.read", "my-reports": "reportCards.self.read", "my-billing": "billing.self.read",
@@ -62,10 +63,18 @@ export const MODULE_ACTIONS: Readonly<Record<string, string>> = {
   notifications: "notification.self", security: "auth.self",
 };
 /**
+ * Modul gabungan: tampil juga bila akun hanya memegang hak bagian lain di dalamnya (mis. peran yang hanya boleh
+ * mengatur iklan tetap melihat Pengaturan aplikasi, tanpa kartu nama & logo).
+ */
+export const MODULE_ALT_ACTIONS: Readonly<Record<string, readonly string[]>> = {
+  "platform-settings": ["sponsor.admin", "attendance.reclose", "attendance.test_mode"],
+};
+/**
  * permissions tidak dikirim / kosong (test lama, persona demo) = semua modul jenis akun. Akun sungguhan tidak
  * pernah kosong: auth.self selalu terkunci tercentang (src/lib/roles/rules.ts ALWAYS_GRANTED).
  */
-const permitted = (permissions: readonly string[] | undefined) => (m: Module) => !permissions?.length || permissions.includes(MODULE_ACTIONS[m.key] ?? "");
+const permitted = (permissions: readonly string[] | undefined) => (m: Module) =>
+  !permissions?.length || [MODULE_ACTIONS[m.key] ?? "", ...(MODULE_ALT_ACTIONS[m.key] ?? [])].some(action => permissions.includes(action));
 export function modulesFor(role: Role, permissions?: readonly string[]): Module[] {
   return [...(role === "SUPER_ADMIN" ? [...platform, ...school] : role === "SPONSOR" ? sponsor : role === "STUDENT" ? student : school), ...common].filter(permitted(permissions));
 }

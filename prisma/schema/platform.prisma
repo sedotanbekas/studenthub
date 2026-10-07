@@ -31,6 +31,21 @@ model PlatformSetting {
   updatedAt DateTime @default(now()) @updatedAt
 }
 
+/// Identitas aplikasi (menu Pengaturan aplikasi, pemilik 2026-10-07). Singleton (id = 1), dibuat oleh migrasi.
+/// Logo disimpan di baris ini (WebP hasil re-encode, <= 256 px, puluhan KB): satu gambar publik kecil, ikut
+/// cadangan DB, tanpa salinan /media. Tabel terpisah dari PlatformSetting agar byte logo tidak ikut terbaca
+/// (dan teraudit) oleh pengaturan iklan.
+model AppBranding {
+  id            Int       @id @default(1)
+  appName       String    @db.VarChar(40)
+  logo          Bytes?    @db.MediumBlob
+  logoMimeType  String?   @db.VarChar(30)
+  logoUpdatedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
 /// Metadata berkas di disk (di luar direktori aplikasi). Kunci diawali "public/" atau "private/".
 /// Berkas privat disajikan lewat route berotorisasi. Gambar di-re-encode (sharp) sebelum disimpan.
 model StoredFile {

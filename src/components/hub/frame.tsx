@@ -11,6 +11,7 @@ import { badgeLabel } from "@/lib/frontend/badge-poll-rules";
 import { EnvBadge, EnvSwitch } from "./env-switch";
 import { HubLink } from "./hub-link";
 import { capturePage, setSlideTabs } from "./page-slide";
+import { useBranding } from "./branding";
 import { Brand, BrandMark, Icon } from "./icon";
 
 /** Kerangka hub: sidebar (laci di HP), topbar kaca, tab bar HP, banner demo, dan pilihan tampilan. */
@@ -19,9 +20,11 @@ interface SidebarProps { me: Identity; env: AppEnv | null; modules: Module[]; cu
 export function Sidebar({ me, env, modules, current, home, unread, open, onNavigate, onLogout }: SidebarProps) {
   const groups = Array.from(new Set(modules.map(m => m.group)));
   const aside = useRef<HTMLElement>(null);
+  // Akun tanpa sekolah/sponsor (super admin): nama aplikasi dari Pengaturan aplikasi (dulu "studenthub.id").
+  const { branding } = useBranding();
   // Laci HP dibuka: fokus ke tautan pertama agar keyboard/pembaca layar langsung berada di dalam laci.
   useEffect(() => { if (open) aside.current?.querySelector<HTMLElement>(".nav-item")?.focus(); }, [open]);
-  return <aside ref={aside} className={`sidebar ${open ? "open" : ""}`}><HubLink tab href="/hub" className="brand-link" onClick={onNavigate}><Brand /></HubLink><div className="school-switch"><span className="school-icon"><Icon name="school" size={20} /></span><span><strong>{me.school?.name ?? me.sponsor?.companyName ?? "studenthub.id"}</strong><small>{roleLabels[me.user.role]}</small></span></div>
+  return <aside ref={aside} className={`sidebar ${open ? "open" : ""}`}><HubLink tab href="/hub" className="brand-link" onClick={onNavigate}><Brand /></HubLink><div className="school-switch"><span className="school-icon"><Icon name="school" size={20} /></span><span><strong>{me.school?.name ?? me.sponsor?.companyName ?? branding.appName}</strong><small>{roleLabels[me.user.role]}</small></span></div>
     <nav aria-label="Navigasi utama"><HubLink tab onClick={onNavigate} className={`nav-item ${home ? "active" : ""}`} href="/hub" aria-current={home ? "page" : undefined}><Icon name="grid" />Beranda</HubLink>{groups.map(group => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{modules.filter(m => m.group === group).map(m => <HubLink tab key={m.key} onClick={onNavigate} className={`nav-item ${current?.key === m.key ? "active" : ""}`} aria-current={current?.key === m.key ? "page" : undefined} href={`/hub/${m.key}`}><Icon name={m.icon} /><span>{m.title}</span>{m.key === "notifications" && unread > 0 && <b className="count-badge">{badgeLabel(unread)}</b>}</HubLink>)}</div>)}</nav>
     <EnvSwitch env={env} role={me.user.role} />
     <GlassToggle />

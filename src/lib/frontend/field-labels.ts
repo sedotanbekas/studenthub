@@ -77,6 +77,7 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   estimatedClicksRemaining: "Perkiraan sisa klik", seq: "Urutan", balanceAfter: "Saldo setelahnya", duplicateProofOf: "Duplikat bukti dari", topUp: "Top-up",
   ledgerEntry: "Catatan saldo", defaultCpcAmount: "Biaya per klik bawaan", minTopUpAmount: "Minimal top-up", topUpBankName: "Bank top-up",
   topUpAccountNumber: "Nomor rekening top-up", topUpAccountHolder: "Pemilik rekening top-up", deepLinkSchemes: "Skema tautan aplikasi",
+  appName: "Nama aplikasi", defaultAppName: "Nama bawaan", logoUrl: "Alamat logo", logoUpdatedAt: "Logo diganti",
   lowBalanceThreshold: "Batas saldo menipis", topUpAccount: "Rekening top-up", mimeType: "Jenis berkas", width: "Lebar", height: "Tinggi",
   sizeBytes: "Ukuran (byte)", imageUrl: "Gambar", cpcAmount: "Biaya per klik", submittedAt: "Diajukan pada", ad: "Iklan", ads: "Iklan",
   reReviewTriggered: "Perlu ditinjau ulang", prevFrom: "Periode lalu dari", prevTo: "Periode lalu sampai", kpis: "Indikator", value: "Nilai",

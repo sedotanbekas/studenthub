@@ -85,6 +85,15 @@ test("RBAC: aksi tiap modul = aksi operasi utamanya di katalog API (menu tersari
   }
 });
 
+test("Pengaturan aplikasi (App Setting): tampil dengan hak nama & logo ATAU hak bagian iklan/absensi di dalamnya", () => {
+  const settings = (permissions: string[]) => modulesFor("SUPER_ADMIN", permissions).some(m => m.key === "platform-settings");
+  assert.equal(modulesFor("SUPER_ADMIN").find(m => m.key === "platform-settings")?.title, "Pengaturan aplikasi");
+  assert.equal(settings(["auth.self", "app.settings"]), true);
+  assert.equal(settings(["auth.self", "sponsor.admin"]), true);
+  assert.equal(settings(["auth.self", "attendance.test_mode"]), true);
+  assert.equal(settings(["auth.self", "schools.manage"]), false);
+});
+
 test("RBAC: modul tanpa hak tersembunyi; daftar hak kosong (persona demo) = semua modul", () => {
   const limited = ["auth.self", "notification.self", "students.read"];
   assert.deepEqual(modulesFor("SCHOOL_ADMIN", limited).map(m => m.key), ["students", "notifications", "security"]);

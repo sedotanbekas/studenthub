@@ -20,6 +20,7 @@ import { SponsorAnalyticsPage } from "./sponsor/analytics-page";
 import { BalancePage } from "./sponsor/balance-page";
 import { CampaignsPage } from "./sponsor/campaigns-page";
 import { RolesPage } from "./platform/roles/roles-page";
+import { AppSettingsPage } from "./platform/app-settings-page";
 
 /** Halaman khusus per kunci modul; modul lain memakai Workspace generik berbasis katalog. */
 const DEDICATED: Record<string, (module: Module) => ReactNode> = {
@@ -35,6 +36,7 @@ const DEDICATED: Record<string, (module: Module) => ReactNode> = {
   schools: module => <SchoolsPage module={module} />,
   users: module => <UsersPage module={module} />,
   "access-roles": module => <RolesPage module={module} />,
+  "platform-settings": module => <AppSettingsPage module={module} />,
 };
 
 /** Isi satu bagian hub; alamat yang tidak dikenal -> "tidak ditemukan". */

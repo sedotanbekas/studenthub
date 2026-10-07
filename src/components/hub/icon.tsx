@@ -27,6 +27,8 @@ const paths: Record<string, string> = {
 export function Icon({ name, size = 20, style }: { name: string; size?: number; style?: CSSProperties }) {
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" style={style}><path d={paths[name] ?? paths.report} /></svg>;
 }
-/** Logo StudentHub: tanda "S + toga" (docs/brand/studenthub-logo.jpg -> scripts/brand-assets.mjs) + tulisan "Student" & "Hub". */
-export function Brand() { return <span className="brand"><BrandMark /><span className="brand-name">Student<span className="brand-hub">Hub</span></span></span>; }
-export function BrandMark() { return <span className="brand-logo" aria-hidden="true" />; }
+/**
+ * Logo aplikasi: bawaan tanda "S + toga" (docs/brand/studenthub-logo.jpg -> scripts/brand-assets.mjs) + tulisan
+ * "Student" & "Hub"; nama & logo bisa diganti super admin (Pengaturan aplikasi) -> branding.tsx.
+ */
+export { Brand, BrandMark } from "./branding";

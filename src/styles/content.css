@@ -197,6 +197,19 @@ tbody tr:hover { background: color-mix(in srgb, var(--primary) 4%, #fff); }
 .color-text label small { display: block; color: var(--muted); font-weight: 600; }
 .color-text input { max-width: 180px; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
 .color-note { color: var(--warning-ink); font-weight: 600; }
+/* Pengaturan aplikasi (App Setting): identitas aplikasi + pengaturan iklan & absensi. */
+.app-identity { display: grid; gap: 16px; }
+.identity-preview { display: flex; align-items: center; min-height: 72px; padding: 14px 18px; border: 1px dashed var(--line); border-radius: 8px; background: var(--paper); overflow: hidden; }
+.identity-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.identity-block { display: grid; gap: 10px; align-content: start; }
+.identity-block .theme-actions { justify-content: flex-start; }
+.identity-logo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.identity-logo-box { display: inline-grid; place-items: center; width: 64px; height: 64px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.identity-logo-box .brand-logo { width: 48px; height: 48px; }
+.file-button.disabled { opacity: 0.55; pointer-events: none; }
+.app-settings-group { display: grid; gap: 12px; }
+.app-settings-subtitle { margin: 8px 0 0; font-size: 18px; }
+@media (max-width: 760px) { .identity-grid { grid-template-columns: minmax(0, 1fr); } }
 .theme-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .theme-preview { gap: 14px; }
 .preview-banner { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 8px; background: linear-gradient(145deg, var(--banner), var(--banner-2)); color: var(--on-banner); }

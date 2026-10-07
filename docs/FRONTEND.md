@@ -15,7 +15,7 @@ Buka `http://localhost:3030`. Masuk menggunakan akun yang tersedia, atau pilih s
 | Peran | Tampilan |
 |---|---|
 | Admin sekolah | Beranda dengan ringkasan dan grafik kehadiran; siswa; absensi dan izin; tahun ajaran, semester, kelas dan mapel; rapor dan lembar nilai; tagihan dan verifikasi pembayaran; pengumuman; kalender; profil sekolah; **tema sekolah**; **pengingat absen** (Pengaturan sekolah); audit; notifikasi: atur kabar sekolah yang diterima |
-| Super admin | Sekolah; pengguna; sponsor; moderasi iklan; top-up; libur nasional; pengaturan platform; audit; seluruh halaman sekolah dengan pemilih sekolah |
+| Super admin | Sekolah; pengguna; sponsor; moderasi iklan; top-up; libur nasional; **pengaturan aplikasi** (nama & logo aplikasi, iklan, absensi); audit; seluruh halaman sekolah dengan pemilih sekolah |
 | Sponsor | Kampanye, unggah banner dan target; analitik; saldo, top-up dan transaksi; profil perusahaan |
 | Siswa | Beranda (kartu identitas + jam sekolah + status absen + menu besar + pengumuman); absensi dengan peta dan foto wajah; izin/sakit; rapor; tagihan dan bukti transfer; kalender belajar; profil |
 | Semua | Login; notifikasi; notifikasi HP (Web Push, PWA); penggantian kata sandi; sesi perangkat; keluar. Pendaftaran dan konfirmasi TOTP khusus super admin |
@@ -66,6 +66,15 @@ Permintaan pemilik 2026-10-07. Menu **Peran & hak akses** (super admin) mengatur
 - **Peran baru**: nama, jenis akun, salin centang dari peran lain. **Pasang ke akun**: kartu akun di Pengguna (tombol *Ubah peran*), formulir buat akun (pilihan *Peran akses*), atau Admin & guru oleh admin utama (peran berbasis admin sekolah). Peran buatan dihapus = akunnya kembali ke peran bawaan.
 - Menu sidebar, tab bar HP, dan kartu beranda tersaring `Identity.permissions` (`MODULE_ACTIONS` di `src/lib/frontend/modules.ts`). Katalog nama hak: `src/lib/roles/catalog.ts`; aturan murni: `src/lib/roles/rules.ts`.
 - Tampilan (2026-10-07): sudut UI tipis — 6px elemen kecil, 8px kartu/panel; tidak ada lagi bentuk kapsul/oval.
+
+## Pengaturan aplikasi (App Setting)
+
+Permintaan pemilik 2026-10-07: semua pengaturan platform dalam satu menu **Pengaturan aplikasi** (dulu "Pengaturan platform", kunci modul tetap `platform-settings`).
+
+- **Identitas aplikasi** (hak `app.settings`, super admin): nama aplikasi (2–40 karakter, kata terakhir berwarna aksen; "Student Hub" = logo kata StudentHub seperti semula) dan logo (JPEG/PNG/WebP ≥ 64 px, ≤ 2 MB → WebP ≤ 256 px, transparansi tetap). Berlaku di sidebar, kotak di atas menu (akun tanpa sekolah/sponsor, dulu "studenthub.id"), topbar HP, halaman masuk, splash, judul tab, dan manifest PWA. Ikon PWA/favicon tetap bawaan.
+- Data: tabel singleton `AppBranding` (migrasi `20261007140000_app_branding`, logo MEDIUMBLOB). Dibaca server di `app/hub/layout.tsx` (cache 30 detik dalam proses, dikosongkan saat disimpan) → `BrandingProvider` (`src/components/hub/branding.tsx`); halaman pengaturan memperbarui konteks langsung. API: `GET /app/branding` & `GET /app/logo` (publik), `GET|PATCH /platform/app-settings`, `POST|DELETE /platform/app-settings/logo` (diaudit). Aturan murni: `src/lib/app-settings/rules.ts`.
+- **Iklan, sponsor & absensi**: Workspace yang sama seperti sebelumnya (pengaturan iklan, tutup ulang hari absensi, mode uji absensi non-produksi). Menu tampil bila akun memegang `app.settings` ATAU salah satu hak bagian ini (`MODULE_ALT_ACTIONS`).
+- Demo: perubahan nama/logo hanya untuk sesi itu.
 
 ## Splash screen & sesi kerja
 

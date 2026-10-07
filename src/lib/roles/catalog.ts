@@ -100,4 +100,5 @@ export const PERMISSION_CATALOG = {
   "topup.review": p("Sponsor & iklan", "Verifikasi top-up", "Menyetujui/menolak top-up saldo sponsor."),
   "ads.review": p("Sponsor & iklan", "Moderasi iklan", "Antrean review, setujui/tolak, dan turunkan iklan."),
   "platform.jobs.read": p("Platform", "Status job terjadwal", "Melihat jalannya job latar (auto-alpha, pengingat, dll.)."),
+  "app.settings": p("Platform", "Nama & logo aplikasi", "Mengganti nama dan logo aplikasi di sidebar, halaman masuk, dan judul tab."),
 } as const satisfies Record<Action, PermissionInfo>;

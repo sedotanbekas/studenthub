@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { cookies, headers } from "next/headers";
+import { BrandingProvider } from "@/components/hub/branding";
 import { HubShell } from "@/components/hub/hub";
 import { SplashScreen } from "@/components/hub/splash-screen";
+import { appTitle, logoUrlFor } from "@/lib/app-settings/rules";
+import { getBrandingOrDefault } from "@/lib/app-settings/service";
 import { appEnvOfHost, demoAllowed } from "@/lib/frontend/app-env";
 import { earlyDemoScript } from "@/lib/frontend/early-demo";
 import { readSessionHint } from "@/lib/frontend/session-hint";
@@ -11,6 +15,12 @@ const SPLASH_BOOT = splashBootScript();
 const EARLY_DEMO_CAPTURE = earlyDemoScript();
 const LOGO_IMAGE = "/brand/mark.webp";
 const SPLASH_IMAGES = ["/brand/splash-body.webp", "/brand/splash-tassel.webp", "/brand/splash-shape.webp"];
+
+/** Judul tab & nama aplikasi mengikuti Pengaturan aplikasi (nama bawaan "Student Hub" ada di app/layout.tsx). */
+export async function generateMetadata(): Promise<Metadata> {
+  const { appName } = await getBrandingOrDefault();
+  return { title: { absolute: appTitle(appName), template: `%s - ${appName}` }, applicationName: appName, appleWebApp: { title: appName, capable: true, statusBarStyle: "default" } };
+}
 
 /**
  * Kerangka hub bertahan antarhalaman (sesi & tema tidak dimuat ulang saat pindah bagian). Skrip boot
@@ -28,14 +38,18 @@ export default async function HubLayout({ children }: { children: ReactNode }) {
   // Splash saat membuka situs hanya untuk yang sudah masuk (penanda sesi): hanya merekalah yang perlu gambar
   // splash (±36 KB) seawal mungkin. Tamu memanaskannya setelah halaman dimuat (splash.ts) untuk tirai Masuk.
   const guest = !hint.account && !hint.demo;
-  const images = guest ? [LOGO_IMAGE] : [...SPLASH_IMAGES, LOGO_IMAGE];
+  // Identitas aplikasi (Pengaturan aplikasi): logo unggahan menggantikan tanda bawaan di preload & splash.
+  const brand = await getBrandingOrDefault();
+  const branding = { appName: brand.appName, logoUrl: logoUrlFor(brand.logoUpdatedAt) };
+  const logo = branding.logoUrl ?? LOGO_IMAGE;
+  const images = guest ? [logo] : branding.logoUrl ? [SPLASH_IMAGES[2]!, logo] : [...SPLASH_IMAGES, logo];
   return <>
     {/* React memindahkan preload ke <head>. */}
     {images.map(href => <link key={href} rel="preload" as="image" type="image/webp" href={href} fetchPriority="high" />)}
     <script dangerouslySetInnerHTML={{ __html: SPLASH_BOOT }} />
     {/* Tamu: tombol demo di halaman masuk (HTML server) bisa diketuk sebelum JS aktif — dicatat lalu dijalankan. Produksi tanpa demo. */}
     {guest && demoAllowed(env) && <script dangerouslySetInnerHTML={{ __html: EARLY_DEMO_CAPTURE }} />}
-    <SplashScreen />
-    <HubShell hint={hint} env={env}>{children}</HubShell>
+    <SplashScreen appName={branding.appName} logoUrl={branding.logoUrl} />
+    <BrandingProvider initial={branding}><HubShell hint={hint} env={env}>{children}</HubShell></BrandingProvider>
   </>;
 }
