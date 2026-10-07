@@ -1,21 +1,34 @@
 /**
  * Ilustrasi gedung sekolah beranimasi untuk halaman masuk (permintaan pemilik 2026-10-07): menara jam,
- * serambi berpilar, dua sayap gedung, pepohonan. SVG sebaris (tanpa unduhan gambar, ramah PageSpeed);
- * warnanya ikut tema sekolah lewat variabel CSS dan gerakannya diatur src/styles/login-art.css
- * (mati sendiri bila prefers-reduced-motion).
+ * serambi berpilar, dua sayap gedung, halaman berumput. SVG sebaris (tanpa unduhan gambar, ramah
+ * PageSpeed); warnanya ikut tema sekolah lewat variabel CSS dan gerakannya diatur
+ * src/styles/login-art.css (mati sendiri bila prefers-reduced-motion).
+ *
+ * Gedung selalu utuh ("meet", rata bawah); rumput & jalan dilukis jauh melewati viewBox ke kiri-kanan
+ * sehingga halaman tetap memenuhi lebar panel apa pun (kelebihannya dipotong panel cerita).
  */
 const WING_COLUMNS = [0, 1, 2, 3, 4, 5, 6, 7];
 /** Jendela yang sesekali menyala (indeks baris-kolom) -- tampak hidup tanpa terlalu ramai. */
 const LIT = new Set(["l-0-2", "l-1-5", "r-0-4", "r-1-1", "r-0-7"]);
+/** Rumpun rumput kecil yang bergoyang: [x, y, skala, jeda detik] -- di luar jalan masuk. */
+const GRASS: [number, number, number, number][] = [
+  [-300, 330, 1, 0], [-240, 362, 1.2, 0.8], [-170, 318, 0.9, 1.6], [-110, 348, 1.1, 0.4], [-50, 326, 1, 2.2],
+  [8, 352, 1.2, 1.1], [52, 318, 0.9, 0.2], [96, 362, 1.1, 1.8], [128, 328, 1, 0.9], [196, 314, 0.8, 2.6], [70, 372, 1.3, 1.4],
+  [404, 314, 0.8, 1.3], [470, 330, 1, 0.5], [500, 366, 1.2, 2], [548, 320, 0.9, 0.7], [592, 350, 1.1, 1.5],
+  [648, 324, 1, 0.1], [700, 360, 1.2, 1.9], [756, 330, 0.9, 1], [820, 352, 1.1, 2.4], [880, 322, 1, 0.6], [530, 374, 1.3, 1.2],
+];
 
 export function SchoolArt({ className }: { className?: string }) {
-  return <svg className={`sh-art ${className ?? ""}`} viewBox="0 -24 600 404" preserveAspectRatio="xMidYMax slice" role="presentation" focusable="false">
+  return <svg className={`sh-art ${className ?? ""}`} viewBox="0 -24 600 404" preserveAspectRatio="xMidYMax meet" role="presentation" focusable="false">
     <ArtDefs />
     <Sky />
-    <Wing side="l" x={14} />
-    <Wing side="r" x={366} />
-    <Tower />
-    <Portico />
+    <ellipse className="sh-shadow" cx="300" cy="302" rx="310" ry="12" />
+    <g className="sh-building">
+      <Wing side="l" x={14} />
+      <Wing side="r" x={366} />
+      <Tower />
+      <Portico />
+    </g>
     <Ground />
   </svg>;
 }
@@ -24,7 +37,6 @@ function ArtDefs() {
   return <defs>
     <linearGradient id="sh-roof" x1="0" y1="0" x2="1" y2="1"><stop offset="0" className="sh-stop-roof-a" /><stop offset="1" className="sh-stop-roof-b" /></linearGradient>
     <linearGradient id="sh-col" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#ffffff" /><stop offset="0.65" stopColor="#eef2fb" /><stop offset="1" stopColor="#cdd6ea" /></linearGradient>
-    <linearGradient id="sh-tree" x1="0" y1="0" x2="1" y2="0"><stop offset="0" className="sh-stop-tree-a" /><stop offset="1" className="sh-stop-tree-b" /></linearGradient>
     <linearGradient id="sh-lawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" className="sh-stop-lawn-a" /><stop offset="1" className="sh-stop-lawn-b" /></linearGradient>
     <path id="sh-win" d="M0 8a8 8 0 0 1 16 0v16H0z" />
   </defs>;
@@ -93,15 +105,17 @@ function Portico() {
   </g>;
 }
 
-/** Halaman: rumput, jalan masuk melengkung, semak, dan cemara yang bergoyang pelan. */
+/** Halaman: rumput (melebar ke luar viewBox), jalan masuk melengkung, semak, dan rumput kecil yang bergoyang. */
 function Ground() {
   return <g>
-    <rect x="0" y="300" width="600" height="80" fill="url(#sh-lawn)" />
+    <rect x="-1200" y="300" width="3000" height="80" fill="url(#sh-lawn)" />
     <path className="sh-path" d="M150 380C204 334 254 312 288 300H312C346 312 396 334 450 380Z" />
-    <ellipse className="sh-bush" cx="150" cy="298" rx="30" ry="14" />
-    <ellipse className="sh-bush" cx="452" cy="298" rx="34" ry="15" />
-    <ellipse className="sh-bush" cx="40" cy="302" rx="26" ry="11" />
-    {[[30, 258, 9, 40, 0], [58, 266, 8, 32, 1.4], [520, 238, 22, 78, 0.6], [564, 256, 17, 60, 2.1], [482, 270, 9, 34, 1]].map(([cx, cy, rx, ry, delay]) =>
-      <ellipse key={cx} className="sh-tree" cx={cx} cy={cy} rx={rx} ry={ry} fill="url(#sh-tree)" style={{ animationDelay: `${delay}s` }} />)}
+    <ellipse className="sh-bush" cx="150" cy="300" rx="30" ry="13" />
+    <ellipse className="sh-bush" cx="452" cy="300" rx="34" ry="14" />
+    <ellipse className="sh-bush" cx="36" cy="302" rx="24" ry="10" />
+    <ellipse className="sh-bush" cx="566" cy="302" rx="26" ry="10" />
+    {GRASS.map(([x, y, s, delay]) => <g key={`${x}-${y}`} transform={`translate(${x} ${y}) scale(${s * 1.3})`}>
+      <path className="sh-grass" d="M-7 0Q-9-7-14-11Q-7-7-4 0ZM-4 0Q-5-11-4-19Q0-10 0 0ZM-1 0Q1-13 4-22Q4-11 3 0ZM2 0Q6-9 12-14Q7-7 6 0ZM5 0Q10-4 15-5Q9-2 8 0Z" style={{ animationDelay: `${delay}s` }} />
+    </g>)}
   </g>;
 }

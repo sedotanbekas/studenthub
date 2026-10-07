@@ -1,24 +1,28 @@
 /* Ilustrasi gedung sekolah di halaman masuk (src/components/hub/school-art.tsx, 2026-10-07).
-   Warna ikut tema sekolah: atap = ungu merek -> primer, pohon = sekunder, dinding = primer sangat muda.
+   Warna ikut tema sekolah: atap = ungu merek -> primer, rumput & semak = sekunder, dinding = primer muda.
    Hanya transform/opacity/fill yang dianimasikan (murah di HP). */
 .sh-art {
-  --sh-wall: color-mix(in srgb, var(--primary) 8%, #fff);
-  --sh-wall-2: color-mix(in srgb, var(--primary) 15%, #fff);
-  --sh-tower: color-mix(in srgb, var(--primary) 26%, #fff);
+  --sh-wall: color-mix(in srgb, var(--primary) 13%, #fff);
+  --sh-wall-2: color-mix(in srgb, var(--primary) 20%, #fff);
+  --sh-tower: color-mix(in srgb, var(--primary) 30%, #fff);
+  --sh-edge: color-mix(in srgb, var(--primary) 22%, #fff);
   --sh-window: color-mix(in srgb, var(--banner) 82%, #000);
   --sh-lit: #fde68a;
-  display: block; overflow: hidden;
+  display: block; overflow: visible; /* "meet": tinggi selalu muat; rumput yang melebar dipotong panel cerita */
   animation: sh-rise 0.9s var(--ease-out) both;
 }
 .sh-stop-roof-a { stop-color: var(--brand-hub); }
 .sh-stop-roof-b { stop-color: var(--primary); }
-.sh-stop-tree-a { stop-color: color-mix(in srgb, var(--secondary) 70%, #a7f3d0); }
-.sh-stop-tree-b { stop-color: color-mix(in srgb, var(--secondary) 85%, #000); }
 .sh-stop-lawn-a { stop-color: color-mix(in srgb, var(--secondary) 28%, #ecfccb); }
 .sh-stop-lawn-b { stop-color: color-mix(in srgb, var(--secondary) 45%, #bbf7d0); }
 
 .sh-roof { fill: url(#sh-roof); }
-.sh-trim { fill: #fff; }
+.sh-trim { fill: #fff; stroke: var(--sh-edge); stroke-width: 1; }
+.sh-wall, .sh-wall-2, .sh-tower { stroke: var(--sh-edge); stroke-width: 1; }
+/* Gedung berdiri di atas latar yang memudar ke putih: garis tepi tipis + bayangan elips statis di kakinya
+   (bukan drop-shadow pada grup -- itu dihitung ulang setiap jendela berkedip). */
+.sh-shadow { fill: var(--banner); opacity: 0.16; filter: blur(7px); }
+.sh-grass { fill: color-mix(in srgb, var(--secondary) 70%, #22c55e); }
 .sh-wall { fill: var(--sh-wall); }
 .sh-wall-2 { fill: var(--sh-wall-2); }
 .sh-tower { fill: var(--sh-tower); }
@@ -48,8 +52,8 @@
 .sh-birds { animation: sh-fly 24s linear infinite; }
 .sh-flag { transform-box: fill-box; transform-origin: 0 50%; animation: sh-wave 1.4s ease-in-out infinite alternate; }
 .sh-minute { transform-box: view-box; transform-origin: 370px 152px; animation: sh-spin 14s linear infinite; }
-.sh-tree { transform-box: fill-box; transform-origin: 50% 100%; animation: sh-sway 5s ease-in-out infinite alternate; }
 .sh-lit { animation: sh-light 5.2s ease-in-out infinite; }
+.sh-grass { transform-box: fill-box; transform-origin: 50% 100%; animation: sh-grass 2.4s ease-in-out infinite alternate; }
 
 @keyframes sh-rise { from { opacity: 0; transform: translateY(18px); } }
 @keyframes sh-pulse { 50% { transform: scale(1.12); opacity: 0.5; } }
@@ -57,14 +61,23 @@
 @keyframes sh-fly { from { transform: translate(-60px, 40px); } to { transform: translate(660px, 10px); } }
 @keyframes sh-wave { to { transform: skewY(-8deg) scaleX(0.86); } }
 @keyframes sh-spin { to { transform: rotate(360deg); } }
-@keyframes sh-sway { from { transform: rotate(-1.6deg); } to { transform: rotate(1.6deg); } }
+@keyframes sh-grass { from { transform: rotate(-6deg) skewX(4deg); } to { transform: rotate(6deg) skewX(-4deg); } }
 @keyframes sh-light { 0%, 40%, 100% { fill: var(--sh-window); } 55%, 85% { fill: var(--sh-lit); } }
 
 /* Gerak dikurangi / kontras tinggi: gambar diam (aturan global 0,01 ms membuat animasi tak berujung berkedip). */
 @media (prefers-reduced-motion: reduce) { .sh-art, .sh-art * { animation: none !important; } }
 
-/* Tata letak: desktop = di dasar panel cerita, menempel tepi bawah & samping. */
-.login-art { flex: none; width: calc(100% + 96px); height: min(48vh, 400px); margin: 12px -48px -40px; }
+/* Latar panel cerita memudar ke putih dari garis miring kira-kira separuh tinggi ke bawah (permintaan
+   pemilik 2026-10-07, gradasi bertingkat ala kartu MyMedialab). Di atas aurora (::before), di bawah isi. */
+.login-story::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(171deg, transparent 46%, rgb(255 255 255 / 30%) 56%, rgb(255 255 255 / 72%) 66%, rgb(255 255 255 / 94%) 76%, #fff 86%);
+}
+
+/* Tata letak: desktop = di dasar panel cerita, menempel tepi bawah & samping. Panel cerita diam setinggi
+   layar (sticky) -- bila formulir lebih panjang dari layar, gedung tidak ikut terdorong ke bawah. */
+@media (min-width: 761px) { .login-story { position: sticky; top: 0; align-self: start; height: 100dvh; } }
+.login-art { flex: none; width: calc(100% + 96px); height: min(50vh, 430px); margin: 12px -48px -40px; }
 @media (max-width: 760px) {
   /* HP: panel cerita tampil sebagai sampul di atas formulir; kartu masuk menumpuk di tepi rumput. */
   .login-page { grid-template-rows: auto 1fr; }
@@ -77,3 +90,8 @@
   .login-brand { display: none; }
   .login-form-side { position: relative; z-index: 1; margin-top: -30px; padding-top: 0; }
 }
+
+/* Hak cipta di bawah kartu masuk (permintaan pemilik 2026-10-07). */
+.login-form-side { flex-direction: column; gap: 18px; }
+.login-copyright { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; color: var(--muted); text-align: center; }
+@media (max-width: 760px) { .login-copyright { padding-bottom: calc(8px + env(safe-area-inset-bottom)); } }
