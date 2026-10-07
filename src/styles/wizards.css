@@ -6,7 +6,7 @@
 .wizard-dialog-body { gap: 16px; }
 .wizard-steps-bar { display: flex; gap: 6px; margin: 0; padding: 12px 20px; overflow-x: auto; border-bottom: 1px solid var(--line-soft); background: var(--surface-strong); list-style: none; scrollbar-width: thin; }
 .wizard-steps-bar li { flex: 0 0 auto; }
-.wizard-steps-bar button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; color: var(--ink-2); font-size: 14px; font-weight: 700; }
+.wizard-steps-bar button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 6px; color: var(--ink-2); font-size: 14px; font-weight: 700; }
 .wizard-steps-bar button .step-mark { width: 26px; height: 26px; font-size: 13px; }
 .wizard-steps-bar button.current { background: var(--primary-soft); color: var(--primary-ink); }
 .wizard-steps-bar button.current .step-mark { border-color: var(--primary); color: var(--primary-ink); }

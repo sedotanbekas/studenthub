@@ -19,6 +19,7 @@ import { UsersPage } from "./platform/users-page";
 import { SponsorAnalyticsPage } from "./sponsor/analytics-page";
 import { BalancePage } from "./sponsor/balance-page";
 import { CampaignsPage } from "./sponsor/campaigns-page";
+import { RolesPage } from "./platform/roles/roles-page";
 
 /** Halaman khusus per kunci modul; modul lain memakai Workspace generik berbasis katalog. */
 const DEDICATED: Record<string, (module: Module) => ReactNode> = {
@@ -33,12 +34,13 @@ const DEDICATED: Record<string, (module: Module) => ReactNode> = {
   topups: module => <TopUpReviewPage module={module} />,
   schools: module => <SchoolsPage module={module} />,
   users: module => <UsersPage module={module} />,
+  "access-roles": module => <RolesPage module={module} />,
 };
 
 /** Isi satu bagian hub; alamat yang tidak dikenal -> "tidak ditemukan". */
 export function HubSection({ section }: { section: string }) {
   const { me, demo, schoolId } = useHub();
-  const { home, module } = resolveSection(me.user.role, isRestricted(me), section);
+  const { home, module } = resolveSection(me.user.role, isRestricted(me), section, me.permissions);
   // key: isi halaman di-reset per identitas, sekolah yang dikelola (super admin), dan mode demo.
   const key = `${module?.key}-${schoolId}-${demo}-${me.user.id}`;
   const dedicated = module ? DEDICATED[module.key] : undefined;

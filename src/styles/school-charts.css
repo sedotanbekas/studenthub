@@ -40,7 +40,7 @@
 /* Per kelas */
 .sc-group { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
 .sc-group-title { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; padding: 0 8px; font-size: 13px; font-weight: 800; color: var(--muted); }
-.sc-group-attention { padding: 10px 4px 4px; border-radius: 14px; background: var(--warning-soft); }
+.sc-group-attention { padding: 10px 4px 4px; border-radius: 6px; background: var(--warning-soft); }
 .sc-group-attention .sc-group-title { color: var(--warning-ink); }
 .sc-all-good { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--success-ink); font-weight: 700; }
 /* Garis batas perhatian (90%) di setiap lintasan; max = 100 sehingga 90% lebar = 90%. */

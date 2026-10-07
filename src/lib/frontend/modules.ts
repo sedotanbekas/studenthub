@@ -23,6 +23,7 @@ const platform: Module[] = [
   moduleOf("platform-settings", "Pengaturan platform", "Atur tarif iklan, rekening, dan penutupan absensi.", "settings", "LAINNYA", ["/platform/settings", "/platform/attendance"], "getAdSettings"),
   moduleOf("platform-audit", "Audit platform", "Telusuri aktivitas pengelolaan platform.", "history", "LAINNYA", ["/platform/audit-logs"], "listPlatformAuditLogs"),
   moduleOf("login-history", "Riwayat masuk", "Siapa yang masuk ke akun mana pun: perangkat, IP, perkiraan lokasi, dan alasan gagal.", "key", "LAINNYA", ["/platform/login-history"], "listLoginHistory"),
+  moduleOf("access-roles", "Peran & hak akses", "Atur peran, centang hak akses tiap fitur, dan pasang peran ke akun.", "shield", "LAINNYA", ["/access-roles"], "listAccessRoles"),
 ];
 const sponsor: Module[] = [
   moduleOf("campaigns", "Kampanye saya", "Ide baik layak menjangkau lebih banyak orang.", "megaphone", "SPONSOR", ["/sponsor/ads", "/sponsor/banners", "/sponsor/targeting"], "listOwnAds"),
@@ -44,8 +45,29 @@ const common: Module[] = [
   // /me/totp sengaja tidak di menu: TOTP super admin mati sejak 2026-10-02 (SUPER_ADMIN_TOTP); bila dinyalakan,
   // pendaftaran wajib tampil lewat kartu TotpTask di Keamanan akun (security-panel.tsx).
 ];
-export function modulesFor(role: Role): Module[] {
-  return [...(role === "SUPER_ADMIN" ? [...platform, ...school] : role === "SPONSOR" ? sponsor : role === "STUDENT" ? student : school), ...common];
+/**
+ * Aksi POLICY yang membuka tiap modul (= aksi operasi `primary`, dijaga modules.test.ts terhadap catalog.json).
+ * RBAC (2026-10-07): modul tampil hanya bila peran akses akun memegang aksinya (Identity.permissions).
+ */
+export const MODULE_ACTIONS: Readonly<Record<string, string>> = {
+  students: "students.read", attendance: "attendance.monitor", academics: "academics.read", reports: "reportCards.read",
+  billing: "billing.read", announcements: "announcements.read", calendar: "calendar.read", "school-admins": "schoolAdmins.read",
+  "school-settings": "schools.profile.read", "school-theme": "schools.theme.read", audit: "audit.school.read",
+  schools: "schools.manage", users: "users.manage", sponsors: "sponsor.admin", "ad-review": "ads.review", topups: "topup.review",
+  "national-calendar": "calendar.national.read", "platform-settings": "sponsor.admin", "platform-audit": "audit.platform.read",
+  "login-history": "audit.login.read", "access-roles": "roles.read",
+  campaigns: "ads.own.read", analytics: "ads.analytics.read", balance: "sponsor.self.read", company: "sponsor.self.read",
+  "my-attendance": "attendance.self", "my-leave": "leave.self.read", "my-reports": "reportCards.self.read", "my-billing": "billing.self.read",
+  "my-calendar": "calendar.student.read", "my-profile": "students.profile.read",
+  notifications: "notification.self", security: "auth.self",
+};
+/**
+ * permissions tidak dikirim / kosong (test lama, persona demo) = semua modul jenis akun. Akun sungguhan tidak
+ * pernah kosong: auth.self selalu terkunci tercentang (src/lib/roles/rules.ts ALWAYS_GRANTED).
+ */
+const permitted = (permissions: readonly string[] | undefined) => (m: Module) => !permissions?.length || permissions.includes(MODULE_ACTIONS[m.key] ?? "");
+export function modulesFor(role: Role, permissions?: readonly string[]): Module[] {
+  return [...(role === "SUPER_ADMIN" ? [...platform, ...school] : role === "SPONSOR" ? sponsor : role === "STUDENT" ? student : school), ...common].filter(permitted(permissions));
 }
 /** Bagian hub dari pathname: /hub -> "dashboard", /hub/x/... -> "x". */
 export function sectionFromPath(pathname: string): string {
@@ -67,13 +89,14 @@ export function isRestricted(identity: { user: { mustChangePassword: boolean; to
   return identity.user.mustChangePassword || identity.user.totpEnrollmentRequired;
 }
 /** Beranda selalu boleh; selain itu hanya modul milik peran tersebut (URL peran lain -> kembali ke beranda). */
-export function sectionAllowed(role: Role, section: string): boolean {
-  return section === "dashboard" || modulesFor(role).some(m => m.key === section);
+export function sectionAllowed(role: Role, section: string, permissions?: readonly string[]): boolean {
+  return section === "dashboard" || modulesFor(role, permissions).some(m => m.key === section);
 }
 /** Halaman yang ditampilkan: akun terbatas (wajib ganti sandi/TOTP) selalu ke "Keamanan akun". */
-export function resolveSection(role: Role, restricted: boolean, section: string): { home: boolean; module: Module | undefined } {
+export function resolveSection(role: Role, restricted: boolean, section: string, permissions?: readonly string[]): { home: boolean; module: Module | undefined } {
   const key = restricted ? "security" : section;
-  return { home: !restricted && section === "dashboard", module: key === "dashboard" ? undefined : modulesFor(role).find(m => m.key === key) };
+  // Akun terbatas selalu ke Keamanan akun (tanpa saringan hak: wajib ganti sandi/TOTP).
+  return { home: !restricted && section === "dashboard", module: key === "dashboard" ? undefined : modulesFor(role, restricted ? undefined : permissions).find(m => m.key === key) };
 }
 
 export interface TabItem { readonly key: string; readonly label: string; readonly icon: string; readonly href: string }
@@ -84,8 +107,8 @@ const TAB_KEYS: Record<Role, readonly [string, string][]> = {
   SPONSOR: [["campaigns", "Kampanye"], ["analytics", "Analitik"], ["balance", "Saldo"]],
   SUPER_ADMIN: [["schools", "Sekolah"], ["users", "Pengguna"], ["sponsors", "Sponsor"]],
 };
-export function tabItems(role: Role): TabItem[] {
-  const modules = modulesFor(role);
+export function tabItems(role: Role, permissions?: readonly string[]): TabItem[] {
+  const modules = modulesFor(role, permissions);
   const tabs = TAB_KEYS[role].flatMap(([key, label]) => { const m = modules.find(x => x.key === key); return m ? [{ key, label, icon: m.icon, href: `/hub/${key}` }] : []; });
   return [{ key: "dashboard", label: "Beranda", icon: "grid", href: "/hub" }, ...tabs];
 }

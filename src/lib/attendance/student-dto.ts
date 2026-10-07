@@ -1,8 +1,9 @@
 import type { AttendanceSource, AttendanceStatus, LateReasonCategory } from "@prisma/client";
 import { formatMinute, fromDbDate, localParts, type LocalDate, type SchoolTz } from "@/lib/time/zone";
 import { HISTORY_MAX_MONTHS_BACK } from "./constants";
+import { isCheckedIn, type CheckOutRecordState } from "./check-out-rules";
 import { canEditLateReason, toLateReasonDto, type LateReasonClock, type LateReasonDto } from "./late-reason-rules";
-import type { HistoryDto, SummaryDto, TodayDto } from "./student-schemas";
+import type { CheckOutResultDto, HistoryDto, SummaryDto, TodayDto } from "./student-schemas";
 
 /**
  * Pemetaan baris absensi -> DTO siswa dan statistik ringkas (murni, tanpa Prisma).
@@ -21,6 +22,8 @@ export const ATTENDANCE_ROW_SELECT = {
   lateReasonCategory: true,
   lateReasonNote: true,
   lateReasonAt: true,
+  checkOutAt: true,
+  checkOutDistanceM: true,
 } as const;
 
 export interface AttendanceRow {
@@ -35,6 +38,9 @@ export interface AttendanceRow {
   readonly lateReasonCategory: LateReasonCategory | null;
   readonly lateReasonNote: string | null;
   readonly lateReasonAt: Date | null;
+  /** Absen pulang (2026-10-07); null = belum pulang. */
+  readonly checkOutAt: Date | null;
+  readonly checkOutDistanceM: number | null;
 }
 
 /** Alasan terlambat tersimpan + boleh diisi/diubah siswa (hanya CHECKIN TERLAMBAT hari ini sebelum hari ditutup, A1). */
@@ -95,6 +101,7 @@ export function toTodayRecord(row: AttendanceRow | null, tz: SchoolTz, clock: La
     checkInTimeLocal: localTimeOf(row.checkInAt, tz),
     lateMinutes: row.lateMinutes,
     ...lateReasonFieldsOf(row, tz, clock),
+    checkOutTimeLocal: localTimeOf(row.checkOutAt, tz),
   };
 }
 
@@ -106,6 +113,29 @@ export function toHistoryDay(row: AttendanceRow, tz: SchoolTz): HistoryDay {
     checkInTimeLocal: localTimeOf(row.checkInAt, tz),
     lateMinutes: row.lateMinutes,
     leaveRequestId: row.leaveRequestId,
+    checkOutTimeLocal: localTimeOf(row.checkOutAt, tz),
+  };
+}
+
+/** Ringkasan baris hari ini untuk aturan absen pulang (check-out-rules.ts); null bila belum ada baris. */
+export function checkOutRecordState(row: AttendanceRow | null, tz: SchoolTz): CheckOutRecordState | null {
+  if (row === null) return null;
+  return { status: row.status, checkedIn: isCheckedIn(row), checkOutTimeLocal: localTimeOf(row.checkOutAt, tz) };
+}
+
+export type CheckOutAttendanceDto = CheckOutResultDto["attendance"];
+
+/** DTO hasil absen pulang (jam lokal sekolah). */
+export function toCheckOutAttendanceDto(row: AttendanceRow, tz: SchoolTz): CheckOutAttendanceDto {
+  if (row.checkOutAt === null) throw new Error("Baris tanpa checkOutAt setelah absen pulang (melanggar chk_attendance_checkout)");
+  return {
+    id: row.id,
+    date: fromDbDate(row.date),
+    status: row.status,
+    checkInTimeLocal: localTimeOf(row.checkInAt, tz),
+    checkOutAt: row.checkOutAt.toISOString(),
+    checkOutTimeLocal: formatMinute(localParts(row.checkOutAt, tz).minuteOfDay),
+    checkOutDistanceM: row.checkOutDistanceM,
   };
 }
 

@@ -1,6 +1,7 @@
 import type { LateReasonValue } from "@/lib/attendance/late-reason-rules";
 import type { LateReasonResultDto } from "@/lib/attendance/late-reason-schemas";
-import type { TodayDto } from "@/lib/attendance/student-schemas";
+import { checkOutBlockReason } from "@/lib/attendance/check-out-rules";
+import type { CheckOutResultDto, TodayDto } from "@/lib/attendance/student-schemas";
 import { formatMinute, localParts } from "@/lib/time/zone";
 import type { Row } from "./types";
 import { demoPersona } from "./demo-personas";
@@ -81,9 +82,9 @@ export const DEMO_REMINDER_SETTINGS = {
 
 /** Akun admin sekolah contoh (N2): admin utama + dua guru, satu mematikan kabar Keuangan. */
 export const demoSchoolAdmins = [
-  { id: "adm1", name: "Admin SMA Cendekia", email: null, loginNpsn: "20123456", isPrimary: true, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-25T00:30:00.000Z", createdAt: "2026-07-01T02:00:00.000Z", mutedCategories: [] },
-  { id: "adm2", name: "Bu Rina (Wali kelas X IPA 1)", email: "rina@cendekia.sch.id", loginNpsn: null, isPrimary: false, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-24T23:50:00.000Z", createdAt: "2026-07-15T02:00:00.000Z", mutedCategories: ["FINANCE"] },
-  { id: "adm3", name: "Pak Dodi (Guru BK)", email: "dodi@cendekia.sch.id", loginNpsn: null, isPrimary: false, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-25T01:10:00.000Z", createdAt: "2026-07-15T02:05:00.000Z", mutedCategories: [] },
+  { id: "adm1", name: "Admin SMA Cendekia", email: null, loginNpsn: "20123456", isPrimary: true, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-25T00:30:00.000Z", createdAt: "2026-07-01T02:00:00.000Z", mutedCategories: [], accessRole: null },
+  { id: "adm2", name: "Bu Rina (Wali kelas X IPA 1)", email: "rina@cendekia.sch.id", loginNpsn: null, isPrimary: false, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-24T23:50:00.000Z", createdAt: "2026-07-15T02:00:00.000Z", mutedCategories: ["FINANCE"], accessRole: { id: "demo-role-wali", name: "Wali kelas", isSystem: false } },
+  { id: "adm3", name: "Pak Dodi (Guru BK)", email: "dodi@cendekia.sch.id", loginNpsn: null, isPrimary: false, isActive: true, mustChangePassword: false, tempPasswordExpiresAt: null, lastLoginAt: "2026-09-25T01:10:00.000Z", createdAt: "2026-07-15T02:05:00.000Z", mutedCategories: [], accessRole: null },
 ] as const;
 
 function sharedRows(path: string): unknown {
@@ -109,14 +110,42 @@ function sharedRows(path: string): unknown {
   return [];
 }
 /** Status absen hari ini untuk mode demo (titik sekolah disimulasikan di sekitar pengguna saat alur berjalan). */
-export const demoToday = { date: "2026-09-25", serverTime: "2026-09-25T00:10:00.000Z", timezone: "WIB", ianaTimezone: "Asia/Jakarta", schoolDay: { isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null }, window: { opensAt: "06:00", lateAfter: "07:15", closesAt: "10:00", state: "OPEN" }, geofence: { radiusM: 150, maxAccuracyM: 100, latitude: -6.1754, longitude: 106.8272 }, record: null, pendingLeave: null, canCheckIn: true, blockReason: null } as const;
-/** Status absen hari ini untuk siswa demo (tiap siswa punya kondisi berbeda). */
-export function demoTodayFor(key: string): TodayDto {
+export const demoToday = { date: "2026-09-25", serverTime: "2026-09-25T00:10:00.000Z", timezone: "WIB", ianaTimezone: "Asia/Jakarta", schoolDay: { isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null }, window: { opensAt: "06:00", lateAfter: "07:15", closesAt: "10:00", state: "OPEN", checkOutOpensAt: "14:00" }, geofence: { radiusM: 150, maxAccuracyM: 100, latitude: -6.1754, longitude: 106.8272 }, record: null, pendingLeave: null, canCheckIn: true, blockReason: null, canCheckOut: false, checkOutBlockReason: "NOT_CHECKED_IN" } as const;
+/** Absen pulang demo dibuka 14:00 WIB (sama dengan default sekolah). */
+const DEMO_CHECKOUT_OPEN_MINUTE = 14 * 60;
+/**
+ * Status absen hari ini untuk siswa demo (tiap siswa punya kondisi berbeda). Siswa yang sudah absen masuk boleh
+ * absen pulang mulai 14:00 WIB menurut jam sekarang (`now`), memakai aturan yang sama dengan server.
+ */
+export function demoTodayFor(key: string, now: Date = new Date()): TodayDto {
   const base = demoToday as unknown as TodayDto;
   const record = demoPersona(key).todayRecord ?? null;
-  return record ? { ...base, record, canCheckIn: false, blockReason: "ALREADY_CHECKED_IN" } : base;
+  if (!record) return base;
+  const checkOutBlock = checkOutBlockReason({
+    record: { status: record.status, checkedIn: record.checkInTimeLocal !== null, checkOutTimeLocal: record.checkOutTimeLocal },
+    day: { isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null },
+    minuteOfDay: localParts(now, "WIB").minuteOfDay,
+    openMinute: DEMO_CHECKOUT_OPEN_MINUTE,
+    testMode: false,
+  });
+  return { ...base, record, canCheckIn: false, blockReason: "ALREADY_CHECKED_IN", canCheckOut: checkOutBlock === null, checkOutBlockReason: checkOutBlock };
 }
-export const demoHistory = { month: "2026-09", days: ["22", "23", "24"].map((d, i) => ({ date: `2026-09-${d}`, status: i === 1 ? "TERLAMBAT" : "HADIR", source: "CHECKIN", checkInTimeLocal: i === 1 ? "07:26" : `06:4${i}`, lateMinutes: i === 1 ? 26 : null, leaveRequestId: null })), nonSchoolDays: [], summary: { recorded: 3, present: 2, late: 1, izin: 0, sakit: 0, alpha: 0, presentPct: 100 } };
+/** Absen pulang pada mode demo: tanpa jaringan dan tidak tersimpan (muat ulang = hilang). */
+export function demoCheckOutResult(now: Date, checkInTimeLocal: string | null): CheckOutResultDto {
+  const checkOutTimeLocal = formatMinute(localParts(now, "WIB").minuteOfDay);
+  return {
+    attendance: { id: "demo-checkout", date: demoToday.date, status: "HADIR", checkInTimeLocal, checkOutAt: now.toISOString(), checkOutTimeLocal, checkOutDistanceM: 24 },
+    message: `Mode demo: absen pulang pukul ${checkOutTimeLocal} tersimpan (simulasi) — hilang saat halaman dimuat ulang.`,
+  };
+}
+
+/** Status hari ini setelah absen pulang demo (state lokal halaman). */
+export function withDemoCheckOut(today: TodayDto, checkOutTimeLocal: string | null): TodayDto {
+  if (!checkOutTimeLocal || !today.record) return today;
+  return { ...today, record: { ...today.record, checkOutTimeLocal }, canCheckOut: false, checkOutBlockReason: "ALREADY_CHECKED_OUT" };
+}
+
+export const demoHistory = { month: "2026-09", days: ["22", "23", "24"].map((d, i) => ({ date: `2026-09-${d}`, status: i === 1 ? "TERLAMBAT" : "HADIR", source: "CHECKIN", checkInTimeLocal: i === 1 ? "07:26" : `06:4${i}`, lateMinutes: i === 1 ? 26 : null, leaveRequestId: null, checkOutTimeLocal: i === 2 ? null : `14:0${i + 3}` })), nonSchoolDays: [], summary: { recorded: 3, present: 2, late: 1, izin: 0, sakit: 0, alpha: 0, presentPct: 100 } };
 /** Simpan alasan terlambat pada mode demo: tanpa jaringan dan tidak tersimpan (A1). */
 export function demoSaveLateReason(body: LateReasonValue, now: Date): LateReasonResultDto {
   const lateReason = { category: body.category, note: body.note, timeLocal: formatMinute(localParts(now, "WIB").minuteOfDay), updatedAt: now.toISOString() };

@@ -2,6 +2,7 @@ import type { ClientPlatform, SponsorStatus, StudentStatus, UserRole } from "@pr
 import type { Principal } from "./principal";
 import { impersonatorStillValid } from "./impersonation-rules";
 import { requiresTotpEnrollment } from "./totp-rules";
+import { resolveGrants, type RoleGrantSource } from "@/lib/roles/rules";
 
 /** Bentuk baris sesi yang dimuat getAuth (satu query per request). */
 export interface SessionRow {
@@ -28,6 +29,8 @@ export interface SessionRow {
     school: { isActive: boolean } | null;
     student: { id: string; status: StudentStatus } | null;
     sponsor: { status: SponsorStatus } | null;
+    /** Peran akses RBAC akun (atau peran sistem jenis akunnya bila kosong). null = hak bawaan POLICY. */
+    accessRole?: RoleGrantSource | null;
   };
 }
 
@@ -95,6 +98,7 @@ export function evaluatePrincipal(
     platform: row.platform,
     deviceId: row.deviceId,
     impersonatorId: row.impersonatorId,
+    grants: user.accessRole ? resolveGrants(user.accessRole, user.role) : null,
   });
   return { ok: true, principal };
 }

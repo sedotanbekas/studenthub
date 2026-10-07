@@ -69,9 +69,12 @@ function useBack(): () => void {
 
 export function TabBar({ me, section, menuOpen, inert, onMenu }: { me: Identity; section: string; menuOpen: boolean; inert: boolean; onMenu: () => void }) {
   const role = me.user.role;
+  // Tab disaring hak peran akses (RBAC 2026-10-07); kunci string agar efek tidak berulang tiap render.
+  const permissionKey = me.permissions.join(",");
+  const tabs = tabItems(role, me.permissions);
   // Urutan tab menentukan arah geser antarhalaman utama (page-slide.ts).
-  useEffect(() => { setSlideTabs(tabItems(role).map(t => t.href)); }, [role]);
-  return <nav className="tab-bar" aria-label="Navigasi cepat" inert={inert}>{tabItems(role).map(t => <HubLink tab key={t.key} href={t.href} className={`tab-item ${section === t.key ? "active" : ""}`} aria-current={section === t.key ? "page" : undefined}><Icon name={t.icon} size={22} /><span>{t.label}</span></HubLink>)}
+  useEffect(() => { setSlideTabs(tabItems(role, permissionKey ? permissionKey.split(",") : []).map(t => t.href)); }, [role, permissionKey]);
+  return <nav className="tab-bar" aria-label="Navigasi cepat" inert={inert}>{tabs.map(t => <HubLink tab key={t.key} href={t.href} className={`tab-item ${section === t.key ? "active" : ""}`} aria-current={section === t.key ? "page" : undefined}><Icon name={t.icon} size={22} /><span>{t.label}</span></HubLink>)}
     <button type="button" className="tab-item" aria-label="Menu, buka navigasi" aria-expanded={menuOpen} onClick={onMenu}><Icon name="menu" size={22} /><span>Menu</span></button></nav>;
 }
 

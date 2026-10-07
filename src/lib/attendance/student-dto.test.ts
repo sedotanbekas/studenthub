@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { closedThrough } from "./auto-alpha-rules";
 import {
   checkInMessage,
+  checkOutRecordState,
   countStatuses,
   countsFromGroups,
   isHistoryMonthAllowed,
@@ -13,6 +14,7 @@ import {
   presentPct,
   termCounts,
   toCheckInAttendanceDto,
+  toCheckOutAttendanceDto,
   toHistoryDay,
   toTodayRecord,
   type AttendanceRow,
@@ -30,6 +32,8 @@ const ROW: AttendanceRow = {
   lateReasonCategory: null,
   lateReasonNote: null,
   lateReasonAt: null,
+  checkOutAt: null,
+  checkOutDistanceM: null,
 };
 const DAY = { today: "2026-09-21", dayClosed: false };
 
@@ -64,13 +68,37 @@ test("alasan terlambat: tersimpan dikirim; bisa diubah hanya hari yang sama untu
 test("record hari ini & hari riwayat: baris tanpa check-in -> jam null", () => {
   const leave: AttendanceRow = { ...ROW, status: "IZIN", source: "LEAVE", checkInAt: null, lateMinutes: null, leaveRequestId: "lr_1" };
   assert.deepEqual(toTodayRecord(leave, "WIB", DAY), {
-    id: "att_1", status: "IZIN", source: "LEAVE", checkInTimeLocal: null, lateMinutes: null, lateReason: null, lateReasonEditable: false,
+    id: "att_1", status: "IZIN", source: "LEAVE", checkInTimeLocal: null, lateMinutes: null, lateReason: null, lateReasonEditable: false, checkOutTimeLocal: null,
   });
   assert.equal(toTodayRecord(null, "WIB", DAY), null);
   assert.deepEqual(toHistoryDay(leave, "WITA"), {
-    date: "2026-09-21", status: "IZIN", source: "LEAVE", checkInTimeLocal: null, lateMinutes: null, leaveRequestId: "lr_1",
+    date: "2026-09-21", status: "IZIN", source: "LEAVE", checkInTimeLocal: null, lateMinutes: null, leaveRequestId: "lr_1", checkOutTimeLocal: null,
   });
   assert.equal(localTimeOf(null, "WIB"), null);
+});
+
+test("absen pulang: jam pulang lokal di record hari ini, riwayat, dan DTO hasil check-out", () => {
+  const out: AttendanceRow = { ...ROW, checkOutAt: new Date("2026-09-21T07:05:00.000Z"), checkOutDistanceM: 35 };
+  assert.equal(toTodayRecord(out, "WIB", DAY)?.checkOutTimeLocal, "14:05");
+  assert.equal(toTodayRecord(ROW, "WIB", DAY)?.checkOutTimeLocal, null);
+  assert.equal(toHistoryDay(out, "WITA").checkOutTimeLocal, "15:05");
+  assert.deepEqual(toCheckOutAttendanceDto(out, "WIB"), {
+    id: "att_1",
+    date: "2026-09-21",
+    status: "TERLAMBAT",
+    checkInTimeLocal: "07:16",
+    checkOutAt: "2026-09-21T07:05:00.000Z",
+    checkOutTimeLocal: "14:05",
+    checkOutDistanceM: 35,
+  });
+  assert.throws(() => toCheckOutAttendanceDto(ROW, "WIB"));
+});
+
+test("checkOutRecordState: belum ada baris null; status & jam pulang diteruskan ke aturan absen pulang", () => {
+  assert.equal(checkOutRecordState(null, "WIB"), null);
+  assert.deepEqual(checkOutRecordState(ROW, "WIB"), { status: "TERLAMBAT", checkedIn: true, checkOutTimeLocal: null });
+  assert.deepEqual(checkOutRecordState({ ...ROW, checkOutAt: new Date("2026-09-21T08:00:00.000Z") }, "WIB"), { status: "TERLAMBAT", checkedIn: true, checkOutTimeLocal: "15:00" });
+  assert.equal(checkOutRecordState({ ...ROW, status: "IZIN", source: "LEAVE", checkInAt: null }, "WIB")?.checkedIn, false);
 });
 
 test("hitungan status & persentase hadir (TERLAMBAT termasuk hadir, 1 desimal, null bila kosong)", () => {

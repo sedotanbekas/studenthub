@@ -6,17 +6,20 @@ import type { HistoryDto, TodayDto } from "@/lib/attendance/student-schemas";
 import { isMobileBrowserAgent } from "@/lib/auth/device";
 import { api, ApiError } from "@/lib/frontend/api";
 import { todayHeadline } from "@/lib/frontend/attendance";
-import { demoHistory, demoTodayFor } from "@/lib/frontend/demo";
+import { demoHistory, demoTodayFor, withDemoCheckOut } from "@/lib/frontend/demo";
 import { demoPersonaForUser } from "@/lib/frontend/demo-personas";
 import { display, label } from "@/lib/frontend/format";
 import { useHub } from "../context";
 import { Status } from "../data-view";
 import { Icon } from "../icon";
 import { afterPageSlide } from "../page-slide";
-import { CheckInFlow } from "./check-in-flow";
+import { CheckInFlow, type FlowMode } from "./check-in-flow";
 import { LateReasonPanel } from "./late-reason-form";
 
-/** Halaman "Absensi" siswa: status hari ini + tombol absen (alur layar penuh) + riwayat bulanan. */
+/**
+ * Halaman "Absensi" siswa: status hari ini + tombol absen masuk / absen pulang (alur layar penuh yang sama) + riwayat
+ * bulanan. `?absen=1` membuka absen masuk, `?pulang=1` membuka absen pulang (pintasan beranda siswa).
+ */
 type TodayState = { kind: "loading" } | { kind: "ready"; today: TodayDto } | { kind: "error"; code: string; message: string };
 
 function useToday(version: number): TodayState {
@@ -32,36 +35,47 @@ function useToday(version: number): TodayState {
   return state;
 }
 
+/** Buka alur dari pintasan URL (?absen=1 / ?pulang=1) setelah halaman selesai bergeser masuk. */
+function useShortcut(param: string, allowed: boolean, open: () => void): void {
+  useEffect(() => {
+    if (!allowed || new URLSearchParams(window.location.search).get(param) !== "1") return;
+    window.history.replaceState(null, "", window.location.pathname);
+    // Alur absen dibuka setelah halaman selesai bergeser masuk, agar dialog tidak ikut tercampur transisi.
+    return afterPageSlide(open);
+  }, [param, allowed, open]);
+}
+
 export function AttendancePage() {
   const { demo, me } = useHub();
   const [version, setVersion] = useState(0);
-  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<FlowMode | null>(null);
+  // Mode demo: absen pulang disimulasikan di state lokal (muat ulang = hilang).
+  const [demoCheckOut, setDemoCheckOut] = useState<string | null>(null);
   // Konfirmasi akun (A2) diingat per kunjungan halaman & per akun: muat ulang / ganti persona = tanya lagi.
   const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
   // Mode demo tidak menyimpan: alasan yang baru diisi ditampilkan dari state lokal (muat ulang = hilang).
   const [demoReason, setDemoReason] = useState<LateReasonDto | null>(null);
-  const state = useToday(version);
+  const loaded = useToday(version);
+  const state: TodayState = loaded.kind === "ready" && demo ? { kind: "ready", today: withDemoCheckOut(loaded.today, demoCheckOut) } : loaded;
   const onReasonSaved = (result: LateReasonResultDto) => { if (demo) setDemoReason(result.lateReason); else setVersion(v => v + 1); };
-  const canCheckIn = state.kind === "ready" && state.today.canCheckIn;
-  useEffect(() => {
-    if (!canCheckIn || new URLSearchParams(window.location.search).get("absen") !== "1") return;
-    window.history.replaceState(null, "", window.location.pathname);
-    // Alur absen dibuka setelah halaman selesai bergeser masuk, agar dialog tidak ikut tercampur transisi.
-    return afterPageSlide(() => setOpen(true));
-  }, [canCheckIn]);
+  const openIn = useCallback(() => setMode("in"), []);
+  const openOut = useCallback(() => setMode("out"), []);
+  useShortcut("absen", state.kind === "ready" && state.today.canCheckIn, openIn);
+  useShortcut("pulang", state.kind === "ready" && state.today.canCheckOut, openOut);
+  const onFlowDone = (done: { checkOutTimeLocal: string | null }) => { if (demo && done.checkOutTimeLocal) setDemoCheckOut(done.checkOutTimeLocal); else setVersion(v => v + 1); };
   return <div className="workspace-page attendance-page">
-    <div className="page-heading"><div><h1>Absensi</h1><p>Absen masuk dengan lokasi dan foto wajah dari HP.</p></div></div>
+    <div className="page-heading"><div><h1>Absensi</h1><p>Absen masuk dan absen pulang dengan lokasi dan foto wajah dari HP.</p></div></div>
     {state.kind === "loading" ? <div className="panel"><div className="skeleton" /><div className="skeleton" /></div>
       : state.kind === "error" ? state.code === "CHECKIN_MOBILE_ONLY" ? <MobileOnly /> : <div className="error-message" role="alert">{state.message}<button className="text-button" onClick={() => setVersion(v => v + 1)}>Coba lagi</button></div>
-      : <TodayCard today={state.today} demoReason={demoReason} onStart={() => setOpen(true)} onReasonSaved={onReasonSaved} />}
+      : <TodayCard today={state.today} demoReason={demoReason} onStart={openIn} onCheckOut={openOut} onReasonSaved={onReasonSaved} />}
     <HistoryPanel version={version} />
-    {open && state.kind === "ready" && <CheckInFlow today={state.today} identityConfirmed={confirmedFor === me.user.id} onIdentityConfirmed={() => setConfirmedFor(me.user.id)} onClose={() => setOpen(false)} onDone={() => setVersion(v => v + 1)} />}
+    {mode && state.kind === "ready" && <CheckInFlow today={state.today} mode={mode} identityConfirmed={confirmedFor === me.user.id} onIdentityConfirmed={() => setConfirmedFor(me.user.id)} onClose={() => setMode(null)} onDone={onFlowDone} />}
   </div>;
 }
 
-interface TodayCardProps { today: TodayDto; demoReason: LateReasonDto | null; onStart: () => void; onReasonSaved: (result: LateReasonResultDto) => void }
+interface TodayCardProps { today: TodayDto; demoReason: LateReasonDto | null; onStart: () => void; onCheckOut: () => void; onReasonSaved: (result: LateReasonResultDto) => void }
 
-function TodayCard({ today, demoReason, onStart, onReasonSaved }: TodayCardProps) {
+function TodayCard({ today, demoReason, onStart, onCheckOut, onReasonSaved }: TodayCardProps) {
   const headline = todayHeadline(today);
   const record = today.record;
   const late = record?.status === "TERLAMBAT";
@@ -69,6 +83,7 @@ function TodayCard({ today, demoReason, onStart, onReasonSaved }: TodayCardProps
     <div><span className="kicker">Hari ini</span><h2 id="today-title">{headline.title}</h2><p>{headline.note}</p>
       {today.pendingLeave && <p className="today-leave">Pengajuan {label(today.pendingLeave.type).toLowerCase()} kamu masih menunggu persetujuan. Absen masuk akan menggantikannya.</p>}</div>
     {today.canCheckIn && <button className="button primary large" onClick={onStart}><Icon name="location" size={20} />Absen sekarang</button>}
+    {today.canCheckOut && <button className="button primary large" onClick={onCheckOut}><Icon name="logout" size={20} />Absen pulang</button>}
     {late && record && <LateReasonPanel reason={demoReason ?? record.lateReason} editable={record.lateReasonEditable} onSaved={onReasonSaved} />}
   </section>;
 }
@@ -80,6 +95,14 @@ function MobileOnly() {
     <p>{phone ? "Sesi ini dibuat sebelum absensi web aktif. Keluar lalu masuk kembali dengan NISN dari HP ini agar HP terdaftar sebagai perangkat absen." : "Absensi memakai GPS dan kamera depan, jadi hanya bisa dilakukan dari HP (browser HP atau aplikasi studenthub.id)."}</p></div>
     {phone && <button className="button primary large" onClick={() => void logout()}><Icon name="logout" size={19} />Keluar & masuk ulang</button>}
   </section>;
+}
+
+/** Keterangan baris riwayat: jam masuk (+ terlambat) dan jam pulang bila ada. */
+function historyNote(day: HistoryDto["days"][number]): string {
+  if (!day.checkInTimeLocal) return label(day.source);
+  const late = day.lateMinutes ? ` · terlambat ${day.lateMinutes} menit` : "";
+  const out = day.checkOutTimeLocal ? ` · Pulang ${day.checkOutTimeLocal}` : "";
+  return `Masuk ${day.checkInTimeLocal}${late}${out}`;
 }
 
 function monthOf(offset: number): string {
@@ -106,6 +129,6 @@ function HistoryPanel({ version }: { version: number }) {
     <div className="panel-heading"><h2 id="history-title">Riwayat {title}</h2><div className="month-nav"><button className="icon-button" aria-label="Bulan sebelumnya" disabled={!history?.prev} onClick={() => history?.prev && setMonth(history.prev)}><Icon name="chevron" size={18} style={{ transform: "rotate(180deg)" }} /></button><button className="icon-button" aria-label="Bulan berikutnya" disabled={!history?.next} onClick={() => history?.next && setMonth(history.next)}><Icon name="chevron" size={18} /></button></div></div>
     {error && <p className="error-message" role="alert">{error}</p>}
     {s && <dl className="summary-strip"><div><dt>Hadir</dt><dd>{s.present}</dd></div><div><dt>Terlambat</dt><dd>{s.late}</dd></div><div><dt>Izin/Sakit</dt><dd>{s.izin + s.sakit}</dd></div><div><dt>Alpa</dt><dd>{s.alpha}</dd></div></dl>}
-    {history && (history.data.days.length ? <ul className="history-list">{[...history.data.days].reverse().map(day => <li key={day.date}><span><strong>{display(day.date)}</strong><small>{day.checkInTimeLocal ? `Masuk ${day.checkInTimeLocal}${day.lateMinutes ? ` · terlambat ${day.lateMinutes} menit` : ""}` : label(day.source)}</small></span><Status value={day.status} /></li>)}</ul> : <p className="muted">Belum ada catatan kehadiran di bulan ini.</p>)}
+    {history && (history.data.days.length ? <ul className="history-list">{[...history.data.days].reverse().map(day => <li key={day.date}><span><strong>{display(day.date)}</strong><small>{historyNote(day)}</small></span><Status value={day.status} /></li>)}</ul> : <p className="muted">Belum ada catatan kehadiran di bulan ini.</p>)}
   </section>;
 }

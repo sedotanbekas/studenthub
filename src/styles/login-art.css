@@ -81,7 +81,7 @@
 @media (max-width: 760px) {
   /* HP: panel cerita tampil sebagai sampul di atas formulir; kartu masuk menumpuk di tepi rumput. */
   .login-page { grid-template-rows: auto 1fr; }
-  .login-story { display: flex; gap: 10px; padding: calc(18px + env(safe-area-inset-top)) 20px 0; border-radius: 0 0 28px 28px; }
+  .login-story { display: flex; gap: 10px; padding: calc(18px + env(safe-area-inset-top)) 20px 0; border-radius: 0 0 8px 8px; }
   .login-story .brand { font-size: 22px; }
   .login-story .brand-logo { width: 36px; height: 36px; }
   .login-story h1 { max-width: 20ch; font-size: 22px; }

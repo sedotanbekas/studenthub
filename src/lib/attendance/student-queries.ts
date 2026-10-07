@@ -9,10 +9,12 @@ import { formatMinute, fromDbDate, localParts, monthRange, toDbDate, TZ_IANA, ty
 import { todayBlockReason, windowState } from "./check-in-rules";
 import { loadCheckInContext, loadStudentSchool, type CheckInContext, type CheckInStudent } from "./check-in-context";
 import { closedThrough } from "./auto-alpha-rules";
+import { checkOutBlockReason } from "./check-out-rules";
 import { lateReasonClock } from "./late-reason-rules";
 import { HISTORY_MAX_MONTHS_BACK, MAX_ACCEPTED_ACCURACY_M } from "./constants";
 import {
   ATTENDANCE_ROW_SELECT,
+  checkOutRecordState,
   countsFromGroups,
   countStatuses,
   isHistoryMonthAllowed,
@@ -46,6 +48,7 @@ function todayWindow(context: CheckInContext): TodayDto["window"] {
     lateAfter: formatMinute(schedule.startMinute + schedule.lateToleranceMinutes),
     closesAt: formatMinute(schedule.closeMinute),
     state: windowState(context.local.minuteOfDay, schedule),
+    checkOutOpensAt: formatMinute(context.school.checkOutOpenMinute),
   };
 }
 
@@ -54,6 +57,13 @@ export async function getTodayAttendance(ctx: ActionContext): Promise<TodayDto> 
   const { school, local, day, existing } = context;
   const window = todayWindow(context);
   const blockReason = todayBlockReason({ testMode: context.testMode, existingSource: existing?.source ?? null, day, window: window.state });
+  const checkOutBlock = checkOutBlockReason({
+    record: checkOutRecordState(existing, school.timezone),
+    day,
+    minuteOfDay: local.minuteOfDay,
+    openMinute: school.checkOutOpenMinute,
+    testMode: context.testMode,
+  });
   return {
     date: local.ymd,
     serverTime: ctx.now.toISOString(),
@@ -66,6 +76,8 @@ export async function getTodayAttendance(ctx: ActionContext): Promise<TodayDto> 
     pendingLeave: await pendingLeaveCovering(context.student, local.ymd),
     canCheckIn: blockReason === null,
     blockReason,
+    canCheckOut: checkOutBlock === null,
+    checkOutBlockReason: checkOutBlock,
     testMode: context.testMode,
   };
 }

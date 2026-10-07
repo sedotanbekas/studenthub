@@ -1,0 +1,49 @@
+/* Peran & hak akses (RBAC, 2026-10-07): daftar peran kiri + editor centang kanan; HP satu kolom. */
+.roles-page { display: flex; flex-direction: column; gap: 16px; }
+.roles-page .page-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.roles-page .page-heading p { color: var(--muted); }
+.roles-layout { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.roles-list { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 14px; padding: 14px; max-height: calc(100dvh - 104px); overflow-y: auto; }
+.roles-list-group { display: flex; flex-direction: column; gap: 4px; }
+.roles-list-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid transparent; border-radius: var(--radius-sm); text-align: left; }
+.roles-list-item:hover { background: var(--line-soft); }
+.roles-list-item.active { border-color: var(--primary-line); background: var(--primary-soft); color: var(--primary-ink); }
+.roles-list-item strong { display: block; font-size: 15px; }
+.roles-list-item small { display: block; font-size: 13px; color: var(--muted); font-weight: 600; }
+.roles-detail { min-width: 0; }
+.roles-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 20px; color: var(--muted); text-align: center; }
+.roles-create, .role-editor { display: flex; flex-direction: column; gap: 16px; padding: 20px; }
+.roles-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.sticky-actions { position: sticky; bottom: 0; z-index: 2; margin: 0 -20px; padding: 12px 20px; border-top: 1px solid var(--line-soft); background: var(--paper); box-shadow: 0 -8px 16px -12px rgb(15 23 42 / 0.2); }
+.role-head { display: flex; flex-direction: column; gap: 12px; }
+.role-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.role-system { background: var(--primary-soft); color: var(--primary-ink); }
+.role-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.role-toolbar input { flex: 1; min-width: 200px; }
+.perm-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.perm-group { position: relative; display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); }
+.perm-group legend { display: flex; align-items: center; gap: 8px; padding: 0 6px; font-weight: 800; }
+.perm-count { font-size: 12px; font-weight: 700; color: var(--muted); }
+.perm-all { align-self: flex-end; margin: -2px 0 4px; font-size: 13px; }
+.perm-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px; border-radius: var(--radius-sm); cursor: pointer; }
+.perm-row:hover { background: var(--line-soft); }
+.perm-row.locked { cursor: default; opacity: 0.85; }
+.perm-row input { margin-top: 2px; }
+.perm-row strong { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.perm-row small { display: block; font-size: 13px; color: var(--muted); font-weight: 500; line-height: 1.4; }
+.perm-row code { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); }
+.role-members { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.role-members ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.role-members li { display: flex; flex-direction: column; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); }
+.role-members li small { color: var(--muted); font-size: 13px; }
+.roles-intro { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+@media (max-width: 960px) {
+  .roles-layout { grid-template-columns: minmax(0, 1fr); }
+  .roles-list { position: static; max-height: none; }
+  .perm-groups { grid-template-columns: minmax(0, 1fr); }
+  .role-editor, .roles-create { padding: 14px; }
+  .sticky-actions { margin: 0 -14px; padding: 10px 14px; }
+}
+@media (max-width: 760px) {
+  .sticky-actions { bottom: calc(84px + env(safe-area-inset-bottom)); }
+}

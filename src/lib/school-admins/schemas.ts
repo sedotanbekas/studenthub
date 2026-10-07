@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { accessRoleRef } from "@/lib/users/schemas";
 import { queryBoolean, schoolIdQuery } from "@/lib/academics/schema-common";
 import { pageQuerySchema } from "@/lib/http/pagination";
 import { ADMIN_MUTABLE_CATEGORIES } from "@/lib/notifications/rules";
@@ -22,6 +23,7 @@ export const createSchoolAdminBody = z.strictObject({
   name: nameSchema.meta({ description: "Nama guru/staf, boleh disertai jabatan, mis. `Bu Rina (Wali kelas X-1)`." }),
   email: emailSchema.meta({ description: "Dipakai untuk masuk (admin tambahan selalu masuk dengan email)." }),
   initialPassword: passwordInput.optional().meta({ description: "Opsional; bila kosong sistem membuat kata sandi sementara (14 hari)." }),
+  accessRoleId: z.string().trim().min(1).max(64).optional().meta({ description: "Peran akses berbasis admin sekolah (mis. Guru); kosong = peran sistem Admin sekolah." }),
 });
 export type CreateSchoolAdminInput = z.output<typeof createSchoolAdminBody>;
 
@@ -53,6 +55,7 @@ export const schoolAdminSchema = z
     lastLoginAt: iso.nullable(),
     createdAt: iso,
     mutedCategories: z.array(z.enum(ADMIN_MUTABLE_CATEGORIES)).meta({ description: "Kabar sekolah yang TIDAK dikirim ke akun ini (N2); [] = terima semua." }),
+    accessRole: accessRoleRef,
   })
   .meta({ id: "SchoolAdmin" });
 export type SchoolAdminDto = z.input<typeof schoolAdminSchema>;

@@ -15,4 +15,10 @@ export const usersPolicy = {
   /** Akun admin sekolah (guru/wali kelas, 2026-10-02): semua admin sekolah melihat, hanya admin utama mengelola. */
   "schoolAdmins.read": { roles: ADMINS },
   "schoolAdmins.manage": { roles: ADMINS, primarySchoolAdminOnly: true },
+  /**
+   * Peran akses RBAC (2026-10-07). Membaca: super admin semua peran; admin sekolah hanya peran berbasis admin
+   * sekolah (untuk memasang peran ke guru). Mengelola (buat/ubah/hapus peran, pasang ke akun mana pun): super admin.
+   */
+  "roles.read": { roles: ADMINS },
+  "roles.manage": { roles: ["SUPER_ADMIN"], blockedWhenImpersonating: true },
 } as const satisfies Record<string, PolicyRule>;

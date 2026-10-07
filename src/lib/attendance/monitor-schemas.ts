@@ -177,6 +177,12 @@ export const todayStatsSchema = z
   })
   .meta({ id: "MonitorTodayStats" });
 
+const checkOutTimeOut = z.string().nullable().meta({ description: "Jam lokal absen pulang HH:mm; null = belum absen pulang.", example: "14:05" });
+const selfieOut = z
+  .object({ fileId: z.string(), url: z.string().nullable(), purged: z.boolean() })
+  .nullable()
+  .meta({ description: "url = /api/v1/files/{id}; null setelah dihapus retensi (purged)." });
+
 export const studentBriefSchema = z
   .object({ id: z.string(), nis: z.string(), nisn: z.string(), name: z.string(), className: z.string().nullable() })
   .meta({ id: "MonitorStudentBrief" });
@@ -197,6 +203,7 @@ export const attendanceBriefSchema = z
     lateReason: lateReasonOut,
     needsReview: needsReviewOut,
     reviewDecision: reviewDecisionOut,
+    checkOutTimeLocal: checkOutTimeOut,
   })
   .meta({ id: "MonitorAttendanceBrief" });
 
@@ -243,6 +250,7 @@ const mapPointSchema = z.object({
   lateReasonCategory: z.enum(LATE_REASON_CATEGORIES).nullable().meta({ description: "Kategori alasan terlambat dari siswa (A1); null bila belum diisi." }),
   needsReview: needsReviewOut,
   reviewDecision: reviewDecisionOut,
+  checkOutTimeLocal: checkOutTimeOut,
 });
 
 const unlocatedSchema = z.object({
@@ -325,10 +333,21 @@ export const recordDetailSchema = z
     classId: z.string().nullable(),
     className: z.string().nullable().meta({ description: "Kelas snapshot saat dicatat." }),
     student: studentBriefSchema,
-    selfie: z
-      .object({ fileId: z.string(), url: z.string().nullable(), purged: z.boolean() })
+    selfie: selfieOut,
+    checkOutTimeLocal: checkOutTimeOut,
+    checkOut: z
+      .object({
+        at: z.string().meta({ description: "Instant server (ISO UTC)." }),
+        timeLocal: z.string().meta({ example: "14:05" }),
+        latitude: z.number().nullable(),
+        longitude: z.number().nullable(),
+        accuracyM: z.int().nullable(),
+        distanceM: z.int().nullable(),
+        deviceId: z.string().nullable(),
+        selfie: selfieOut,
+      })
       .nullable()
-      .meta({ description: "url = /api/v1/files/{id}; null setelah dihapus retensi (purged)." }),
+      .meta({ description: "Absen pulang (2026-10-07); null = siswa belum absen pulang." }),
     rejectionsSameDay: z.array(z.object(rejectionShape)),
     audit: z.array(auditEntrySchema),
     createdAt: z.string(),

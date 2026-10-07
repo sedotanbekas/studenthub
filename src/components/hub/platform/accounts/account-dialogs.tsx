@@ -12,7 +12,7 @@ import { errorText } from "../review-hooks";
 import { CopyValue } from "./copy-value";
 
 /** Kerangka dialog akun: judul + isi + tombol bawah; Escape/tutup dicegah selama memproses. */
-function AccountDialog({ eyebrow, title, busy = false, onClose, footer, children }: { eyebrow: string; title: string; busy?: boolean; onClose: () => void; footer: ReactNode; children: ReactNode }) {
+export function AccountDialog({ eyebrow, title, busy = false, onClose, footer, children }: { eyebrow: string; title: string; busy?: boolean; onClose: () => void; footer: ReactNode; children: ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useModalDialog(dialog);
@@ -123,5 +123,39 @@ export function LoginHistoryDialog({ account, onClose }: { account: AccountRow; 
       : rows.length === 0 ? <p className="muted">Belum ada percobaan masuk yang tercatat. Riwayat semua peran dicatat sejak 5 Okt 2026.</p>
         : <ul className="login-events">{rows.map(event => <LoginEventItem key={event.id} event={event} />)}</ul>}
     <p className="field-hint">Lokasi adalah perkiraan dari IP (IP Geolocation by <a href="https://db-ip.com" target="_blank" rel="noreferrer">DB-IP</a>), bukan GPS.</p>
+  </AccountDialog>;
+}
+
+interface RoleOption { readonly id: string; readonly name: string; readonly isSystem: boolean }
+
+/** Pasang peran akses RBAC (2026-10-07): pilihan = peran berjenis akun sama; peran bawaan = kembali ke peran sistem. */
+export function AccessRoleDialog({ account, onClose, onDone }: { account: AccountRow; onClose: () => void; onDone: () => void }) {
+  const { demo, toast } = useHub();
+  const [roles, setRoles] = useState<RoleOption[] | null>(demo ? [] : null);
+  const [value, setValue] = useState(account.accessRole?.id ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (demo) return;
+    let active = true;
+    api(`/access-roles?baseRole=${account.role}`).then(r => { if (active) setRoles(r.data as RoleOption[]); }).catch(e => { if (active) setError(errorText(e, "Daftar peran gagal dimuat.")); });
+    return () => { active = false; };
+  }, [account.role, demo]);
+  async function save() {
+    if (demo) { setError("Mode demo: peran hanya bisa diubah dengan akun sungguhan."); return; }
+    setBusy(true); setError("");
+    try {
+      await api(`/platform/users/${encodeURIComponent(account.id)}/access-role`, { method: "PUT", body: JSON.stringify({ accessRoleId: value || null }) });
+      toast("Peran akses diperbarui. Berlaku seketika."); onClose(); onDone();
+    } catch (e) { setError(errorText(e, "Peran belum berhasil dipasang.")); setBusy(false); }
+  }
+  const footer = <><button type="button" className="button secondary" disabled={busy} onClick={onClose}>Batal</button><button type="button" className="button primary" disabled={busy || !roles} onClick={() => void save()}>{busy ? "Menyimpan…" : "Pasang peran"}</button></>;
+  return <AccountDialog eyebrow="PERAN & HAK AKSES" title={`Peran ${account.name}`} busy={busy} onClose={onClose} footer={footer}>
+    <p>Hak akses akun mengikuti centang peran yang dipasang. Atur centangnya di menu <strong>Peran &amp; hak akses</strong>.</p>
+    <label className="field">Peran akses<select value={value} disabled={!roles || busy} onChange={e => setValue(e.target.value)}>
+      <option value="">Peran bawaan (sesuai jenis akun)</option>
+      {(roles ?? []).filter(r => !r.isSystem).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+    </select></label>
+    {error && <div className="error-message" role="alert">{error}</div>}
   </AccountDialog>;
 }

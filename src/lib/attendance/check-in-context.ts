@@ -23,6 +23,8 @@ export interface CheckInSchool {
   readonly schedule: SchedulePolicy;
   readonly dayEndMinute: number;
   readonly schoolDaysMask: number;
+  /** Absen pulang dibuka mulai menit lokal ini (2026-10-07). */
+  readonly checkOutOpenMinute: number;
 }
 
 export interface CheckInStudent {
@@ -55,7 +57,7 @@ async function loadSchool(schoolId: string): Promise<CheckInSchool> {
     where: { id: schoolId },
     select: {
       id: true, timezone: true, latitude: true, longitude: true, geofenceRadiusM: true, checkInOpenMinute: true, startMinute: true,
-      lateToleranceMinutes: true, checkInCloseMinute: true, dayEndMinute: true, schoolDaysMask: true,
+      lateToleranceMinutes: true, checkInCloseMinute: true, dayEndMinute: true, schoolDaysMask: true, checkOutOpenMinute: true,
     },
   });
   if (!row) throw notFound("Sekolah tidak ditemukan.");
@@ -71,6 +73,7 @@ async function loadSchool(schoolId: string): Promise<CheckInSchool> {
     },
     dayEndMinute: row.dayEndMinute,
     schoolDaysMask: row.schoolDaysMask,
+    checkOutOpenMinute: row.checkOutOpenMinute,
   };
 }
 
@@ -113,7 +116,7 @@ export function assertCheckInSession(principal: Principal, userAgent: string | n
   throw forbidden("CHECKIN_MOBILE_ONLY", "Absensi hanya dapat dilakukan dari HP: aplikasi studenthub.id atau browser HP.");
 }
 
-/** "today" = hanya membaca status hari ini; "checkin" = precheck/absen masuk. */
+/** "today" = hanya membaca status hari ini; "checkin" = precheck/absen masuk/absen pulang. */
 export type CheckInMode = "today" | "checkin";
 
 /** Konteks lengkap untuk today/precheck/check-in. Sesi mobile ber-deviceId; siswa harus ACTIVE (dicek ulang dari DB). */

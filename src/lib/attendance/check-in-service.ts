@@ -231,7 +231,7 @@ async function writeCheckIn(plan: WritePlan): Promise<TxOutcome> {
  * Student FOR UPDATE lalu baca ulang status & kelas (urutan kunci: attendance:<id> -> Student): perubahan
  * status/kelas yang ter-commit selagi check-in menunggu kunci tidak boleh memakai snapshot sebelum kunci.
  */
-async function lockActiveStudent(tx: Tx, student: CheckInContext["student"]): Promise<{ readonly classId: string | null }> {
+export async function lockActiveStudent(tx: Tx, student: CheckInContext["student"]): Promise<{ readonly classId: string | null }> {
   const rows = await tx.$queryRaw<Array<{ status: string; currentClassId: string | null }>>`
     SELECT \`status\`, \`currentClassId\` FROM \`Student\` WHERE \`id\` = ${student.id} AND \`schoolId\` = ${student.schoolId} FOR UPDATE`;
   const row = rows[0];

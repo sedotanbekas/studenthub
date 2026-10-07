@@ -44,7 +44,8 @@ enum CheckInRejectReason {
   INVALID_LOCATION
 }
 
-/// Satu baris per siswa per tanggal lokal sekolah. Hanya check-in (tanpa check-out).
+/// Satu baris per siswa per tanggal lokal sekolah. Absen masuk (check-in) + absen pulang opsional (check-out,
+/// permintaan pemilik 2026-10-07): kolom checkOut* diisi sekali oleh siswa sendiri pada baris yang sudah absen masuk.
 model Attendance {
   id                    String                 @id @default(cuid())
   schoolId              String
@@ -88,11 +89,22 @@ model Attendance {
   anomalyReviewedById   String?
   /// Wajib untuk INVALID (disalin juga ke `note` & alasan notifikasi siswa).
   anomalyReviewNote     String?                @db.VarChar(255)
+  /// Absen pulang (2026-10-07): instant server; NULL = belum absen pulang. Hanya baris yang sudah absen masuk
+  /// (checkInAt terisi, status HADIR/TERLAMBAT), sekali per hari, mulai School.checkOutOpenMinute (chk_attendance_checkout).
+  checkOutAt            DateTime?
+  checkOutLatitude      Decimal?               @db.Decimal(10, 7)
+  checkOutLongitude     Decimal?               @db.Decimal(10, 7)
+  checkOutAccuracyM     Int?
+  checkOutDistanceM     Int?
+  checkOutDeviceId      String?                @db.VarChar(100)
+  /// Selfie absen pulang (FileKind ATTENDANCE_SELFIE, retensi sama). Unik: satu foto tidak bisa dipakai dua kali.
+  checkOutSelfieFileId  String?                @unique
 
   school            School        @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   student           Student       @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   schoolClass       SchoolClass?  @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  selfieFile        StoredFile?   @relation(fields: [selfieFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  selfieFile        StoredFile?   @relation("AttendanceSelfie", fields: [selfieFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  checkOutSelfieFile StoredFile?  @relation("AttendanceCheckOutSelfie", fields: [checkOutSelfieFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   leaveRequest      LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   anomalyReviewedBy User?         @relation("AttendanceAnomalyReviewer", fields: [anomalyReviewedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
 

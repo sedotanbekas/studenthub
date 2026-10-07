@@ -27,6 +27,7 @@ export const USER_SELECT = {
   school: { select: { id: true, name: true, npsn: true } },
   sponsor: { select: { id: true, companyName: true } },
   student: { select: { id: true, nisn: true, nis: true, activeNisn: true, status: true, currentClass: { select: { name: true } } } },
+  accessRole: { select: { id: true, name: true, isSystem: true } },
 } as const satisfies Prisma.UserSelect;
 
 /** Hash hanya dibaca untuk mengenali kata sandi bawaan siswa; tidak pernah masuk DTO. */
@@ -69,6 +70,7 @@ export function toUserDto(row: UserRow, matchesDefault: boolean, now: Date): Pla
     updatedAt: row.updatedAt.toISOString(),
     ...credentialOf(row, matchesDefault, now),
     student: studentOf(row),
+    accessRole: row.accessRole,
   };
 }
 

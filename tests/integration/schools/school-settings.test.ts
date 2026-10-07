@@ -139,6 +139,25 @@ describe("PATCH /school/settings", () => {
     assert.equal((await prisma.school.findUniqueOrThrow({ where: { id: fx.schoolA.id } })).checkInCloseMinute, 600);
   });
 
+  test("jam absen pulang (2026-10-07): default 14:00, bisa diubah; harus setelah jam masuk dan sebelum 24:00", async () => {
+    const school = await createSchool();
+    const admin = await actor(await createSchoolAdmin(school.id));
+    const initial = await profile(admin.token);
+    assert.equal((initial.body?.data as unknown as { checkOutOpenMinute: number }).checkOutOpenMinute, 840);
+    assert.equal(initial.body?.data.schedule.checkOutOpen, "14:00");
+    const res = await settings(admin.token, { checkOutOpenMinute: 870 });
+    assert.equal(res.status, 200, JSON.stringify(res.body?.error));
+    assert.equal(res.body?.data.schedule.checkOutOpen, "14:30");
+    const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: school.id, action: "school.settings_update" } });
+    assert.deepEqual(audit.after, { checkOutOpenMinute: 870 });
+    for (const [body, code] of [[{ checkOutOpenMinute: 420 }, "SCHEDULE_CHECKOUT_NOT_AFTER_START"], [{ checkOutOpenMinute: 1440 }, "SCHEDULE_CHECKOUT_TOO_LATE"], [{ startMinute: 880 }, "SCHEDULE_CHECKOUT_NOT_AFTER_START"]] as const) {
+      const bad = await settings(admin.token, body);
+      assert.equal(bad.status, 422, JSON.stringify(body));
+      assert.ok((bad.body?.error?.details as ErrorDetails).errors.some((e) => e.code === code), JSON.stringify(bad.body?.error));
+    }
+    assert.equal((await prisma.school.findUniqueOrThrow({ where: { id: school.id } })).checkOutOpenMinute, 870);
+  });
+
   test("body kosong / bukan bilangan bulat -> 400", async () => {
     assert.equal((await settings(fx.adminA.token, {})).status, 400);
     assert.equal((await settings(fx.adminA.token, { startMinute: 430.5 })).status, 400);

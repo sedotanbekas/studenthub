@@ -5,9 +5,10 @@ import { initials } from "@/lib/frontend/format";
 import { useHub } from "../../context";
 import { Icon } from "../../icon";
 import { CopyValue } from "./copy-value";
-import { ImpersonateDialog, LoginHistoryDialog, ResetPasswordDialog } from "./account-dialogs";
+import { roleLabels } from "@/lib/frontend/modules";
+import { AccessRoleDialog, ImpersonateDialog, LoginHistoryDialog, ResetPasswordDialog } from "./account-dialogs";
 
-type OpenDialog = "reset" | "history" | "impersonate" | null;
+type OpenDialog = "reset" | "history" | "impersonate" | "role" | null;
 
 function LoginLine({ account }: { account: AccountRow }) {
   const logins = account.logins ?? [];
@@ -47,6 +48,7 @@ export function AccountCard({ account, showSchool = false, onChanged, extraActio
     <dl className="account-facts">
       <Fact label="ID login"><LoginLine account={account} /></Fact>
       <Fact label="Kata sandi"><PasswordLine account={account} /></Fact>
+      <Fact label="Peran akses">{account.accessRole ? account.accessRole.name : <span className="muted">Bawaan · {roleLabels[account.role]}</span>}</Fact>
       <Fact label="Terakhir masuk">{account.lastLoginAt ? shortDateTime(account.lastLoginAt) : <span className="muted">Belum pernah</span>}</Fact>
     </dl>
     <div className="account-actions">
@@ -54,9 +56,11 @@ export function AccountCard({ account, showSchool = false, onChanged, extraActio
       {canImpersonate(account) && me.user.role === "SUPER_ADMIN" && <button type="button" className="button primary small-button" onClick={() => setOpen("impersonate")}><Icon name="arrow" size={15} />Masuk sebagai</button>}
       <button type="button" className="button secondary small-button" onClick={() => setOpen("history")}>Riwayat masuk</button>
       {!self && <button type="button" className="button secondary small-button" onClick={() => setOpen("reset")}>Reset sandi</button>}
+      {me.permissions.includes("roles.manage") && <button type="button" className="button secondary small-button" onClick={() => setOpen("role")}>Ubah peran</button>}
     </div>
     {open === "reset" && <ResetPasswordDialog account={account} onClose={() => setOpen(null)} onDone={onChanged} />}
     {open === "history" && <LoginHistoryDialog account={account} onClose={() => setOpen(null)} />}
     {open === "impersonate" && <ImpersonateDialog account={account} onClose={() => setOpen(null)} />}
+    {open === "role" && <AccessRoleDialog account={account} onClose={() => setOpen(null)} onDone={onChanged} />}
   </article>;
 }

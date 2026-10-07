@@ -18,11 +18,15 @@ import { Icon } from "./icon";
  */
 const TILES = [
   { href: "/hub/my-attendance?absen=1", icon: "location", title: "Absen", tone: "blue" },
+  // Absen pulang (2026-10-07): halaman Absensi membuka alur pulang bila sudah boleh, selain itu menjelaskan alasannya.
+  { href: "/hub/my-attendance?pulang=1", icon: "logout", title: "Absen pulang", tone: "blue" },
   { href: "/hub/my-attendance#riwayat", icon: "history", title: "Riwayat", tone: "violet" },
   { href: "/hub/my-leave", icon: "calendar", title: "Izin & sakit", tone: "orange" },
   { href: "/hub/my-reports", icon: "report", title: "Rapor", tone: "green" },
   { href: "/hub/my-billing", icon: "wallet", title: "Tagihan", tone: "teal" },
   { href: "/hub/my-calendar", icon: "book", title: "Kalender", tone: "rose" },
+  // Tile ke-8 (2026-10-07): grid 4 kolom (desktop) / 2 kolom (HP) selalu penuh, tanpa tile tersisa sendirian.
+  { href: "/hub/my-profile", icon: "users", title: "Profil", tone: "violet" },
 ] as const;
 
 function useStudentHome() {

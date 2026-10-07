@@ -54,7 +54,7 @@ describe("POST /platform/schools", () => {
     assert.deepEqual(school.province, { code: "32", name: (await prisma.province.findUniqueOrThrow({ where: { code: "32" } })).name });
     assert.equal(school.startMinute, 420);
     assert.equal(school.geofenceRadiusM, 150);
-    assert.deepEqual(school.schedule, { checkInOpen: "06:00", start: "07:00", lateAfter: "07:15", checkInClose: "10:00", dayEnd: "15:00" });
+    assert.deepEqual(school.schedule, { checkInOpen: "06:00", start: "07:00", lateAfter: "07:15", checkInClose: "10:00", dayEnd: "15:00", checkOutOpen: "14:00" });
     assert.deepEqual(school.schoolDays, ["MON", "TUE", "WED", "THU", "FRI"]);
     assert.equal(school.geofenceUpdatedAt, null);
     assert.deepEqual(school.counts, { studentsByStatus: { DRAFT: 0, ACTIVE: 0, INACTIVE: 0, GRADUATED: 0, MOVED: 0 }, adminCount: 0, activeAdminCount: 0 });

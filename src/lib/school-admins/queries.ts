@@ -21,6 +21,7 @@ const ADMIN_SELECT = {
   createdAt: true,
   school: { select: { npsn: true } },
   notificationMutes: { select: { category: true } },
+  accessRole: { select: { id: true, name: true, isSystem: true } },
 } as const satisfies Prisma.UserSelect;
 
 type AdminRow = Prisma.UserGetPayload<{ select: typeof ADMIN_SELECT }>;
@@ -40,6 +41,7 @@ function toSchoolAdminDto(row: AdminRow): SchoolAdminDto {
     createdAt: row.createdAt.toISOString(),
     // Kategori lama yang tak lagi bisa dimatikan disembunyikan (dibersihkan pada PUT berikutnya).
     mutedCategories: normalizeMutedCategories(row.notificationMutes.map((m) => m.category)),
+    accessRole: row.accessRole,
   };
 }
 

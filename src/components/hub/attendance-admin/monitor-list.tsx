@@ -60,6 +60,10 @@ function keepVisible(container: HTMLDivElement | null, id: string | null): void 
   if (next !== null) container.scrollTop = next;
 }
 
+/** Jam masuk (+ jam pulang bila sudah absen pulang, 2026-10-07) untuk pembaca layar. */
+const timesLabel = (point: MapPoint): string =>
+  `Jam masuk ${point.checkInTimeLocal ?? "—"}${point.checkOutTimeLocal ? `, jam pulang ${point.checkOutTimeLocal}` : ""}`;
+
 interface PointRowProps { readonly point: MapPoint; readonly outside: boolean; readonly selected: boolean; readonly onFocus: (id: string) => void }
 
 const PointRow = memo(function PointRow({ point, outside, selected, onFocus }: PointRowProps) {
@@ -77,7 +81,7 @@ const PointRow = memo(function PointRow({ point, outside, selected, onFocus }: P
           {reason && <span className="row-tag is-neutral">Alasan: {reason}</span>}
         </span>}
       </span>
-      <span className="monitor-row-side"><AttPill status={point.status} /><time>{point.checkInTimeLocal ?? "—"}</time></span>
+      <span className="monitor-row-side"><AttPill status={point.status} /><time aria-label={timesLabel(point)}>{point.checkInTimeLocal ?? "—"}{point.checkOutTimeLocal ? `–${point.checkOutTimeLocal}` : ""}</time></span>
     </button>
   </li>;
 });

@@ -84,6 +84,8 @@ export interface AttendanceRowLike {
   readonly lateReasonAt: Date | null;
   readonly anomalyReviewDecision: ReviewDecision | null;
   readonly anomalyReviewedAt: Date | null;
+  /** Absen pulang (2026-10-07). */
+  readonly checkOutAt: Date | null;
 }
 
 export interface AttendanceBrief {
@@ -103,6 +105,8 @@ export interface AttendanceBrief {
   /** Beranomali dan belum ditinjau (B1). */
   readonly needsReview: boolean;
   readonly reviewDecision: ReviewDecision | null;
+  /** Jam lokal absen pulang "HH:mm"; null = belum absen pulang. */
+  readonly checkOutTimeLocal: string | null;
 }
 
 export function toAttendanceBrief(row: AttendanceRowLike, tz: SchoolTz): AttendanceBrief {
@@ -121,6 +125,7 @@ export function toAttendanceBrief(row: AttendanceRowLike, tz: SchoolTz): Attenda
     lateReason: toLateReasonDto(row, tz),
     needsReview: needsAnomalyReview(row),
     reviewDecision: row.anomalyReviewDecision,
+    checkOutTimeLocal: timeLocal(row.checkOutAt, tz),
   };
 }
 

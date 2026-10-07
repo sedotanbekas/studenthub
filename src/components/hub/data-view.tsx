@@ -21,7 +21,9 @@ function Cell({ value, name }: { value: unknown; name: string }) {
 function AttendanceCell({ row }: { row: Row }) {
   const reason = row.status === "TERLAMBAT" ? (row.lateReason as { category: LateReasonCode } | null | undefined) ?? null : null;
   const time = String(row.checkInTimeLocal ?? "");
-  const text = reason ? [time, lateReasonShort(reason)].filter(Boolean).join(" · ") : time;
+  // Absen pulang (2026-10-07): "07:12–14:05".
+  const span = row.checkOutTimeLocal ? `${time}–${String(row.checkOutTimeLocal)}` : time;
+  const text = reason ? [span, lateReasonShort(reason)].filter(Boolean).join(" · ") : span;
   return <span className="attendance-cell"><Status value={row.status} /><small>{text}</small></span>;
 }
 /** Kolom pilihan per tampilan; selain itu 6 kolom pertama data. */

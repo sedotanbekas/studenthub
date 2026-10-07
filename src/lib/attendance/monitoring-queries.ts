@@ -154,6 +154,7 @@ export const attendanceBriefSelect = {
   lateReasonAt: true,
   anomalyReviewDecision: true,
   anomalyReviewedAt: true,
+  checkOutAt: true,
 } satisfies Prisma.AttendanceSelect;
 
 // ----------------------------------------------------------------------------- kartu hari ini
@@ -255,6 +256,12 @@ const detailSelect = {
   updatedAt: true,
   schoolClass: { select: { name: true } },
   selfieFile: { select: { id: true, deletedAt: true } },
+  checkOutLatitude: true,
+  checkOutLongitude: true,
+  checkOutAccuracyM: true,
+  checkOutDistanceM: true,
+  checkOutDeviceId: true,
+  checkOutSelfieFile: { select: { id: true, deletedAt: true } },
   student: { select: studentBriefSelect },
   anomalyReviewNote: true,
   anomalyReviewedBy: { select: { id: true, name: true } },
@@ -302,6 +309,21 @@ function toSelfie(file: DetailRow["selfieFile"]): RecordDetailDto["selfie"] {
   return { fileId: file.id, url: purged ? null : fileUrl(file.id), purged };
 }
 
+/** Absen pulang (2026-10-07); null bila siswa belum absen pulang. */
+function toCheckOutDetail(row: DetailRow, tz: SchoolTz): RecordDetailDto["checkOut"] {
+  if (row.checkOutAt === null) return null;
+  return {
+    at: row.checkOutAt.toISOString(),
+    timeLocal: timeLocal(row.checkOutAt, tz) ?? "00:00",
+    latitude: decimalToNumber(row.checkOutLatitude),
+    longitude: decimalToNumber(row.checkOutLongitude),
+    accuracyM: row.checkOutAccuracyM,
+    distanceM: row.checkOutDistanceM,
+    deviceId: row.checkOutDeviceId,
+    selfie: toSelfie(row.checkOutSelfieFile),
+  };
+}
+
 function toDetail(row: DetailRow, tz: SchoolTz, extras: Pick<RecordDetailDto, "rejectionsSameDay" | "audit">): RecordDetailDto {
   const brief = toAttendanceBrief(row, tz);
   return {
@@ -319,6 +341,7 @@ function toDetail(row: DetailRow, tz: SchoolTz, extras: Pick<RecordDetailDto, "r
     student: toStudentBrief(row.student),
     review: toReviewDto(row),
     selfie: toSelfie(row.selfieFile),
+    checkOut: toCheckOutDetail(row, tz),
     ...extras,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -440,6 +463,7 @@ const mapRowSelect = {
   accuracyM: true,
   distanceM: true,
   checkInAt: true,
+  checkOutAt: true,
   hasAnomaly: true,
   anomalyFlags: true,
   lateReasonCategory: true,
@@ -472,6 +496,7 @@ function toMapPoint(row: MapRow, tz: SchoolTz): MapDto["points"][number] {
     lateReasonCategory: row.lateReasonCategory,
     needsReview: row.hasAnomaly && row.anomalyReviewedAt === null,
     reviewDecision: row.anomalyReviewDecision,
+    checkOutTimeLocal: timeLocal(row.checkOutAt, tz),
   };
 }
 

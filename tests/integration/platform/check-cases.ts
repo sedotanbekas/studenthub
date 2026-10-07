@@ -26,6 +26,7 @@ type GetFixture = () => CheckFixture;
 
 const CLICK_DATE = toDbDate("2026-09-21");
 const CHECKIN_AT = new Date("2026-09-21T00:05:00.000Z");
+const CHECKOUT_AT = new Date("2026-09-21T07:05:00.000Z");
 /** seq ledger untuk percobaan yang pasti gagal (tidak pernah tersimpan). */
 const FAILING_LEDGER_SEQ = 99;
 
@@ -136,6 +137,28 @@ export function attendanceCases(get: GetFixture): readonly CheckCase[] {
         await attendance(fx, { hasAnomaly: true, anomalyReviewDecision: "VALID", anomalyReviewedAt: CHECKIN_AT, anomalyReviewedById: fx.admin.id });
         await attendance(fx, {
           hasAnomaly: true, status: "ALPHA", anomalyReviewDecision: "INVALID", anomalyReviewedAt: CHECKIN_AT, anomalyReviewedById: fx.admin.id, anomalyReviewNote: "Foto bukan wajah siswa",
+        });
+      },
+    },
+    {
+      // Absen pulang (2026-10-07): kolom checkOut* diisi bersama dan hanya pada baris yang sudah absen masuk.
+      constraint: "chk_attendance_checkout",
+      violations: [
+        () => attendance(get(), { checkOutAt: CHECKOUT_AT }),
+        () => attendance(get(), { checkOutLatitude: "-6.9147000", checkOutLongitude: "107.6098000" }),
+        async () => {
+          const fx = get();
+          const selfie = await createStoredFile(fx.studentUser.id, "ATTENDANCE_SELFIE", { schoolId: fx.school.id });
+          // Tanpa checkInAt (baris admin) absen pulang tidak sah.
+          return attendance(fx, { checkOutAt: CHECKOUT_AT, checkOutLatitude: "-6.9147000", checkOutLongitude: "107.6098000", checkOutSelfieFileId: selfie.id });
+        },
+      ],
+      valid: async () => {
+        const fx = get();
+        const selfie = await createStoredFile(fx.studentUser.id, "ATTENDANCE_SELFIE", { schoolId: fx.school.id });
+        const outSelfie = await createStoredFile(fx.studentUser.id, "ATTENDANCE_SELFIE", { schoolId: fx.school.id });
+        return checkIn(fx, {
+          selfieFileId: selfie.id, checkOutAt: CHECKOUT_AT, checkOutLatitude: "-6.9147000", checkOutLongitude: "107.6098000", checkOutSelfieFileId: outSelfie.id,
         });
       },
     },

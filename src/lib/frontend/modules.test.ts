@@ -72,3 +72,27 @@ test("isRestricted: wajib ganti sandi atau wajib TOTP", () => {
   assert.equal(isRestricted({ user: { ...user, mustChangePassword: true } }), true);
   assert.equal(isRestricted({ user: { ...user, totpEnrollmentRequired: true } }), true);
 });
+
+test("RBAC: aksi tiap modul = aksi operasi utamanya di katalog API (menu tersaring hak peran akses)", async () => {
+  const { MODULE_ACTIONS } = await import("./modules");
+  const { operations } = await import("./catalog");
+  for (const role of ["SCHOOL_ADMIN", "SUPER_ADMIN", "SPONSOR", "STUDENT"] as const) {
+    for (const m of modulesFor(role)) {
+      const op = operations.find(o => o.id === m.primary);
+      assert.ok(op, `${m.key}: operasi ${m.primary}`);
+      assert.equal(MODULE_ACTIONS[m.key], op.action, m.key);
+    }
+  }
+});
+
+test("RBAC: modul tanpa hak tersembunyi; daftar hak kosong (persona demo) = semua modul", () => {
+  const limited = ["auth.self", "notification.self", "students.read"];
+  assert.deepEqual(modulesFor("SCHOOL_ADMIN", limited).map(m => m.key), ["students", "notifications", "security"]);
+  assert.equal(sectionAllowed("SCHOOL_ADMIN", "billing", limited), false);
+  assert.equal(sectionAllowed("SCHOOL_ADMIN", "students", limited), true);
+  assert.deepEqual(tabItems("SCHOOL_ADMIN", limited).map(t => t.key), ["dashboard", "students"]);
+  assert.equal(modulesFor("SCHOOL_ADMIN", []).length, modulesFor("SCHOOL_ADMIN").length);
+  assert.equal(resolveSection("SCHOOL_ADMIN", true, "billing", limited).module?.key, "security");
+  assert.ok(modulesFor("SUPER_ADMIN").some(m => m.key === "access-roles"));
+  assert.equal(modulesFor("SCHOOL_ADMIN").some(m => m.key === "access-roles"), false);
+});

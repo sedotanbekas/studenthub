@@ -23,6 +23,11 @@ export interface Principal {
   readonly deviceId: string | null;
   /** "Masuk sebagai": super admin yang memakai sesi ini atas nama userId (null = pemilik akun sendiri). */
   readonly impersonatorId: string | null;
+  /**
+   * Hak efektif dari peran akses RBAC (src/lib/roles/rules.ts resolveGrants). undefined/null = hak bawaan POLICY
+   * jenis akunnya (unit test, job). Selalu himpunan bagian dari aksi POLICY untuk `role`.
+   */
+  readonly grants?: ReadonlySet<string> | null;
 }
 
 /** Konteks aksi yang diteruskan ke setiap service. */

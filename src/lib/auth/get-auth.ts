@@ -4,6 +4,7 @@ import { verifyAccessToken } from "./access-token";
 import type { Principal } from "./principal";
 import { evaluatePrincipal, type SessionRow } from "./principal-rules";
 import { superAdminTotpEnforced } from "./totp-switch";
+import { systemRoleFor } from "@/lib/roles/system-roles";
 
 /**
  * Autentikasi request: hanya `Authorization: Bearer <access token>`. Skema lain (mis. Basic dari
@@ -16,7 +17,7 @@ export async function getAuth(req: Request, now: Date = new Date()): Promise<Pri
   const token = header.replace(/^Bearer\s+/i, "").trim();
   if (token.length === 0) throw unauthorized("UNAUTHENTICATED", "Token tidak valid.");
   const claims = await verifyAccessToken(token, now);
-  const row = await loadSession(claims.sid);
+  const row = await withAccessRole(await loadSession(claims.sid));
   const result = evaluatePrincipal(row, claims, now, { totpEnforced: superAdminTotpEnforced() });
   if (!result.ok) {
     const message = result.code === "SESSION_INVALID" ? "Sesi tidak berlaku. Silakan login ulang." : "Akun tidak aktif.";
@@ -51,8 +52,15 @@ async function loadSession(sessionId: string): Promise<SessionRow | null> {
           school: { select: { isActive: true } },
           student: { select: { id: true, status: true } },
           sponsor: { select: { status: true } },
+          accessRole: { select: { isSystem: true, permissions: true, knownActions: true } },
         },
       },
     },
   });
+}
+
+/** RBAC: akun tanpa peran akses memakai peran sistem jenis akunnya (cache proses, src/lib/roles/system-roles.ts). */
+async function withAccessRole(row: SessionRow | null): Promise<SessionRow | null> {
+  if (!row || row.user.accessRole) return row;
+  return { ...row, user: { ...row.user, accessRole: await systemRoleFor(row.user.role) } };
 }

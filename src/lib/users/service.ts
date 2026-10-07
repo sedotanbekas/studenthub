@@ -7,6 +7,7 @@ import { prisma, type Tx } from "@/lib/db";
 import { conflict, notFound } from "@/lib/http/errors";
 import { superAdminsLockKey, userLockKey } from "@/lib/lock-keys";
 import { lockKey, withTx } from "@/lib/tx";
+import { assertRoleMatchesAccount } from "@/lib/roles/rules";
 import { getUserDto, USER_NOT_FOUND_MESSAGE } from "./queries";
 import {
   assertCreatableRole,
@@ -56,6 +57,15 @@ function mapEmailRace(error: unknown): never {
   throw emailTaken();
 }
 
+/** Peran akses RBAC akun baru (2026-10-07): wajib berjenis akun sama; peran sistem disimpan sebagai NULL. */
+async function pickAccessRole(tx: Tx, id: string | undefined, role: UserRole): Promise<string | null> {
+  if (!id) return null;
+  const found = await tx.accessRole.findUnique({ where: { id }, select: { baseRole: true, isSystem: true } });
+  if (!found) throw notFound("Peran akses tidak ditemukan.");
+  assertRoleMatchesAccount(found.baseRole, role);
+  return found.isSystem ? null : id;
+}
+
 /** Sekolah harus aktif; admin sekolah pertama menjadi admin utama (login NPSN). true = admin utama. */
 async function planSchoolAdmin(tx: Tx, schoolId: string, email: string | undefined): Promise<boolean> {
   const school = await tx.school.findUnique({ where: { id: schoolId }, select: { isActive: true, npsn: true } });
@@ -81,11 +91,12 @@ export async function createUser(input: CreateUserInput, ctx: ActionContext): Pr
   const userId = await withTx(async (tx) => {
     const primary = schoolId ? await planSchoolAdmin(tx, schoolId, input.email) : false;
     const primarySchoolId = primary ? schoolId : null;
+    const accessRoleId = await pickAccessRole(tx, input.accessRoleId, input.role);
     const created = await tx.user.create({
-      data: { role: input.role, name: input.name, email, schoolId, primarySchoolId, passwordHash, mustChangePassword: true, tempPasswordExpiresAt: plan.tempPasswordExpiresAt },
+      data: { role: input.role, name: input.name, email, schoolId, primarySchoolId, accessRoleId, passwordHash, mustChangePassword: true, tempPasswordExpiresAt: plan.tempPasswordExpiresAt },
       select: { id: true },
     });
-    const after = { role: input.role, name: input.name, email, schoolId, primary, credential: plan.kind };
+    const after = { role: input.role, name: input.name, email, schoolId, primary, credential: plan.kind, accessRoleId };
     await writeAudit(tx, { action: "user.create", entityType: "User", entityId: created.id, schoolId, after }, ctx);
     return created.id;
   }).catch(mapEmailRace);

@@ -99,6 +99,12 @@ const SCHOOL_CASES: readonly CheckCase[] = [
     valid: () => createSchool({ data: { schoolDaysMask: 127 } }),
   },
   {
+    // Absen pulang (2026-10-07): hanya rentang menit; urutan terhadap jam masuk diperiksa aplikasi.
+    constraint: "chk_school_checkout_open",
+    violations: [() => updateSchool({ checkOutOpenMinute: 0 }), () => updateSchool({ checkOutOpenMinute: 1440 })],
+    valid: () => createSchool({ data: { checkOutOpenMinute: 1439 } }),
+  },
+  {
     // Pengingat absen (N5): 5..120 menit sebelum jam masuk.
     constraint: "chk_school_reminder_lead",
     violations: [() => updateSchool({ attendanceReminderLeadMinutes: 4 }), () => updateSchool({ attendanceReminderLeadMinutes: 121 })],

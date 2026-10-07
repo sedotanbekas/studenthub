@@ -33,6 +33,8 @@ export interface AccountRow extends AccountView {
   /** Opsional: data demo lama/klien lama mungkin belum memuatnya. */
   readonly logins?: ReadonlyArray<{ readonly kind: LoginKind; readonly value: string }>;
   readonly password?: PasswordView;
+  /** Peran akses RBAC (2026-10-07); null/tidak ada = peran bawaan jenis akunnya. */
+  readonly accessRole?: { readonly id: string; readonly name: string; readonly isSystem: boolean } | null;
 }
 
 /** Waktu WIB (zona pemilik platform), sama dengan layar super admin lain (review-rules). */

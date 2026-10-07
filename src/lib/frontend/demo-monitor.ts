@@ -87,6 +87,10 @@ const LATE_REASONS: Readonly<Record<string, readonly [LateReasonCode, string | n
 };
 const REASON_DELAY_MINUTES = 2;
 
+/** Absen pulang contoh (2026-10-07): beberapa siswa sudah pulang; persona siswa sengaja belum agar alurnya bisa dicoba. */
+const CHECK_OUTS: Readonly<Record<string, string>> = { d12: "14:02", d13: "14:05", d22: "14:11", d36: "14:20", d38: "14:07" };
+const checkOutOf = (studentId: string): string | null => CHECK_OUTS[studentId] ?? null;
+
 const FLAG_TEXT: Readonly<Partial<Record<AnomalyCode, readonly [string, AnomalySeverity]>>> = {
   DEVICE_SESSION_MISMATCH: ["Perangkat berbeda dengan perangkat saat login", "MEDIUM"],
   FACE_NOT_DETECTED: ["Wajah tidak terdeteksi otomatis saat foto diambil — periksa fotonya", "MEDIUM"],
@@ -124,7 +128,7 @@ function toPoint([id, time, spot, accuracyM, flags = []]: LocatedSpec): MapPoint
     attendanceId: attendanceIdOf(id), studentId: id, name: s.name, nis: s.nis, className: s.className,
     status: time > LATE_AFTER ? "TERLAMBAT" : "HADIR", ...coord, accuracyM, distanceM: distanceFromSchool(coord),
     checkInTimeLocal: time, hasAnomaly: flagsHaveAnomaly(flags), flags: [...flags], lateReasonCategory: LATE_REASONS[id]?.[0] ?? null,
-    needsReview: flagsHaveAnomaly(flags), reviewDecision: null,
+    needsReview: flagsHaveAnomaly(flags), reviewDecision: null, checkOutTimeLocal: checkOutOf(id),
   };
 }
 
@@ -189,7 +193,7 @@ export function demoDailyRows(date: string = todayWib()): DailyRowDto[] {
   const located = map.points.map((p): DailyRowDto => ({ student: brief(p.studentId), attendance: pointBrief(p, date) }));
   const others = map.unlocated.map((u): DailyRowDto => {
     const detail = u.attendanceId ? demoAttendanceDetail(u.attendanceId, date) : null;
-    return { student: brief(u.studentId), attendance: detail && { id: detail.id, status: detail.status, source: detail.source, checkInTimeLocal: null, lateMinutes: null, distanceM: null, accuracyM: null, hasAnomaly: false, flags: [], leaveRequestId: detail.leaveRequestId, note: detail.note, lateReason: null, needsReview: false, reviewDecision: null } };
+    return { student: brief(u.studentId), attendance: detail && { id: detail.id, status: detail.status, source: detail.source, checkInTimeLocal: null, lateMinutes: null, distanceM: null, accuracyM: null, hasAnomaly: false, flags: [], leaveRequestId: detail.leaveRequestId, note: detail.note, lateReason: null, needsReview: false, reviewDecision: null, checkOutTimeLocal: null } };
   });
   return [...located, ...others].sort((a, b) => (a.student.className ?? "").localeCompare(b.student.className ?? "") || a.student.name.localeCompare(b.student.name));
 }
@@ -204,7 +208,7 @@ function pointBrief(p: MapPoint, date: string): DailyRowDto["attendance"] & obje
     id: p.attendanceId, status: p.status, source: invalid ? "ADMIN" : "CHECKIN", checkInTimeLocal: p.checkInTimeLocal,
     lateMinutes: p.status === "TERLAMBAT" ? minuteOf(p.checkInTimeLocal ?? "07:00") - DAY_START_MINUTE : null, distanceM: p.distanceM, accuracyM: p.accuracyM,
     hasAnomaly: p.hasAnomaly, flags: p.flags, leaveRequestId: null, note: invalid ? review.note : null, lateReason: lateReasonOf(p, date),
-    needsReview: p.needsReview, reviewDecision: p.reviewDecision,
+    needsReview: p.needsReview, reviewDecision: p.reviewDecision, checkOutTimeLocal: checkOutOf(p.studentId),
   };
 }
 
@@ -252,7 +256,16 @@ function detailBase(id: string, date: string): Omit<RecordDetailDto, "status" | 
     id: attendanceIdOf(id), date, checkInAt: null, checkInTimeLocal: null, lateMinutes: null, latitude: null, longitude: null,
     accuracyM: null, distanceM: null, isMocked: null, deviceId: null, locationCapturedAt: null, hasAnomaly: false, flags: [],
     leaveRequestId: null, note: null, lateReason: null, needsReview: false, reviewDecision: null, review: null, classId: null, className: s.className, student: { id, nis: s.nis, nisn: s.nisn, name: s.name, className: s.className },
-    selfie: null, rejectionsSameDay: [], audit: [], createdAt: created, updatedAt: created,
+    selfie: null, checkOutTimeLocal: null, checkOut: null, rejectionsSameDay: [], audit: [], createdAt: created, updatedAt: created,
+  };
+}
+
+function demoCheckOut(point: MapPoint, date: string, deviceId: string): RecordDetailDto["checkOut"] {
+  const time = checkOutOf(point.studentId);
+  if (!time) return null;
+  return {
+    at: isoAt(date, minuteOf(time)), timeLocal: time, latitude: point.latitude, longitude: point.longitude, accuracyM: point.accuracyM,
+    distanceM: point.distanceM, deviceId, selfie: { fileId: `demo-selfie-out-${point.studentId}`, url: null, purged: false },
   };
 }
 
@@ -274,6 +287,7 @@ function pointDetail(point: MapPoint, date: string): RecordDetailDto {
     accuracyM: point.accuracyM, distanceM: point.distanceM, isMocked: false, deviceId, locationCapturedAt: isoAt(date, minute, 6),
     hasAnomaly: point.hasAnomaly, flags: point.flags.map(code => ({ code, label: FLAG_TEXT[code]?.[0] ?? code, severity: FLAG_TEXT[code]?.[1] ?? "LOW" })), lateReason: lateReasonOf(point, date),
     selfie: { fileId: `demo-selfie-${point.studentId}`, url: null, purged: false }, rejectionsSameDay: outside ? [rejection] : [], createdAt: at, updatedAt: at,
+    checkOutTimeLocal: brief.checkOutTimeLocal, checkOut: demoCheckOut(point, date, deviceId),
   };
 }
 

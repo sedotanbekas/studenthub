@@ -68,6 +68,9 @@ model School {
   checkInCloseMinute   Int            @default(600) @db.SmallInt
   /// Setelah menit ini job AUTO_ALPHA menutup hari tersebut.
   dayEndMinute         Int            @default(900) @db.SmallInt
+  /// Absen pulang dibuka mulai menit lokal ini sampai akhir hari (2026-10-07; default 14:00). Aplikasi mewajibkan
+  /// startMinute < checkOutOpenMinute < 1440; DB hanya menjaga rentang (chk_school_checkout_open) agar baris lama tetap sah.
+  checkOutOpenMinute   Int            @default(840) @db.SmallInt
   /// Bitmask: Sen=1 Sel=2 Rab=4 Kam=8 Jum=16 Sab=32 Min=64. 31 = Sen-Jum, 63 = Sen-Sab.
   schoolDaysMask       Int            @default(31) @db.TinyInt
   /// Pengingat absen (N5): push ke siswa yang belum absen `attendanceReminderLeadMinutes` menit sebelum jam masuk

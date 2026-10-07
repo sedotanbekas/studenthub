@@ -29,8 +29,8 @@ function persona(key: string, label: string, caption: string, role: Role, name: 
 export const DEMO_PERSONAS: readonly DemoPersona[] = [
   persona("SCHOOL_ADMIN", "Admin sekolah", "Adinda Putri", "SCHOOL_ADMIN", "Adinda Putri"),
   persona("STUDENT", "Siswa · Alya", "X IPA 1 · belum absen", "STUDENT", "Alya Putri Ramadhani", { className: "X IPA 1", studentId: "s1" }),
-  persona("STUDENT_BIMA", "Siswa · Bima", "X IPA 1 · sudah hadir", "STUDENT", "Bima Aditya Pratama", { className: "X IPA 1", studentId: "s2", todayRecord: { id: "demo-att-bima", status: "HADIR", source: "CHECKIN", checkInTimeLocal: "06:42", lateMinutes: null, lateReason: null, lateReasonEditable: false } }),
-  persona("STUDENT_CITRA", "Siswa · Citra", "XI IPS 2 · terlambat", "STUDENT", "Citra Ayu Lestari", { className: "XI IPS 2", studentId: "s3", todayRecord: { id: "demo-att-citra", status: "TERLAMBAT", source: "CHECKIN", checkInTimeLocal: "07:31", lateMinutes: 31, lateReason: null, lateReasonEditable: true } }),
+  persona("STUDENT_BIMA", "Siswa · Bima", "X IPA 1 · sudah hadir", "STUDENT", "Bima Aditya Pratama", { className: "X IPA 1", studentId: "s2", todayRecord: { id: "demo-att-bima", status: "HADIR", source: "CHECKIN", checkInTimeLocal: "06:42", lateMinutes: null, lateReason: null, lateReasonEditable: false, checkOutTimeLocal: null } }),
+  persona("STUDENT_CITRA", "Siswa · Citra", "XI IPS 2 · terlambat", "STUDENT", "Citra Ayu Lestari", { className: "XI IPS 2", studentId: "s3", todayRecord: { id: "demo-att-citra", status: "TERLAMBAT", source: "CHECKIN", checkInTimeLocal: "07:31", lateMinutes: 31, lateReason: null, lateReasonEditable: true, checkOutTimeLocal: null } }),
   persona("SPONSOR", "Sponsor", "PT Cahaya Ilmu Nusantara", "SPONSOR", "Rizky Pratama", { sponsor: { id: "demo-sponsor", companyName: "PT Cahaya Ilmu Nusantara" } }),
   persona("SUPER_ADMIN", "Super admin", "Pengelola platform", "SUPER_ADMIN", "Dimas Wicaksono"),
 ];

@@ -26,6 +26,7 @@ const scheduleShape = {
   lateToleranceMinutes: z.int().optional().meta({ description: "Toleransi terlambat 0..120 menit." }),
   checkInCloseMinute: minute("Jam tutup absensi").optional(),
   dayEndMinute: minute("Akhir hari sekolah; setelah ini auto-ALPHA berjalan").optional(),
+  checkOutOpenMinute: minute("Jam absen pulang mulai dibuka (sampai akhir hari); harus setelah jam masuk").optional(),
   schoolDaysMask: z.int().optional().meta({ description: "Bitmask hari sekolah: Sen=1 Sel=2 Rab=4 Kam=8 Jum=16 Sab=32 Min=64." }),
 };
 
@@ -105,8 +106,8 @@ const iso = z.iso.datetime();
 const regionRef = z.object({ code: z.string(), name: z.string() });
 
 export const scheduleLabelsSchema = z
-  .object({ checkInOpen: z.string(), start: z.string(), lateAfter: z.string(), checkInClose: z.string(), dayEnd: z.string() })
-  .meta({ description: "Jadwal dalam format HH:mm waktu lokal; lateAfter = batas akhir tepat waktu (masuk + toleransi)." });
+  .object({ checkInOpen: z.string(), start: z.string(), lateAfter: z.string(), checkInClose: z.string(), dayEnd: z.string(), checkOutOpen: z.string() })
+  .meta({ description: "Jadwal dalam format HH:mm waktu lokal; lateAfter = batas akhir tepat waktu (masuk + toleransi); checkOutOpen = absen pulang dibuka." });
 
 export const schoolSchema = z
   .object({
@@ -127,6 +128,7 @@ export const schoolSchema = z
     lateToleranceMinutes: z.int(),
     checkInCloseMinute: z.int(),
     dayEndMinute: z.int(),
+    checkOutOpenMinute: z.int().meta({ description: "Absen pulang dibuka mulai menit lokal ini (default 840 = 14:00)." }),
     schoolDaysMask: z.int(),
     schedule: scheduleLabelsSchema,
     schoolDays: z.array(z.enum(DAY_CODES)),

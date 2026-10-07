@@ -59,7 +59,9 @@ model StoredFile {
   sponsor    Sponsor? @relation(fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   uploadedBy User     @relation(fields: [uploadedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
-  attendance        Attendance?
+  attendance        Attendance?  @relation("AttendanceSelfie")
+  /// Selfie absen pulang (2026-10-07).
+  checkOutAttendance Attendance? @relation("AttendanceCheckOutSelfie")
   leaveRequest      LeaveRequest?
   paymentSubmission PaymentSubmission?
   topUpRequest      TopUpRequest?

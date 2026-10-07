@@ -5,6 +5,7 @@ import { DEVICE_ID_PATTERN } from "@/lib/auth/constants";
 import { DAY_REASONS } from "@/lib/calendar/rules";
 import { FACE_CHECKS } from "./anomaly-rules";
 import { LOCATION_REJECT_CODES } from "./check-in-rules";
+import { CHECK_OUT_BLOCK_REASONS } from "./check-out-rules";
 import { lateReasonSchema } from "./late-reason-schemas";
 
 /** Skema zod v4 endpoint absensi siswa: hari ini, precheck, check-in, riwayat bulanan, ringkasan semester. */
@@ -18,6 +19,7 @@ const EPOCH_TEXT = /^\d{1,16}$/;
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const TIME_LOCAL = z.string().meta({ description: "Jam lokal sekolah HH:mm.", example: "07:05" });
+const CHECKOUT_TIME_LOCAL = z.string().nullable().meta({ description: "Jam lokal absen pulang HH:mm; null = belum absen pulang.", example: "14:05" });
 
 /** Angka desimal dalam field multipart (string). String kosong / "0x10" / "1e3" ditolak 400. */
 function decimalText(field: string, min: number, max: number, description: string, example: string) {
@@ -85,8 +87,18 @@ export const checkInBody = z
   .meta({ id: "AttendanceCheckInInput" });
 export type CheckInBody = z.output<typeof checkInBody>;
 
+/** Absen pulang (2026-10-07): field multipart SAMA dengan check-in; faceCheck diterima tetapi tidak dipakai. */
+export const checkOutBody = checkInBody.meta({ id: "AttendanceCheckOutInput" });
+export type CheckOutBody = z.output<typeof checkOutBody>;
+
+export const PRECHECK_PURPOSES = ["CHECK_IN", "CHECK_OUT"] as const;
+
 export const precheckBody = z
   .strictObject({
+    purpose: z
+      .enum(PRECHECK_PURPOSES, "purpose harus CHECK_IN atau CHECK_OUT.")
+      .optional()
+      .meta({ description: "CHECK_IN (default bila tidak dikirim) = keputusan absen masuk; CHECK_OUT = keputusan absen pulang (2026-10-07)." }),
     latitude: z.number().min(-90, "latitude minimal -90.").max(90, "latitude maksimal 90.").meta({ example: -6.9147 }),
     longitude: z.number().min(-180, "longitude minimal -180.").max(180, "longitude maksimal 180.").meta({ example: 107.6098 }),
     accuracy: z.number().min(0).max(MAX_ACCURACY_INPUT_M).nullable().optional().meta({ description: ACCURACY_DESC, example: 12.5 }),
@@ -122,7 +134,10 @@ export type SummaryQuery = z.output<typeof summaryQuery>;
 
 export const WINDOW_STATES = ["BEFORE_OPEN", "OPEN", "CLOSED"] as const;
 export const BLOCK_REASONS = ["ALREADY_CHECKED_IN", "ATTENDANCE_ALREADY_RECORDED", "NOT_SCHOOL_DAY", "CHECKIN_NOT_OPEN", "CHECKIN_CLOSED"] as const;
-export const PRECHECK_REASONS = [...BLOCK_REASONS, ...LOCATION_REJECT_CODES] as const;
+/** Alasan tombol absen pulang dinonaktifkan (2026-10-07); sumber: check-out-rules.ts. */
+export const CHECKOUT_BLOCK_REASONS = CHECK_OUT_BLOCK_REASONS;
+/** Nilai baru selalu di UJUNG (klien lama memakai urutan lama). */
+export const PRECHECK_REASONS = [...BLOCK_REASONS, ...LOCATION_REJECT_CODES, "NOT_CHECKED_IN", "ALREADY_CHECKED_OUT", "CHECKOUT_NOT_OPEN"] as const;
 
 const statusSchema = z.enum(AttendanceStatus);
 const sourceSchema = z.enum(AttendanceSource);
@@ -144,6 +159,7 @@ export const todaySchema = z
       lateAfter: TIME_LOCAL.meta({ description: "Check-in SETELAH menit ini = TERLAMBAT (mulai + toleransi)." }),
       closesAt: TIME_LOCAL,
       state: z.enum(WINDOW_STATES),
+      checkOutOpensAt: TIME_LOCAL.meta({ description: "Absen pulang dibuka mulai jam ini sampai akhir hari (School.checkOutOpenMinute).", example: "14:00" }),
     }),
     geofence: z
       .object({
@@ -154,7 +170,15 @@ export const todaySchema = z
       })
       .meta({ description: "Area absensi sekolah. Titik pusat dikirim untuk peta (keputusan klien 2026-09-25: lokasi sekolah sendiri bukan rahasia)." }),
     record: z
-      .object({ id: z.string(), status: statusSchema, source: sourceSchema, checkInTimeLocal: TIME_LOCAL.nullable(), lateMinutes: z.int().nullable(), ...lateReasonShape })
+      .object({
+        id: z.string(),
+        status: statusSchema,
+        source: sourceSchema,
+        checkInTimeLocal: TIME_LOCAL.nullable(),
+        lateMinutes: z.int().nullable(),
+        ...lateReasonShape,
+        checkOutTimeLocal: CHECKOUT_TIME_LOCAL,
+      })
       .nullable(),
     pendingLeave: z
       .object({ id: z.string(), type: z.enum(LeaveType), startDate: dateOutSchema, endDate: dateOutSchema })
@@ -162,6 +186,8 @@ export const todaySchema = z
       .meta({ description: "Pengajuan izin/sakit PENDING yang mencakup hari ini." }),
     canCheckIn: z.boolean(),
     blockReason: z.enum(BLOCK_REASONS).nullable().meta({ description: "Null bila canCheckIn = true." }),
+    canCheckOut: z.boolean().meta({ description: "Boleh absen pulang sekarang (POST /student/attendance/check-out)." }),
+    checkOutBlockReason: z.enum(CHECKOUT_BLOCK_REASONS).nullable().meta({ description: "Null bila canCheckOut = true." }),
     testMode: z.boolean().meta({ description: "Mode uji absensi (sementara) aktif: jarak ke sekolah dan jam/hari absen tidak diperiksa." }),
   })
   .meta({ id: "AttendanceToday" });
@@ -185,6 +211,24 @@ export const checkInResultSchema = z
   .object({ attendance: checkInAttendanceSchema, replayed: z.boolean(), message: z.string() })
   .meta({ id: "AttendanceCheckInResult" });
 export type CheckInResultDto = z.infer<typeof checkInResultSchema>;
+
+export const checkOutResultSchema = z
+  .object({
+    attendance: z
+      .object({
+        id: z.string(),
+        date: dateOutSchema,
+        status: statusSchema,
+        checkInTimeLocal: TIME_LOCAL.nullable(),
+        checkOutAt: z.string().meta({ description: "Instant server (ISO UTC)." }),
+        checkOutTimeLocal: TIME_LOCAL,
+        checkOutDistanceM: z.int().nullable().meta({ description: "Jarak ke sekolah saat absen pulang (meter)." }),
+      })
+      .meta({ id: "AttendanceCheckOutRecord" }),
+    message: z.string(),
+  })
+  .meta({ id: "AttendanceCheckOutResult" });
+export type CheckOutResultDto = z.infer<typeof checkOutResultSchema>;
 
 export const precheckResultSchema = z
   .object({
@@ -216,6 +260,7 @@ export const historySchema = z
         checkInTimeLocal: TIME_LOCAL.nullable(),
         lateMinutes: z.int().nullable(),
         leaveRequestId: z.string().nullable(),
+        checkOutTimeLocal: CHECKOUT_TIME_LOCAL,
       }),
     ),
     nonSchoolDays: z.array(z.object({ date: dateOutSchema, reason: z.enum(DAY_REASONS), name: z.string().nullable() })),

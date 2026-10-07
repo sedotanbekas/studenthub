@@ -4,6 +4,8 @@ import { lateReasonBody, lateReasonResultSchema } from "./late-reason-schemas";
 import {
   checkInBody,
   checkInResultSchema,
+  checkOutBody,
+  checkOutResultSchema,
   historyMetaSchema,
   historyQuery,
   historySchema,
@@ -33,7 +35,7 @@ export const todayAttendanceContract = defineContract({
   path: "/api/v1/student/attendance/today",
   tag: TAG,
   summary: "Status absensi hari ini (layar Absensi)",
-  description: `Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), area absensi (radius + titik pusat sekolah untuk peta), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. ${MOBILE_NOTE} ${SELF_NOTE}`,
+  description: `Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), area absensi (radius + titik pusat sekolah untuk peta), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. Absen pulang (2026-10-07): window.checkOutOpensAt, record.checkOutTimeLocal, canCheckOut/checkOutBlockReason. ${MOBILE_NOTE} ${SELF_NOTE}`,
   action: "attendance.self",
   response: todaySchema,
   errors: ["STUDENT_NOT_ACTIVE", "CHECKIN_MOBILE_ONLY"],
@@ -47,6 +49,7 @@ export const precheckAttendanceContract = defineContract({
   summary: "Cek lokasi sebelum memotret selfie",
   description:
     "Menjalankan keputusan yang SAMA dengan check-in tanpa selfie. ok=false + reason bila check-in akan ditolak. " +
+    "purpose=CHECK_OUT menjalankan keputusan absen pulang (reason NOT_CHECKED_IN / ALREADY_CHECKED_OUT / CHECKOUT_NOT_OPEN / NOT_SCHOOL_DAY / lokasi; wouldBeLate selalu false; tidak mencatat percobaan apa pun). " +
     "Lokasi palsu (reason MOCK_LOCATION) DICATAT sebagai percobaan ditolak untuk admin (kuota 20/hari bersama check-in); penolakan lain tidak dicatat. " +
     "distanceM hanya diisi bila keputusan mencapai langkah geofence (ok=true atau OUTSIDE_GEOFENCE), selain itu null. " +
     `Berbagi rate limit CHECK_IN (10 / 10 menit) dengan check-in. ${MOBILE_NOTE} ${SELF_NOTE}`,
@@ -77,6 +80,43 @@ export const checkInAttendanceContract = defineContract({
     "CHECKIN_MOBILE_ONLY",
     "ATTENDANCE_ALREADY_RECORDED",
     ...CALENDAR_ERRORS,
+    ...LOCATION_ERRORS,
+    "IMAGE_UNREADABLE",
+    "IMAGE_TOO_SMALL",
+    "IMAGE_TOO_LARGE",
+    "HEIC_NOT_SUPPORTED",
+    "CONFLICT_RETRY",
+    "SERVICE_UNAVAILABLE",
+  ],
+});
+
+const CHECK_OUT_RULES =
+  "Urutan: catatan hari ini sudah absen masuk (HADIR/TERLAMBAT dengan jam masuk; selain itu 422 NOT_CHECKED_IN) -> belum absen pulang (409 ALREADY_CHECKED_OUT {checkOutTimeLocal}) -> " +
+  "hari sekolah (422 NOT_SCHOOL_DAY) -> jam buka absen pulang School.checkOutOpenMinute s.d. akhir hari (422 CHECKOUT_NOT_OPEN {opensAt}) -> " +
+  "lokasi SAMA dengan check-in (INVALID_LOCATION, MOCK_LOCATION, LOCATION_STALE, GPS_ACCURACY_TOO_LOW, OUTSIDE_GEOFENCE). Mode uji: hari, jam, dan geofence tidak menolak.";
+
+export const checkOutAttendanceContract = defineContract({
+  id: "checkOutOwnAttendance",
+  method: "POST",
+  path: "/api/v1/student/attendance/check-out",
+  tag: TAG,
+  summary: "Absen pulang dengan selfie + lokasi",
+  description: `Absen pulang (permintaan pemilik 2026-10-07), sekali per hari. Field multipart SAMA dengan check-in (faceCheck diabaikan). ${CHECK_OUT_RULES} 201 = tercatat; percobaan kedua -> 409 ALREADY_CHECKED_OUT (selfie kedua dibuang). Selfie hanya diproses bila diterima (415 format, 413 ukuran, 422 IMAGE_*). Status hadir/terlambat tidak berubah. Berbagi rate limit CHECK_IN dengan precheck & check-in. ${MOBILE_NOTE} ${SELF_NOTE}`,
+  action: "attendance.self",
+  body: checkOutBody,
+  bodyType: "multipart",
+  maxBodyBytes: CHECKIN_MAX_BODY_BYTES,
+  response: checkOutResultSchema,
+  successStatus: 201,
+  rateLimit: { limiter: "CHECK_IN", key: "user" },
+  errors: [
+    "STUDENT_NOT_ACTIVE",
+    "CHECKIN_MOBILE_ONLY",
+    "IMPERSONATION_FORBIDDEN",
+    "NOT_CHECKED_IN",
+    "ALREADY_CHECKED_OUT",
+    "NOT_SCHOOL_DAY",
+    "CHECKOUT_NOT_OPEN",
     ...LOCATION_ERRORS,
     "IMAGE_UNREADABLE",
     "IMAGE_TOO_SMALL",
@@ -136,6 +176,7 @@ export const attendanceStudentContracts: readonly AnyContract[] = [
   todayAttendanceContract,
   precheckAttendanceContract,
   checkInAttendanceContract,
+  checkOutAttendanceContract,
   lateReasonContract,
   attendanceMonthContract,
   attendanceSummaryContract,

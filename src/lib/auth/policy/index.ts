@@ -48,6 +48,10 @@ export function authorize(principal: Principal, action: Action): void {
   if (!rule.roles.includes(principal.role)) {
     throw forbidden("FORBIDDEN", "Anda tidak memiliki akses untuk aksi ini.");
   }
+  // RBAC (2026-10-07): peran akses mempersempit hak bawaan jenis akun.
+  if (principal.grants && !principal.grants.has(action)) {
+    throw forbidden("FORBIDDEN", "Peran akses Anda tidak memiliki hak untuk aksi ini. Hubungi admin.");
+  }
   if (rule.blockedWhenImpersonating && principal.impersonatorId !== null) {
     throw forbidden("IMPERSONATION_FORBIDDEN", "Tidak tersedia saat Masuk sebagai: keamanan akun hanya bisa diubah pemiliknya.");
   }

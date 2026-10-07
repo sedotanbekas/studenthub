@@ -66,7 +66,7 @@ function useAppearance(me: Identity | null) {
 /** Bagian milik peran lain (mis. lewat tombol kembali setelah ganti akun) -> alihkan ke beranda. */
 function useSectionGuard(me: Identity | null, section: string) {
   const router = useRouter();
-  const forbidden = Boolean(me && !isRestricted(me) && isKnownSection(section) && !sectionAllowed(me.user.role, section));
+  const forbidden = Boolean(me && !isRestricted(me) && isKnownSection(section) && !sectionAllowed(me.user.role, section, me.permissions));
   useEffect(() => { if (forbidden) { cancelPageSlide(); router.replace("/hub", { scroll: false }); } }, [forbidden, router]);
 }
 
@@ -118,12 +118,12 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
   // Suspense: halaman masuk (HTML server) dihidrasi bertahap setelah kerangka, bukan dalam satu long task (TBT).
   if (!me) return <><Suspense fallback={null}><Login env={env} notice={session.loginNotice} onLogin={session.login} onDemo={session.startDemo} /></Suspense>{toast}</>;
   const restricted = isRestricted(me);
-  const { home, module: current } = resolveSection(me.user.role, restricted, section);
+  const { home, module: current } = resolveSection(me.user.role, restricted, section, me.permissions);
   const value = { me, demo, schoolId, setSchoolId: session.setSchoolId, toast: session.setNotice, reloadMe: session.reloadMe, logout: session.logout, saveDemoTheme: session.saveDemoTheme };
   return <HubContext.Provider value={value}><div className="app-shell">
     {drawer.open && <button className="sidebar-overlay" aria-label="Tutup navigasi" onClick={() => drawer.hide()} />}
     {/* "Masuk sebagai": Keluar = kembali ke akun super admin (sesi super admin disimpan proxy web). */}
-    <Sidebar me={me} env={env} modules={modulesFor(me.user.role)} current={current} home={home} unread={unread} open={drawer.open} onNavigate={() => drawer.hide(false)} onLogout={me.impersonation ? endImpersonation : session.logout} />
+    <Sidebar me={me} env={env} modules={modulesFor(me.user.role, me.permissions)} current={current} home={home} unread={unread} open={drawer.open} onNavigate={() => drawer.hide(false)} onLogout={me.impersonation ? endImpersonation : session.logout} />
     <div className="main-shell" inert={drawer.open}><Topbar key={me.user.id} title={current?.title ?? "Beranda"} home={home || restricted} unread={unread} me={me} env={env} onMenu={drawer.show} />
       {/* .hub-view = seluruh isi yang ikut tergulir, digeser utuh saat pindah halaman (page-slide.ts). */}
       <main id="main-content" className="page-content"><div className="hub-view">{me.impersonation && <ImpersonationBanner me={me} />}{demo && <DemoBanner me={me} onPersona={session.switchPersona} onExit={session.logout} />}

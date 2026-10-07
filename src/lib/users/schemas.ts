@@ -14,6 +14,12 @@ const nameSchema = z.string().trim().min(3).max(100);
 const passwordInput = z.string().min(1).max(200);
 const booleanQuery = z.enum(["true", "false"]).transform((value) => value === "true");
 
+/** Peran akses RBAC terpasang (2026-10-07); null = peran sistem jenis akunnya. */
+export const accessRoleRef = z
+  .object({ id: z.string(), name: z.string(), isSystem: z.boolean() })
+  .nullable()
+  .meta({ description: "Peran akses RBAC; null = peran sistem jenis akunnya." });
+
 export const userIdParams = z.object({ id: idString.meta({ description: "ID pengguna." }) });
 
 export const listUsersQuery = pageQuerySchema.extend({
@@ -33,6 +39,7 @@ export const createUserBody = z.strictObject({
   }),
   schoolId: idString.optional().meta({ description: "Wajib untuk SCHOOL_ADMIN (sekolah harus aktif); dilarang untuk SUPER_ADMIN." }),
   initialPassword: passwordInput.optional().meta({ description: "Opsional; bila kosong sistem membuat kata sandi sementara (14 hari)." }),
+  accessRoleId: idString.optional().meta({ description: "Peran akses RBAC berjenis akun sama; kosong = peran sistem." }),
 });
 export type CreateUserInput = z.output<typeof createUserBody>;
 
@@ -91,6 +98,7 @@ export const platformUserSchema = z
     student: z
       .object({ id: z.string(), nisn: z.string(), nis: z.string(), status: z.enum(STUDENT_STATUSES), className: z.string().nullable() })
       .nullable(),
+    accessRole: accessRoleRef,
   })
   .meta({ id: "PlatformUser" });
 

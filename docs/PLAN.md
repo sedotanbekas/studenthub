@@ -21,7 +21,7 @@ pada langkah pertama**. Bila dokumen desain bertentangan dengan rencana ini, **r
 | App siswa (nanti) | Expo React Native → Bearer token + refresh token + Expo push |
 | Web (PWA) | manifest + `/sw.js`, Web Push VAPID ke **semua peran** (keputusan 2026-10-03, N3); iPhone: iOS 16.4+ dan "Tambah ke Layar Utama" dulu |
 | Login siswa | NISN + password; wajib ganti password saat login pertama |
-| Absensi | Check-in geofence + **selfie wajib**, Terlambat, Izin/Sakit (lampiran + approval), Alpha otomatis; tanpa absen pulang |
+| Absensi | Check-in geofence + **selfie wajib**, Terlambat, Izin/Sakit (lampiran + approval), Alpha otomatis; **absen pulang** (permintaan pemilik 2026-10-07): sekali per hari setelah absen masuk, mulai `School.checkOutOpenMinute` (default 14:00) s.d. akhir hari, geofence + selfie sama dengan check-in, tidak mengubah status hadir/terlambat |
 | Fake GPS | **Ditolak** (422) + percobaan dicatat untuk admin |
 | Retensi selfie | **180 hari** (foto dihapus, catatan absensi tetap) |
 | SPP | Admin buat tagihan; siswa unggah bukti; admin verifikasi; **cicilan/sebagian boleh** |

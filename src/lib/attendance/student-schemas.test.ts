@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkInBody, historyQuery, precheckBody } from "./student-schemas";
+import { checkInBody, checkOutBody, historyQuery, precheckBody } from "./student-schemas";
 
 const selfie = () => new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "selfie.jpg", { type: "image/jpeg" });
 
@@ -68,4 +68,17 @@ test("query riwayat: format YYYY-MM", () => {
   assert.equal(historyQuery.safeParse({}).success, true);
   assert.equal(historyQuery.safeParse({ month: "2026-13" }).success, false);
   assert.equal(historyQuery.safeParse({ month: "2026-9" }).success, false);
+});
+
+test("precheck purpose (2026-10-07): opsional (absen masuk), CHECK_OUT untuk absen pulang, nilai lain 400", () => {
+  const body = { latitude: -6.9147, longitude: 107.6098, accuracy: 12, mocked: false, locationTimestamp: 1790000000000, clientTime: 1790000005000 };
+  assert.equal(precheckBody.parse(body).purpose, undefined);
+  assert.equal(precheckBody.parse({ ...body, purpose: "CHECK_OUT" }).purpose, "CHECK_OUT");
+  assert.equal(precheckBody.safeParse({ ...body, purpose: "PULANG" }).success, false);
+});
+
+test("check-out multipart memakai field yang sama dengan check-in; kunci asing (id siswa) ditolak", () => {
+  assert.equal(checkOutBody.parse(form()).latitude, -6.9147);
+  assert.equal(checkOutBody.safeParse(form({ studentId: "siswa-lain" })).success, false);
+  assert.equal(checkOutBody.safeParse(form({ selfie: undefined })).success, false);
 });

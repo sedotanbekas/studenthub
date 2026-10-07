@@ -3042,6 +3042,12 @@
                     "maximum": 9007199254740991,
                     "description": "Akhir hari sekolah; setelah ini auto-ALPHA berjalan (menit sejak 00:00 waktu lokal sekolah)."
                   },
+                  "checkOutOpenMinute": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991,
+                    "description": "Jam absen pulang mulai dibuka (sampai akhir hari); harus setelah jam masuk (menit sejak 00:00 waktu lokal sekolah)."
+                  },
                   "schoolDaysMask": {
                     "description": "Bitmask hari sekolah: Sen=1 Sel=2 Rab=4 Kam=8 Jum=16 Sab=32 Min=64.",
                     "type": "integer",
@@ -3657,7 +3663,7 @@
           "Sekolah - Profil & Pengaturan"
         ],
         "summary": "Ubah jadwal absensi, hari sekolah, & jenjang",
-        "description": "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `schoolDaysMask`, dan `educationLevel`. Jenjang boleh diisi admin sekolah SEKALI selama masih kosong; mengganti jenjang yang sudah terisi -> 409 `EDUCATION_LEVEL_LOCKED` (super admin tetap boleh). Lokasi, geofence, zona waktu, dan rekening SPP HANYA dapat diubah super admin (kunci lain -> 400 `VALIDATION_FAILED`). Hasil merge harus memenuhi 0 <= buka < masuk <= tutup, tutup + 5 menit <= akhir hari < 1440, dan masuk + toleransi < tutup (422 `SCHOOL_CONFIG_INVALID`). Baris absensi yang SUDAH tercatat tidak ditulis ulang; aturan baru berlaku untuk hari/check-in berikutnya. Diaudit sebagai `school.settings_update`.\n\nAksi POLICY: `schools.settings.update`.",
+        "description": "Hanya `checkInOpenMinute`, `startMinute`, `lateToleranceMinutes`, `checkInCloseMinute`, `dayEndMinute`, `checkOutOpenMinute` (jam absen pulang, 2026-10-07), `schoolDaysMask`, dan `educationLevel`. Jenjang boleh diisi admin sekolah SEKALI selama masih kosong; mengganti jenjang yang sudah terisi -> 409 `EDUCATION_LEVEL_LOCKED` (super admin tetap boleh). Lokasi, geofence, zona waktu, dan rekening SPP HANYA dapat diubah super admin (kunci lain -> 400 `VALIDATION_FAILED`). Hasil merge harus memenuhi 0 <= buka < masuk <= tutup, tutup + 5 menit <= akhir hari < 1440, masuk + toleransi < tutup, dan masuk < absen pulang < 1440 (422 `SCHOOL_CONFIG_INVALID`). Baris absensi yang SUDAH tercatat tidak ditulis ulang; aturan baru berlaku untuk hari/check-in berikutnya. Diaudit sebagai `school.settings_update`.\n\nAksi POLICY: `schools.settings.update`.",
         "security": [
           {
             "bearerAuth": []
@@ -3712,6 +3718,12 @@
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991,
                     "description": "Akhir hari sekolah; setelah ini auto-ALPHA berjalan (menit sejak 00:00 waktu lokal sekolah)."
+                  },
+                  "checkOutOpenMinute": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991,
+                    "description": "Jam absen pulang mulai dibuka (sampai akhir hari); harus setelah jam masuk (menit sejak 00:00 waktu lokal sekolah)."
                   },
                   "schoolDaysMask": {
                     "description": "Bitmask hari sekolah: Sen=1 Sel=2 Rab=4 Kam=8 Jum=16 Sab=32 Min=64.",
@@ -4728,6 +4740,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200
+                  },
+                  "accessRoleId": {
+                    "description": "Peran akses RBAC berjenis akun sama; kosong = peran sistem.",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
                   }
                 },
                 "required": [
@@ -6714,6 +6732,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200
+                  },
+                  "accessRoleId": {
+                    "description": "Peran akses berbasis admin sekolah (mis. Guru); kosong = peran sistem Admin sekolah.",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
                   }
                 },
                 "required": [
@@ -7962,6 +7986,1264 @@
           },
           "415": {
             "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access-roles": {
+      "get": {
+        "operationId": "listAccessRoles",
+        "tags": [
+          "Peran & Hak Akses"
+        ],
+        "summary": "Daftar peran akses + jumlah akun pemakai",
+        "description": "Hak efektif akun = aksi yang diizinkan POLICY untuk jenis akunnya DAN dicentang di perannya (RBAC hanya mempersempit). Hak terkunci (masuk, keamanan akun, notifikasi; peran sistem super admin juga kelola peran & pengguna) selalu tercentang. Admin sekolah hanya melihat peran berbasis SCHOOL_ADMIN dan jumlah akun sekolahnya sendiri.\n\nAksi POLICY: `roles.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "baseRole",
+            "schema": {
+              "description": "Saring per jenis akun. Admin sekolah selalu hanya melihat peran SCHOOL_ADMIN.",
+              "type": "string",
+              "enum": [
+                "SUPER_ADMIN",
+                "SCHOOL_ADMIN",
+                "SPONSOR",
+                "STUDENT"
+              ]
+            },
+            "description": "Saring per jenis akun. Admin sekolah selalu hanya melihat peran SCHOOL_ADMIN."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AccessRole"
+                      }
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAccessRole",
+        "tags": [
+          "Peran & Hak Akses"
+        ],
+        "summary": "Buat peran akses baru (boleh menyalin centang peran lain)",
+        "description": "Hak efektif akun = aksi yang diizinkan POLICY untuk jenis akunnya DAN dicentang di perannya (RBAC hanya mempersempit). Hak terkunci (masuk, keamanan akun, notifikasi; peran sistem super admin juga kelola peran & pengguna) selalu tercentang. Aksi bukan untuk jenis akun ini -> 422 INVALID_PERMISSION.\n\nAksi POLICY: `roles.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 100
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "baseRole": {
+                    "type": "string",
+                    "enum": [
+                      "SUPER_ADMIN",
+                      "SCHOOL_ADMIN",
+                      "SPONSOR",
+                      "STUDENT"
+                    ],
+                    "description": "Jenis akun yang bisa memakai peran ini; tidak bisa diubah setelah dibuat."
+                  },
+                  "permissions": {
+                    "description": "Kosong + copyFromId = salin centang peran sumber; kosong tanpa sumber = hanya hak terkunci.",
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  },
+                  "copyFromId": {
+                    "description": "Salin centang dari peran lain berjenis akun sama.",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "name",
+                  "baseRole"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AccessRoleDetail"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON, ROLE_NAME_INVALID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: ROLE_KEY_TAKEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: INVALID_PERMISSION, ROLE_BASE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access-roles/catalog": {
+      "get": {
+        "operationId": "getPermissionCatalog",
+        "tags": [
+          "Peran & Hak Akses"
+        ],
+        "summary": "Katalog hak akses per kelompok (nama, penjelasan, jenis akun yang boleh)",
+        "description": "Aksi POLICY: `roles.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PermissionCatalog"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access-roles/{id}": {
+      "get": {
+        "operationId": "getAccessRole",
+        "tags": [
+          "Peran & Hak Akses"
+        ],
+        "summary": "Detail peran akses + akun pemakainya",
+        "description": "Aksi POLICY: `roles.read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID peran akses."
+            },
+            "required": true,
+            "description": "ID peran akses."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AccessRoleDetail"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateAccessRole",
+        "tags": [
+          "Peran & Hak Akses"
+        ],
+        "summary": "Ubah nama, keterangan, atau centang hak peran akses",
+        "description": "Hak efektif akun = aksi yang diizinkan POLICY untuk jenis akunnya DAN dicentang di perannya (RBAC hanya mempersempit). Hak terkunci (masuk, keamanan akun, notifikasi; peran sistem super admin juga kelola peran & pengguna) selalu tercentang. Mencabut hak kelola peran dari peran yang sedang Anda pakai -> 422 ROLE_SELF_LOCKOUT. Berlaku seketika.\n\nAksi POLICY: `roles.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID peran akses."
+            },
+            "required": true,
+            "description": "ID peran akses."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 100
+                  },
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "permissions": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "description": "Aksi POLICY yang dicentang. Aksi terkunci (masuk, keamanan akun, notifikasi) selalu ikut tercentang."
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AccessRoleDetail"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: INVALID_PERMISSION, ROLE_SELF_LOCKOUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAccessRole",
+        "tags": [
+          "Peran & Hak Akses"
+        ],
+        "summary": "Hapus peran buatan; akun pemakainya kembali ke peran sistem",
+        "description": "Peran sistem -> 409 SYSTEM_ROLE_LOCKED. Peran yang sedang Anda pakai -> 409 ROLE_IN_USE_BY_YOU.\n\nAksi POLICY: `roles.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID peran akses."
+            },
+            "required": true,
+            "description": "ID peran akses."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "usersReset": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "usersReset"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: SYSTEM_ROLE_LOCKED, ROLE_IN_USE_BY_YOU.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/users/{id}/access-role": {
+      "put": {
+        "operationId": "assignPlatformUserAccessRole",
+        "tags": [
+          "Peran & Hak Akses"
+        ],
+        "summary": "Pasang peran akses ke akun mana pun (null = peran sistem)",
+        "description": "Peran wajib berjenis akun sama dengan akun (422 ROLE_BASE_MISMATCH). Mengunci diri sendiri -> 422 ROLE_SELF_LOCKOUT.\n\nAksi POLICY: `roles.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID peran akses."
+            },
+            "required": true,
+            "description": "ID peran akses."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "accessRoleId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Peran berjenis akun sama dengan akun; null = kembali ke peran sistem."
+                  }
+                },
+                "required": [
+                  "accessRoleId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessRole": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "isSystem": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "isSystem"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "accessRole"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: ROLE_BASE_MISMATCH, ROLE_SELF_LOCKOUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/school/admins/{id}/access-role": {
+      "put": {
+        "operationId": "assignSchoolAdminAccessRole",
+        "tags": [
+          "Peran & Hak Akses"
+        ],
+        "summary": "Admin utama memasang peran akses (berbasis admin sekolah) ke guru/admin tambahan",
+        "description": "Hanya akun admin tambahan di sekolah sendiri (admin utama dilindungi -> 403 PRIMARY_ADMIN_PROTECTED). Super admin wajib ?schoolId=.\n\nAksi POLICY: `schoolAdmins.manage`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "ID peran akses."
+            },
+            "required": true,
+            "description": "ID peran akses."
+          },
+          {
+            "in": "query",
+            "name": "schoolId",
+            "schema": {
+              "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan.",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Wajib untuk SUPER_ADMIN; admin sekolah boleh mengosongkan."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "accessRoleId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Peran berjenis akun sama dengan akun; null = kembali ke peran sistem."
+                  }
+                },
+                "required": [
+                  "accessRoleId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessRole": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "isSystem": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "isSystem"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "accessRole"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, PRIMARY_ADMIN_PROTECTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: ROLE_BASE_MISMATCH.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15392,7 +16674,7 @@
           "Absensi Siswa"
         ],
         "summary": "Status absensi hari ini (layar Absensi)",
-        "description": "Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), area absensi (radius + titik pusat sekolah untuk peta), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. Hanya sesi perangkat absen: aplikasi mobile (ANDROID/IOS) ber-deviceId, atau sesi WEB ber-deviceId dari browser HP (User-Agent HP; flag WEB_CHECKIN). Browser desktop / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
+        "description": "Hari sekolah?, jendela buka/terlambat/tutup (HH:mm lokal), area absensi (radius + titik pusat sekolah untuk peta), catatan hari ini, izin PENDING yang mencakup hari ini, dan canCheckIn/blockReason. Absen pulang (2026-10-07): window.checkOutOpensAt, record.checkOutTimeLocal, canCheckOut/checkOutBlockReason. Hanya sesi perangkat absen: aplikasi mobile (ANDROID/IOS) ber-deviceId, atau sesi WEB ber-deviceId dari browser HP (User-Agent HP; flag WEB_CHECKIN). Browser desktop / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
         "security": [
           {
             "bearerAuth": []
@@ -15492,7 +16774,7 @@
           "Absensi Siswa"
         ],
         "summary": "Cek lokasi sebelum memotret selfie",
-        "description": "Menjalankan keputusan yang SAMA dengan check-in tanpa selfie. ok=false + reason bila check-in akan ditolak. Lokasi palsu (reason MOCK_LOCATION) DICATAT sebagai percobaan ditolak untuk admin (kuota 20/hari bersama check-in); penolakan lain tidak dicatat. distanceM hanya diisi bila keputusan mencapai langkah geofence (ok=true atau OUTSIDE_GEOFENCE), selain itu null. Berbagi rate limit CHECK_IN (10 / 10 menit) dengan check-in. Hanya sesi perangkat absen: aplikasi mobile (ANDROID/IOS) ber-deviceId, atau sesi WEB ber-deviceId dari browser HP (User-Agent HP; flag WEB_CHECKIN). Browser desktop / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
+        "description": "Menjalankan keputusan yang SAMA dengan check-in tanpa selfie. ok=false + reason bila check-in akan ditolak. purpose=CHECK_OUT menjalankan keputusan absen pulang (reason NOT_CHECKED_IN / ALREADY_CHECKED_OUT / CHECKOUT_NOT_OPEN / NOT_SCHOOL_DAY / lokasi; wouldBeLate selalu false; tidak mencatat percobaan apa pun). Lokasi palsu (reason MOCK_LOCATION) DICATAT sebagai percobaan ditolak untuk admin (kuota 20/hari bersama check-in); penolakan lain tidak dicatat. distanceM hanya diisi bila keputusan mencapai langkah geofence (ok=true atau OUTSIDE_GEOFENCE), selain itu null. Berbagi rate limit CHECK_IN (10 / 10 menit) dengan check-in. Hanya sesi perangkat absen: aplikasi mobile (ANDROID/IOS) ber-deviceId, atau sesi WEB ber-deviceId dari browser HP (User-Agent HP; flag WEB_CHECKIN). Browser desktop / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
         "security": [
           {
             "bearerAuth": []
@@ -15796,6 +17078,186 @@
           },
           "422": {
             "description": "Pelanggaran aturan bisnis. Kode: NOT_SCHOOL_DAY, CHECKIN_NOT_OPEN, CHECKIN_CLOSED, INVALID_LOCATION, MOCK_LOCATION, LOCATION_STALE, GPS_ACCURACY_TOO_LOW, OUTSIDE_GEOFENCE, IMAGE_UNREADABLE, IMAGE_TOO_SMALL, IMAGE_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak permintaan (lihat header Retry-After). Kode: RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Layanan sedang tidak tersedia. Kode: SERVICE_UNAVAILABLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/student/attendance/check-out": {
+      "post": {
+        "operationId": "checkOutOwnAttendance",
+        "tags": [
+          "Absensi Siswa"
+        ],
+        "summary": "Absen pulang dengan selfie + lokasi",
+        "description": "Absen pulang (permintaan pemilik 2026-10-07), sekali per hari. Field multipart SAMA dengan check-in (faceCheck diabaikan). Urutan: catatan hari ini sudah absen masuk (HADIR/TERLAMBAT dengan jam masuk; selain itu 422 NOT_CHECKED_IN) -> belum absen pulang (409 ALREADY_CHECKED_OUT {checkOutTimeLocal}) -> hari sekolah (422 NOT_SCHOOL_DAY) -> jam buka absen pulang School.checkOutOpenMinute s.d. akhir hari (422 CHECKOUT_NOT_OPEN {opensAt}) -> lokasi SAMA dengan check-in (INVALID_LOCATION, MOCK_LOCATION, LOCATION_STALE, GPS_ACCURACY_TOO_LOW, OUTSIDE_GEOFENCE). Mode uji: hari, jam, dan geofence tidak menolak. 201 = tercatat; percobaan kedua -> 409 ALREADY_CHECKED_OUT (selfie kedua dibuang). Selfie hanya diproses bila diterima (415 format, 413 ukuran, 422 IMAGE_*). Status hadir/terlambat tidak berubah. Berbagi rate limit CHECK_IN dengan precheck & check-in. Hanya sesi perangkat absen: aplikasi mobile (ANDROID/IOS) ber-deviceId, atau sesi WEB ber-deviceId dari browser HP (User-Agent HP; flag WEB_CHECKIN). Browser desktop / sesi tanpa deviceId -> 403 CHECKIN_MOBILE_ONLY. Siswa hanya melihat/menulis absensinya sendiri; id siswa tidak pernah diterima dari request.\n\nAksi POLICY: `attendance.self`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceCheckOutInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AttendanceCheckOutResult"
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED, INVALID_MULTIPART.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH, STUDENT_NOT_ACTIVE, CHECKIN_MOBILE_ONLY, IMPERSONATION_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik status/duplikat. Kode: ALREADY_CHECKED_OUT, CONFLICT_RETRY.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "411": {
+            "description": "Header Content-Length wajib. Kode: LENGTH_REQUIRED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body melebihi batas ukuran. Kode: PAYLOAD_TOO_LARGE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type tidak didukung. Kode: UNSUPPORTED_MEDIA_TYPE, HEIC_NOT_SUPPORTED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Pelanggaran aturan bisnis. Kode: NOT_CHECKED_IN, NOT_SCHOOL_DAY, CHECKOUT_NOT_OPEN, INVALID_LOCATION, MOCK_LOCATION, LOCATION_STALE, GPS_ACCURACY_TOO_LOW, OUTSIDE_GEOFENCE, IMAGE_UNREADABLE, IMAGE_TOO_SMALL, IMAGE_TOO_LARGE.",
             "content": {
               "application/json": {
                 "schema": {
@@ -34149,6 +35611,14 @@
       "AttendancePrecheckInput": {
         "type": "object",
         "properties": {
+          "purpose": {
+            "description": "CHECK_IN (default bila tidak dikirim) = keputusan absen masuk; CHECK_OUT = keputusan absen pulang (2026-10-07).",
+            "type": "string",
+            "enum": [
+              "CHECK_IN",
+              "CHECK_OUT"
+            ]
+          },
           "latitude": {
             "type": "number",
             "minimum": -90,
@@ -34277,6 +35747,9 @@
           "deviceId"
         ],
         "additionalProperties": false
+      },
+      "AttendanceCheckOutInput": {
+        "$ref": "#/components/schemas/AttendanceCheckInInput"
       },
       "AttendanceLateReasonInput": {
         "type": "object",
@@ -36747,6 +38220,12 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "checkOutOpenMinute": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Absen pulang dibuka mulai menit lokal ini (default 840 = 14:00)."
+          },
           "schoolDaysMask": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -36769,6 +38248,9 @@
               },
               "dayEnd": {
                 "type": "string"
+              },
+              "checkOutOpen": {
+                "type": "string"
               }
             },
             "required": [
@@ -36776,10 +38258,11 @@
               "start",
               "lateAfter",
               "checkInClose",
-              "dayEnd"
+              "dayEnd",
+              "checkOutOpen"
             ],
             "additionalProperties": false,
-            "description": "Jadwal dalam format HH:mm waktu lokal; lateAfter = batas akhir tepat waktu (masuk + toleransi)."
+            "description": "Jadwal dalam format HH:mm waktu lokal; lateAfter = batas akhir tepat waktu (masuk + toleransi); checkOutOpen = absen pulang dibuka."
           },
           "schoolDays": {
             "type": "array",
@@ -36917,6 +38400,7 @@
           "lateToleranceMinutes",
           "checkInCloseMinute",
           "dayEndMinute",
+          "checkOutOpenMinute",
           "schoolDaysMask",
           "schedule",
           "schoolDays",
@@ -37060,6 +38544,12 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "checkOutOpenMinute": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Absen pulang dibuka mulai menit lokal ini (default 840 = 14:00)."
+          },
           "schoolDaysMask": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -37082,6 +38572,9 @@
               },
               "dayEnd": {
                 "type": "string"
+              },
+              "checkOutOpen": {
+                "type": "string"
               }
             },
             "required": [
@@ -37089,10 +38582,11 @@
               "start",
               "lateAfter",
               "checkInClose",
-              "dayEnd"
+              "dayEnd",
+              "checkOutOpen"
             ],
             "additionalProperties": false,
-            "description": "Jadwal dalam format HH:mm waktu lokal; lateAfter = batas akhir tepat waktu (masuk + toleransi)."
+            "description": "Jadwal dalam format HH:mm waktu lokal; lateAfter = batas akhir tepat waktu (masuk + toleransi); checkOutOpen = absen pulang dibuka."
           },
           "schoolDays": {
             "type": "array",
@@ -37289,6 +38783,7 @@
           "lateToleranceMinutes",
           "checkInCloseMinute",
           "dayEndMinute",
+          "checkOutOpenMinute",
           "schoolDaysMask",
           "schedule",
           "schoolDays",
@@ -37433,6 +38928,12 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "checkOutOpenMinute": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Absen pulang dibuka mulai menit lokal ini (default 840 = 14:00)."
+          },
           "schoolDaysMask": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -37455,6 +38956,9 @@
               },
               "dayEnd": {
                 "type": "string"
+              },
+              "checkOutOpen": {
+                "type": "string"
               }
             },
             "required": [
@@ -37462,10 +38966,11 @@
               "start",
               "lateAfter",
               "checkInClose",
-              "dayEnd"
+              "dayEnd",
+              "checkOutOpen"
             ],
             "additionalProperties": false,
-            "description": "Jadwal dalam format HH:mm waktu lokal; lateAfter = batas akhir tepat waktu (masuk + toleransi)."
+            "description": "Jadwal dalam format HH:mm waktu lokal; lateAfter = batas akhir tepat waktu (masuk + toleransi); checkOutOpen = absen pulang dibuka."
           },
           "schoolDays": {
             "type": "array",
@@ -37544,6 +39049,7 @@
           "lateToleranceMinutes",
           "checkInCloseMinute",
           "dayEndMinute",
+          "checkOutOpenMinute",
           "schoolDaysMask",
           "schedule",
           "schoolDays",
@@ -37852,6 +39358,34 @@
                 "type": "null"
               }
             ]
+          },
+          "accessRole": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "isSystem": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "isSystem"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Peran akses RBAC; null = peran sistem jenis akunnya."
           }
         },
         "required": [
@@ -37872,7 +39406,8 @@
           "logins",
           "password",
           "adminKind",
-          "student"
+          "student",
+          "accessRole"
         ],
         "additionalProperties": false
       },
@@ -38151,6 +39686,34 @@
               }
             ]
           },
+          "accessRole": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "isSystem": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "isSystem"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Peran akses RBAC; null = peran sistem jenis akunnya."
+          },
           "activeSessionCount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -38177,6 +39740,7 @@
           "password",
           "adminKind",
           "student",
+          "accessRole",
           "activeSessionCount"
         ],
         "additionalProperties": false
@@ -38543,6 +40107,34 @@
               ]
             },
             "description": "Kabar sekolah yang TIDAK dikirim ke akun ini (N2); [] = terima semua."
+          },
+          "accessRole": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "isSystem": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "isSystem"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Peran akses RBAC; null = peran sistem jenis akunnya."
           }
         },
         "required": [
@@ -38556,9 +40148,270 @@
           "tempPasswordExpiresAt",
           "lastLoginAt",
           "createdAt",
-          "mutedCategories"
+          "mutedCategories",
+          "accessRole"
         ],
         "additionalProperties": false
+      },
+      "AccessRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baseRole": {
+            "type": "string",
+            "enum": [
+              "SUPER_ADMIN",
+              "SCHOOL_ADMIN",
+              "SPONSOR",
+              "STUDENT"
+            ]
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Hak EFEKTIF (sudah termasuk aksi terkunci & aksi baru untuk peran sistem)."
+          },
+          "lockedPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tidak bisa dicabut dari peran ini."
+          },
+          "availablePermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Semua aksi yang mungkin untuk jenis akun ini."
+          },
+          "userCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "description",
+          "baseRole",
+          "isSystem",
+          "permissions",
+          "lockedPermissions",
+          "availablePermissions",
+          "userCount",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AccessRoleDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baseRole": {
+            "type": "string",
+            "enum": [
+              "SUPER_ADMIN",
+              "SCHOOL_ADMIN",
+              "SPONSOR",
+              "STUDENT"
+            ]
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Hak EFEKTIF (sudah termasuk aksi terkunci & aksi baru untuk peran sistem)."
+          },
+          "lockedPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tidak bisa dicabut dari peran ini."
+          },
+          "availablePermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Semua aksi yang mungkin untuk jenis akun ini."
+          },
+          "userCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "schoolName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "isActive": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "email",
+                "schoolName",
+                "isActive"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Maks. 200 akun pemakai (terbaru dulu)."
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "description",
+          "baseRole",
+          "isSystem",
+          "permissions",
+          "lockedPermissions",
+          "availablePermissions",
+          "userCount",
+          "updatedAt",
+          "members"
+        ],
+        "additionalProperties": false
+      },
+      "PermissionCatalog": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "group": {
+              "type": "string",
+              "enum": [
+                "Akun & keamanan",
+                "Beranda & sekolah",
+                "Siswa",
+                "Absensi",
+                "Izin & sakit",
+                "Akademik & rapor",
+                "SPP & tagihan",
+                "Pengumuman & kalender",
+                "Notifikasi",
+                "Pengguna, peran & audit",
+                "Sponsor & iklan",
+                "Platform"
+              ]
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "hint": {
+                    "type": "string"
+                  },
+                  "baseRoles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "SUPER_ADMIN",
+                        "SCHOOL_ADMIN",
+                        "SPONSOR",
+                        "STUDENT"
+                      ]
+                    },
+                    "description": "Jenis akun yang boleh diberi hak ini."
+                  }
+                },
+                "required": [
+                  "action",
+                  "label",
+                  "hint",
+                  "baseRoles"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "group",
+            "items"
+          ],
+          "additionalProperties": false
+        }
       },
       "CalendarHoliday": {
         "type": "object",
@@ -40238,13 +42091,19 @@
                   "OPEN",
                   "CLOSED"
                 ]
+              },
+              "checkOutOpensAt": {
+                "type": "string",
+                "description": "Absen pulang dibuka mulai jam ini sampai akhir hari (School.checkOutOpenMinute).",
+                "example": "14:00"
               }
             },
             "required": [
               "opensAt",
               "lateAfter",
               "closesAt",
-              "state"
+              "state",
+              "checkOutOpensAt"
             ],
             "additionalProperties": false
           },
@@ -40346,6 +42205,14 @@
                   "lateReasonEditable": {
                     "type": "boolean",
                     "description": "true bila siswa boleh mengisi/mengubah alasan sekarang (PUT /student/attendance/today/late-reason)."
+                  },
+                  "checkOutTimeLocal": {
+                    "description": "Jam lokal absen pulang HH:mm; null = belum absen pulang.",
+                    "example": "14:05",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
@@ -40355,7 +42222,8 @@
                   "checkInTimeLocal",
                   "lateMinutes",
                   "lateReason",
-                  "lateReasonEditable"
+                  "lateReasonEditable",
+                  "checkOutTimeLocal"
                 ],
                 "additionalProperties": false
               },
@@ -40425,6 +42293,27 @@
             ],
             "description": "Null bila canCheckIn = true."
           },
+          "canCheckOut": {
+            "type": "boolean",
+            "description": "Boleh absen pulang sekarang (POST /student/attendance/check-out)."
+          },
+          "checkOutBlockReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "NOT_CHECKED_IN",
+                  "ALREADY_CHECKED_OUT",
+                  "NOT_SCHOOL_DAY",
+                  "CHECKOUT_NOT_OPEN"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null bila canCheckOut = true."
+          },
           "testMode": {
             "type": "boolean",
             "description": "Mode uji absensi (sementara) aktif: jarak ke sekolah dan jam/hari absen tidak diperiksa."
@@ -40442,6 +42331,8 @@
           "pendingLeave",
           "canCheckIn",
           "blockReason",
+          "canCheckOut",
+          "checkOutBlockReason",
           "testMode"
         ],
         "additionalProperties": false
@@ -40505,7 +42396,10 @@
                   "MOCK_LOCATION",
                   "LOCATION_STALE",
                   "GPS_ACCURACY_TOO_LOW",
-                  "OUTSIDE_GEOFENCE"
+                  "OUTSIDE_GEOFENCE",
+                  "NOT_CHECKED_IN",
+                  "ALREADY_CHECKED_OUT",
+                  "CHECKOUT_NOT_OPEN"
                 ]
               },
               {
@@ -40670,6 +42564,89 @@
         ],
         "additionalProperties": false
       },
+      "AttendanceCheckOutResult": {
+        "type": "object",
+        "properties": {
+          "attendance": {
+            "$ref": "#/components/schemas/AttendanceCheckOutRecord"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "attendance",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceCheckOutRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-07-13"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "HADIR",
+              "TERLAMBAT",
+              "IZIN",
+              "SAKIT",
+              "ALPHA"
+            ]
+          },
+          "checkInTimeLocal": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Jam lokal sekolah HH:mm.",
+                "example": "07:05"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkOutAt": {
+            "type": "string",
+            "description": "Instant server (ISO UTC)."
+          },
+          "checkOutTimeLocal": {
+            "type": "string",
+            "description": "Jam lokal sekolah HH:mm.",
+            "example": "07:05"
+          },
+          "checkOutDistanceM": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Jarak ke sekolah saat absen pulang (meter)."
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "status",
+          "checkInTimeLocal",
+          "checkOutAt",
+          "checkOutTimeLocal",
+          "checkOutDistanceM"
+        ],
+        "additionalProperties": false
+      },
       "AttendanceLateReasonResult": {
         "type": "object",
         "properties": {
@@ -40756,6 +42733,14 @@
                     "string",
                     "null"
                   ]
+                },
+                "checkOutTimeLocal": {
+                  "description": "Jam lokal absen pulang HH:mm; null = belum absen pulang.",
+                  "example": "14:05",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -40764,7 +42749,8 @@
                 "source",
                 "checkInTimeLocal",
                 "lateMinutes",
-                "leaveRequestId"
+                "leaveRequestId",
+                "checkOutTimeLocal"
               ],
               "additionalProperties": false
             }
@@ -41921,6 +43907,14 @@
               }
             ],
             "description": "Hasil tinjau anomali (B1); null = belum ditinjau."
+          },
+          "checkOutTimeLocal": {
+            "description": "Jam lokal absen pulang HH:mm; null = belum absen pulang.",
+            "example": "14:05",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -41937,7 +43931,8 @@
           "note",
           "lateReason",
           "needsReview",
-          "reviewDecision"
+          "reviewDecision",
+          "checkOutTimeLocal"
         ],
         "additionalProperties": false
       },
@@ -42149,6 +44144,14 @@
                     }
                   ],
                   "description": "Hasil tinjau anomali (B1); null = belum ditinjau."
+                },
+                "checkOutTimeLocal": {
+                  "description": "Jam lokal absen pulang HH:mm; null = belum absen pulang.",
+                  "example": "14:05",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -42167,7 +44170,8 @@
                 "flags",
                 "lateReasonCategory",
                 "needsReview",
-                "reviewDecision"
+                "reviewDecision",
+                "checkOutTimeLocal"
               ],
               "additionalProperties": false
             }
@@ -44147,6 +46151,119 @@
             ],
             "description": "url = /api/v1/files/{id}; null setelah dihapus retensi (purged)."
           },
+          "checkOutTimeLocal": {
+            "description": "Jam lokal absen pulang HH:mm; null = belum absen pulang.",
+            "example": "14:05",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checkOut": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "description": "Instant server (ISO UTC)."
+                  },
+                  "timeLocal": {
+                    "type": "string",
+                    "example": "14:05"
+                  },
+                  "latitude": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "longitude": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "accuracyM": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "distanceM": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "deviceId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "selfie": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "fileId": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "purged": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "fileId",
+                          "url",
+                          "purged"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "url = /api/v1/files/{id}; null setelah dihapus retensi (purged)."
+                  }
+                },
+                "required": [
+                  "at",
+                  "timeLocal",
+                  "latitude",
+                  "longitude",
+                  "accuracyM",
+                  "distanceM",
+                  "deviceId",
+                  "selfie"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absen pulang (2026-10-07); null = siswa belum absen pulang."
+          },
           "rejectionsSameDay": {
             "type": "array",
             "items": {
@@ -44330,6 +46447,8 @@
           "className",
           "student",
           "selfie",
+          "checkOutTimeLocal",
+          "checkOut",
           "rejectionsSameDay",
           "audit",
           "createdAt",

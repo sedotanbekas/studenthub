@@ -60,11 +60,13 @@ function DetailBody({ data, review }: { data: RecordDetailDto; review: ReactNode
       {reason && <p className="monitor-note monitor-late-reason"><strong>{reason.title}:</strong> {reason.text}</p>}
       <dl className="monitor-facts">
         <Fact label="Jam masuk" value={data.checkInTimeLocal ?? "—"} />
+        <Fact label="Jam pulang" value={data.checkOut?.timeLocal ?? "Belum absen pulang"} />
         <Fact label="Sumber" value={SOURCE_LABEL[data.source]} />
         <Fact label="Jarak ke sekolah" value={formatDistance(data.distanceM)} />
         <Fact label="Akurasi GPS" value={formatAccuracy(data.accuracyM)} />
         <Fact label="Lokasi palsu" value={mocked} />
         <Fact label="Koordinat" value={coordinate} />
+        {data.checkOut && <Fact label="Jarak saat pulang" value={formatDistance(data.checkOut.distanceM)} />}
       </dl>
       {data.flags.length > 0 && <section aria-labelledby="monitor-flags-title"><h3 id="monitor-flags-title" className="monitor-subhead">Catatan pemeriksaan</h3><ul className="monitor-flags">{data.flags.map(f => <li key={f.code} className={`sev-${f.severity.toLowerCase()}`}><span className="sev">{SEVERITY_LABEL[f.severity]}</span>{f.label}</li>)}</ul></section>}
       {review}

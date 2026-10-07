@@ -104,6 +104,21 @@ test("todayHeadline merangkum status absen hari ini dengan nada tindakan", () =>
   assert.equal(todayHeadline(early).note, "Absen dibuka pukul 06:00.");
 });
 
+test("todayHeadline absen pulang: ajakan setelah jam pulang dibuka, info jam buka sebelumnya, dan status sudah pulang", () => {
+  const present = { ...baseToday, canCheckIn: false, blockReason: "ALREADY_CHECKED_IN", window: { ...baseToday.window, checkOutOpensAt: "14:00" } };
+  const ontime = { ...present, record: { status: "HADIR", checkInTimeLocal: "06:45", lateMinutes: null, checkOutTimeLocal: null } };
+  assert.deepEqual(todayHeadline({ ...ontime, canCheckOut: false, checkOutBlockReason: "CHECKOUT_NOT_OPEN" }), {
+    tone: "success", title: "Sudah absen pukul 06:45", note: "Tercatat hadir tepat waktu. Absen pulang dibuka pukul 14:00.",
+  });
+  assert.deepEqual(todayHeadline({ ...ontime, canCheckOut: true, checkOutBlockReason: null }), {
+    tone: "action", title: "Saatnya absen pulang", note: "Masuk pukul 06:45, tercatat hadir tepat waktu. Absen pulang sebelum meninggalkan sekolah.",
+  });
+  const late = { ...present, record: { status: "TERLAMBAT", checkInTimeLocal: "07:31", lateMinutes: 31, checkOutTimeLocal: "14:12" }, canCheckOut: false, checkOutBlockReason: "ALREADY_CHECKED_OUT" };
+  assert.deepEqual(todayHeadline(late), { tone: "success", title: "Sudah pulang pukul 14:12", note: "Masuk pukul 07:31, tercatat terlambat 31 menit." });
+  // Respons lama tanpa kolom absen pulang: tetap seperti sebelumnya.
+  assert.equal(todayHeadline({ ...present, record: { status: "HADIR", checkInTimeLocal: "06:45", lateMinutes: null } }).note, "Tercatat hadir tepat waktu.");
+});
+
 test("todayHeadline mode uji: hari libur / di luar jam tetap mengajak absen dan menjelaskan pelonggarannya", () => {
   const holiday = { ...baseToday, testMode: true, schoolDay: { isSchoolDay: false, reason: "HOLIDAY", holidayName: "Maulid Nabi" }, window: { ...baseToday.window, state: "CLOSED" } };
   assert.deepEqual(todayHeadline(holiday), { tone: "action", title: "Kamu belum absen", note: "Mode uji aktif: absen bisa dari mana saja dan kapan saja. Akurasi GPS dan foto wajah tetap wajib." });

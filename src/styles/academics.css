@@ -13,7 +13,7 @@
 .wizard-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
 .wizard-top h2 { margin-top: 4px; font-size: 22px; }
 .wizard-top p { max-width: 62ch; margin-top: 6px; color: var(--ink-2); font-size: 15px; }
-.wizard-progress { flex: 0 1 240px; height: 10px; overflow: hidden; border-radius: 999px; background: var(--line-soft); }
+.wizard-progress { flex: 0 1 240px; height: 10px; overflow: hidden; border-radius: 6px; background: var(--line-soft); }
 .wizard-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), var(--animation)); transition: width 0.4s var(--ease-out); }
 .wizard-body { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 24px; align-items: start; }
 .wizard-rail { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
@@ -26,7 +26,7 @@
 .step-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .step-text strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 15px; }
 .step-text small { color: var(--muted); font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
-.step-optional { padding: 2px 8px; border-radius: 999px; background: var(--line-soft); color: var(--muted); font-size: 11px; font-style: normal; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.step-optional { padding: 2px 8px; border-radius: 6px; background: var(--line-soft); color: var(--muted); font-size: 11px; font-style: normal; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
 .wizard-pane { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 20px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--paper); animation: wizard-in 0.28s var(--ease-out); }
 .wizard-pane h3 { margin-top: -6px; font-size: 20px; }
 .wizard-pane h3:focus { outline: none; }
@@ -55,7 +55,7 @@
 .acad-bounds { margin: -4px 0 0; font-size: 13px; }
 .acad-segmented { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
 .acad-segmented legend { margin-bottom: 8px; }
-.acad-segmented label { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 2px solid var(--line); border-radius: 999px; font-weight: 700; cursor: pointer; }
+.acad-segmented label { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 2px solid var(--line); border-radius: 6px; font-weight: 700; cursor: pointer; }
 .acad-segmented label.selected { border-color: var(--primary-line); background: var(--primary-soft); color: var(--primary-ink); }
 .acad-segmented input { width: 18px; height: 18px; min-height: 18px; accent-color: var(--primary); }
 .level-group { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }

@@ -43,6 +43,19 @@ test("urutan jadwal: 0 <= buka < mulai <= tutup, tutup + 5 menit <= akhir hari <
   assert.ok(codes({ startMinute: 601 }).includes("SCHEDULE_START_AFTER_CLOSE"));
 });
 
+test("absen pulang (2026-10-07): default 14:00; jam masuk < jam buka absen pulang < 24:00", () => {
+  assert.equal(DEFAULT_SCHOOL_CONFIG.checkOutOpenMinute, 840);
+  assert.deepEqual(codes({ checkOutOpenMinute: 421 }), []);
+  assert.deepEqual(codes({ checkOutOpenMinute: 1439 }), []);
+  assert.deepEqual(codes({ checkOutOpenMinute: 420 }), ["SCHEDULE_CHECKOUT_NOT_AFTER_START"]);
+  assert.deepEqual(codes({ checkOutOpenMinute: 300 }), ["SCHEDULE_CHECKOUT_NOT_AFTER_START"]);
+  assert.deepEqual(codes({ checkOutOpenMinute: 1440 }), ["SCHEDULE_CHECKOUT_TOO_LATE"]);
+  assert.deepEqual(codes({ checkOutOpenMinute: 840.5 }).includes("NOT_INTEGER"), true);
+  const [error] = validateSchoolConfig({ ...BASE, checkOutOpenMinute: 400 });
+  assert.equal(error?.field, "checkOutOpenMinute");
+  assert.equal(error?.message, "Jam absen pulang harus setelah jam masuk.");
+});
+
 test("start + toleransi harus < tutup (mirip chk_school_schedule)", () => {
   assert.deepEqual(codes({ startMinute: 420, lateToleranceMinutes: 0, checkInCloseMinute: 421 }), []);
   assert.deepEqual(codes({ startMinute: 420, lateToleranceMinutes: 0, checkInCloseMinute: 420 }), ["LATE_THRESHOLD_NOT_BEFORE_CLOSE"]);
@@ -167,6 +180,7 @@ test("label jadwal HH:mm dan kode hari sekolah", () => {
     lateAfter: "07:15",
     checkInClose: "10:00",
     dayEnd: "15:00",
+    checkOutOpen: "14:00",
   });
   assert.deepEqual(schoolDayCodes(31), ["MON", "TUE", "WED", "THU", "FRI"]);
   assert.deepEqual(schoolDayCodes(64 + 1), ["MON", "SUN"]);

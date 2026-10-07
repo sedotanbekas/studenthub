@@ -55,8 +55,13 @@ model User {
   /// admin utama per sekolah; admin tambahan wajib email (CHECK chk_user_scope).
   primarySchoolId       String?   @unique
 
-  school  School?  @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  sponsor Sponsor? @relation("SponsorMembers", fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  /// Peran akses RBAC (2026-10-07). NULL = peran sistem untuk jenis akunnya (AccessRole.isSystem, baseRole = role).
+  /// baseRole peran WAJIB sama dengan role akun (aturan service) -- jenis akun tetap menentukan cakupan data.
+  accessRoleId          String?
+
+  school     School?     @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sponsor    Sponsor?    @relation("SponsorMembers", fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  accessRole AccessRole? @relation(fields: [accessRoleId], references: [id], onDelete: SetNull, onUpdate: Restrict)
 
   student                  Student?
   sessions                 AuthSession[]         @relation("SessionOwner")
@@ -88,6 +93,32 @@ model User {
   @@index([schoolId, role, isActive])
   @@index([role, isActive])
   @@index([sponsorId])
+  @@index([accessRoleId])
+}
+
+/// Peran akses RBAC (permintaan pemilik 2026-10-07): daftar hak per aksi POLICY untuk satu jenis akun.
+/// Hak efektif = aksi yang diizinkan POLICY untuk baseRole DAN dicentang di peran ini (RBAC hanya
+/// mempersempit; jenis akun tetap menentukan cakupan data). Aksi yang belum ada di `knownActions`
+/// (fitur baru sesudah peran disimpan): peran sistem -> ikut bawaan POLICY, peran buatan -> tidak.
+/// Aturan murni: src/lib/roles/rules.ts.
+model AccessRole {
+  id           String   @id @default(cuid())
+  /// Slug unik ("super-admin", "admin-sekolah", "guru-piket", ...). Tidak berubah setelah dibuat.
+  key          String   @unique @db.VarChar(64)
+  name         String   @db.VarChar(100)
+  description  String?  @db.VarChar(500)
+  baseRole     UserRole
+  /// Empat peran bawaan (satu per jenis akun): tidak bisa dihapus; hak terkunci tidak bisa dicabut.
+  isSystem     Boolean  @default(false)
+  /// string[] aksi POLICY yang dicentang.
+  permissions  Json
+  /// string[] seluruh aksi POLICY saat peran terakhir disimpan.
+  knownActions Json
+  users        User[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([baseRole, isSystem])
 }
 
 /// Satu login pada satu perangkat = satu "family" refresh token.

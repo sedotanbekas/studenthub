@@ -16,6 +16,7 @@ import "../styles/academics.css";
 import "../styles/wizards.css";
 import "../styles/glass.css";
 import "../styles/login-art.css";
+import "../styles/roles.css";
 import "../styles/transitions.css";
 import "../styles/print.css";
 import "../styles/splash.css";

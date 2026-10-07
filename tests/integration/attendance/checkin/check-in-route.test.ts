@@ -102,12 +102,14 @@ test("today -> check-in HADIR (201) -> today tercatat -> replay 200", async () =
     timezone: "WIB",
     ianaTimezone: "Asia/Jakarta",
     schoolDay: { isSchoolDay: true, reason: "SCHOOL_DAY", holidayName: null },
-    window: { opensAt: "06:00", lateAfter: "07:15", closesAt: "10:00", state: "OPEN" },
+    window: { opensAt: "06:00", lateAfter: "07:15", closesAt: "10:00", state: "OPEN", checkOutOpensAt: "14:00" },
     geofence: { radiusM: 150, maxAccuracyM: 100, latitude: SCHOOL_POINT.latitude, longitude: SCHOOL_POINT.longitude },
     record: null,
     pendingLeave: null,
     canCheckIn: true,
     blockReason: null,
+    canCheckOut: false,
+    checkOutBlockReason: "NOT_CHECKED_IN",
     testMode: false,
   });
 
@@ -122,6 +124,7 @@ test("today -> check-in HADIR (201) -> today tercatat -> replay 200", async () =
   const afterCheckIn = (await getToday(st.token)).body!.data;
   assert.deepEqual(afterCheckIn.record, {
     id: created.body?.data.attendance.id, status: "HADIR", source: "CHECKIN", checkInTimeLocal: "07:10", lateMinutes: null, lateReason: null, lateReasonEditable: false,
+    checkOutTimeLocal: null,
   });
   assert.equal(afterCheckIn.canCheckIn, false);
   assert.equal(afterCheckIn.blockReason, "ALREADY_CHECKED_IN");

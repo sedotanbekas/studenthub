@@ -52,5 +52,5 @@ function AttentionPanel({ summary }: { summary: DashboardSummaryDto | null }) {
 }
 function RoleOverview() {
   const { me } = useHub();
-  return <nav className="role-card-grid" aria-label="Menu utama">{modulesFor(me.user.role).slice(0, 6).map(m => <Link key={m.key} className="role-card" href={`/hub/${m.key}`}><span className="stat-icon"><Icon name={m.icon} size={22} /></span><h2>{m.title}</h2><p>{m.description}</p></Link>)}</nav>;
+  return <nav className="role-card-grid" aria-label="Menu utama">{modulesFor(me.user.role, me.permissions).slice(0, 6).map(m => <Link key={m.key} className="role-card" href={`/hub/${m.key}`}><span className="stat-icon"><Icon name={m.icon} size={22} /></span><h2>{m.title}</h2><p>{m.description}</p></Link>)}</nav>;
 }

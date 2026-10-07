@@ -139,10 +139,18 @@ export function schoolClock(now: Date, zone: string): SchoolClock {
 /** Bagian respons GET /student/attendance/today yang dibutuhkan tampilan. */
 export interface TodayView {
   readonly schoolDay: { readonly isSchoolDay: boolean; readonly reason: string; readonly holidayName: string | null };
-  readonly window: { readonly opensAt: string; readonly lateAfter: string; readonly closesAt: string; readonly state: string };
-  readonly record: { readonly status: string; readonly checkInTimeLocal: string | null; readonly lateMinutes: number | null } | null;
+  readonly window: { readonly opensAt: string; readonly lateAfter: string; readonly closesAt: string; readonly state: string; readonly checkOutOpensAt?: string };
+  readonly record: {
+    readonly status: string;
+    readonly checkInTimeLocal: string | null;
+    readonly lateMinutes: number | null;
+    /** Absen pulang (2026-10-07); tidak ada pada respons lama. */
+    readonly checkOutTimeLocal?: string | null;
+  } | null;
   readonly canCheckIn: boolean;
   readonly blockReason: string | null;
+  readonly canCheckOut?: boolean;
+  readonly checkOutBlockReason?: string | null;
   /** Mode uji absensi (sementara): jarak & jam/hari absen tidak diperiksa server. */
   readonly testMode?: boolean;
 }
@@ -155,10 +163,31 @@ export interface Headline {
 export const TEST_MODE_NOTE = "Mode uji aktif: absen bisa dari mana saja dan kapan saja. Akurasi GPS dan foto wajah tetap wajib.";
 const RECORD_NOTES: Record<string, string> = { IZIN: "Tercatat izin.", SAKIT: "Tercatat sakit.", ALPHA: "Tercatat alpa." };
 
-function recordHeadline(record: NonNullable<TodayView["record"]>): Headline {
+type TodayRecord = NonNullable<TodayView["record"]>;
+
+const presenceText = (record: TodayRecord): string =>
+  record.status === "TERLAMBAT" ? `tercatat terlambat ${record.lateMinutes ?? 0} menit` : "tercatat hadir tepat waktu";
+
+/** Kalimat absen pulang setelah absen masuk (2026-10-07); null = tidak ada yang perlu disampaikan. */
+function checkOutHeadline(today: TodayView, record: TodayRecord): Headline | null {
+  const checkedInAt = record.checkInTimeLocal ? `Masuk pukul ${record.checkInTimeLocal}, ` : "";
+  if (record.checkOutTimeLocal) {
+    return { tone: "success", title: `Sudah pulang pukul ${record.checkOutTimeLocal}`, note: `${checkedInAt}${presenceText(record)}.` };
+  }
+  if (today.canCheckOut) {
+    return { tone: "action", title: "Saatnya absen pulang", note: `${checkedInAt}${presenceText(record)}. Absen pulang sebelum meninggalkan sekolah.` };
+  }
+  return null;
+}
+
+function recordHeadline(today: TodayView, record: TodayRecord): Headline {
+  const checkOut = checkOutHeadline(today, record);
+  if (checkOut) return checkOut;
   const at = record.checkInTimeLocal ? `Sudah absen pukul ${record.checkInTimeLocal}` : "Kehadiran sudah tercatat";
-  if (record.status === "HADIR") return { tone: "success", title: at, note: "Tercatat hadir tepat waktu." };
-  if (record.status === "TERLAMBAT") return { tone: "warning", title: at, note: `Tercatat terlambat ${record.lateMinutes ?? 0} menit.` };
+  const opensAt = today.window.checkOutOpensAt;
+  const later = today.checkOutBlockReason === "CHECKOUT_NOT_OPEN" && opensAt ? ` Absen pulang dibuka pukul ${opensAt}.` : "";
+  if (record.status === "HADIR") return { tone: "success", title: at, note: `Tercatat hadir tepat waktu.${later}` };
+  if (record.status === "TERLAMBAT") return { tone: "warning", title: at, note: `Tercatat terlambat ${record.lateMinutes ?? 0} menit.${later}` };
   return { tone: "neutral", title: "Kehadiran sudah tercatat", note: RECORD_NOTES[record.status] ?? "Dicatat oleh sekolah." };
 }
 
@@ -176,7 +205,7 @@ function nonSchoolDayHeadline(day: TodayView["schoolDay"]): Headline {
 
 export function todayHeadline(today: TodayView): Headline {
   const { window } = today;
-  if (today.record && today.blockReason !== null) return recordHeadline(today.record);
+  if (today.record && today.blockReason !== null) return recordHeadline(today, today.record);
   if (today.testMode && today.canCheckIn) return { tone: "action", title: "Kamu belum absen", note: TEST_MODE_NOTE };
   if (!today.schoolDay.isSchoolDay) return nonSchoolDayHeadline(today.schoolDay);
   if (today.blockReason === "CHECKIN_NOT_OPEN") return { tone: "neutral", title: "Absensi belum dibuka", note: `Absen dibuka pukul ${window.opensAt}.` };

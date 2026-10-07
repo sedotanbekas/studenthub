@@ -2,6 +2,8 @@ import type { ActionContext } from "@/lib/auth/principal";
 import { computeLateness, decideCheckIn, distanceToSchool, rejectMessage, windowState, type CheckInDecision, type LocationFix } from "./check-in-rules";
 import { decisionInputOf, loadCheckInContext, type CheckInContext } from "./check-in-context";
 import { locationFixOf } from "./check-in-service";
+import { checkOutRejectMessage, checkOutWindowState, decideCheckOut } from "./check-out-rules";
+import { checkOutInputOf } from "./check-out-service";
 import { logRejectionSafely } from "./rejection-log";
 import type { PrecheckBody, PrecheckResultDto } from "./student-schemas";
 
@@ -44,9 +46,31 @@ async function logMockAttempt(context: CheckInContext, fix: LocationFix, now: Da
   );
 }
 
+/**
+ * Precheck absen pulang (purpose CHECK_OUT, 2026-10-07): keputusan SAMA dengan POST check-out tanpa selfie.
+ * Tidak mencatat percobaan apa pun (CheckInRejection khusus absen masuk); distanceM hanya bila sampai langkah geofence.
+ */
+function precheckCheckOut(context: CheckInContext, fix: LocationFix): PrecheckResultDto {
+  const { geofence } = context.school;
+  const decision = decideCheckOut(checkOutInputOf(context, context.existing, fix));
+  const reached = decision.kind === "ACCEPT" || decision.rejection.code === "OUTSIDE_GEOFENCE";
+  const verdict =
+    decision.kind === "ACCEPT"
+      ? { ok: true, reason: null, message: `${decision.testModeBypass ? "Mode uji: lokasi/jam di luar ketentuan tetap diterima." : "Lokasi valid."} Silakan ambil selfie untuk absen pulang.` }
+      : { ok: false, reason: decision.rejection.code, message: checkOutRejectMessage(decision.rejection) };
+  return {
+    ...verdict,
+    distanceM: reached ? distanceToSchool(fix, geofence) : null,
+    radiusM: geofence.radiusM,
+    window: checkOutWindowState(context.local.minuteOfDay, context.school.checkOutOpenMinute),
+    wouldBeLate: false,
+  };
+}
+
 export async function precheckAttendance(body: PrecheckBody, ctx: ActionContext): Promise<PrecheckResultDto> {
   const context = await loadCheckInContext(ctx);
   const fix = locationFixOf(body);
+  if (body.purpose === "CHECK_OUT") return precheckCheckOut(context, fix);
   const { schedule, geofence } = context.school;
   const minute = context.local.minuteOfDay;
   const wouldBeLate = computeLateness(minute, schedule).status === "TERLAMBAT";

@@ -34,6 +34,7 @@ export const DEFAULT_SCHOOL_CONFIG = {
   lateToleranceMinutes: 15,
   checkInCloseMinute: 600,
   dayEndMinute: 900,
+  checkOutOpenMinute: 840,
   schoolDaysMask: 31,
   bankName: null,
   bankAccountNumber: null,
@@ -51,6 +52,8 @@ export interface SchoolConfig {
   readonly lateToleranceMinutes: number;
   readonly checkInCloseMinute: number;
   readonly dayEndMinute: number;
+  /** Absen pulang dibuka mulai menit ini (2026-10-07); wajib startMinute < nilai < 1440. */
+  readonly checkOutOpenMinute: number;
   readonly schoolDaysMask: number;
   readonly bankName: string | null;
   readonly bankAccountNumber: string | null;
@@ -82,6 +85,7 @@ const INTEGER_FIELDS = [
   "lateToleranceMinutes",
   "checkInCloseMinute",
   "dayEndMinute",
+  "checkOutOpenMinute",
   "schoolDaysMask",
 ] as const satisfies readonly SchoolConfigField[];
 
@@ -116,7 +120,21 @@ function scheduleErrors(c: SchoolConfig): SchoolConfigError[] {
   if (c.startMinute + c.lateToleranceMinutes >= c.checkInCloseMinute) {
     errors.push(err("lateToleranceMinutes", "LATE_THRESHOLD_NOT_BEFORE_CLOSE", "Jam masuk + toleransi terlambat harus sebelum jam tutup absensi."));
   }
-  return errors;
+  return [...errors, ...checkOutErrors(c)];
+}
+
+/**
+ * Jam buka absen pulang (2026-10-07): setelah jam masuk dan sebelum 24:00. Hanya aturan aplikasi; DB menjaga
+ * rentang saja (chk_school_checkout_open) agar sekolah lama tidak menggagalkan migrasi.
+ */
+function checkOutErrors(c: SchoolConfig): SchoolConfigError[] {
+  if (c.checkOutOpenMinute <= c.startMinute) {
+    return [err("checkOutOpenMinute", "SCHEDULE_CHECKOUT_NOT_AFTER_START", "Jam absen pulang harus setelah jam masuk.")];
+  }
+  if (c.checkOutOpenMinute >= MINUTES_PER_DAY) {
+    return [err("checkOutOpenMinute", "SCHEDULE_CHECKOUT_TOO_LATE", "Jam absen pulang harus sebelum pukul 24:00.")];
+  }
+  return [];
 }
 
 const inRange = (value: number, min: number, max: number): boolean => Number.isFinite(value) && value >= min && value <= max;
@@ -196,6 +214,7 @@ const FIELD_GROUPS: ReadonlyArray<readonly [SchoolField, SchoolChangeGroup]> = [
   ["lateToleranceMinutes", "SCHEDULE"],
   ["checkInCloseMinute", "SCHEDULE"],
   ["dayEndMinute", "SCHEDULE"],
+  ["checkOutOpenMinute", "SCHEDULE"],
   ["schoolDaysMask", "SCHOOL_DAYS"],
   ["bankName", "BANK"],
   ["bankAccountNumber", "BANK"],
@@ -230,16 +249,19 @@ export function describeSchoolChanges<T extends SchoolSnapshot>(before: T, after
   };
 }
 
-export type ScheduleLabels = { checkInOpen: string; start: string; lateAfter: string; checkInClose: string; dayEnd: string };
+export type ScheduleLabels = { checkInOpen: string; start: string; lateAfter: string; checkInClose: string; dayEnd: string; checkOutOpen: string };
 
 /** Menit lokal -> "HH:mm" untuk tampilan. lateAfter = batas akhir tepat waktu (mulai + toleransi). */
-export function scheduleLabels(c: Pick<SchoolConfig, "checkInOpenMinute" | "startMinute" | "lateToleranceMinutes" | "checkInCloseMinute" | "dayEndMinute">): ScheduleLabels {
+export function scheduleLabels(
+  c: Pick<SchoolConfig, "checkInOpenMinute" | "startMinute" | "lateToleranceMinutes" | "checkInCloseMinute" | "dayEndMinute" | "checkOutOpenMinute">,
+): ScheduleLabels {
   return {
     checkInOpen: formatMinute(c.checkInOpenMinute),
     start: formatMinute(c.startMinute),
     lateAfter: formatMinute(c.startMinute + c.lateToleranceMinutes),
     checkInClose: formatMinute(c.checkInCloseMinute),
     dayEnd: formatMinute(c.dayEndMinute),
+    checkOutOpen: formatMinute(c.checkOutOpenMinute),
   };
 }
 

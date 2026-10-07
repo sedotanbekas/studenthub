@@ -3,6 +3,7 @@ import { replaceNotificationMutes } from "@/lib/notifications/preferences-servic
 import type { UpdateNotificationPreferencesBody } from "@/lib/notifications/schemas";
 import type { SchoolScope } from "@/lib/tenant/scope";
 import { activateUser, createUser, deactivateUser, resetUserPassword, revokeUserSessions, updateUser } from "@/lib/users/service";
+import { assignAccessRole } from "@/lib/roles/service";
 import { countSchoolAdmins, getSchoolAdmin, hasPrimaryAdmin } from "./queries";
 import { assertAdminQuota, assertHasPrimaryAdmin, assertManageableAdmin } from "./rules";
 import type { CreateSchoolAdminInput, SchoolAdminDto, UpdateSchoolAdminInput } from "./schemas";
@@ -29,7 +30,7 @@ export async function createSchoolAdmin(
   assertHasPrimaryAdmin(await hasPrimaryAdmin(scope));
   assertAdminQuota(await countSchoolAdmins(scope));
   const created = await createUser(
-    { role: "SCHOOL_ADMIN", name: input.name, email: input.email, schoolId: scope.schoolId, initialPassword: input.initialPassword },
+    { role: "SCHOOL_ADMIN", name: input.name, email: input.email, schoolId: scope.schoolId, initialPassword: input.initialPassword, accessRoleId: input.accessRoleId },
     ctx,
   );
   const admin = await getSchoolAdmin(scope, created.user.id);
@@ -70,4 +71,10 @@ export async function updateSchoolAdminNotificationPreferences(scope: SchoolScop
   await manageableTarget(scope, id);
   await replaceNotificationMutes(id, scope.schoolId, input.mutedCategories, ctx);
   return getSchoolAdmin(scope, id);
+}
+
+/** Admin utama memasang peran akses (berbasis admin sekolah) ke admin tambahan sekolahnya (RBAC, 2026-10-07). */
+export async function assignSchoolAdminAccessRole(scope: SchoolScope, id: string, accessRoleId: string | null, ctx: ActionContext) {
+  await manageableTarget(scope, id);
+  return assignAccessRole({ userId: id, schoolId: scope.schoolId }, accessRoleId, ctx);
 }
