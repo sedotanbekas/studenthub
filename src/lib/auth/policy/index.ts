@@ -1,3 +1,4 @@
+import { isProductionServer } from "@/lib/app-env-server";
 import { forbidden } from "@/lib/http/errors";
 import type { Principal } from "../principal";
 import { authPolicy } from "./auth";
@@ -47,6 +48,9 @@ export function authorize(principal: Principal, action: Action): void {
   const rule: PolicyRule = POLICY[action];
   if (!rule.roles.includes(principal.role)) {
     throw forbidden("FORBIDDEN", "Anda tidak memiliki akses untuk aksi ini.");
+  }
+  if (rule.productionDisabled && isProductionServer()) {
+    throw forbidden("FORBIDDEN", "Fitur ini tidak tersedia di produksi.");
   }
   // RBAC (2026-10-07): peran akses mempersempit hak bawaan jenis akun.
   if (principal.grants && !principal.grants.has(action)) {

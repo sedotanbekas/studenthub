@@ -1,3 +1,4 @@
+import { isProductionServer } from "@/lib/app-env-server";
 import { writeAudit } from "@/lib/audit";
 import type { ActionContext } from "@/lib/auth/principal";
 import { prisma, type Db, type Tx } from "@/lib/db";
@@ -22,7 +23,9 @@ async function testModeSince(db: Db | Tx): Promise<Date | null> {
 
 const toDto = (since: Date | null): AttendanceTestModeDto => ({ enabled: since !== null, since: since?.toISOString() ?? null });
 
+/** Produksi: mode uji TIDAK PERNAH berlaku walau sakelarnya tersimpan aktif (pemilik 2026-10-07: siap produksi). */
 export async function isAttendanceTestMode(db: Db | Tx = prisma): Promise<boolean> {
+  if (isProductionServer()) return false;
   return (await testModeSince(db)) !== null;
 }
 

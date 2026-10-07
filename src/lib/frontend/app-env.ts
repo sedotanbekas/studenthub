@@ -43,9 +43,12 @@ export function switchEnvUrl(target: AppEnv, here: { readonly pathname: string; 
  */
 export type EnvSwitchMode = "none" | "to-staging" | "back-to-production";
 
-export function envSwitchMode(env: AppEnv | null, role: string | null): EnvSwitchMode {
-  if (env === "staging") return "back-to-production";
-  return env === "production" && role === "SUPER_ADMIN" ? "to-staging" : "none";
+/**
+ * Produksi tidak lagi menampilkan tautan ke staging (pemilik 2026-10-07: produksi bersih tanpa mode uji); staging
+ * tetap punya tombol "Kembali ke Produksi". `role` dipertahankan untuk pemanggil lama.
+ */
+export function envSwitchMode(env: AppEnv | null, _role: string | null): EnvSwitchMode {
+  return env === "staging" ? "back-to-production" : "none";
 }
 
 /** Mode demo (tombol persona di halaman masuk) hanya di luar produksi. */

@@ -1,0 +1,274 @@
+/*
+ * Akun SISWA di HP tetap membulat seperti sebelum 2026-10-07 (permintaan pemilik): sudut tipis berlaku untuk
+ * desktop & akun lain, tetapi di HP siswa kartu, tombol, tile, dan badge kembali bulat/kapsul.
+ * DIHASILKAN dari nilai border-radius lama (commit ca9c8a8) dengan cakupan `.role-student` (kelas di <html>
+ * yang dipasang hub.tsx untuk akun/persona siswa) sehingga menang atas aturan sudut tipis. Topbar & laci
+ * menu dikecualikan: keduanya tetap menempel ke tepi layar. Dimuat paling akhir.
+ */
+@media (max-width: 760px) {
+:root.role-student { --radius: 20px; --radius-sm: 12px; --radius-bar: 22px; }
+.role-student .guide-dot { border-radius: 50%; }
+.role-student .wizard-progress { border-radius: 999px; }
+.role-student .wizard-progress span { border-radius: inherit; }
+.role-student .wizard-step { border-radius: var(--radius-sm); }
+.role-student .step-mark { border-radius: 50%; }
+.role-student .step-optional { border-radius: 999px; }
+.role-student .wizard-pane { border-radius: var(--radius); }
+.role-student .wizard-done { border-radius: var(--radius-sm); }
+.role-student .done-mark { border-radius: 50%; }
+.role-student .acad-segmented label { border-radius: 999px; }
+.role-student .level-card { border-radius: var(--radius-sm); }
+.role-student .acad-check-list .check-field { border-radius: var(--radius-sm); }
+.role-student .year-card { border-radius: var(--radius); }
+.role-student .term-slot { border-radius: var(--radius-sm); }
+.role-student .school-stat { border-radius: var(--radius); }
+.role-student .account-group-toggle { border-radius: 14px; }
+.role-student .account-card { border-radius: var(--radius); }
+.role-student .copy-value { border-radius: 999px; }
+.role-student .password-state { border-radius: 12px; }
+.role-student .partner-info { border-radius: 999px; }
+.role-student .partner-about { border-radius: 14px; }
+.role-student .partner-track { border-radius: 22px; }
+.role-student .partner-card-body { border-radius: 22px; }
+.role-student .partner-media { border-radius: 14px; }
+.role-student .partner-badge { border-radius: 999px; }
+.role-student .partner-avatar { border-radius: 6px; }
+.role-student .partner-action { border-radius: 999px; }
+.role-student .partner-dots button::before { border-radius: 999px; }
+.role-student .phone { border-radius: 38px; }
+.role-student .phone-screen { border-radius: 30px; }
+.role-student .pp-bar { border-radius: 12px; }
+.role-student .pp-logo { border-radius: 5px; }
+.role-student .pp-dot { border-radius: 50%; }
+.role-student .pp-line { border-radius: 3px; }
+.role-student .pp-idcard { border-radius: 16px; }
+.role-student .pp-clock { border-radius: 6px; }
+.role-student .pp-tile { border-radius: 10px; }
+.role-student .pp-slot { border-radius: 18px; }
+.role-student .phone .partner-card-body { border-radius: 12px; }
+.role-student .phone .partner-media { border-radius: 8px; }
+.role-student .phone .partner-avatar { border-radius: 4px; }
+.role-student .pp-news { border-radius: 14px; }
+.role-student .camp-chip { border-radius: 999px; }
+.role-student .camp-chip b { border-radius: 999px; }
+.role-student .campaign-item { border-radius: 22px; }
+.role-student .campaign-card:focus-visible { border-radius: 22px; }
+.role-student .campaign-thumb { border-radius: 14px; }
+.role-student .campaign-note { border-radius: 12px; }
+.role-student .campaign-skeleton { border-radius: 22px; }
+.role-student .campaign-skeleton .skeleton.thumb { border-radius: 14px; }
+.role-student .detail-preview { border-radius: 22px; }
+.role-student .target-chip { border-radius: 999px; }
+.role-student .target-chip button { border-radius: 50%; }
+.role-student .editor-preview { border-radius: 24px; }
+.role-student .step { border-radius: 50%; }
+.role-student .banner-frame { border-radius: 16px; }
+.role-student .banner-note { border-radius: 12px; }
+.role-student .scope-options:focus-visible { border-radius: 14px; }
+.role-student .scope-option { border-radius: 14px; }
+.role-student .school-results { border-radius: 14px; }
+.role-student .school-results button { border-radius: 10px; }
+.role-student .mini-chip { border-radius: 999px; }
+.role-student .cost-note { border-radius: 16px; }
+.role-student .cost-icon { border-radius: 12px; }
+.role-student .balance-hero { border-radius: 26px; }
+.role-student .hero-chip { border-radius: 999px; }
+.role-student .hero-meter { border-radius: 999px; }
+.role-student .hero-meter span { border-radius: inherit; }
+.role-student .hero-figures div { border-radius: 14px; }
+.role-student .account-card { border-radius: 18px; }
+.role-student .account-icon { border-radius: 12px; }
+.role-student .proof-chosen { border-radius: 14px; }
+.role-student .proof-chosen img { border-radius: 10px; }
+.role-student .proof-thumb { border-radius: 12px; }
+.role-student .topup-review { border-radius: 10px; }
+.role-student .ledger-icon { border-radius: 10px; }
+@media (max-width: 640px) { .role-student .action-dialog:is(.campaign-detail, .role-student .campaign-editor) { border-radius: 0; } }
+.role-student .chart-pointer { border-radius: 8px; }
+.role-student .chart-tooltip { border-radius: 14px; }
+.role-student .chart-tooltip li i { border-radius: 2px; }
+.role-student .chart-legend-row button, .role-student .chart-legend-row .legend-static { border-radius: 999px; }
+.role-student .key.box { border-radius: 4px; }
+.role-student .key.line { border-radius: 2px; }
+.role-student .bar-row { border-radius: 12px; }
+.role-student .bar-track { border-radius: 0 4px 4px 0; }
+.role-student .bar-fill { border-radius: 0 4px 4px 0; }
+.role-student .bar-badge { border-radius: 999px; }
+.role-student .bar-tip { border-radius: 10px; }
+.role-student .donut-legend button { border-radius: 10px; }
+.role-student .donut-legend i { border-radius: 4px; }
+.role-student .segmented { border-radius: 999px; }
+.role-student .segmented button { border-radius: 999px; }
+.role-student .panel { border-radius: var(--radius); }
+.role-student .stat-card { border-radius: var(--radius); }
+.role-student .stat-icon { border-radius: 10px; }
+.role-student .attendance-donut { border-radius: 50%; }
+.role-student .attendance-donut > div { border-radius: 50%; }
+.role-student .legend-dot { border-radius: 4px; }
+.role-student .task-list b { border-radius: 999px; }
+.role-student .role-card { border-radius: var(--radius); }
+.role-student .module-icon { border-radius: 10px; }
+.role-student .table-detail { border-radius: 10px; }
+.role-student .empty-icon { border-radius: 50%; }
+.role-student .sensitive-field .detail-value { border-radius: 8px; }
+.role-student .security-intro { border-radius: var(--radius); }
+.role-student .push-sheet { border-radius: var(--radius); }
+.role-student .security-card { border-radius: var(--radius); }
+.role-student .notification-prefs-skeleton { border-radius: var(--radius); }
+.role-student .quick-icon { border-radius: 12px; }
+.role-student .action-dialog { border-radius: var(--radius); }
+.role-student .feed-card { border-radius: var(--radius); }
+.role-student .calendar-cell { border-radius: 10px; }
+.role-student .preset-card { border-radius: 16px; }
+.role-student .preset-swatches { border-radius: 10px; }
+.role-student .color-swatch { border-radius: 16px; }
+.role-student .preview-banner { border-radius: 20px; }
+.role-student .report-kop .brand-mark { border-radius: 14px; }
+.role-student .report-draft { border-radius: 8px; }
+.role-student .action-menu-list { border-radius: var(--radius-sm); }
+.role-student .action-menu-list button { border-radius: 10px; }
+.role-student .button { border-radius: 999px; }
+.role-student .icon-button { border-radius: 14px; }
+.role-student input, .role-student textarea, .role-student select { border-radius: 14px; }
+.role-student .tile { border-radius: 22px; }
+.role-student .stat-icon, .role-student .module-icon, .role-student .demo-icon { border-radius: 12px; }
+.role-student .school-switch, .role-student .account-button { border-radius: 16px; }
+.role-student .nav-item { border-radius: 14px; }
+.role-student .action-dialog { border-radius: 26px; }
+.role-student .dialog-body .table-scroll { border-radius: var(--radius-sm); }
+.role-student .toast { border-radius: 999px; }
+.role-student .demo-banner { border-radius: 18px; }
+@media (max-width: 760px) { .role-student .tab-bar { border-radius: 30px; } }
+@media (max-width: 760px) { .role-student .tab-item { border-radius: 24px; } }
+.role-student .glass-toggle { border-radius: 14px; }
+.role-student .glass-toggle input { border-radius: 999px; }
+.role-student .glass-toggle input::after { border-radius: 50%; }
+.role-student .env-switch[data-env="staging"] { border-radius: 12px; }
+.role-student .env-back { border-radius: 10px; }
+.role-student .env-badge { border-radius: 999px; }
+.role-student .button { border-radius: var(--radius-sm); }
+.role-student .icon-button { border-radius: var(--radius-sm); }
+.role-student input, .role-student textarea, .role-student select { border-radius: var(--radius-sm); }
+.role-student .danger-confirm { border-radius: var(--radius-sm); }
+.role-student .nested-field { border-radius: var(--radius-sm); }
+.role-student .file-picker { border-radius: var(--radius-sm); }
+.role-student .weekday-picker label { border-radius: var(--radius-sm); }
+.role-student .info-message, .role-student .error-message, .role-student .success-message, .role-student .warning-message { border-radius: var(--radius-sm); }
+.role-student .status { border-radius: 999px; }
+.role-student .status i { border-radius: 50%; }
+.role-student .pill { border-radius: 999px; }
+.role-student .count-badge { border-radius: 999px; }
+.role-student .skeleton { border-radius: 8px; }
+.role-student .loader { border-radius: 50%; }
+.role-student .monitor-tabs { border-radius: 999px; }
+.role-student .monitor-tab { border-radius: 999px; }
+.role-student .monitor-toolbar { border-radius: var(--radius); }
+.role-student .att-chip { border-radius: 999px; }
+.role-student .att-chip i { border-radius: 50%; }
+.role-student .att-chip b { border-radius: 999px; }
+.role-student .monitor-map-box { border-radius: 16px; }
+.role-student .monitor-map-empty { border-radius: 999px; }
+.role-student .monitor-skeleton-map { border-radius: 16px; }
+.role-student .monitor-skeleton-row { border-radius: 14px; }
+.role-student .monitor-map-box .leaflet-container .leaflet-bar { border-radius: 14px; }
+.role-student .monitor-map-box .leaflet-control-attribution { border-radius: 8px 0 0 0; }
+.role-student .monitor-map-box .leaflet-marker-icon:focus-visible { border-radius: 50%; }
+.role-student .att-pin-icon, .role-student .att-cluster-icon, .role-student .att-school-icon { border-radius: 50%; }
+.role-student .att-school { border-radius: 12px; }
+.role-student .leaflet-tooltip.att-tooltip { border-radius: 10px; }
+.role-student .att-pin { border-radius: 50%; }
+.role-student .att-pin-flag { border-radius: 50%; }
+.role-student .att-cluster { border-radius: 50%; }
+.role-student .att-cluster b { border-radius: 50%; }
+.role-student .monitor-popup .leaflet-popup-content-wrapper { border-radius: 20px; }
+.role-student .monitor-popup.leaflet-popup a.leaflet-popup-close-button { border-radius: 12px; }
+.role-student .pin-card-flags { border-radius: 12px; }
+.role-student .att-pill { border-radius: 999px; }
+.role-student .att-pill i { border-radius: 50%; }
+.role-student .att-avatar { border-radius: 50%; }
+.role-student .att-swatch { border-radius: 50%; }
+.role-student .monitor-list-label b { border-radius: 999px; }
+.role-student .monitor-row { border-radius: 14px; }
+.role-student .row-tag { border-radius: 999px; }
+.role-student .monitor-selfie img, .role-student .monitor-selfie-initials { border-radius: 16px; }
+.role-student .monitor-selfie.is-empty { border-radius: 16px; }
+.role-student .monitor-flags li { border-radius: 12px; }
+.role-student .monitor-flags .sev { border-radius: 999px; }
+.role-student .monitor-review { border-radius: 14px; }
+.role-student .recap-scroll { border-radius: 12px; }
+.role-student .recap-legend .recap-cell { border-radius: 6px; }
+.role-student .recap-compact > li { border-radius: 12px; }
+.role-student .recap-chips li { border-radius: 999px; }
+.role-student .review-item { border-radius: 16px; }
+.role-student .review-thumb { border-radius: 10px; }
+.role-student .review-flag { border-radius: 999px; }
+.role-student .review-flag::before { border-radius: 50%; }
+.role-student .review-skeleton { border-radius: 14px; }
+.role-student .review-empty-icon { border-radius: 16px; }
+.role-student .review-banner img { border-radius: 16px; }
+.role-student .review-checklist { border-radius: 16px; }
+.role-student .review-note { border-radius: 14px; }
+.role-student .review-proof a { border-radius: 16px; }
+.role-student .review-proof-hint { border-radius: 999px; }
+.role-student .review-balance { border-radius: 16px; }
+.role-student .review-spinner { border-radius: 50%; }
+.role-student .review-confirm { border-radius: 14px; }
+.role-student .review-chip { border-radius: 999px; }
+@media (max-width: 640px) { .role-student .review-sheet { border-radius: 26px 26px 0 0; } }
+@media (max-width: 640px) { .role-student .review-grabber { border-radius: 99px; } }
+.role-student .sc-month > .stat-card.stat-tile { border-radius: 0; }
+.role-student .sc-highlights > div { border-radius: var(--radius-sm); }
+.role-student .sc-group-attention { border-radius: 14px; }
+.role-student .skeleton.sc-skeleton-block { border-radius: var(--radius-sm); }
+.role-student .brand-mark { border-radius: 11px; }
+.role-student .avatar { border-radius: 50%; }
+.role-student .school-switch { border-radius: var(--radius-sm); }
+.role-student .school-icon { border-radius: 11px; }
+.role-student .nav-item { border-radius: var(--radius-sm); }
+.role-student .account-button { border-radius: var(--radius-sm); }
+.role-student .notification-button i { border-radius: 50%; }
+.role-student .demo-persona { border-radius: var(--radius-sm); }
+.role-student .demo-icon { border-radius: 9px; }
+.role-student .brand-hero { border-radius: 26px; }
+.role-student .hero-skeleton { border-radius: 8px; }
+.role-student .hero-note { border-radius: 999px; }
+.role-student .chart-skeleton .skeleton.block { border-radius: 14px; }
+.role-student .trend-facts > div { border-radius: 14px; }
+.role-student .live-item { border-radius: 14px; }
+.role-student .campaign-thumb { border-radius: 10px; }
+.role-student .point-icon { border-radius: 11px; }
+.role-student .placement-tips { border-radius: 16px; }
+.role-student .insight-select select { border-radius: 999px; }
+.role-student .perf-ad { border-radius: 12px; }
+@media (max-width: 640px) { .role-student .perf-table tbody tr { border-radius: 14px; } }
+.role-student .id-card { border-radius: 26px; }
+.role-student .date-chip { border-radius: 999px; }
+.role-student .id-card .id-status { border-radius: 16px; }
+.role-student .tile { border-radius: 16px; }
+.role-student .tile-icon { border-radius: 16px; }
+.role-student .today-card { border-radius: var(--radius); }
+.role-student .late-reason-review, .role-student .late-reason-done { border-radius: var(--radius); }
+.role-student .summary-strip div { border-radius: var(--radius-sm); }
+.role-student .step-bar li { border-radius: 999px; }
+.role-student .access-row { border-radius: var(--radius); }
+.role-student .access-row b { border-radius: 999px; }
+.role-student .access-icon { border-radius: 12px; }
+.role-student .help-box { border-radius: var(--radius); }
+.role-student .map-canvas { border-radius: var(--radius); }
+.role-student .legend { border-radius: 50%; }
+.role-student .location-facts div { border-radius: var(--radius-sm); }
+.role-student .camera-frame { border-radius: 20px; }
+.role-student .face-guide { border-radius: 50%; }
+.role-student .camera-hint { border-radius: var(--radius-sm); }
+.role-student .selfie-preview { border-radius: 20px; }
+.role-student .identity-card { border-radius: 20px; }
+.role-student .done-icon { border-radius: 50%; }
+.role-student .wizard-steps-bar button { border-radius: 999px; }
+.role-student .wizard-done-card { border-radius: var(--radius-sm); }
+.role-student .wizard-table { border-radius: var(--radius-sm); }
+.role-student .credentials-table code { border-radius: 6px; }
+.role-student .wizard-summary { border-radius: var(--radius-sm); }
+.role-student .subject-progress li { border-radius: var(--radius-sm); }
+.role-student .checklist-step { border-radius: var(--radius-sm); }
+@media (max-width: 640px) { .role-student .wizard-dialog { border-radius: 0; } }
+}

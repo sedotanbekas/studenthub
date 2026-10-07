@@ -34,7 +34,7 @@ test("produksi bersih untuk klien: sakelar hanya untuk super admin; staging sela
   assert.equal(envSwitchMode("production", null), "none", "halaman masuk produksi tanpa sakelar");
   assert.equal(envSwitchMode("production", "SCHOOL_ADMIN"), "none");
   assert.equal(envSwitchMode("production", "STUDENT"), "none");
-  assert.equal(envSwitchMode("production", "SUPER_ADMIN"), "to-staging");
+  assert.equal(envSwitchMode("production", "SUPER_ADMIN"), "none", "produksi bersih: tanpa tautan ke staging");
   assert.equal(envSwitchMode("staging", null), "back-to-production");
   assert.equal(envSwitchMode("staging", "STUDENT"), "back-to-production");
   assert.equal(envSwitchMode(null, "SUPER_ADMIN"), "none", "lokal/test tanpa sakelar");

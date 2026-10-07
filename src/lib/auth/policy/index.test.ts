@@ -99,3 +99,18 @@ test("notification.preferences (N2): admin sekolah utama & tambahan; peran lain 
   assert.equal(codeOf(() => authorize(makePrincipal({ role: "SUPER_ADMIN", schoolId: null }), "notification.preferences")), "FORBIDDEN");
   assert.equal(codeOf(() => authorize(makePrincipal({ role: "SCHOOL_ADMIN", mustChangePassword: true }), "notification.preferences")), "PASSWORD_CHANGE_REQUIRED");
 });
+
+test("productionDisabled: mode uji absensi ditolak di server produksi, tetap ada di luar produksi", () => {
+  const sa = makePrincipal({ role: "SUPER_ADMIN", schoolId: null });
+  const before = process.env.APP_ORIGIN;
+  try {
+    process.env.APP_ORIGIN = "https://studenthub.id";
+    assert.equal(codeOf(() => authorize(sa, "attendance.test_mode")), "FORBIDDEN");
+    assert.ok(!listAllowedActions(sa).includes("attendance.test_mode"));
+    assert.equal(codeOf(() => authorize(sa, "attendance.reclose")), null, "aksi lain tidak terpengaruh");
+    process.env.APP_ORIGIN = "https://staging.studenthub.id";
+    assert.equal(codeOf(() => authorize(sa, "attendance.test_mode")), null);
+  } finally {
+    if (before === undefined) delete process.env.APP_ORIGIN; else process.env.APP_ORIGIN = before;
+  }
+});

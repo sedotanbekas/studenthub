@@ -19,6 +19,8 @@ export interface PolicyRule {
   readonly blockedWhenImpersonating?: boolean;
   /** Pengecualian mode lihat "Masuk sebagai": perubahan (non-GET) aksi ini tetap boleh (hanya keluar/akhiri). */
   readonly allowWhenImpersonating?: boolean;
+  /** Tidak tersedia di server produksi (siapa pun ditolak FORBIDDEN), mis. mode uji absensi -- pemilik 2026-10-07: siap produksi. */
+  readonly productionDisabled?: boolean;
 }
 
 export const ALL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"];

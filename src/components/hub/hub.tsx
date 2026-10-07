@@ -61,6 +61,9 @@ function useAppearance(me: Identity | null) {
   const theme = me?.school?.theme;
   useEffect(() => { applyTheme(theme ? resolveTheme(theme) : null); }, [theme]);
   useEffect(() => { applyGlassMode(glassModeFor(readGlassPreference(localStorage), deviceMemory())); }, []);
+  // Akun siswa di HP tetap membulat seperti semula (src/styles/student-rounded.css, pemilik 2026-10-07).
+  const student = me?.user.role === "STUDENT";
+  useLayoutEffect(() => { document.documentElement.classList.toggle("role-student", student); }, [student]);
 }
 
 /** Bagian milik peran lain (mis. lewat tombol kembali setelah ganti akun) -> alihkan ke beranda. */

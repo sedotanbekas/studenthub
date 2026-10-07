@@ -1,6 +1,8 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import type { Principal } from "@/lib/auth/principal";
 import { POLICY } from "@/lib/auth/policy";
+import type { PolicyRule } from "@/lib/auth/policy/types";
+import { isProductionServer } from "@/lib/app-env-server";
 import { prisma, type Tx } from "@/lib/db";
 import { notFound } from "@/lib/http/errors";
 import { PERMISSION_CATALOG, PERMISSION_GROUPS } from "./catalog";
@@ -88,12 +90,13 @@ export async function getAccessRole(principal: Principal, id: string, db: Tx = p
 }
 
 /** Katalog hak akses per kelompok, terurut seperti POLICY di dalam kelompok. */
-export function permissionCatalog(): PermissionCatalogDto {
+export function permissionCatalog(production: boolean = isProductionServer()): PermissionCatalogDto {
   const entries = Object.entries(PERMISSION_CATALOG) as [keyof typeof PERMISSION_CATALOG, (typeof PERMISSION_CATALOG)[keyof typeof PERMISSION_CATALOG]][];
   return PERMISSION_GROUPS.map((group) => ({
     group,
     items: entries
-      .filter(([, info]) => info.group === group)
+      // Fitur yang dimatikan di produksi (mode uji absensi) tidak ditawarkan di layar centang produksi.
+      .filter(([action, info]) => info.group === group && !(production && (POLICY[action] as PolicyRule).productionDisabled))
       .map(([action, info]) => ({ action, label: info.label, hint: info.hint, baseRoles: [...POLICY[action].roles] })),
   })).filter((g) => g.items.length > 0);
 }
