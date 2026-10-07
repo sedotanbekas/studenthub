@@ -1,4 +1,5 @@
 "use client";
+import { picksSchool } from "@/lib/frontend/modules";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { operations } from "@/lib/frontend/catalog";
@@ -47,7 +48,7 @@ export function Workspace({ module, embedded = false, recordDialog, onRowSelect 
   const selectRow = (row: Row) => (onRowSelect ? onRowSelect(row) : setSelected({ row }));
   const [version, setVersion] = useState(0);
   const [query, setQuery] = useState("");
-  const needsSchool = me.user.role === "SUPER_ADMIN" && module.paths.some(p => p.startsWith("/school/")) && !schoolId && !demo;
+  const needsSchool = picksSchool(me.user.role) && module.paths.some(p => p.startsWith("/school/")) && !schoolId && !demo;
   const requiredMissing = view?.parameters.some(p => p.required && !filters[p.name]);
   useEffect(() => {
     if (!view || needsSchool || requiredMissing) return;

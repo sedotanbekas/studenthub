@@ -31,6 +31,9 @@ export interface SessionRow {
     sponsor: { status: SponsorStatus } | null;
     /** Peran akses RBAC akun (atau peran sistem jenis akunnya bila kosong). null = hak bawaan POLICY. */
     accessRole?: RoleGrantSource | null;
+    /** Wilayah Admin Pemda (REGION_ADMIN). */
+    regionProvinceCode?: string | null;
+    regionCityCode?: string | null;
   };
 }
 
@@ -41,11 +44,15 @@ export type EligibilityInput = {
   role: UserRole;
   schoolActive: boolean | null;
   studentStatus: StudentStatus | null;
+  /** Hanya diperiksa untuk REGION_ADMIN. */
+  regionProvinceCode?: string | null;
 };
 
 /** Boleh login/memakai sesi? Siswa hanya ACTIVE atau GRADUATED (read-only). */
 export function checkLoginEligibility(input: EligibilityInput): { ok: true } | { ok: false; reason: IneligibleReason } {
   if (!input.isActive) return { ok: false, reason: "USER_INACTIVE" };
+  // Admin Pemda tanpa wilayah (tidak mungkin lewat CHECK chk_user_scope) tidak boleh memakai sesi.
+  if (input.role === "REGION_ADMIN" && input.regionProvinceCode === null) return { ok: false, reason: "USER_INACTIVE" };
   if (input.schoolActive === false) return { ok: false, reason: "SCHOOL_INACTIVE" };
   if (input.role === "STUDENT") {
     if (input.studentStatus === "DRAFT") return { ok: false, reason: "STUDENT_DRAFT" };
@@ -80,6 +87,7 @@ export function evaluatePrincipal(
     role: user.role,
     schoolActive: user.school ? user.school.isActive : null,
     studentStatus: user.student?.status ?? null,
+    regionProvinceCode: user.regionProvinceCode ?? null,
   });
   if (!eligible.ok) return { ok: false, code: "ACCOUNT_INACTIVE" };
   const principal: Principal = Object.freeze({
@@ -99,6 +107,8 @@ export function evaluatePrincipal(
     deviceId: row.deviceId,
     impersonatorId: row.impersonatorId,
     grants: user.accessRole ? resolveGrants(user.accessRole, user.role) : null,
+    region: user.role === "REGION_ADMIN" && user.regionProvinceCode ? { provinceCode: user.regionProvinceCode, cityCode: user.regionCityCode ?? null } : null,
+    regionSchoolId: null,
   });
   return { ok: true, principal };
 }

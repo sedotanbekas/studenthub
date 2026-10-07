@@ -2,7 +2,7 @@ import { LATE_REASON_LABELS } from "@/lib/attendance/late-reason-rules";
 
 /** Label Bahasa Indonesia untuk kode enum API (dipakai frontend lewat GET /api/v1/meta/enums). */
 export const ENUM_LABELS = {
-  UserRole: { SUPER_ADMIN: "Super Admin", SCHOOL_ADMIN: "Admin Sekolah", SPONSOR: "Sponsor", STUDENT: "Siswa" },
+  UserRole: { SUPER_ADMIN: "Super Admin", SCHOOL_ADMIN: "Admin Sekolah", SPONSOR: "Sponsor", STUDENT: "Siswa", REGION_ADMIN: "Admin Pemda" },
   StudentStatus: { DRAFT: "Draf", ACTIVE: "Aktif", INACTIVE: "Nonaktif", GRADUATED: "Lulus", MOVED: "Pindah" },
   Gender: { MALE: "Laki-laki", FEMALE: "Perempuan" },
   SchoolTimezone: { WIB: "WIB (UTC+7)", WITA: "WITA (UTC+8)", WIT: "WIT (UTC+9)" },

@@ -4,7 +4,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { requirePrincipal, type ActionContext } from "@/lib/auth/principal";
 import { revokeAllSessions } from "@/lib/auth/sessions";
 import { prisma, type Tx } from "@/lib/db";
-import { conflict, notFound } from "@/lib/http/errors";
+import { conflict, notFound, unprocessable } from "@/lib/http/errors";
 import { superAdminsLockKey, userLockKey } from "@/lib/lock-keys";
 import { lockKey, withTx } from "@/lib/tx";
 import { assertRoleMatchesAccount } from "@/lib/roles/rules";
@@ -66,6 +66,14 @@ async function pickAccessRole(tx: Tx, id: string | undefined, role: UserRole): P
   return found.isSystem ? null : id;
 }
 
+/** Wilayah Admin Pemda harus ada di data referensi (provinsi, dan kota di provinsi itu bila diisi). */
+async function assertRegionExists(tx: Tx, provinceCode: string, cityCode: string | null): Promise<void> {
+  const found = cityCode
+    ? await tx.city.findFirst({ where: { code: cityCode, provinceCode }, select: { code: true } })
+    : await tx.province.findUnique({ where: { code: provinceCode }, select: { code: true } });
+  if (!found) throw unprocessable("REGION_NOT_FOUND", "Provinsi atau kabupaten/kota tidak ditemukan.");
+}
+
 /** Sekolah harus aktif; admin sekolah pertama menjadi admin utama (login NPSN). true = admin utama. */
 async function planSchoolAdmin(tx: Tx, schoolId: string, email: string | undefined): Promise<boolean> {
   const school = await tx.school.findUnique({ where: { id: schoolId }, select: { isActive: true, npsn: true } });
@@ -81,8 +89,9 @@ async function planSchoolAdmin(tx: Tx, schoolId: string, email: string | undefin
  * di sekolahnya = admin utama (login NPSN, email opsional); lainnya wajib email (planAdminLogin).
  */
 export async function createUser(input: CreateUserInput, ctx: ActionContext): Promise<{ user: PlatformUserDto; temporaryPassword?: string }> {
-  assertCreatableRole(input.role, input.schoolId);
-  if (input.role === "SUPER_ADMIN") planAdminLogin({ role: input.role, email: input.email, hasPrimary: false, schoolNpsn: null });
+  const region = { provinceCode: input.regionProvinceCode, cityCode: input.regionCityCode };
+  assertCreatableRole(input.role, input.schoolId, region);
+  if (input.role !== "SCHOOL_ADMIN") planAdminLogin({ role: input.role, email: input.email, hasPrimary: false, schoolNpsn: null });
   const plan = planCredential(input.initialPassword, { email: input.email ?? null }, ctx.now);
   if (input.email) await assertEmailFree(prisma, input.email);
   const passwordHash = await hashPassword(plan.plain, plan.cost);
@@ -92,11 +101,16 @@ export async function createUser(input: CreateUserInput, ctx: ActionContext): Pr
     const primary = schoolId ? await planSchoolAdmin(tx, schoolId, input.email) : false;
     const primarySchoolId = primary ? schoolId : null;
     const accessRoleId = await pickAccessRole(tx, input.accessRoleId, input.role);
+    if (input.role === "REGION_ADMIN" && region.provinceCode) await assertRegionExists(tx, region.provinceCode, region.cityCode ?? null);
     const created = await tx.user.create({
-      data: { role: input.role, name: input.name, email, schoolId, primarySchoolId, accessRoleId, passwordHash, mustChangePassword: true, tempPasswordExpiresAt: plan.tempPasswordExpiresAt },
+      data: {
+        role: input.role, name: input.name, email, schoolId, primarySchoolId, accessRoleId, passwordHash, mustChangePassword: true, tempPasswordExpiresAt: plan.tempPasswordExpiresAt,
+        regionProvinceCode: input.role === "REGION_ADMIN" ? (region.provinceCode ?? null) : null,
+        regionCityCode: input.role === "REGION_ADMIN" ? (region.cityCode ?? null) : null,
+      },
       select: { id: true },
     });
-    const after = { role: input.role, name: input.name, email, schoolId, primary, credential: plan.kind, accessRoleId };
+    const after = { role: input.role, name: input.name, email, schoolId, primary, credential: plan.kind, accessRoleId, region: input.role === "REGION_ADMIN" ? region : null };
     await writeAudit(tx, { action: "user.create", entityType: "User", entityId: created.id, schoolId, after }, ctx);
     return created.id;
   }).catch(mapEmailRace);

@@ -26,9 +26,10 @@ model Province {
   code String @id @db.VarChar(2)
   name String @db.VarChar(100)
 
-  cities    City[]
-  schools   School[]
-  adTargets AdTarget[]
+  cities       City[]
+  schools      School[]
+  adTargets    AdTarget[]
+  regionAdmins User[]
 }
 
 /// Kabupaten/kota, kode "32.73".
@@ -38,8 +39,9 @@ model City {
   name         String @db.VarChar(100)
 
   province  Province   @relation(fields: [provinceCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
-  schools   School[]
-  adTargets AdTarget[]
+  schools      School[]
+  adTargets    AdTarget[]
+  regionAdmins User[]
 
   @@index([provinceCode])
 }

@@ -1,4 +1,5 @@
 "use client";
+import { picksSchool } from "@/lib/frontend/modules";
 import { useState, type KeyboardEvent } from "react";
 import { currentYear, isSetupComplete, setupSteps, todayTermNotice } from "@/lib/frontend/academics-rules";
 import type { Module } from "@/lib/frontend/types";
@@ -21,7 +22,7 @@ const TABS: readonly (readonly [Tab, string, string])[] = [["years", "Tahun ajar
 
 export function AcademicsPage({ module }: { module: Module }) {
   const { me, schoolId, demo } = useHub();
-  const needsSchool = me.user.role === "SUPER_ADMIN" && !schoolId && !demo;
+  const needsSchool = picksSchool(me.user.role) && !schoolId && !demo;
   const state = useAcademicsState(!needsSchool);
   const [mode, setMode] = useState<Mode | null>(null);
   const complete = state.data ? isSetupComplete(setupSteps(snapshotOf(state.data))) : true;

@@ -158,6 +158,10 @@ export const meSchema = z
       .object({ id: z.string(), nisn: z.string(), nis: z.string(), status: z.enum(STUDENT_STATUSES), className: z.string().nullable() })
       .nullable(),
     sponsor: z.object({ id: z.string(), companyName: z.string(), status: z.enum(SPONSOR_STATUSES) }).nullable(),
+    region: z
+      .object({ provinceCode: z.string(), provinceName: z.string(), cityCode: z.string().nullable(), cityName: z.string().nullable() })
+      .nullable()
+      .meta({ description: "Wilayah Admin Pemda (REGION_ADMIN): provinsi, + kota bila admin kota. null untuk peran lain." }),
     permissions: z.array(z.string()).meta({ description: "Aksi POLICY yang boleh dijalankan pemanggil saat ini." }),
     impersonation: z
       .object({ by: z.object({ id: z.string(), name: z.string() }), expiresAt: instant })

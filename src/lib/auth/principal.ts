@@ -28,6 +28,18 @@ export interface Principal {
    * jenis akunnya (unit test, job). Selalu himpunan bagian dari aksi POLICY untuk `role`.
    */
   readonly grants?: ReadonlySet<string> | null;
+  /** Wilayah Admin Pemda (REGION_ADMIN): provinsi, + kota bila admin kota. null/undefined = bukan Admin Pemda. */
+  readonly region?: RegionScope | null;
+  /**
+   * Admin Pemda: ?schoolId= request ini SUDAH diverifikasi berada di wilayahnya (getAuth). null = tidak ada /
+   * di luar wilayah -> resolveSchoolScope menolak 404 (sekolah tenant lain tidak bisa dienumerasi).
+   */
+  readonly regionSchoolId?: string | null;
+}
+
+export interface RegionScope {
+  readonly provinceCode: string;
+  readonly cityCode: string | null;
 }
 
 /** Konteks aksi yang diteruskan ke setiap service. */

@@ -34,10 +34,12 @@ export const corePolicy = {
     sponsorStatuses: ALL_SPONSOR_STATUSES,
   },
   "region.read": {
-    roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR"],
+    roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "REGION_ADMIN"],
     sponsorStatuses: ALL_SPONSOR_STATUSES,
   },
   "platform.jobs.read": { roles: ["SUPER_ADMIN"] },
   /** Nama & logo aplikasi (menu Pengaturan aplikasi, 2026-10-07). Membaca identitas aplikasi publik (GET /app/branding). */
   "app.settings": { roles: ["SUPER_ADMIN"] },
+  /** Admin Pemda: daftar sekolah di wilayahnya (pemilih sekolah & ringkasan wilayah). */
+  "region.monitor": { roles: ["REGION_ADMIN"] },
 } as const satisfies Record<string, PolicyRule>;

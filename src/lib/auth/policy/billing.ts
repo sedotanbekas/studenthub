@@ -1,4 +1,4 @@
-import { ADMINS, type PolicyRule } from "./types";
+import { ADMINS, MONITORS, type PolicyRule } from "./types";
 
 /**
  * Aksi POLICY domain SPP. Siswa LULUS tetap boleh membaca tagihan & kuitansi serta melunasi tunggakan
@@ -6,7 +6,7 @@ import { ADMINS, type PolicyRule } from "./types";
  */
 export const billingPolicy = {
   /** Admin: daftar & detail tagihan, antrean bukti transfer, kuitansi. */
-  "billing.read": { roles: ADMINS },
+  "billing.read": { roles: MONITORS },
   /** Admin: buat (tunggal/massal), ubah, batalkan, pulihkan tagihan. */
   "billing.write": { roles: ADMINS },
   /** Admin: setujui/tolak bukti transfer, catat pembayaran tunai, batalkan pembayaran. */

@@ -11,6 +11,8 @@ test("accountBadge: peran yang mudah dibaca (admin utama/tambahan, siswa + kelas
   assert.equal(accountBadge({ ...base, role: "SCHOOL_ADMIN", student: null, adminKind: "ADDITIONAL" }), "Admin tambahan (guru)");
   assert.equal(accountBadge({ ...base, role: "SPONSOR", student: null, sponsor: { companyName: "PT Maju" } }), "Sponsor · PT Maju");
   assert.equal(accountBadge({ ...base, role: "SUPER_ADMIN", student: null }), "Super admin");
+  assert.equal(accountBadge({ ...base, role: "REGION_ADMIN", student: null, region: { provinceName: "Jawa Barat", cityName: null } }), "Admin Pemda · Jawa Barat");
+  assert.equal(accountBadge({ ...base, role: "REGION_ADMIN", student: null, region: { provinceName: "Jawa Barat", cityName: "Kota Depok" } }), "Admin Pemda · Kota Depok");
 });
 
 test("loginKindLabel", () => {

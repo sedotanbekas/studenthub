@@ -2,7 +2,7 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/frontend/api";
-import { isKnownSection, isRestricted, modulesFor, resolveSection, sectionAllowed, sectionFromPath } from "@/lib/frontend/modules";
+import { isKnownSection, isRestricted, modulesFor, picksSchool, resolveSection, sectionAllowed, sectionFromPath } from "@/lib/frontend/modules";
 import { applyGlassMode, applyTheme, glassModeFor, readGlassPreference } from "@/lib/frontend/theme";
 import { resolveTheme } from "@/lib/schools/theme-rules";
 import { demoAllowed, type AppEnv } from "@/lib/frontend/app-env";
@@ -33,10 +33,11 @@ interface NavData { readonly userId: string; readonly schools: { id: string; nam
 function useNavigationData(me: Identity | null, demo: boolean): Omit<NavData, "userId"> {
   const [data, setData] = useState<NavData | null>(null);
   useEffect(() => {
-    if (!me || demo || isRestricted(me) || me.user.role !== "SUPER_ADMIN") return;
+    if (!me || demo || isRestricted(me) || !picksSchool(me.user.role)) return;
     let active = true;
     const userId = me.user.id;
-    api("/platform/schools?limit=100").then(r => { if (active) setData({ userId, schools: r.data as { id: string; name: string }[] }); }).catch(() => {});
+    // Admin Pemda: hanya sekolah di wilayahnya (provinsi/kota akun).
+    api(me.user.role === "REGION_ADMIN" ? "/region/schools?limit=100" : "/platform/schools?limit=100").then(r => { if (active) setData({ userId, schools: r.data as { id: string; name: string }[] }); }).catch(() => {});
     return () => { active = false; };
   }, [me, demo]);
   return data && me && !demo && data.userId === me.user.id ? data : { schools: [] };
@@ -130,7 +131,7 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
     <div className="main-shell" inert={drawer.open}><Topbar key={me.user.id} title={current?.title ?? "Beranda"} home={home || restricted} unread={unread} me={me} env={env} onMenu={drawer.show} />
       {/* .hub-view = seluruh isi yang ikut tergulir, digeser utuh saat pindah halaman (page-slide.ts). */}
       <main id="main-content" className="page-content"><div className="hub-view">{me.impersonation && <ImpersonationBanner me={me} />}{demo && <DemoBanner me={me} onPersona={session.switchPersona} onExit={session.logout} />}
-        {me.user.role === "SUPER_ADMIN" && current?.paths.some(p => p.startsWith("/school/")) && <label className="scope-select">Sekolah yang dikelola<select value={schoolId} onChange={e => session.setSchoolId(e.target.value)}><option value="">Pilih sekolah terlebih dahulu</option>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
+        {picksSchool(me.user.role) && current?.paths.some(p => p.startsWith("/school/")) && <label className="scope-select">{me.user.role === "REGION_ADMIN" ? "Sekolah yang dipantau" : "Sekolah yang dikelola"}<select value={schoolId} onChange={e => session.setSchoolId(e.target.value)}><option value="">Pilih sekolah terlebih dahulu</option>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
         {/* Akun terbatas: pesan + formulir/tombolnya tampil bersama di kartu tugas halaman Keamanan akun (security-panel.tsx). */}
         {children}
       </div></main></div>

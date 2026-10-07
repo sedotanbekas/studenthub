@@ -1,4 +1,4 @@
-import { ADMINS, ALL_STUDENT_STATUSES, type PolicyRule } from "./types";
+import { ADMINS, MONITORS, ALL_STUDENT_STATUSES, type PolicyRule } from "./types";
 
 /**
  * Aksi POLICY domain rapor. Admin sekolah (sekolahnya sendiri) & super admin (wajib ?schoolId=) mengelola
@@ -6,7 +6,7 @@ import { ADMINS, ALL_STUDENT_STATUSES, type PolicyRule } from "./types";
  */
 export const reportCardsPolicy = {
   /** Grid nilai, daftar, detail, dan cek kesiapan terbit. */
-  "reportCards.read": { roles: ADMINS },
+  "reportCards.read": { roles: MONITORS },
   /** Input nilai (massal & per rapor), buat rapor kosong, hapus rapor DRAFT. */
   "reportCards.manage": { roles: ADMINS },
   /** Terbitkan & tarik terbit. */

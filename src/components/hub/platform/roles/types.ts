@@ -4,7 +4,7 @@ export interface AccessRole {
   readonly key: string;
   readonly name: string;
   readonly description: string | null;
-  readonly baseRole: "SUPER_ADMIN" | "SCHOOL_ADMIN" | "SPONSOR" | "STUDENT";
+  readonly baseRole: "SUPER_ADMIN" | "SCHOOL_ADMIN" | "SPONSOR" | "STUDENT" | "REGION_ADMIN";
   readonly isSystem: boolean;
   readonly permissions: readonly string[];
   readonly lockedPermissions: readonly string[];

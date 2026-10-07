@@ -26,6 +26,10 @@ const platform: Module[] = [
   moduleOf("login-history", "Riwayat masuk", "Siapa yang masuk ke akun mana pun: perangkat, IP, perkiraan lokasi, dan alasan gagal.", "key", "LAINNYA", ["/platform/login-history"], "listLoginHistory"),
   moduleOf("access-roles", "Peran & hak akses", "Atur peran, centang hak akses tiap fitur, dan pasang peran ke akun.", "shield", "LAINNYA", ["/access-roles"], "listAccessRoles"),
 ];
+/** Admin Pemda (REGION_ADMIN, 2026-10-07): sekolah di wilayahnya, lalu modul sekolah BACA saja lewat pemilih sekolah. */
+const region: Module[] = [
+  moduleOf("region-schools", "Sekolah wilayah", "Sekolah di provinsi/kota wilayah Anda beserta ringkasannya.", "school", "WILAYAH", ["/region/schools"], "listRegionSchools"),
+];
 const sponsor: Module[] = [
   moduleOf("campaigns", "Kampanye saya", "Ide baik layak menjangkau lebih banyak orang.", "megaphone", "SPONSOR", ["/sponsor/ads", "/sponsor/banners", "/sponsor/targeting"], "listOwnAds"),
   moduleOf("analytics", "Analitik", "Pahami jangkauan dan performa kampanye Anda.", "chart", "SPONSOR", ["/sponsor/analytics"], "getAdAnalyticsSummary"),
@@ -56,7 +60,7 @@ export const MODULE_ACTIONS: Readonly<Record<string, string>> = {
   "school-settings": "schools.profile.read", "school-theme": "schools.theme.read", audit: "audit.school.read",
   schools: "schools.manage", users: "users.manage", sponsors: "sponsor.admin", "ad-review": "ads.review", topups: "topup.review",
   "national-calendar": "calendar.national.read", "platform-settings": "app.settings", "platform-audit": "audit.platform.read",
-  "login-history": "audit.login.read", "access-roles": "roles.read",
+  "login-history": "audit.login.read", "access-roles": "roles.read", "region-schools": "region.monitor",
   campaigns: "ads.own.read", analytics: "ads.analytics.read", balance: "sponsor.self.read", company: "sponsor.self.read",
   "my-attendance": "attendance.self", "my-leave": "leave.self.read", "my-reports": "reportCards.self.read", "my-billing": "billing.self.read",
   "my-calendar": "calendar.student.read", "my-profile": "students.profile.read",
@@ -76,8 +80,15 @@ export const MODULE_ALT_ACTIONS: Readonly<Record<string, readonly string[]>> = {
 const permitted = (permissions: readonly string[] | undefined) => (m: Module) =>
   !permissions?.length || [MODULE_ACTIONS[m.key] ?? "", ...(MODULE_ALT_ACTIONS[m.key] ?? [])].some(action => permissions.includes(action));
 export function modulesFor(role: Role, permissions?: readonly string[]): Module[] {
-  return [...(role === "SUPER_ADMIN" ? [...platform, ...school] : role === "SPONSOR" ? sponsor : role === "STUDENT" ? student : school), ...common].filter(permitted(permissions));
+  return [...baseModules(role), ...common].filter(permitted(permissions));
 }
+function baseModules(role: Role): Module[] {
+  if (role === "SUPER_ADMIN") return [...platform, ...school];
+  if (role === "REGION_ADMIN") return [...region, ...school];
+  return role === "SPONSOR" ? sponsor : role === "STUDENT" ? student : school;
+}
+/** Akun yang memilih sekolah lewat pemilih di atas halaman (super admin: semua sekolah; Admin Pemda: sekolah wilayahnya). */
+export const picksSchool = (role: Role): boolean => role === "SUPER_ADMIN" || role === "REGION_ADMIN";
 /** Bagian hub dari pathname: /hub -> "dashboard", /hub/x/... -> "x". */
 export function sectionFromPath(pathname: string): string {
   return pathname.split("/").filter(Boolean)[1] ?? "dashboard";
@@ -88,7 +99,7 @@ export function sectionDetailId(pathname: string): string | null {
   if (parts.length !== 3 || !parts[2]) return null;
   try { return decodeURIComponent(parts[2]); } catch { return null; }
 }
-const ALL_SECTION_KEYS = new Set(["dashboard", ...[...platform, ...school, ...sponsor, ...student, ...common].map(m => m.key)]);
+const ALL_SECTION_KEYS = new Set(["dashboard", ...[...platform, ...region, ...school, ...sponsor, ...student, ...common].map(m => m.key)]);
 /** Bagian yang ada untuk salah satu peran (URL asal-asalan tetap "tidak ditemukan"). */
 export function isKnownSection(section: string): boolean {
   return ALL_SECTION_KEYS.has(section);
@@ -115,10 +126,11 @@ const TAB_KEYS: Record<Role, readonly [string, string][]> = {
   SCHOOL_ADMIN: [["students", "Siswa"], ["attendance", "Kehadiran"], ["billing", "Tagihan"]],
   SPONSOR: [["campaigns", "Kampanye"], ["analytics", "Analitik"], ["balance", "Saldo"]],
   SUPER_ADMIN: [["schools", "Sekolah"], ["users", "Pengguna"], ["sponsors", "Sponsor"]],
+  REGION_ADMIN: [["region-schools", "Sekolah"], ["attendance", "Kehadiran"], ["billing", "Tagihan"]],
 };
 export function tabItems(role: Role, permissions?: readonly string[]): TabItem[] {
   const modules = modulesFor(role, permissions);
   const tabs = TAB_KEYS[role].flatMap(([key, label]) => { const m = modules.find(x => x.key === key); return m ? [{ key, label, icon: m.icon, href: `/hub/${key}` }] : []; });
   return [{ key: "dashboard", label: "Beranda", icon: "grid", href: "/hub" }, ...tabs];
 }
-export const roleLabels: Record<Role, string> = { SCHOOL_ADMIN: "Admin sekolah", SUPER_ADMIN: "Super admin", SPONSOR: "Sponsor", STUDENT: "Siswa" };
+export const roleLabels: Record<Role, string> = { SCHOOL_ADMIN: "Admin sekolah", SUPER_ADMIN: "Super admin", SPONSOR: "Sponsor", STUDENT: "Siswa", REGION_ADMIN: "Admin Pemda" };

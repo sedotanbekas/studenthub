@@ -24,6 +24,8 @@ export async function getMe(ctx: ActionContext): Promise<MeDto> {
       school: { select: { id: true, name: true, npsn: true, timezone: true, ...SCHOOL_THEME_SELECT } },
       student: { select: { id: true, nisn: true, nis: true, status: true, currentClass: { select: { name: true } } } },
       sponsor: { select: { id: true, companyName: true, status: true } },
+      regionProvince: { select: { code: true, name: true } },
+      regionCity: { select: { code: true, name: true } },
     },
   });
   if (!user) throw notFound("Akun tidak ditemukan.");

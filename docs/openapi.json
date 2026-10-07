@@ -1144,6 +1144,157 @@
         }
       }
     },
+    "/api/v1/region/schools": {
+      "get": {
+        "operationId": "listRegionSchools",
+        "tags": [
+          "Wilayah — Admin Pemda"
+        ],
+        "summary": "Daftar sekolah di wilayah Admin Pemda",
+        "description": "Admin provinsi: semua sekolah di provinsinya (bisa disaring cityCode); admin kota: sekolah di kotanya. Data tiap sekolah dibuka lewat endpoint /school/* dengan ?schoolId= (baca saja); sekolah di luar wilayah -> 404.\n\nAksi POLICY: `region.monitor`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "description": "Nomor halaman (mulai 1).",
+              "example": 1,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "description": "Nomor halaman (mulai 1)."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "description": "Jumlah baris per halaman (maks 100).",
+              "example": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Jumlah baris per halaman (maks 100)."
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Cari nama sekolah atau awalan NPSN.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "Cari nama sekolah atau awalan NPSN."
+          },
+          {
+            "in": "query",
+            "name": "cityCode",
+            "schema": {
+              "description": "Saring satu kabupaten/kota (admin provinsi).",
+              "type": "string",
+              "pattern": "^\\d{2}\\.\\d{2}$"
+            },
+            "description": "Saring satu kabupaten/kota (admin provinsi)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RegionSchool"
+                      }
+                    },
+                    "error": {
+                      "type": "null"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Tidak terautentikasi. Kode: UNAUTHENTICATED, TOKEN_EXPIRED, SESSION_INVALID, ACCOUNT_INACTIVE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak. Kode: FORBIDDEN, PASSWORD_CHANGE_REQUIRED, SCOPE_MISMATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "authLogin",
@@ -5286,7 +5437,8 @@
                 "SUPER_ADMIN",
                 "SCHOOL_ADMIN",
                 "SPONSOR",
-                "STUDENT"
+                "STUDENT",
+                "REGION_ADMIN"
               ]
             }
           },
@@ -5434,9 +5586,10 @@
                       "SUPER_ADMIN",
                       "SCHOOL_ADMIN",
                       "SPONSOR",
-                      "STUDENT"
+                      "STUDENT",
+                      "REGION_ADMIN"
                     ],
-                    "description": "Hanya SCHOOL_ADMIN atau SUPER_ADMIN; SPONSOR/STUDENT -> 400 USE_DEDICATED_ENDPOINT."
+                    "description": "SCHOOL_ADMIN, SUPER_ADMIN, atau REGION_ADMIN (Admin Pemda); SPONSOR/STUDENT -> 400 USE_DEDICATED_ENDPOINT."
                   },
                   "name": {
                     "type": "string",
@@ -5465,6 +5618,16 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 64
+                  },
+                  "regionProvinceCode": {
+                    "description": "Wajib untuk REGION_ADMIN (Admin Pemda): provinsi wilayah pantauan, mis. 32 Jawa Barat.",
+                    "type": "string",
+                    "pattern": "^\\d{2}$"
+                  },
+                  "regionCityCode": {
+                    "description": "Opsional untuk REGION_ADMIN: isi untuk admin kabupaten/kota (mis. 32.76 Kota Depok).",
+                    "type": "string",
+                    "pattern": "^\\d{2}\\.\\d{2}$"
                   }
                 },
                 "required": [
@@ -7111,7 +7274,8 @@
                 "SUPER_ADMIN",
                 "SCHOOL_ADMIN",
                 "SPONSOR",
-                "STUDENT"
+                "STUDENT",
+                "REGION_ADMIN"
               ]
             },
             "description": "Filter peran akun."
@@ -8750,7 +8914,8 @@
                 "SUPER_ADMIN",
                 "SCHOOL_ADMIN",
                 "SPONSOR",
-                "STUDENT"
+                "STUDENT",
+                "REGION_ADMIN"
               ]
             },
             "description": "Saring per jenis akun. Admin sekolah selalu hanya melihat peran SCHOOL_ADMIN."
@@ -8879,7 +9044,8 @@
                       "SUPER_ADMIN",
                       "SCHOOL_ADMIN",
                       "SPONSOR",
-                      "STUDENT"
+                      "STUDENT",
+                      "REGION_ADMIN"
                     ],
                     "description": "Jenis akun yang bisa memakai peran ini; tidak bisa diubah setelah dibuat."
                   },
@@ -38226,6 +38392,87 @@
         ],
         "additionalProperties": false
       },
+      "RegionSchool": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "npsn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "provinceCode": {
+            "type": "string"
+          },
+          "provinceName": {
+            "type": "string"
+          },
+          "cityCode": {
+            "type": "string"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "activeStudentCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "npsn",
+          "name",
+          "isActive",
+          "provinceCode",
+          "provinceName",
+          "cityCode",
+          "cityName",
+          "activeStudentCount"
+        ],
+        "additionalProperties": false
+      },
+      "PageMeta": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ],
+        "additionalProperties": false
+      },
       "AuthTokens": {
         "type": "object",
         "properties": {
@@ -38301,7 +38548,8 @@
               "SUPER_ADMIN",
               "SCHOOL_ADMIN",
               "SPONSOR",
-              "STUDENT"
+              "STUDENT",
+              "REGION_ADMIN"
             ]
           },
           "schoolId": {
@@ -38357,7 +38605,8 @@
                   "SUPER_ADMIN",
                   "SCHOOL_ADMIN",
                   "SPONSOR",
-                  "STUDENT"
+                  "STUDENT",
+                  "REGION_ADMIN"
                 ]
               },
               "mustChangePassword": {
@@ -38510,6 +38759,44 @@
               }
             ]
           },
+          "region": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "provinceCode": {
+                    "type": "string"
+                  },
+                  "provinceName": {
+                    "type": "string"
+                  },
+                  "cityCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "cityName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "provinceCode",
+                  "provinceName",
+                  "cityCode",
+                  "cityName"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wilayah Admin Pemda (REGION_ADMIN): provinsi, + kota bila admin kota. null untuk peran lain."
+          },
           "permissions": {
             "type": "array",
             "items": {
@@ -38562,6 +38849,7 @@
           "school",
           "student",
           "sponsor",
+          "region",
           "permissions",
           "impersonation"
         ],
@@ -38871,38 +39159,6 @@
           "activeStudentCount",
           "accountCounts",
           "createdAt"
-        ],
-        "additionalProperties": false
-      },
-      "PageMeta": {
-        "type": "object",
-        "properties": {
-          "total": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "page": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "totalPages": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": [
-          "total",
-          "page",
-          "limit",
-          "totalPages"
         ],
         "additionalProperties": false
       },
@@ -39985,7 +40241,8 @@
               "SUPER_ADMIN",
               "SCHOOL_ADMIN",
               "SPONSOR",
-              "STUDENT"
+              "STUDENT",
+              "REGION_ADMIN"
             ]
           },
           "isActive": {
@@ -40051,6 +40308,44 @@
                 "type": "null"
               }
             ]
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "provinceCode": {
+                    "type": "string"
+                  },
+                  "provinceName": {
+                    "type": "string"
+                  },
+                  "cityCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "cityName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "provinceCode",
+                  "provinceName",
+                  "cityCode",
+                  "cityName"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wilayah Admin Pemda; null untuk jenis akun lain."
           },
           "lastLoginAt": {
             "anyOf": [
@@ -40214,6 +40509,7 @@
           "tempPasswordExpiresAt",
           "school",
           "sponsor",
+          "region",
           "lastLoginAt",
           "passwordChangedAt",
           "createdAt",
@@ -40312,7 +40608,8 @@
               "SUPER_ADMIN",
               "SCHOOL_ADMIN",
               "SPONSOR",
-              "STUDENT"
+              "STUDENT",
+              "REGION_ADMIN"
             ]
           },
           "isActive": {
@@ -40378,6 +40675,44 @@
                 "type": "null"
               }
             ]
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "provinceCode": {
+                    "type": "string"
+                  },
+                  "provinceName": {
+                    "type": "string"
+                  },
+                  "cityCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "cityName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "provinceCode",
+                  "provinceName",
+                  "cityCode",
+                  "cityName"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wilayah Admin Pemda; null untuk jenis akun lain."
           },
           "lastLoginAt": {
             "anyOf": [
@@ -40547,6 +40882,7 @@
           "tempPasswordExpiresAt",
           "school",
           "sponsor",
+          "region",
           "lastLoginAt",
           "passwordChangedAt",
           "createdAt",
@@ -40588,7 +40924,8 @@
                       "SUPER_ADMIN",
                       "SCHOOL_ADMIN",
                       "SPONSOR",
-                      "STUDENT"
+                      "STUDENT",
+                      "REGION_ADMIN"
                     ]
                   }
                 },
@@ -40696,7 +41033,8 @@
                   "SUPER_ADMIN",
                   "SCHOOL_ADMIN",
                   "SPONSOR",
-                  "STUDENT"
+                  "STUDENT",
+                  "REGION_ADMIN"
                 ]
               },
               "school": {
@@ -40992,7 +41330,8 @@
               "SUPER_ADMIN",
               "SCHOOL_ADMIN",
               "SPONSOR",
-              "STUDENT"
+              "STUDENT",
+              "REGION_ADMIN"
             ]
           },
           "isSystem": {
@@ -41069,7 +41408,8 @@
               "SUPER_ADMIN",
               "SCHOOL_ADMIN",
               "SPONSOR",
-              "STUDENT"
+              "STUDENT",
+              "REGION_ADMIN"
             ]
           },
           "isSystem": {
@@ -41205,7 +41545,8 @@
                         "SUPER_ADMIN",
                         "SCHOOL_ADMIN",
                         "SPONSOR",
-                        "STUDENT"
+                        "STUDENT",
+                        "REGION_ADMIN"
                       ]
                     },
                     "description": "Jenis akun yang boleh diberi hak ini."

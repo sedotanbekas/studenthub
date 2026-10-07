@@ -4,7 +4,7 @@ import { STUDENT_STATUSES } from "@/lib/students/constants";
 import { LOGIN_KINDS, PASSWORD_KINDS } from "./credential-rules";
 
 /** Skema zod pengelolaan akun oleh SUPER_ADMIN (/api/v1/platform/users*). */
-export const USER_ROLES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"] as const;
+export const USER_ROLES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT", "REGION_ADMIN"] as const;
 export const userRoleSchema = z.enum(USER_ROLES);
 
 const idString = z.string().trim().min(1).max(64);
@@ -32,7 +32,7 @@ export const listUsersQuery = pageQuerySchema.extend({
 export type ListUsersQuery = z.output<typeof listUsersQuery>;
 
 export const createUserBody = z.strictObject({
-  role: userRoleSchema.meta({ description: "Hanya SCHOOL_ADMIN atau SUPER_ADMIN; SPONSOR/STUDENT -> 400 USE_DEDICATED_ENDPOINT." }),
+  role: userRoleSchema.meta({ description: "SCHOOL_ADMIN, SUPER_ADMIN, atau REGION_ADMIN (Admin Pemda); SPONSOR/STUDENT -> 400 USE_DEDICATED_ENDPOINT." }),
   name: nameSchema,
   email: emailSchema.optional().meta({
     description: "Opsional untuk admin sekolah pertama (admin utama, masuk dengan NPSN sekolah). Wajib untuk super admin dan admin tambahan.",
@@ -40,6 +40,8 @@ export const createUserBody = z.strictObject({
   schoolId: idString.optional().meta({ description: "Wajib untuk SCHOOL_ADMIN (sekolah harus aktif); dilarang untuk SUPER_ADMIN." }),
   initialPassword: passwordInput.optional().meta({ description: "Opsional; bila kosong sistem membuat kata sandi sementara (14 hari)." }),
   accessRoleId: idString.optional().meta({ description: "Peran akses RBAC berjenis akun sama; kosong = peran sistem." }),
+  regionProvinceCode: z.string().regex(/^\d{2}$/,"Kode provinsi harus 2 digit.").optional().meta({ description: "Wajib untuk REGION_ADMIN (Admin Pemda): provinsi wilayah pantauan, mis. 32 Jawa Barat." }),
+  regionCityCode: z.string().regex(/^\d{2}\.\d{2}$/,"Kode kabupaten/kota berformat 00.00.").optional().meta({ description: "Opsional untuk REGION_ADMIN: isi untuk admin kabupaten/kota (mis. 32.76 Kota Depok)." }),
 });
 export type CreateUserInput = z.output<typeof createUserBody>;
 
@@ -88,6 +90,10 @@ export const platformUserSchema = z
     tempPasswordExpiresAt: iso.nullable(),
     school: z.object({ id: z.string(), name: z.string() }).nullable(),
     sponsor: z.object({ id: z.string(), companyName: z.string() }).nullable(),
+    region: z
+      .object({ provinceCode: z.string(), provinceName: z.string(), cityCode: z.string().nullable(), cityName: z.string().nullable() })
+      .nullable()
+      .meta({ description: "Wilayah Admin Pemda; null untuk jenis akun lain." }),
     lastLoginAt: iso.nullable(),
     passwordChangedAt: iso.nullable(),
     createdAt: iso,

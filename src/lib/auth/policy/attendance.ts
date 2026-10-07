@@ -1,4 +1,4 @@
-import { ADMINS, type PolicyRule } from "./types";
+import { ADMINS, MONITORS, type PolicyRule } from "./types";
 
 /** Aksi POLICY domain absensi (check-in, izin/sakit, monitoring, koreksi). */
 export const attendancePolicy = {
@@ -10,7 +10,7 @@ export const attendancePolicy = {
   "leave.self": { roles: ["STUDENT"] },
   "leave.self.read": { roles: ["STUDENT"], studentStatuses: ["ACTIVE", "GRADUATED"] },
   /** Admin: monitoring harian, peta, rekap, analitik, anomali, percobaan ditolak. */
-  "attendance.monitor": { roles: ADMINS },
+  "attendance.monitor": { roles: MONITORS },
   /** Admin: koreksi manual catatan absensi. */
   "attendance.correct": { roles: ADMINS },
   /** Admin (termasuk akun guru/wali kelas): tinjau anomali Valid/Tidak valid (B1). */

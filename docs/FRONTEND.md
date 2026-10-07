@@ -15,6 +15,7 @@ Buka `http://localhost:3030`. Masuk menggunakan akun yang tersedia, atau pilih s
 | Peran | Tampilan |
 |---|---|
 | Admin sekolah | Beranda dengan ringkasan dan grafik kehadiran; siswa; absensi dan izin; tahun ajaran, semester, kelas dan mapel; rapor dan lembar nilai; tagihan dan verifikasi pembayaran; pengumuman; kalender; profil sekolah; **tema sekolah**; **pengingat absen** (Pengaturan sekolah); audit; notifikasi: atur kabar sekolah yang diterima |
+| Admin Pemda | Sekolah wilayah (provinsi/kota akun); semua halaman sekolah BACA saja (siswa, kehadiran, akademik, rapor, tagihan, pengumuman, kalender, profil) lewat pemilih "Sekolah yang dipantau" |
 | Super admin | Sekolah; pengguna; sponsor; moderasi iklan; top-up; libur nasional; **pengaturan aplikasi** (nama & logo aplikasi, iklan, absensi); audit; seluruh halaman sekolah dengan pemilih sekolah |
 | Sponsor | Kampanye, unggah banner dan target; analitik; saldo, top-up dan transaksi; profil perusahaan |
 | Siswa | Beranda (kartu identitas + jam sekolah + status absen + menu besar + pengumuman); absensi dengan peta dan foto wajah; izin/sakit; rapor; tagihan dan bukti transfer; kalender belajar; profil |
@@ -66,6 +67,15 @@ Permintaan pemilik 2026-10-07. Menu **Peran & hak akses** (super admin) mengatur
 - **Peran baru**: nama, jenis akun, salin centang dari peran lain. **Pasang ke akun**: kartu akun di Pengguna (tombol *Ubah peran*), formulir buat akun (pilihan *Peran akses*), atau Admin & guru oleh admin utama (peran berbasis admin sekolah). Peran buatan dihapus = akunnya kembali ke peran bawaan.
 - Menu sidebar, tab bar HP, dan kartu beranda tersaring `Identity.permissions` (`MODULE_ACTIONS` di `src/lib/frontend/modules.ts`). Katalog nama hak: `src/lib/roles/catalog.ts`; aturan murni: `src/lib/roles/rules.ts`.
 - Tampilan (2026-10-07): sudut UI tipis — 6px elemen kecil, 8px kartu/panel; tidak ada lagi bentuk kapsul/oval.
+
+## Admin Pemda (REGION_ADMIN)
+
+Permintaan pemilik 2026-10-07: akun pemerintah daerah yang MEMANTAU sekolah di wilayahnya — admin provinsi (mis. Jawa Barat, kode 32) atau admin kabupaten/kota (mis. Kota Depok, 32.76).
+
+- Dibuat super admin di **Pengguna → Akun baru** (jenis akun Admin Pemda + provinsi, kota opsional; email wajib). Kolom `User.regionProvinceCode/regionCityCode`, CHECK `chk_user_scope` dilonggarkan (migrasi `20261007160000_region_admin`), peran sistem `pemda`.
+- Hak = aksi BACA saja (`MONITORS` di `src/lib/auth/policy/types.ts`): profil sekolah, siswa, kehadiran, akademik, rapor, tagihan, pengumuman, kalender, beranda; plus `region.monitor` (`GET /region/schools`). Selfie, bukti bayar, dan lampiran izin TIDAK bisa dibuka (`storage/access.ts`).
+- Cakupan: `getAuth` memverifikasi `?schoolId=` berada di provinsi/kota akun (`principal.regionSchoolId`); `resolveSchoolScope` menolak sekolah lain dengan 404 `SCHOOL_NOT_FOUND` (tidak bisa dienumerasi).
+- Frontend: menu **Sekolah wilayah** (klik sekolah = jadi "Sekolah yang dipantau" lalu buka Data siswa), pemilih sekolah memakai `/region/schools` (`picksSchool` di modules.ts), kotak sidebar = nama wilayah.
 
 ## Pengaturan aplikasi (App Setting)
 

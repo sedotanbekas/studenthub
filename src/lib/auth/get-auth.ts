@@ -4,6 +4,7 @@ import { verifyAccessToken } from "./access-token";
 import type { Principal } from "./principal";
 import { evaluatePrincipal, type SessionRow } from "./principal-rules";
 import { superAdminTotpEnforced } from "./totp-switch";
+import { regionSchoolWhere } from "@/lib/region/rules";
 import { systemRoleFor } from "@/lib/roles/system-roles";
 
 /**
@@ -23,7 +24,18 @@ export async function getAuth(req: Request, now: Date = new Date()): Promise<Pri
     const message = result.code === "SESSION_INVALID" ? "Sesi tidak berlaku. Silakan login ulang." : "Akun tidak aktif.";
     throw unauthorized(result.code, message);
   }
-  return result.principal;
+  return result.principal.role === "REGION_ADMIN" ? withRegionSchool(result.principal, req) : result.principal;
+}
+
+/**
+ * Admin Pemda: sekolah pada ?schoolId= request diverifikasi SEKALI di sini (ada & di provinsi/kota akun), lalu
+ * resolveSchoolScope cukup membandingkan string (tetap sinkron di semua service).
+ */
+async function withRegionSchool(principal: Principal, req: Request): Promise<Principal> {
+  const requested = new URL(req.url).searchParams.get("schoolId")?.trim();
+  if (!requested || !principal.region) return principal;
+  const school = await prisma.school.findFirst({ where: { id: requested, ...regionSchoolWhere(principal.region) }, select: { id: true } });
+  return Object.freeze({ ...principal, regionSchoolId: school?.id ?? null });
 }
 
 async function loadSession(sessionId: string): Promise<SessionRow | null> {
@@ -53,6 +65,8 @@ async function loadSession(sessionId: string): Promise<SessionRow | null> {
           student: { select: { id: true, status: true } },
           sponsor: { select: { status: true } },
           accessRole: { select: { isSystem: true, permissions: true, knownActions: true } },
+          regionProvinceCode: true,
+          regionCityCode: true,
         },
       },
     },

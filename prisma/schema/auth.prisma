@@ -3,6 +3,8 @@ enum UserRole {
   SCHOOL_ADMIN
   SPONSOR
   STUDENT
+  /// Admin Pemerintah Daerah (2026-10-07): pantau (baca saja) sekolah di provinsi/kota akunnya.
+  REGION_ADMIN
 }
 
 /// WEB = dashboard (transport cookie menyusul di fase frontend); ANDROID/IOS = Bearer.
@@ -27,6 +29,8 @@ enum SessionRevokeReason {
 ///   SCHOOL_ADMIN -> schoolId WAJIB, sponsorId NULL, email WAJIB kecuali admin utama (primarySchoolId)
 ///   STUDENT      -> schoolId WAJIB, sponsorId NULL, email NULL, tepat satu Student
 ///   SPONSOR      -> sponsorId WAJIB, schoolId NULL
+///   REGION_ADMIN -> schoolId & sponsorId NULL, email WAJIB, regionProvinceCode WAJIB (regionCityCode = admin kota)
+///   peran lain   -> regionProvinceCode & regionCityCode NULL
 model User {
   id                    String    @id @default(cuid())
   role                  UserRole
@@ -59,7 +63,13 @@ model User {
   /// baseRole peran WAJIB sama dengan role akun (aturan service) -- jenis akun tetap menentukan cakupan data.
   accessRoleId          String?
 
+  /// Wilayah Admin Pemda (2026-10-07): provinsi saja = admin provinsi; + kota = admin kota (kota di provinsi itu).
+  regionProvinceCode    String?   @db.VarChar(2)
+  regionCityCode        String?   @db.VarChar(5)
+
   school     School?     @relation(fields: [schoolId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  regionProvince Province? @relation(fields: [regionProvinceCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+  regionCity     City?     @relation(fields: [regionCityCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
   sponsor    Sponsor?    @relation("SponsorMembers", fields: [sponsorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   accessRole AccessRole? @relation(fields: [accessRoleId], references: [id], onDelete: SetNull, onUpdate: Restrict)
 
@@ -94,6 +104,8 @@ model User {
   @@index([role, isActive])
   @@index([sponsorId])
   @@index([accessRoleId])
+  @@index([regionProvinceCode, regionCityCode])
+  @@index([regionCityCode])
 }
 
 /// Peran akses RBAC (permintaan pemilik 2026-10-07): daftar hak per aksi POLICY untuk satu jenis akun.

@@ -1,4 +1,4 @@
-import { ADMINS, type PolicyRule } from "./types";
+import { ADMINS, MONITORS, type PolicyRule } from "./types";
 
 /**
  * Aksi POLICY domain sekolah. Lokasi/geofence/zona waktu/rekening hanya lewat schools.manage
@@ -7,7 +7,7 @@ import { ADMINS, type PolicyRule } from "./types";
  */
 export const schoolsPolicy = {
   "schools.manage": { roles: ["SUPER_ADMIN"] },
-  "schools.profile.read": { roles: ADMINS },
+  "schools.profile.read": { roles: MONITORS },
   "schools.settings.update": { roles: ADMINS },
   "schools.theme.read": { roles: ADMINS },
   "schools.theme.update": { roles: ADMINS },

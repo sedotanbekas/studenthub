@@ -5,7 +5,7 @@ import type { Role } from "./types";
  * penanganan galat, label badge, dan keputusan setelah penyegaran sesi. Tanpa DOM; diuji dengan node:test.
  */
 
-export const BADGE_POLL_BASE_MS: Readonly<Record<Role, number>> = { SCHOOL_ADMIN: 30_000, SUPER_ADMIN: 30_000, SPONSOR: 30_000, STUDENT: 60_000 };
+export const BADGE_POLL_BASE_MS: Readonly<Record<Role, number>> = { SCHOOL_ADMIN: 30_000, SUPER_ADMIN: 30_000, SPONSOR: 30_000, STUDENT: 60_000, REGION_ADMIN: 60_000 };
 export const BADGE_BACKOFF_MAX_MS = 300_000;
 export const BADGE_JITTER_RATIO = 0.1;
 /** visible/focus/online beruntun dalam jeda ini = satu permintaan (hanya setelah percobaan yang berhasil). */

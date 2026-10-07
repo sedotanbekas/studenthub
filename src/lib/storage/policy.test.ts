@@ -6,7 +6,7 @@ import { assertCanUpload, checkBannerMeta, MAX_INPUT_PIXELS, UPLOAD_POLICY } fro
 
 const MIB = 1024 * 1024;
 const KINDS: readonly FileKind[] = ["AD_BANNER", "ATTENDANCE_SELFIE", "PAYMENT_PROOF", "TOPUP_PROOF", "LEAVE_ATTACHMENT"];
-const ROLES: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"];
+const ROLES: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT", "REGION_ADMIN"];
 
 test("UPLOAD_POLICY: batas ukuran & profil per jenis", () => {
   assert.equal(UPLOAD_POLICY.ATTENDANCE_SELFIE.maxInputBytes, 5 * MIB);
@@ -35,6 +35,7 @@ test("assertCanUpload: matriks peran × jenis", () => {
     SPONSOR: ["AD_BANNER", "TOPUP_PROOF"],
     SCHOOL_ADMIN: ["LEAVE_ATTACHMENT"],
     SUPER_ADMIN: ["LEAVE_ATTACHMENT"],
+    REGION_ADMIN: [],
   };
   for (const role of ROLES) {
     for (const kind of KINDS) {

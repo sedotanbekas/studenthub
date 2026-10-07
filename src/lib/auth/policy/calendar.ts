@@ -1,8 +1,8 @@
-import { ADMINS, ALL_STUDENT_STATUSES, type PolicyRule } from "./types";
+import { ADMINS, MONITORS, ALL_STUDENT_STATUSES, type PolicyRule } from "./types";
 
 /** Aksi POLICY domain calendar (libur sekolah, libur nasional, kalender siswa). */
 export const calendarPolicy = {
-  "calendar.read": { roles: ADMINS },
+  "calendar.read": { roles: MONITORS },
   "calendar.manage": { roles: ADMINS },
   "calendar.national.read": { roles: ["SUPER_ADMIN"] },
   "calendar.national.manage": { roles: ["SUPER_ADMIN"] },

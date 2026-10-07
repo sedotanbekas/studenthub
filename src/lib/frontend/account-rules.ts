@@ -24,6 +24,8 @@ export interface AccountView {
   readonly adminKind: "PRIMARY" | "ADDITIONAL" | null;
   readonly student: { readonly id: string; readonly nisn: string; readonly nis: string; readonly status: string; readonly className: string | null } | null;
   readonly sponsor: { readonly companyName: string } | null;
+  /** Wilayah Admin Pemda (2026-10-07); opsional agar data demo lama tetap valid. */
+  readonly region?: { readonly provinceName: string; readonly cityName: string | null } | null;
 }
 
 export interface AccountRow extends AccountView {
@@ -46,6 +48,7 @@ export function accountBadge(account: AccountView): string {
   if (account.role === "STUDENT") return `Siswa · ${account.student?.className ?? "belum ada kelas"}`;
   if (account.role === "SCHOOL_ADMIN") return account.adminKind === "PRIMARY" ? "Admin utama" : "Admin tambahan (guru)";
   if (account.role === "SPONSOR") return account.sponsor ? `Sponsor · ${account.sponsor.companyName}` : "Sponsor";
+  if (account.role === "REGION_ADMIN") return account.region ? `Admin Pemda · ${account.region.cityName ?? account.region.provinceName}` : "Admin Pemda";
   return "Super admin";
 }
 

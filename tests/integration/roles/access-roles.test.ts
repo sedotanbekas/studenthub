@@ -34,14 +34,16 @@ async function superToken() {
   return web((await createSuperAdmin()).id);
 }
 
-test("peran sistem dari migrasi: empat jenis akun, centang = hak bawaan POLICY", async () => {
+test("peran sistem dari migrasi: lima jenis akun (+ Admin Pemda), centang = hak bawaan POLICY", async () => {
   const token = await superToken();
   const res = await call<RoleBody[]>(listRoute, "GET", "/api/v1/access-roles", token);
   assert.equal(res.status, 200);
   const system = (res.body?.data ?? []).filter(r => r.isSystem);
-  assert.deepEqual(system.map(r => r.key).sort(), ["admin-sekolah", "siswa", "sponsor", "super-admin"]);
-  const admin = system.find(r => r.baseRole === "SCHOOL_ADMIN")!;
-  assert.deepEqual([...admin.permissions].sort(), actionsForBase("SCHOOL_ADMIN").sort());
+  assert.deepEqual(system.map(r => r.key).sort(), ["admin-sekolah", "pemda", "siswa", "sponsor", "super-admin"]);
+  for (const base of ["SCHOOL_ADMIN", "REGION_ADMIN"] as const) {
+    const role = system.find(r => r.baseRole === base)!;
+    assert.deepEqual([...role.permissions].sort(), actionsForBase(base).sort(), base);
+  }
   const catalog = await call<{ group: string; items: { action: string }[] }[]>(catalogRoute, "GET", "/api/v1/access-roles/catalog", token);
   assert.ok((catalog.body?.data ?? []).some(g => g.items.some(i => i.action === "roles.manage")));
 });

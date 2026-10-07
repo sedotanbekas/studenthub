@@ -12,7 +12,7 @@ export type PlatformClass = "MOBILE" | "WEB";
 
 export const CLIENT_PLATFORMS = ["ANDROID", "IOS", "WEB"] as const satisfies readonly ClientPlatform[];
 export const MOBILE_PLATFORMS = ["ANDROID", "IOS"] as const satisfies readonly ClientPlatform[];
-export const USER_ROLES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"] as const satisfies readonly UserRole[];
+export const USER_ROLES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT", "REGION_ADMIN"] as const satisfies readonly UserRole[];
 
 /**
  * Umur absolut sesi (family refresh token); tidak diperpanjang oleh rotasi. WEB 30 hari (permintaan klien
@@ -31,6 +31,7 @@ export const MAX_ACTIVE_SESSIONS: Readonly<Record<UserRole, number>> = {
   SCHOOL_ADMIN: 5,
   SPONSOR: 5,
   SUPER_ADMIN: 3,
+  REGION_ADMIN: 3,
 };
 
 /** Respons login gagal dipadatkan minimal selama ini (menyamarkan ada/tidaknya akun). */

@@ -32,6 +32,7 @@ export const SYSTEM_ROLE_KEYS: Readonly<Record<UserRole, string>> = {
   SCHOOL_ADMIN: "admin-sekolah",
   SPONSOR: "sponsor",
   STUDENT: "siswa",
+  REGION_ADMIN: "pemda",
 };
 
 export const ALL_ACTIONS = Object.keys(POLICY) as Action[];

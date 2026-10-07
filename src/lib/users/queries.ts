@@ -26,6 +26,8 @@ export const USER_SELECT = {
   updatedAt: true,
   school: { select: { id: true, name: true, npsn: true } },
   sponsor: { select: { id: true, companyName: true } },
+  regionProvince: { select: { code: true, name: true } },
+  regionCity: { select: { code: true, name: true } },
   student: { select: { id: true, nisn: true, nis: true, activeNisn: true, status: true, currentClass: { select: { name: true } } } },
   accessRole: { select: { id: true, name: true, isSystem: true } },
 } as const satisfies Prisma.UserSelect;
@@ -64,6 +66,9 @@ export function toUserDto(row: UserRow, matchesDefault: boolean, now: Date): Pla
     tempPasswordExpiresAt: isoOrNull(row.tempPasswordExpiresAt),
     school: row.school ? { id: row.school.id, name: row.school.name } : null,
     sponsor: row.sponsor ? { id: row.sponsor.id, companyName: row.sponsor.companyName } : null,
+    region: row.regionProvince
+      ? { provinceCode: row.regionProvince.code, provinceName: row.regionProvince.name, cityCode: row.regionCity?.code ?? null, cityName: row.regionCity?.name ?? null }
+      : null,
     lastLoginAt: isoOrNull(row.lastLoginAt),
     passwordChangedAt: isoOrNull(row.passwordChangedAt),
     createdAt: row.createdAt.toISOString(),

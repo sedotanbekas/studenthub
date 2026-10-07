@@ -9,16 +9,24 @@ import {
   type PasswordContext,
 } from "@/lib/auth/password";
 import { badRequest, conflict, unprocessable } from "@/lib/http/errors";
+import { cityInProvince } from "@/lib/region/rules";
 
 /**
  * Aturan murni pengelolaan akun oleh SUPER_ADMIN (tanpa Prisma). Peran, sekolah, dan sponsor
  * akun tidak pernah berubah setelah dibuat; hanya nama & email yang dapat diedit.
  */
-export const CREATABLE_ROLES = ["SUPER_ADMIN", "SCHOOL_ADMIN"] as const satisfies readonly UserRole[];
+export const CREATABLE_ROLES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "REGION_ADMIN"] as const satisfies readonly UserRole[];
 
 type Target = { readonly id: string; readonly role: UserRole };
 
-export function assertCreatableRole(role: UserRole, schoolId: string | null | undefined): void {
+/** Wilayah akun baru (Admin Pemda): provinsi wajib, kota opsional (harus di provinsi itu). */
+export interface RegionInput {
+  readonly provinceCode?: string | null | undefined;
+  readonly cityCode?: string | null | undefined;
+}
+
+export function assertCreatableRole(role: UserRole, schoolId: string | null | undefined, region: RegionInput = {}): void {
+  assertRegionFor(role, region);
   if (role === "SPONSOR" || role === "STUDENT") {
     throw badRequest(
       "USE_DEDICATED_ENDPOINT",
@@ -27,6 +35,19 @@ export function assertCreatableRole(role: UserRole, schoolId: string | null | un
   }
   if (role === "SCHOOL_ADMIN" && !schoolId) throw badRequest("SCHOOL_ID_REQUIRED", "schoolId wajib diisi untuk admin sekolah.");
   if (role === "SUPER_ADMIN" && schoolId) throw badRequest("SCHOOL_ID_NOT_ALLOWED", "Super admin tidak terikat sekolah; hapus schoolId.");
+  if (role === "REGION_ADMIN" && schoolId) throw badRequest("SCHOOL_ID_NOT_ALLOWED", "Admin Pemda tidak terikat satu sekolah; hapus schoolId.");
+}
+
+/** Admin Pemda wajib provinsi (kota opsional, harus di provinsi itu); jenis akun lain tanpa wilayah. */
+function assertRegionFor(role: UserRole, region: RegionInput): void {
+  if (role !== "REGION_ADMIN") {
+    if (region.provinceCode || region.cityCode) throw badRequest("REGION_NOT_ALLOWED", "Wilayah hanya untuk akun Admin Pemda.");
+    return;
+  }
+  if (!region.provinceCode) throw badRequest("REGION_REQUIRED", "Provinsi wajib diisi untuk Admin Pemda.");
+  if (region.cityCode && !cityInProvince(region.cityCode, region.provinceCode)) {
+    throw unprocessable("CITY_NOT_IN_PROVINCE", "Kabupaten/kota tidak berada di provinsi yang dipilih.");
+  }
 }
 
 export interface AdminLoginInput {
@@ -44,7 +65,7 @@ export interface AdminLoginInput {
  */
 export function planAdminLogin(input: AdminLoginInput): { primary: boolean } {
   if (input.role !== "SCHOOL_ADMIN") {
-    if (!input.email) throw unprocessable("EMAIL_REQUIRED", "Email wajib diisi untuk akun super admin.");
+    if (!input.email) throw unprocessable("EMAIL_REQUIRED", input.role === "REGION_ADMIN" ? "Email wajib diisi untuk akun Admin Pemda." : "Email wajib diisi untuk akun super admin.");
     return { primary: false };
   }
   if (!input.hasPrimary) {

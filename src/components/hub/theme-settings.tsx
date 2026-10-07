@@ -1,4 +1,5 @@
 "use client";
+import { picksSchool } from "@/lib/frontend/modules";
 import { useEffect, useRef, useState } from "react";
 import { api, scoped } from "@/lib/frontend/api";
 import { applyTheme } from "@/lib/frontend/theme";
@@ -22,7 +23,7 @@ const FIELDS: readonly { key: ThemeKey; label: string; hint: string; token?: str
 
 function useThemeEditor() {
   const { me, demo, schoolId } = useHub();
-  const needsSchool = me.user.role === "SUPER_ADMIN" && !schoolId && !demo;
+  const needsSchool = picksSchool(me.user.role) && !schoolId && !demo;
   const [saved, setSaved] = useState<SchoolThemeColors | null>(null);
   const [draft, setDraft] = useState<SchoolThemeColors | null>(null);
   const [error, setError] = useState("");

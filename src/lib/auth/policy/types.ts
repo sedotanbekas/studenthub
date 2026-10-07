@@ -23,7 +23,12 @@ export interface PolicyRule {
   readonly productionDisabled?: boolean;
 }
 
-export const ALL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"];
+export const ALL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT", "REGION_ADMIN"];
 export const ALL_STUDENT_STATUSES: readonly StudentStatus[] = ["ACTIVE", "GRADUATED"];
 export const ALL_SPONSOR_STATUSES: readonly SponsorStatus[] = ["PENDING", "APPROVED", "SUSPENDED"];
 export const ADMINS: readonly UserRole[] = ["SUPER_ADMIN", "SCHOOL_ADMIN"];
+/**
+ * Pemantau data sekolah (BACA saja): admin + Admin Pemda (REGION_ADMIN, 2026-10-07) untuk sekolah di wilayahnya
+ * (resolveSchoolScope). Hanya untuk aksi yang semua operasinya membaca; aksi ubah tetap ADMINS.
+ */
+export const MONITORS: readonly UserRole[] = [...ADMINS, "REGION_ADMIN"];

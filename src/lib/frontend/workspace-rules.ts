@@ -213,6 +213,7 @@ export const VIEW_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   "/student/report-cards": ["termLabel", "className", "average", "publishedAt"],
   "/student/leave-requests": ["type", "startDate", "endDate", "schoolDayCount", "status"],
   "/school/students": ["name", "nisn", "class", "gender", "status", "lastLoginAt"],
+  "/region/schools": ["name", "npsn", "cityName", "activeStudentCount", "isActive"],
   "/school/invoices": ["invoiceNo", "student", "title", "amount", "remaining", "dueDate", "displayStatus"],
   "/school/payment-submissions": ["student", "invoice", "amount", "transferDate", "senderName", "status"],
   "/school/report-cards": ["student", "className", "gradedCount", "average", "status", "publishedAt"],

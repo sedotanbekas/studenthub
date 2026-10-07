@@ -105,6 +105,7 @@ export const WEB_PUSH_SECTIONS: Readonly<Record<UserRole, SectionMap>> = {
   },
   SUPER_ADMIN: { sponsor: "sponsors", "ad-review": "ad-review", "topup-review": "topups", school: "schools", "school-settings": "schools" },
   SPONSOR: { ad: "campaigns", topup: "balance", sponsor: "balance" },
+  REGION_ADMIN: {},
 };
 
 /** Layar yang SENGAJA membuka kotak masuk (pengumuman & notifikasi tanpa layar khusus). */

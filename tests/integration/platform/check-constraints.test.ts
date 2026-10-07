@@ -69,8 +69,17 @@ const SCHOOL_CASES: readonly CheckCase[] = [
       () => prisma.user.create({ data: { role: "SCHOOL_ADMIN", name: "x", passwordHash: "x", email: null, schoolId: fx.school.id } }),
       () => prisma.user.create({ data: { role: "SUPER_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("sa"), primarySchoolId: uniq("ps") } }),
       () => prisma.user.create({ data: { role: "SCHOOL_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("adm"), schoolId: fx.school.id, primarySchoolId: uniq("ps") } }),
+      // Admin Pemda (2026-10-07): provinsi wajib, tanpa sekolah, kota harus di provinsinya; wilayah hanya untuk Admin Pemda.
+      () => prisma.user.create({ data: { role: "REGION_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("pd") } }),
+      () => prisma.user.create({ data: { role: "REGION_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("pd"), regionProvinceCode: "32", schoolId: fx.school.id } }),
+      () => prisma.user.create({ data: { role: "REGION_ADMIN", name: "x", passwordHash: "x", email: null, regionProvinceCode: "32" } }),
+      () => prisma.user.create({ data: { role: "REGION_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("pd"), regionProvinceCode: "32", regionCityCode: "31.71" } }),
+      () => prisma.user.create({ data: { role: "SUPER_ADMIN", name: "x", passwordHash: "x", email: uniqEmail("sa"), regionProvinceCode: "32" } }),
     ],
-    valid: () => createSchoolAdmin(fx.school.id),
+    valid: async () => {
+      await prisma.user.create({ data: { role: "REGION_ADMIN", name: "Pemda", passwordHash: "x", email: uniqEmail("pd"), regionProvinceCode: "32", regionCityCode: "32.76" } });
+      return createSchoolAdmin(fx.school.id);
+    },
   },
   {
     constraint: "chk_school_schedule",

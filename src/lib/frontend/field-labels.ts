@@ -22,7 +22,7 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   theme: "Tema", preset: "Preset tema", primaryColor: "Warna utama", secondaryColor: "Warna kedua", bannerColor: "Warna banner", animationColor: "Warna animasi",
   logoColor: "Warna logo", isCustom: "Tema khusus",
   // Sekolah & wilayah
-  province: "Provinsi", city: "Kabupaten / kota", provinceName: "Provinsi", cityName: "Kabupaten / kota", activeStudentCount: "Siswa aktif",
+  province: "Provinsi", city: "Kabupaten / kota", region: "Wilayah", regionProvinceCode: "Provinsi wilayah", regionCityCode: "Kabupaten / kota wilayah", provinceName: "Provinsi", cityName: "Kabupaten / kota", activeStudentCount: "Siswa aktif",
   geofenceUpdatedAt: "Lokasi diubah pada", schedule: "Jadwal absensi", checkInOpen: "Absen dibuka", start: "Jam masuk", lateAfter: "Terlambat setelah",
   checkInClose: "Absen ditutup", dayEnd: "Akhir hari sekolah", schoolDays: "Hari sekolah", counts: "Jumlah", studentsByStatus: "Siswa per status",
   adminCount: "Jumlah admin", activeAdminCount: "Admin aktif", revokedSessions: "Sesi dicabut", activeTerm: "Semester aktif", setupChecklist: "Kesiapan sekolah",

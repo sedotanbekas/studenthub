@@ -82,6 +82,7 @@ const PROMPT_TOPICS: Readonly<Record<Role, string>> = {
   SCHOOL_ADMIN: "Pengajuan izin, bukti bayar, dan kabar sekolah",
   SPONSOR: "Status iklan dan saldo",
   SUPER_ADMIN: "Moderasi iklan, top-up, dan kabar platform",
+  REGION_ADMIN: "Kabar platform untuk pemantauan wilayah",
 };
 
 export const deviceWord = (d: DeviceInfo): string => (d.mobile ? "HP-mu" : "perangkat ini");

@@ -13,7 +13,7 @@ import type { AccessRole, CatalogGroup } from "./types";
  * Peran & hak akses (RBAC, permintaan pemilik 2026-10-07): daftar peran per jenis akun, buat peran baru
  * (boleh menyalin peran lain), lalu centang hak per fitur di editor. Hak berlaku seketika setelah disimpan.
  */
-const BASES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT"] as const;
+const BASES = ["SUPER_ADMIN", "SCHOOL_ADMIN", "SPONSOR", "STUDENT", "REGION_ADMIN"] as const;
 
 export function RolesPage({ module }: { module: Module }) {
   const { demo, me } = useHub();

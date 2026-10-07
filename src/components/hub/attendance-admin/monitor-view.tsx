@@ -1,4 +1,5 @@
 "use client";
+import { picksSchool } from "@/lib/frontend/modules";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { display, number } from "@/lib/frontend/format";
 import { useHub } from "../context";
@@ -26,7 +27,7 @@ interface MonitorViewProps { readonly filter: MonitorFilterValue; readonly onFil
 
 export function MonitorView({ filter, onFilter }: MonitorViewProps) {
   const { me, demo, schoolId, toast } = useHub();
-  const needsSchool = me.user.role === "SUPER_ADMIN" && !schoolId && !demo;
+  const needsSchool = picksSchool(me.user.role) && !schoolId && !demo;
   const { options: classes, error: classError } = useClassOptions(!needsSchool);
   useEffect(() => { if (classError) toast(classError); }, [classError, toast]);
   const [version, setVersion] = useState(0);

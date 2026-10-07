@@ -1,5 +1,5 @@
 import type { Principal } from "@/lib/auth/principal";
-import { badRequest, forbidden } from "@/lib/http/errors";
+import { badRequest, forbidden, notFound } from "@/lib/http/errors";
 
 declare const schoolScopeBrand: unique symbol;
 declare const sponsorScopeBrand: unique symbol;
@@ -17,7 +17,8 @@ const brandSponsor = (sponsorId: string): SponsorScope => Object.freeze({ sponso
 /**
  * SCHOOL_ADMIN: selalu sekolahnya sendiri (schoolId lain di query -> 403 SCOPE_MISMATCH).
  * SUPER_ADMIN: wajib menyebut ?schoolId= (400 SCHOOL_ID_REQUIRED); keberadaan sekolah
- * diverifikasi service (404). Peran lain -> 403.
+ * diverifikasi service (404). REGION_ADMIN (Admin Pemda): wajib ?schoolId= sekolah di wilayahnya (diverifikasi
+ * getAuth -> principal.regionSchoolId); di luar wilayah / tidak ada -> 404 SCHOOL_NOT_FOUND. Peran lain -> 403.
  */
 export function resolveSchoolScope(principal: Principal, requestedSchoolId?: string | null): SchoolScope {
   const requested = requestedSchoolId?.trim() || null;
@@ -30,6 +31,11 @@ export function resolveSchoolScope(principal: Principal, requestedSchoolId?: str
   }
   if (principal.role === "SUPER_ADMIN") {
     if (!requested) throw badRequest("SCHOOL_ID_REQUIRED", "Parameter schoolId wajib diisi untuk super admin.");
+    return brandSchool(requested);
+  }
+  if (principal.role === "REGION_ADMIN") {
+    if (!requested) throw badRequest("SCHOOL_ID_REQUIRED", "Pilih sekolah di wilayah Anda terlebih dahulu.");
+    if (requested !== principal.regionSchoolId) throw notFound("Sekolah tidak ditemukan di wilayah Anda.", "SCHOOL_NOT_FOUND");
     return brandSchool(requested);
   }
   throw forbidden("FORBIDDEN", "Anda tidak memiliki akses ke data sekolah.");

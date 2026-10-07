@@ -26,6 +26,17 @@ test("super admin wajib schoolId", () => {
   assert.equal(resolveSchoolScope(sa, "B").schoolId, "B");
 });
 
+test("Admin Pemda: wajib schoolId; hanya sekolah yang diverifikasi di wilayahnya, selain itu 404", () => {
+  const region = { provinceCode: "32", cityCode: null };
+  const verified = makePrincipal({ role: "REGION_ADMIN", schoolId: null, region, regionSchoolId: "A" });
+  assert.equal(codeOf(() => resolveSchoolScope(verified)), "SCHOOL_ID_REQUIRED");
+  assert.equal(resolveSchoolScope(verified, "A").schoolId, "A");
+  assert.equal(codeOf(() => resolveSchoolScope(verified, "B")), "SCHOOL_NOT_FOUND", "sekolah lain = 404, bukan 403");
+  const outside = makePrincipal({ role: "REGION_ADMIN", schoolId: null, region, regionSchoolId: null });
+  assert.equal(codeOf(() => resolveSchoolScope(outside, "A")), "SCHOOL_NOT_FOUND");
+  assert.equal(codeOf(() => resolveSponsorScope(verified, "sp")), "FORBIDDEN");
+});
+
 test("siswa & sponsor tidak boleh memakai scope sekolah", () => {
   assert.equal(codeOf(() => resolveSchoolScope(makePrincipal({ role: "STUDENT", studentId: "st", studentStatus: "ACTIVE" }), "A")), "FORBIDDEN");
   assert.equal(codeOf(() => resolveSchoolScope(makePrincipal({ role: "SPONSOR", schoolId: null, sponsorId: "sp" }))), "FORBIDDEN");

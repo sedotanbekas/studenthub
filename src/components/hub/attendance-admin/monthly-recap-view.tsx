@@ -1,4 +1,5 @@
 "use client";
+import { picksSchool } from "@/lib/frontend/modules";
 import { useEffect, useState } from "react";
 import { recapFileName } from "@/lib/attendance/monthly-recap-rules";
 import { downloadApiFile, scoped } from "@/lib/frontend/api";
@@ -40,7 +41,7 @@ function useRecapMode(): [RecapMode, (mode: RecapMode) => void] {
 
 export function MonthlyRecapView({ value, onChange }: { value: RecapFilterValue; onChange: (next: RecapFilterValue) => void }) {
   const { me, demo, schoolId } = useHub();
-  const needsSchool = me.user.role === "SUPER_ADMIN" && !schoolId && !demo;
+  const needsSchool = picksSchool(me.user.role) && !schoolId && !demo;
   const classes = useClassOptions(!needsSchool);
   const classId = resolveRecapClass(value.classId, classes.options);
   const currentMonth = todayLocal(new Date(), me.school?.timezone).slice(0, 7);

@@ -1,4 +1,4 @@
-import { ADMINS, type PolicyRule } from "./types";
+import { MONITORS, type PolicyRule } from "./types";
 
 /**
  * Aksi POLICY domain dashboard. Ringkasan kartu dashboard admin sekolah (sekolahnya sendiri) dan super
@@ -6,5 +6,5 @@ import { ADMINS, type PolicyRule } from "./types";
  */
 export const dashboardPolicy = {
   /** Ringkasan siswa, kehadiran hari ini, rapor semester, dan SPP. */
-  "dashboard.read": { roles: ADMINS },
+  "dashboard.read": { roles: MONITORS },
 } as const satisfies Record<string, PolicyRule>;

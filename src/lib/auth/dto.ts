@@ -73,6 +73,9 @@ export interface MeRow {
     readonly currentClass: { readonly name: string } | null;
   } | null;
   readonly sponsor: { readonly id: string; readonly companyName: string; readonly status: SponsorStatus } | null;
+  /** Wilayah Admin Pemda (opsional agar pemanggil lama tetap valid). */
+  readonly regionProvince?: { readonly code: string; readonly name: string } | null;
+  readonly regionCity?: { readonly code: string; readonly name: string } | null;
 }
 
 /** `totpEnrollmentRequired` diambil dari Principal (sudah memperhitungkan sakelar SUPER_ADMIN_TOTP). */
@@ -103,6 +106,9 @@ export function toMe(row: MeRow, permissions: readonly string[], totpEnrollmentR
         }
       : null,
     sponsor: row.sponsor ? { id: row.sponsor.id, companyName: row.sponsor.companyName, status: row.sponsor.status } : null,
+    region: row.regionProvince
+      ? { provinceCode: row.regionProvince.code, provinceName: row.regionProvince.name, cityCode: row.regionCity?.code ?? null, cityName: row.regionCity?.name ?? null }
+      : null,
     permissions: [...permissions],
   };
 }

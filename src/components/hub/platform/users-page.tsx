@@ -94,6 +94,7 @@ export function UsersPage({ module }: { module: Module }) {
       ? <section className="panel account-search-results"><AccountList key={`${q}|${version}`} query={`q=${encodeURIComponent(q)}`} showSchool emptyText={`Tidak ada akun yang cocok dengan "${q}".`} /></section>
       : <div className="account-groups" key={version}>
         <AccountGroup title="Super admin" icon="shield" subtitle="Akun pengelola platform" sections={[{ label: "Super admin", query: "role=SUPER_ADMIN", emptyText: "Belum ada akun super admin." }]} />
+        <AccountGroup title="Admin Pemda" icon="location" subtitle="Pemerintah daerah: memantau sekolah di provinsi/kabupaten/kota wilayahnya" sections={[{ label: "Admin Pemda", query: "role=REGION_ADMIN", emptyText: "Belum ada akun Admin Pemda." }]} />
         <AccountGroup title="Sponsor" icon="heart" subtitle="Akun mitra pengiklan" sections={[{ label: "Sponsor", query: "role=SPONSOR", emptyText: "Belum ada akun sponsor.", searchable: true }]} />
         <SchoolGroups />
       </div>}
