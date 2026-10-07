@@ -24,10 +24,11 @@ const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans", di
 /** Font bulat tebal untuk tulisan logo "StudentHub" (logo & splash). */
 const brand = Fredoka({ subsets: ["latin"], weight: "700", variable: "--font-brand", display: "swap" });
 export const metadata: Metadata = {
-  title: { default: "studenthub.id", template: "%s · studenthub.id" },
-  applicationName: "studenthub.id",
+  // Judul tab: nama merek + apa isinya (permintaan pemilik 2026-10-07; dulu "studenthub.id").
+  title: { default: "Student Hub - Absensi, Rapor & Tagihan Sekolah", template: "%s - Student Hub" },
+  applicationName: "Student Hub",
   // Dibuka dari ikon layar utama iPhone = aplikasi mandiri (syarat Web Push iOS 16.4+, N3).
-  appleWebApp: { title: "studenthub.id", capable: true, statusBarStyle: "default" },
+  appleWebApp: { title: "Student Hub", capable: true, statusBarStyle: "default" },
   description: "Absensi, rapor, tagihan, dan pengumuman sekolah dalam satu tempat.",
 };
 /** theme-color dikelola saat runtime oleh applyTheme (warna banner tema sekolah), bukan di sini. */

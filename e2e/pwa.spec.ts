@@ -14,7 +14,7 @@ test("manifest: nama, start_url, tiga ikon PNG yang benar-benar ada", async ({ r
   const res = await request.get("/manifest.webmanifest");
   expect(res.status()).toBe(200);
   const manifest = (await res.json()) as { name: string; start_url: string; display: string; icons: Array<{ src: string; purpose: string }> };
-  expect([manifest.name, manifest.start_url, manifest.display]).toEqual(["studenthub.id", "/hub", "standalone"]);
+  expect([manifest.name, manifest.start_url, manifest.display]).toEqual(["Student Hub - Absensi, Rapor & Tagihan Sekolah", "/hub", "standalone"]);
   expect(manifest.icons.map((icon) => icon.purpose).sort()).toEqual(["any", "any", "maskable"]);
   for (const icon of manifest.icons) {
     const file = await request.get(icon.src);

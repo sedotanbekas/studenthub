@@ -9,8 +9,8 @@ import { DEFAULT_THEME } from "@/lib/schools/theme-rules";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/hub",
-    name: "studenthub.id",
-    short_name: "studenthub.id",
+    name: "Student Hub - Absensi, Rapor & Tagihan Sekolah",
+    short_name: "Student Hub",
     description: "Absensi, rapor, tagihan, dan pengumuman sekolah dalam satu tempat.",
     start_url: "/hub",
     scope: "/",
