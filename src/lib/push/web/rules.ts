@@ -149,7 +149,11 @@ export interface WebPushPayload {
 export const WEB_PUSH_ICON = "/brand/app-192.png";
 export const WEB_PUSH_BADGE_ICON = "/brand/badge-96.png";
 
-export function buildWebPushPayload(row: PushSource, role: UserRole, unread: number | null): WebPushPayload {
+/** Ikon notifikasi: bawaan, atau dari logo unggahan Pengaturan aplikasi (src/lib/app-settings/icon-rules.ts). */
+export interface WebPushIcons { readonly icon: string; readonly badgeIcon: string }
+export const DEFAULT_WEB_PUSH_ICONS: WebPushIcons = { icon: WEB_PUSH_ICON, badgeIcon: WEB_PUSH_BADGE_ICON };
+
+export function buildWebPushPayload(row: PushSource, role: UserRole, unread: number | null, icons: WebPushIcons = DEFAULT_WEB_PUSH_ICONS): WebPushPayload {
   const link = pushLinkOf(row.data, row.id);
   return {
     notificationId: row.id,
@@ -158,8 +162,8 @@ export function buildWebPushPayload(row: PushSource, role: UserRole, unread: num
     url: webPathOf(role, link.screen, row.id),
     tag: `n-${row.id}`,
     badge: unread,
-    icon: WEB_PUSH_ICON,
-    badgeIcon: WEB_PUSH_BADGE_ICON,
+    icon: icons.icon,
+    badgeIcon: icons.badgeIcon,
   };
 }
 

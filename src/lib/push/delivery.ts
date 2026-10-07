@@ -5,7 +5,7 @@ import { EXPO_PUSH_CHUNK } from "./constants";
 import { buildPushMessage, chunk, classifyRequestError, classifyTicket, type DeviceResult, type PushSource } from "./rules";
 import { getWebPushTransport } from "./transport";
 import type { PushMessage, PushTransport } from "./types";
-import { buildWebPushPayload, webPushTtlSeconds } from "./web/rules";
+import { buildWebPushPayload, DEFAULT_WEB_PUSH_ICONS, webPushTtlSeconds, type WebPushIcons } from "./web/rules";
 import type { WebPushSend, WebPushTarget, WebPushTransport } from "./web/types";
 
 /**
@@ -65,11 +65,11 @@ export async function unreadCountsFor(userIds: readonly string[]): Promise<Reado
 
 export type DeliverySource = PushSource & { readonly userId: string; readonly createdAt: Date; readonly pushExpiresAt?: Date | null };
 
-export function buildDeliveries(rows: readonly DeliverySource[], devices: ReadonlyMap<string, readonly Device[]>, now: Date, unread: ReadonlyMap<string, number> = new Map()): Delivery[] {
+export function buildDeliveries(rows: readonly DeliverySource[], devices: ReadonlyMap<string, readonly Device[]>, now: Date, unread: ReadonlyMap<string, number> = new Map(), icons: WebPushIcons = DEFAULT_WEB_PUSH_ICONS): Delivery[] {
   return rows.flatMap((row) =>
     (devices.get(row.userId) ?? []).map((device): Delivery => {
       if (device.kind === "expo") return { kind: "expo", notificationId: row.id, sessionId: device.sessionId, token: device.token, message: buildPushMessage(row, device.token) };
-      const payload = buildWebPushPayload(row, device.role, unread.get(row.userId) ?? null);
+      const payload = buildWebPushPayload(row, device.role, unread.get(row.userId) ?? null, icons);
       return { kind: "web", notificationId: row.id, subscriptionId: device.subscriptionId, endpointHash: device.endpointHash, send: { target: device.target, payload, ttlSeconds: webPushTtlSeconds(row.createdAt, now, row.pushExpiresAt) } };
     }),
   );

@@ -5,7 +5,8 @@
  * - public/brand/splash-body.webp     tanda bergaya stiker (bingkai & celah putih) tanpa rumbai — splash.
  * - public/brand/splash-tassel.webp   rumbai toga bergaya stiker (berayun di splash), kanvas sama.
  * - public/brand/splash-shape.webp    siluet gabungan (alfa) = bentuk lubang masker saat halaman disingkap.
- * - src/app/icon.png (96 px), src/app/apple-icon.png (180 px, latar putih)  favicon & ikon layar utama iOS.
+ * - public/brand/icon-96.png (96 px), apple-icon-180.png (180 px, latar putih)  favicon & ikon layar utama iOS
+ *   (dipasang lewat metadata app/layout.tsx; logo unggahan Pengaturan aplikasi menggantikannya di /hub).
  * - public/brand/app-192.png, app-512.png (latar putih), app-maskable-512.png (tanda 70% — zona aman maskable),
  *   badge-96.png (siluet putih beralfa; Android hanya memakai alfanya)  ikon PWA & notifikasi (N3).
  *   Bila logo berganti, GANTI NAMA berkas ikon PWA (Chrome hanya memperbarui ikon terpasang bila URL-nya berubah).
@@ -149,7 +150,7 @@ async function main() {
   const markCrop = squareAround(bbox(alpha, W, H, 0.05), 0.04);
   const markRgba = layer(rgb, alpha, white, W, H);
   await save(markRgba, W, H, markCrop, MARK_SIZE, `${OUT}/mark.webp`);
-  await save(markRgba, W, H, markCrop, 96, resolve("src/app/icon.png"), "png");
+  await save(markRgba, W, H, markCrop, 96, `${OUT}/icon-96.png`, "png");
   await appleIcon(markRgba, W, H, markCrop);
   await pwaIcons(markRgba, alpha, W, H, markCrop);
   printGeometry(shape, W, H, splashCrop);
@@ -169,7 +170,7 @@ async function paddedIcon(markRgba, W, H, markCrop, size, ratio, file) {
 
 /** Ikon layar utama iOS: latar putih pekat (iOS membulatkan sudutnya sendiri), tanda 76%. */
 async function appleIcon(markRgba, W, H, markCrop) {
-  await paddedIcon(markRgba, W, H, markCrop, 180, 0.76, resolve("src/app/apple-icon.png"));
+  await paddedIcon(markRgba, W, H, markCrop, 180, 0.76, `${OUT}/apple-icon-180.png`);
 }
 
 /** Ikon PWA (manifest) & ikon badge notifikasi (N3). */

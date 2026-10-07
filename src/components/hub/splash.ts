@@ -118,7 +118,9 @@ function minimumMs(kind: SplashKind): number {
 /** Skala akhir masker untuk layar ini (splash harus sudah tampil agar ukurannya terbaca). */
 function setZoom(): void {
   const size = screen()?.querySelector<HTMLElement>(".splash-art")?.offsetWidth ?? 0;
-  root().style.setProperty("--splash-zoom", String(revealZoom(window.innerWidth, window.innerHeight, size)));
+  // Logo unggahan (Pengaturan aplikasi): jari-jari dalam siluetnya dibawa splash-screen.tsx di data-inscribed.
+  const inscribed = Number(screen()?.dataset.inscribed);
+  root().style.setProperty("--splash-zoom", String(revealZoom(window.innerWidth, window.innerHeight, size, Number.isFinite(inscribed) && inscribed > 0 ? inscribed : undefined)));
 }
 
 /** Pasang ulang fase agar animasi CSS mulai dari awal. */
@@ -369,7 +371,9 @@ function heartbeat(): void {
 
 /** Unduh gambar splash saat peramban senggang setelah halaman dimuat (siap untuk tirai Masuk/Keluar). */
 function warmSplashImages(): void {
-  const warm = () => SPLASH_IMAGES.forEach(src => { const image = new Image(); image.decoding = "async"; image.src = src; });
+  // Logo unggahan: kanvas splash-nya (logo + masker) menggantikan tiga gambar tanda bawaan.
+  const custom = screen()?.dataset.image;
+  const warm = () => (custom ? [custom] : SPLASH_IMAGES).forEach(src => { const image = new Image(); image.decoding = "async"; image.src = src; });
   const idle = () => { if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(warm, { timeout: 3000 }); else setTimeout(warm, 1500); };
   if (document.readyState === "complete") idle();
   else window.addEventListener("load", idle, { once: true });

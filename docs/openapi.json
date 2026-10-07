@@ -567,6 +567,97 @@
         }
       }
     },
+    "/api/v1/app/icon/{variant}": {
+      "get": {
+        "operationId": "getAppIcon",
+        "tags": [
+          "Pengaturan Aplikasi"
+        ],
+        "summary": "Ikon aplikasi dari logo unggahan (publik)",
+        "description": "Favicon, ikon iOS & PWA (latar putih), maskable, badge notifikasi (siluet putih), dan kanvas splash. Cache public 1 hari (URL berversi ?v=). Belum ada logo -> 404 LOGO_NOT_FOUND (pakai aset bawaan /brand).\n\nPublik.",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "variant",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "favicon",
+                "apple",
+                "app-192",
+                "app-512",
+                "maskable-512",
+                "badge",
+                "splash"
+              ],
+              "description": "favicon (96), apple (180), app-192, app-512, maskable-512, badge (96, siluet), splash (512 WebP)."
+            },
+            "required": true,
+            "description": "favicon (96), apple (180), app-192, app-512, maskable-512, badge (96, siluet), splash (512 WebP)."
+          },
+          {
+            "in": "query",
+            "name": "v",
+            "schema": {
+              "description": "Versi (waktu ubah logo) untuk melewati cache; diabaikan server.",
+              "type": "string",
+              "maxLength": 20
+            },
+            "description": "Versi (waktu ubah logo) untuk melewati cache; diabaikan server."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berkas biner dengan Content-Type asli (header cache & keamanan: lihat deskripsi operasi).",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Permintaan tidak valid. Kode: VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan (termasuk data milik sekolah lain). Kode: NOT_FOUND, LOGO_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Kesalahan server. Kode: INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/app-settings": {
       "get": {
         "operationId": "getAppSettings",
@@ -802,7 +893,7 @@
           "Pengaturan Aplikasi"
         ],
         "summary": "Unggah logo aplikasi (multipart)",
-        "description": "JPEG/PNG/WebP statis, sisi terpendek >= 64 px, maks 2 MB -> WebP <= 256 px tanpa EXIF (transparansi dipertahankan). Menggantikan logo sebelumnya; diaudit. Ikon PWA/favicon tetap bawaan. Gagal aturan -> 422 LOGO_INVALID {reason}.\n\nAksi POLICY: `app.settings`.",
+        "description": "JPEG/PNG/WebP statis, sisi terpendek >= 64 px, maks 2 MB -> WebP <= 512 px tanpa EXIF (transparansi dipertahankan). Menggantikan logo sebelumnya di SEMUA tempat: UI, favicon, ikon iOS/PWA, badge notifikasi, dan splash (bentuk masker animasi dari siluet logo). Diaudit. Gagal aturan -> 422 LOGO_INVALID {reason}.\n\nAksi POLICY: `app.settings`.",
         "security": [
           {
             "bearerAuth": []
@@ -35526,7 +35617,7 @@
             "format": "binary",
             "contentEncoding": "binary",
             "minLength": 1,
-            "description": "JPEG/PNG/WebP statis, sisi terpendek >= 64 px, maks 2 MB. Disimpan WebP <= 256 px (transparansi dipertahankan) tanpa EXIF."
+            "description": "JPEG/PNG/WebP statis, sisi terpendek >= 64 px, maks 2 MB. Disimpan WebP <= 512 px (transparansi dipertahankan) tanpa EXIF."
           }
         },
         "required": [

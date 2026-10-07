@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineContract, type AnyContract } from "@/lib/http/contract";
 import { LOGO_MAX_INPUT_BYTES } from "./rules";
-import { appSettingsSchema, brandingSchema, logoQuery, logoUploadBody, updateAppSettingsBody } from "./schemas";
+import { appSettingsSchema, brandingSchema, iconParams, logoQuery, logoUploadBody, updateAppSettingsBody } from "./schemas";
 
 /** Kontrak identitas aplikasi (menu Pengaturan aplikasi, 2026-10-07): baca publik + kelola super admin. */
 const TAG = "Pengaturan Aplikasi";
@@ -35,6 +35,22 @@ export const getLogoContract = defineContract({
   errors: ["LOGO_NOT_FOUND"],
 });
 
+export const getIconContract = defineContract({
+  id: "getAppIcon",
+  method: "GET",
+  path: "/api/v1/app/icon/{variant}",
+  tag: TAG,
+  summary: "Ikon aplikasi dari logo unggahan (publik)",
+  description: "Favicon, ikon iOS & PWA (latar putih), maskable, badge notifikasi (siluet putih), dan kanvas splash. Cache public 1 hari (URL berversi ?v=). Belum ada logo -> 404 LOGO_NOT_FOUND (pakai aset bawaan /brand).",
+  action: "public",
+  params: iconParams,
+  query: logoQuery,
+  response: z.unknown(),
+  binary: true,
+  binaryMediaTypes: ["image/png", "image/webp"],
+  errors: ["LOGO_NOT_FOUND"],
+});
+
 export const getAppSettingsContract = defineContract({
   id: "getAppSettings",
   method: "GET",
@@ -63,7 +79,7 @@ export const uploadAppLogoContract = defineContract({
   path: "/api/v1/platform/app-settings/logo",
   tag: TAG,
   summary: "Unggah logo aplikasi (multipart)",
-  description: "JPEG/PNG/WebP statis, sisi terpendek >= 64 px, maks 2 MB -> WebP <= 256 px tanpa EXIF (transparansi dipertahankan). Menggantikan logo sebelumnya; diaudit. Ikon PWA/favicon tetap bawaan. Gagal aturan -> 422 LOGO_INVALID {reason}.",
+  description: "JPEG/PNG/WebP statis, sisi terpendek >= 64 px, maks 2 MB -> WebP <= 512 px tanpa EXIF (transparansi dipertahankan). Menggantikan logo sebelumnya di SEMUA tempat: UI, favicon, ikon iOS/PWA, badge notifikasi, dan splash (bentuk masker animasi dari siluet logo). Diaudit. Gagal aturan -> 422 LOGO_INVALID {reason}.",
   action: "app.settings",
   body: logoUploadBody,
   bodyType: "multipart",
@@ -85,5 +101,5 @@ export const removeAppLogoContract = defineContract({
 });
 
 export const appSettingsContracts: readonly AnyContract[] = [
-  getBrandingContract, getLogoContract, getAppSettingsContract, updateAppSettingsContract, uploadAppLogoContract, removeAppLogoContract,
+  getBrandingContract, getLogoContract, getIconContract, getAppSettingsContract, updateAppSettingsContract, uploadAppLogoContract, removeAppLogoContract,
 ];

@@ -100,9 +100,15 @@ export function resumePlan(record: ResumeRecord | null, ctx: ResumeContext): { p
 }
 
 /** Skala akhir masker agar lubang logo (kanvas `size` px, pusat zoom di tengah layar) menutup layar w x h. */
-export function revealZoom(width: number, height: number, size: number): number {
+/**
+ * `inscribed` = jari-jari lingkaran dalam siluet (bawaan tanda "S"; logo unggahan membawa geometrinya sendiri,
+ * src/lib/app-settings/icon-rules.ts). Dijepit >= 0.04 agar logo sangat tipis tidak memicu skala raksasa; tirai
+ * tetap memudar di akhir zoom.
+ */
+export function revealZoom(width: number, height: number, size: number, inscribed: number = MARK_INSCRIBED): number {
   if (!(size > 0)) return 2;
-  return Math.max(2, Math.ceil(Math.hypot(width, height) / 2 / (size * MARK_INSCRIBED)) + 1);
+  const radius = Number.isFinite(inscribed) ? Math.max(0.04, inscribed) : MARK_INSCRIBED;
+  return Math.max(2, Math.ceil(Math.hypot(width, height) / 2 / (size * radius)) + 1);
 }
 
 /** Sisa waktu intro sebelum masker boleh dibuka (0 = segera). */

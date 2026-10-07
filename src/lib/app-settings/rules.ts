@@ -7,8 +7,8 @@ import { MAX_INPUT_PIXELS } from "@/lib/storage/policy";
 export const DEFAULT_APP_NAME = "Student Hub";
 export const APP_NAME_MIN = 2;
 export const APP_NAME_MAX = 40;
-/** Logo disimpan WebP dengan sisi terpanjang <= 256 px (cukup untuk tampilan 42 px pada layar 3x + splash). */
-export const LOGO_MAX_SIDE = 256;
+/** Logo disimpan WebP dengan sisi terpanjang <= 512 px: sumber ikon PWA 512 px & splash tetap tajam. */
+export const LOGO_MAX_SIDE = 512;
 export const LOGO_MIN_SIDE = 64;
 export const LOGO_MAX_INPUT_BYTES = 2 * 1024 * 1024;
 export const LOGO_PATH = "/api/v1/app/logo";

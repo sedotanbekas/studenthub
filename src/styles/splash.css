@@ -79,7 +79,7 @@
    close (keluar) memakai masker yang sama dengan animasi dibalik. */
 :root:is([data-splash="reveal"], [data-splash="close"]) .splash-curtain {
   -webkit-mask:
-    url("/brand/splash-shape.webp") calc(50% - (var(--splash-ox) - 0.5) * var(--splash-size)) calc(50% - (var(--splash-oy) - 0.5) * var(--splash-size)) / var(--splash-size) var(--splash-size) no-repeat,
+    var(--splash-mask, url("/brand/splash-shape.webp")) calc(50% - (var(--splash-ox) - 0.5) * var(--splash-size)) calc(50% - (var(--splash-oy) - 0.5) * var(--splash-size)) / var(--splash-size) var(--splash-size) no-repeat,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;

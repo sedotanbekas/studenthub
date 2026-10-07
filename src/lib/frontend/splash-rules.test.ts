@@ -173,6 +173,14 @@ test("revealZoom: lubang logo cukup besar menutup seluruh layar di akhir zoom", 
   assert.equal(revealZoom(800, 600, 0), 2, "ukuran tak sah");
 });
 
+test("revealZoom: logo unggahan memakai jari-jari dalamnya sendiri (dijepit >= 0.04)", () => {
+  const zoom = revealZoom(1440, 1000, 148, 0.4);
+  assert.ok(zoom * 148 * 0.4 >= Math.hypot(1440, 1000) / 2);
+  assert.ok(zoom < revealZoom(1440, 1000, 148), "siluet lebih tebal = skala lebih kecil");
+  assert.equal(revealZoom(1440, 1000, 148, 0.001), revealZoom(1440, 1000, 148, 0.04));
+  assert.equal(revealZoom(1440, 1000, 148, Number.NaN), revealZoom(1440, 1000, 148));
+});
+
 test("geometri tanda: pusat zoom + lingkaran dalamnya berada di dalam kanvas logo", () => {
   for (const v of [MARK_ORIGIN.x, MARK_ORIGIN.y]) {
     assert.ok(v - MARK_INSCRIBED >= 0 && v + MARK_INSCRIBED <= 1, `${v}`);

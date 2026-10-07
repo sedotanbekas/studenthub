@@ -24,7 +24,7 @@ test("checkLogoMeta: hanya JPEG/PNG/WebP statis, sisi terpendek >= 64 px, <= 25 
   assert.equal(checkLogoMeta({ ...ok, width: 64, height: 64 }), null);
   assert.equal(checkLogoMeta({ ...ok, width: 6000, height: 5000 }), "PIXELS");
   assert.equal(checkLogoMeta({ format: "webp", width: 1200, height: 300 }), null, "logo melebar tetap boleh");
-  assert.equal(LOGO_MAX_SIDE, 256);
+  assert.equal(LOGO_MAX_SIDE, 512);
 });
 
 test("logoUrlFor: URL publik berversi waktu ubah; tanpa logo -> null", () => {

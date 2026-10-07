@@ -6,6 +6,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
 import { GET as brandingRoute } from "@/app/api/v1/app/branding/route";
+import { GET as iconRoute } from "@/app/api/v1/app/icon/[variant]/route";
 import { GET as logoRoute } from "@/app/api/v1/app/logo/route";
 import { DELETE as removeLogoRoute, POST as uploadLogoRoute } from "@/app/api/v1/platform/app-settings/logo/route";
 import { GET as settingsGet, PATCH as settingsPatch } from "@/app/api/v1/platform/app-settings/route";
@@ -72,7 +73,7 @@ test("ubah nama: dirapikan, diaudit, branding publik langsung berganti; nama tid
   }
 });
 
-test("logo: unggah -> WebP <= 256 px publik ber-cache; terlalu kecil 422; hapus -> kembali bawaan", async () => {
+test("logo: unggah -> WebP <= 512 px + semua ikon (favicon, iOS, PWA, badge, splash) + geometri masker; terlalu kecil 422; hapus -> kembali bawaan", async () => {
   const small = await upload(32, 32);
   assert.equal(small.status, 422);
   assert.equal((small.body as Envelope | null)?.error?.code, "LOGO_INVALID");
@@ -85,13 +86,27 @@ test("logo: unggah -> WebP <= 256 px publik ber-cache; terlalu kecil 422; hapus 
   assert.equal(logo.headers.get("content-type"), "image/webp");
   assert.equal(logo.headers.get("cache-control"), "public, max-age=86400");
   const meta = await sharp(Buffer.from(await logo.response.arrayBuffer())).metadata();
-  assert.deepEqual([meta.format, meta.width, meta.height, meta.hasAlpha], ["webp", 256, 171, true]);
+  assert.deepEqual([meta.format, meta.width, meta.height, meta.hasAlpha], ["webp", 512, 341, true]);
+  // Semua ikon ikut logo unggahan: ukuran kanvas per varian, latar putih untuk iOS/PWA.
+  for (const [variant, size, format] of [["favicon", 96, "png"], ["apple", 180, "png"], ["app-192", 192, "png"], ["maskable-512", 512, "png"], ["badge", 96, "png"], ["splash", 512, "webp"]] as const) {
+    const icon = await callRoute(iconRoute, { method: "GET", url: `/api/v1/app/icon/${variant}?v=1`, params: { variant } });
+    assert.equal(icon.status, 200, variant);
+    const m = await sharp(Buffer.from(await icon.response.arrayBuffer())).metadata();
+    assert.deepEqual([m.format, m.width, m.height], [format, size, size], variant);
+  }
+  // Bentuk masker splash = siluet logo (persegi panjang di tengah kanvas), bukan tanda "S".
+  const stored = await prisma.appBranding.findUniqueOrThrow({ where: { id: 1 }, select: { logoGeometry: true } });
+  const geometry = stored.logoGeometry as { ox: number; oy: number; inscribed: number };
+  assert.ok(Math.abs(geometry.ox - 0.5) < 0.05 && Math.abs(geometry.oy - 0.5) < 0.05 && geometry.inscribed > 0.2, JSON.stringify(geometry));
   const audit = await prisma.auditLog.findFirst({ where: { action: "platform.app_logo.update", actorId: superId }, orderBy: { createdAt: "desc" } });
   assert.equal((audit?.after as { hasLogo?: boolean } | null)?.hasLogo, true);
   const removed = await callRoute<Envelope<SettingsBody>>(removeLogoRoute, { method: "DELETE", url: "/api/v1/platform/app-settings/logo", bearer: superToken });
   assert.equal(removed.status, 200);
   assert.equal(removed.body?.data.logoUrl, null);
   assert.equal((await callRoute(logoRoute, { method: "GET", url: "/api/v1/app/logo" })).status, 404);
+  assert.equal((await callRoute(iconRoute, { method: "GET", url: "/api/v1/app/icon/favicon", params: { variant: "favicon" } })).status, 404);
+  const bad = await callRoute<Envelope>(iconRoute, { method: "GET", url: "/api/v1/app/icon/x", params: { variant: "x" } });
+  assert.equal(bad.status, 400);
 });
 
 test("hak: admin sekolah & tanpa token tidak boleh membaca/mengubah pengaturan aplikasi", async () => {

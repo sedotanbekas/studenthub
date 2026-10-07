@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { BrandingProvider } from "@/components/hub/branding";
 import { HubShell } from "@/components/hub/hub";
 import { SplashScreen } from "@/components/hub/splash-screen";
+import { appIcons, iconUrlFor, splashGeometry } from "@/lib/app-settings/icon-rules";
 import { appTitle, logoUrlFor } from "@/lib/app-settings/rules";
 import { getBrandingOrDefault } from "@/lib/app-settings/service";
 import { appEnvOfHost, demoAllowed } from "@/lib/frontend/app-env";
@@ -18,8 +19,10 @@ const SPLASH_IMAGES = ["/brand/splash-body.webp", "/brand/splash-tassel.webp", "
 
 /** Judul tab & nama aplikasi mengikuti Pengaturan aplikasi (nama bawaan "Student Hub" ada di app/layout.tsx). */
 export async function generateMetadata(): Promise<Metadata> {
-  const { appName } = await getBrandingOrDefault();
-  return { title: { absolute: appTitle(appName), template: `%s - ${appName}` }, applicationName: appName, appleWebApp: { title: appName, capable: true, statusBarStyle: "default" } };
+  const { appName, logoUpdatedAt } = await getBrandingOrDefault();
+  // Logo unggahan juga menjadi favicon & ikon layar utama iOS (tanpa logo = ikon bawaan app/layout.tsx).
+  const icons = logoUpdatedAt ? { icons: { icon: [{ url: appIcons(logoUpdatedAt).favicon, type: "image/png", sizes: "96x96" }], apple: [{ url: appIcons(logoUpdatedAt).apple, sizes: "180x180" }] } } : {};
+  return { title: { absolute: appTitle(appName), template: `%s - ${appName}` }, applicationName: appName, appleWebApp: { title: appName, capable: true, statusBarStyle: "default" }, ...icons };
 }
 
 /**
@@ -42,14 +45,15 @@ export default async function HubLayout({ children }: { children: ReactNode }) {
   const brand = await getBrandingOrDefault();
   const branding = { appName: brand.appName, logoUrl: logoUrlFor(brand.logoUpdatedAt) };
   const logo = branding.logoUrl ?? LOGO_IMAGE;
-  const images = guest ? [logo] : branding.logoUrl ? [SPLASH_IMAGES[2]!, logo] : [...SPLASH_IMAGES, logo];
+  const splash = brand.logoUpdatedAt ? { imageUrl: iconUrlFor("splash", brand.logoUpdatedAt), geometry: splashGeometry(brand.logoGeometry) } : null;
+  const images = guest ? [logo] : splash ? [splash.imageUrl, logo] : [...SPLASH_IMAGES, logo];
   return <>
     {/* React memindahkan preload ke <head>. */}
     {images.map(href => <link key={href} rel="preload" as="image" type="image/webp" href={href} fetchPriority="high" />)}
     <script dangerouslySetInnerHTML={{ __html: SPLASH_BOOT }} />
     {/* Tamu: tombol demo di halaman masuk (HTML server) bisa diketuk sebelum JS aktif — dicatat lalu dijalankan. Produksi tanpa demo. */}
     {guest && demoAllowed(env) && <script dangerouslySetInnerHTML={{ __html: EARLY_DEMO_CAPTURE }} />}
-    <SplashScreen appName={branding.appName} logoUrl={branding.logoUrl} />
+    <SplashScreen appName={branding.appName} logo={splash} />
     <BrandingProvider initial={branding}><HubShell hint={hint} env={env}>{children}</HubShell></BrandingProvider>
   </>;
 }

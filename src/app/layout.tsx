@@ -32,6 +32,8 @@ export const metadata: Metadata = {
   // Dibuka dari ikon layar utama iPhone = aplikasi mandiri (syarat Web Push iOS 16.4+, N3).
   appleWebApp: { title: "Student Hub", capable: true, statusBarStyle: "default" },
   description: "Absensi, rapor, tagihan, dan pengumuman sekolah dalam satu tempat.",
+  // Ikon bawaan lewat metadata (bukan berkas app/icon.png yang selalu menang): /hub menggantinya dengan logo unggahan.
+  icons: { icon: [{ url: "/brand/icon-96.png", type: "image/png", sizes: "96x96" }], apple: [{ url: "/brand/apple-icon-180.png", sizes: "180x180" }] },
 };
 /** theme-color dikelola saat runtime oleh applyTheme (warna banner tema sekolah), bukan di sini. */
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };

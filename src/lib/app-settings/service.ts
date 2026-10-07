@@ -1,11 +1,12 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { writeAudit } from "@/lib/audit";
 import type { ActionContext } from "@/lib/auth/principal";
 import { prisma, type Tx } from "@/lib/db";
 import { notFound } from "@/lib/http/errors";
 import { log, safeErrorFields } from "@/lib/log";
 import { withTx } from "@/lib/tx";
-import { processLogo } from "./logo-image";
+import { ICON_VARIANTS, parseGeometry, type MaskGeometry } from "./icon-rules";
+import { processLogo, renderIcon, splashMaskGeometry } from "./logo-image";
 import { DEFAULT_APP_NAME, logoUrlFor } from "./rules";
 import type { AppSettingsDto, BrandingDto, LogoUploadInput, UpdateAppSettingsInput } from "./schemas";
 
@@ -20,15 +21,19 @@ const TTL_MS = 30_000;
 export interface Branding {
   readonly appName: string;
   readonly logoUpdatedAt: Date | null;
+  /** Geometri masker splash dari siluet logo unggahan (null = tanda bawaan). */
+  readonly logoGeometry: MaskGeometry | null;
   readonly updatedAt: Date;
 }
 
-const BRANDING_SELECT = { appName: true, logoUpdatedAt: true, updatedAt: true } as const;
+const BRANDING_SELECT = { appName: true, logoUpdatedAt: true, logoGeometry: true, updatedAt: true } as const;
+type BrandingRow = Prisma.AppBrandingGetPayload<{ select: typeof BRANDING_SELECT }>;
+const toBranding = (row: BrandingRow): Branding => ({ ...row, logoGeometry: row.logoUpdatedAt ? parseGeometry(row.logoGeometry) : null });
 let cache: { at: number; value: Branding } | null = null;
 
 export async function getBranding(now: number = Date.now()): Promise<Branding> {
   if (cache && now - cache.at <= TTL_MS) return cache.value;
-  const value = await prisma.appBranding.findUniqueOrThrow({ where: { id: BRANDING_ID }, select: BRANDING_SELECT });
+  const value = toBranding(await prisma.appBranding.findUniqueOrThrow({ where: { id: BRANDING_ID }, select: BRANDING_SELECT }));
   cache = { at: now, value };
   return value;
 }
@@ -43,7 +48,7 @@ export async function getBrandingOrDefault(): Promise<Branding> {
     return await getBranding();
   } catch (error) {
     log.error("app_settings.branding_read_failed", safeErrorFields(error));
-    return { appName: DEFAULT_APP_NAME, logoUpdatedAt: null, updatedAt: new Date(0) };
+    return { appName: DEFAULT_APP_NAME, logoUpdatedAt: null, logoGeometry: null, updatedAt: new Date(0) };
   }
 }
 
@@ -62,7 +67,7 @@ const toAppSettingsDto = (b: Branding): AppSettingsDto => ({
 export const getBrandingDto = async (): Promise<BrandingDto> => toBrandingDto(await getBranding());
 export const getAppSettingsDto = async (): Promise<AppSettingsDto> => toAppSettingsDto(await getBranding());
 
-const readInTx = (tx: Tx): Promise<Branding> => tx.appBranding.findUniqueOrThrow({ where: { id: BRANDING_ID }, select: BRANDING_SELECT });
+const readInTx = async (tx: Tx): Promise<Branding> => toBranding(await tx.appBranding.findUniqueOrThrow({ where: { id: BRANDING_ID }, select: BRANDING_SELECT }));
 
 /** Audit tanpa byte logo: cukup ada/tidaknya logo & waktunya. */
 const auditView = (b: Branding) => ({ appName: b.appName, hasLogo: b.logoUpdatedAt !== null, logoUpdatedAt: b.logoUpdatedAt });
@@ -87,12 +92,16 @@ export function updateAppSettings(input: UpdateAppSettingsInput, ctx: ActionCont
 /** POST /platform/app-settings/logo (multipart): logo baru menggantikan yang lama (diaudit). */
 export async function uploadAppLogo(input: LogoUploadInput, ctx: ActionContext): Promise<AppSettingsDto> {
   const logo = await processLogo(new Uint8Array(await input.file.arrayBuffer()));
-  return mutate(ctx, "platform.app_logo.update", { logo: new Uint8Array(logo.data), logoMimeType: logo.mimeType, logoUpdatedAt: ctx.now });
+  // Bentuk masker animasi splash mengikuti siluet logo baru (bukan lagi tanda "S").
+  const geometry = await splashMaskGeometry(await renderIcon(logo.data, ICON_VARIANTS.splash));
+  return mutate(ctx, "platform.app_logo.update", {
+    logo: new Uint8Array(logo.data), logoMimeType: logo.mimeType, logoUpdatedAt: ctx.now, logoGeometry: geometry ? { ...geometry } : Prisma.DbNull,
+  });
 }
 
 /** DELETE /platform/app-settings/logo: kembali ke logo bawaan (diaudit). */
 export function removeAppLogo(ctx: ActionContext): Promise<AppSettingsDto> {
-  return mutate(ctx, "platform.app_logo.remove", { logo: null, logoMimeType: null, logoUpdatedAt: null });
+  return mutate(ctx, "platform.app_logo.remove", { logo: null, logoMimeType: null, logoUpdatedAt: null, logoGeometry: Prisma.DbNull });
 }
 
 export interface LogoFile {

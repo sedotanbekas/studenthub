@@ -41,6 +41,8 @@ model AppBranding {
   logo          Bytes?    @db.MediumBlob
   logoMimeType  String?   @db.VarChar(30)
   logoUpdatedAt DateTime?
+  /// Geometri masker splash dari siluet logo {ox, oy, inscribed} (pecahan sisi kanvas), dihitung saat unggah.
+  logoGeometry  Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt

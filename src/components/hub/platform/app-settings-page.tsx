@@ -89,7 +89,7 @@ function IdentityPanel() {
         </div>
       </form>
       <div className="identity-block">
-        <span className="field">Logo<span className="field-hint">JPEG/PNG/WebP minimal {LOGO_MIN_SIDE}×{LOGO_MIN_SIDE} px, maks 2 MB. Sebaiknya persegi berlatar transparan. Ikon di layar utama HP tetap logo bawaan.</span></span>
+        <span className="field">Logo<span className="field-hint">JPEG/PNG/WebP minimal {LOGO_MIN_SIDE}×{LOGO_MIN_SIDE} px, maks 2 MB. Sebaiknya persegi berlatar transparan. Dipakai juga untuk favicon, ikon aplikasi di HP, ikon notifikasi, dan animasi layar pembuka.</span></span>
         <div className="identity-logo-row">
           <span className="identity-logo-box"><LogoView logoUrl={branding.logoUrl} /></span>
           <label className={`button secondary small-button file-button${actions.busy ? " disabled" : ""}`}><Icon name="upload" size={15} />{branding.logoUrl ? "Ganti logo" : "Unggah logo"}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={actions.busy} onChange={e => { pick(e.target.files?.[0]); e.target.value = ""; }} /></label>

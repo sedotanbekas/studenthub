@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ICON_VARIANT_NAMES, type IconVariantName } from "./icon-rules";
 import { APP_NAME_MAX, APP_NAME_MIN, normalizeAppName } from "./rules";
 
 /** Skema identitas aplikasi (menu Pengaturan aplikasi, 2026-10-07). */
@@ -41,10 +42,14 @@ export type UpdateAppSettingsInput = z.output<typeof updateAppSettingsBody>;
 
 export const logoUploadBody = z
   .strictObject({
-    file: z.file().min(1, "Berkas logo wajib diisi.").meta({ description: "JPEG/PNG/WebP statis, sisi terpendek >= 64 px, maks 2 MB. Disimpan WebP <= 256 px (transparansi dipertahankan) tanpa EXIF." }),
+    file: z.file().min(1, "Berkas logo wajib diisi.").meta({ description: "JPEG/PNG/WebP statis, sisi terpendek >= 64 px, maks 2 MB. Disimpan WebP <= 512 px (transparansi dipertahankan) tanpa EXIF." }),
   })
   .meta({ id: "UploadAppLogoInput" });
 export type LogoUploadInput = z.output<typeof logoUploadBody>;
+
+export const iconParams = z.object({
+  variant: z.enum(ICON_VARIANT_NAMES as [IconVariantName, ...IconVariantName[]]).meta({ description: "favicon (96), apple (180), app-192, app-512, maskable-512, badge (96, siluet), splash (512 WebP)." }),
+});
 
 export const logoQuery = z.object({
   v: z.string().max(20).optional().meta({ description: "Versi (waktu ubah logo) untuk melewati cache; diabaikan server." }),

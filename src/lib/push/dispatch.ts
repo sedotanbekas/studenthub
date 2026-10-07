@@ -1,4 +1,6 @@
 import type { JobContext } from "@/lib/auth/principal";
+import { appIcons } from "@/lib/app-settings/icon-rules";
+import { getBrandingOrDefault } from "@/lib/app-settings/service";
 import { log } from "@/lib/log";
 import { claimPendingBatch, scopedUserIds, type Claim, type ClaimedNotification } from "./claim";
 import { PUSH_BATCH, PUSH_DISPATCH_BUDGET_MS, PUSH_ERROR } from "./constants";
@@ -66,7 +68,10 @@ async function processClaim(claim: Claim, now: Date, transports: DeliveryTranspo
   const unreachable = live.filter((row) => !devices.has(row.userId));
   const expiredCounts = await applyOutcomes(skip(expired, PUSH_ERROR.EXPIRED), claim.leaseUntil, now);
   const webUsers = [...devices].filter(([, list]) => list.some((d) => d.kind === "web")).map(([userId]) => userId);
-  const deliveries = buildDeliveries(reachable, devices, now, await unreadCountsFor(webUsers));
+  // Ikon notifikasi mengikuti logo aplikasi (Pengaturan aplikasi); gagal baca -> ikon bawaan.
+  const { logoUpdatedAt } = await getBrandingOrDefault();
+  const icons = appIcons(logoUpdatedAt);
+  const deliveries = buildDeliveries(reachable, devices, now, await unreadCountsFor(webUsers), { icon: icons.app192, badgeIcon: icons.badge });
   const results = await sendDeliveries(deliveries, transports, deadline);
   const tokensCleared = await clearUnregisteredTokens(deliveries.slice(0, results.length), results, now);
   const unsent = unsentNotificationIds(deliveries, results);
