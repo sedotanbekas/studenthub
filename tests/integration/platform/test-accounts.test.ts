@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { verifyPassword } from "@/lib/auth/password";
 import { demoAdminEmail } from "../../../scripts/lib/demo-data";
 import { runTestAccountsSeed } from "../../../scripts/lib/test-accounts";
-import { TEST_SCHOOL, TEST_SPONSOR, TEST_SUPER_ADMIN } from "../../../scripts/lib/test-accounts-plan";
+import { TEST_DEPOK_SCHOOL, TEST_REGION_ADMIN, TEST_SCHOOL, TEST_SPONSOR, TEST_SUPER_ADMIN } from "../../../scripts/lib/test-accounts-plan";
 import { disconnect, prisma } from "../helpers/db";
 import { hashTestPassword } from "../helpers/factories";
 
@@ -69,4 +69,29 @@ test("akun uji idempoten: dijalankan ulang = id sama, akun nonaktif diaktifkan l
   assert.equal(reactivated.isActive, true);
   assert.equal(reactivated.mustChangePassword, false);
   assert.equal(await verifyPassword("GantiLagi-2026", reactivated.passwordHash), true);
+});
+
+test("akun uji Depok: sekolah uji Kota Depok + Admin Kota Depok (REGION_ADMIN) bisa masuk & memantau kotanya", async () => {
+  const summary = await runTestAccountsSeed({ passwordHash: await hashTestPassword(PASSWORD) });
+  const depok = await prisma.school.findUniqueOrThrow({ where: { npsn: TEST_DEPOK_SCHOOL.npsn }, select: { id: true, provinceCode: true, cityCode: true } });
+  assert.deepEqual([depok.provinceCode, depok.cityCode], ["32", "32.76"]);
+  assert.equal(summary.depokSchool.activeStudents, TEST_DEPOK_SCHOOL.students.length);
+  const pemda = await prisma.user.findUniqueOrThrow({ where: { email: TEST_REGION_ADMIN.email }, select: { id: true, role: true, isActive: true, mustChangePassword: true, passwordHash: true, regionProvinceCode: true, regionCityCode: true } });
+  assert.deepEqual([pemda.id, pemda.role, pemda.isActive, pemda.mustChangePassword, pemda.regionProvinceCode, pemda.regionCityCode], [summary.regionAdminId, "REGION_ADMIN", true, false, "32", "32.76"]);
+  assert.equal(await verifyPassword(PASSWORD, pemda.passwordHash), true);
+  const again = await runTestAccountsSeed({ passwordHash: await hashTestPassword(PASSWORD) });
+  assert.equal(again.regionAdminId, pemda.id, "idempoten");
+});
+
+test("akun uji Depok: email contoh yang sudah dipakai akun jenis lain tidak pernah diubah", async () => {
+  const pemda = await prisma.user.findUniqueOrThrow({ where: { email: TEST_REGION_ADMIN.email }, select: { id: true } });
+  await prisma.user.update({ where: { id: pemda.id }, data: { email: "pemda-sementara@uji.studenthub.id" } });
+  const other = await prisma.user.create({ data: { role: "SUPER_ADMIN", name: "Pemilik Email", email: TEST_REGION_ADMIN.email, passwordHash: "x" } });
+  try {
+    await assert.rejects(runTestAccountsSeed({ passwordHash: await hashTestPassword(PASSWORD) }), /sudah dipakai akun berjenis SUPER_ADMIN/);
+    assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: other.id }, select: { role: true } })).role, "SUPER_ADMIN");
+  } finally {
+    await prisma.user.delete({ where: { id: other.id } });
+    await prisma.user.update({ where: { id: pemda.id }, data: { email: TEST_REGION_ADMIN.email } });
+  }
 });

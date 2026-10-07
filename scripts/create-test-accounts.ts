@@ -38,7 +38,7 @@ async function main(): Promise<number> {
   const { prisma } = await import("../src/lib/db");
   try {
     const summary = await runTestAccountsSeed({ passwordHash });
-    console.log(`${TAG} Sekolah uji: ${summary.school.name} (NPSN ${summary.school.npsn}), ${summary.school.activeStudents} siswa aktif.`);
+    for (const school of [summary.school, summary.depokSchool]) console.log(`${TAG} Sekolah uji: ${school.name} (NPSN ${school.npsn}), ${school.activeStudents} siswa aktif.`);
   } finally {
     await prisma.$disconnect();
   }
