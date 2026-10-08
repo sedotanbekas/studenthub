@@ -23,7 +23,7 @@
     "db:totp-reset": "tsx scripts/totp-reset.ts",
     "regions:gen": "tsx scripts/gen-regions-migration.ts",
     "test:unit": "node --import tsx --test \"src/**/*.test.ts\" \"scripts/**/*.test.ts\"",
-    "test:int": "tsx scripts/test/prepare-db.ts && node --env-file-if-exists=.env.test --import tsx --import ./tests/integration/setup.ts --test --test-concurrency=1 \"tests/integration/**/*.test.ts\"",
+    "test:int": "tsx scripts/test/prepare-db.ts && node --env-file-if-exists=.env.test --import tsx --import ./tests/integration/setup.ts --test --test-concurrency=1 \"tests/integration/**/*.test.ts\" && tsx scripts/test/cleanup-db.ts",
     "test:e2e": "playwright test",
     "test:frontend": "playwright test -c playwright.frontend.config.ts",
     "frontend:sync": "tsx scripts/frontend-catalog.ts",

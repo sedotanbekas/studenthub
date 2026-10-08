@@ -89,3 +89,24 @@ export function migrateCommand(reset: boolean): MigrateCommand {
 export function commandLine(command: MigrateCommand): string {
   return ["npx", ...command.args].join(" ");
 }
+
+/** Variabel lingkungan yang memengaruhi pembersihan database test setelah test lolos. */
+export type CleanupDbFlags = { readonly CI?: string; readonly TEST_DB_KEEP?: string };
+
+/**
+ * Lokal: data test dihapus setelah SEMUA integration test lolos agar tidak menumpuk di disk.
+ * Tidak dibersihkan bila CI (database dibuang bersama runner) atau TEST_DB_KEEP=1 (ingin diperiksa).
+ * Bila ada test gagal, skrip pembersih tidak dipanggil sama sekali sehingga data tetap ada untuk debugging.
+ */
+export function shouldCleanupDatabase(flags: CleanupDbFlags): boolean {
+  return !isFlagSet(flags.CI) && !isFlagSet(flags.TEST_DB_KEEP);
+}
+
+/** SQL pembersih: database test dihapus lalu dibuat ulang kosong (migrasi diterapkan lagi saat test berikutnya). */
+export function cleanupStatements(database: string): readonly string[] {
+  if (!TEST_DB_NAME.test(database)) throw new Error(`"${database}" bukan database test (wajib berakhiran "_test").`);
+  return [
+    `DROP DATABASE IF EXISTS \`${database}\``,
+    `CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+  ];
+}

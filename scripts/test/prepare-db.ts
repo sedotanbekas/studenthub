@@ -8,6 +8,7 @@
  * - TEST_DB_NO_RESET=1: `prisma migrate deploy` saja (tanpa menghapus data). Catatan: Prisma 7
  *   menolak `migrate reset` yang dijalankan agen AI tanpa persetujuan eksplisit pengguna; agen
  *   memakai `TEST_DB_NO_RESET=1 pnpm test:int`.
+ * - Setelah semua test lolos, scripts/test/cleanup-db.ts menghapus data test (lokal saja; TEST_DB_KEEP=1 = simpan).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";

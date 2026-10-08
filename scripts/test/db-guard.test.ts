@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { checkTestDatabaseUrl, commandLine, isFlagSet, migrateCommand, shouldResetDatabase } from "./db-guard";
+import { checkTestDatabaseUrl, cleanupStatements, commandLine, isFlagSet, migrateCommand, shouldCleanupDatabase, shouldResetDatabase } from "./db-guard";
 
 describe("checkTestDatabaseUrl", () => {
   test("menerima database lokal berakhiran _test", () => {
@@ -93,5 +93,35 @@ describe("migrateCommand", () => {
     const cmd = migrateCommand(false);
     assert.deepEqual(cmd.args, ["prisma", "migrate", "deploy"]);
     assert.equal(commandLine(cmd), "npx prisma migrate deploy");
+  });
+});
+
+describe("shouldCleanupDatabase", () => {
+  test("lokal tanpa flag: bersihkan setelah test lolos", () => {
+    assert.equal(shouldCleanupDatabase({}), true);
+  });
+
+  test("CI: tidak dibersihkan (database CI dibuang bersama runner)", () => {
+    assert.equal(shouldCleanupDatabase({ CI: "true" }), false);
+  });
+
+  test("TEST_DB_KEEP=1: data test disimpan untuk diperiksa", () => {
+    assert.equal(shouldCleanupDatabase({ TEST_DB_KEEP: "1" }), false);
+    assert.equal(shouldCleanupDatabase({ TEST_DB_KEEP: "0" }), true);
+  });
+});
+
+describe("cleanupStatements", () => {
+  test("hapus lalu buat ulang database kosong dengan charset yang sama", () => {
+    assert.deepEqual(cleanupStatements("studenthub_test"), [
+      "DROP DATABASE IF EXISTS `studenthub_test`",
+      "CREATE DATABASE `studenthub_test` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+    ]);
+  });
+
+  test("menolak nama yang bukan database test", () => {
+    for (const name of ["studenthub", "studenthub_dev", "a`b_test", "x; DROP_test"]) {
+      assert.throws(() => cleanupStatements(name), /bukan database test/, name);
+    }
   });
 });

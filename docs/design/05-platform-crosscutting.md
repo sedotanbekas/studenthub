@@ -632,6 +632,7 @@ R3. **One-time VPS setup** (as root; the connection method is still to be decide
 
 R4. **Local dev** (Windows):
 - `docker-compose.dev.yml` runs `mariadb:10.11` on `127.0.0.1:3307`; its init SQL creates `studenthub_dev` and `studenthub_test` and grants the `studenthub` user.
+- `pnpm test:int` membersihkan sendiri `studenthub_test` setelah SEMUA test lolos (`scripts/test/cleanup-db.ts`: drop + buat ulang kosong; lewati di CI atau dengan `TEST_DB_KEEP=1`). Bila ada test gagal, data dibiarkan untuk debugging.
 - `.env.example` sets `STORAGE_ROOT=./.storage` (git-ignored) and `PUSH_TRANSPORT=log`.
 - Every script is a cross-platform tsx script; no bash in package.json.
 
