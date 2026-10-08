@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { MARK_INSCRIBED, MARK_ORIGIN } from "@/lib/frontend/splash-rules";
 
 /**
@@ -66,6 +67,17 @@ export function appIcons(logoUpdatedAt: Date | null): AppIcons {
 }
 
 export const DEFAULT_ICONS: AppIcons = appIcons(null);
+
+/**
+ * Metadata identitas aplikasi untuk halaman yang bisa dipasang (/hub, /pasang): nama aplikasi terpasang & judul
+ * layar utama iOS. Logo unggahan juga menjadi favicon & ikon layar utama iOS; tanpa logo = ikon bawaan app/layout.tsx.
+ */
+export function appIdentityMetadata(appName: string, logoUpdatedAt: Date | null): Pick<Metadata, "applicationName" | "appleWebApp" | "icons"> {
+  const base = { applicationName: appName, appleWebApp: { title: appName, capable: true, statusBarStyle: "default" as const } };
+  if (!logoUpdatedAt) return base;
+  const icons = appIcons(logoUpdatedAt);
+  return { ...base, icons: { icon: [{ url: icons.favicon, type: "image/png", sizes: "96x96" }], apple: [{ url: icons.apple, sizes: "180x180" }] } };
+}
 
 /** Geometri masker splash relatif sisi kanvas: pusat zoom (titik terdalam siluet) & jari-jari lingkaran dalamnya. */
 export interface MaskGeometry {

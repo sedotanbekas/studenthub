@@ -15,32 +15,40 @@ function client(url: string): FakeClient {
   return { url, focused: false, messages: [], async focus() { this.focused = true; }, postMessage(m) { this.messages.push(m); } };
 }
 
-function worker(options: { clients?: FakeClient[]; fetch?: (url: string, init?: { method?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }> } = {}) {
+function worker(options: { clients?: FakeClient[]; noPreload?: boolean; fetch?: (url: string, init?: { method?: string }) => Promise<unknown> } = {}) {
   const handlers = new Map<string, Handler>();
   const shown: Array<{ title: string; options: Record<string, unknown> }> = [];
   const badges: Array<number | "clear"> = [];
   const opened: string[] = [];
   const subscribed: unknown[] = [];
   const windows = options.clients ?? [];
+  let preloadEnables = 0;
   const self = {
     location: { origin: ORIGIN },
     navigator: { async setAppBadge(n: number) { badges.push(n); }, async clearAppBadge() { badges.push("clear"); } },
     registration: {
       async showNotification(title: string, opts: Record<string, unknown>) { shown.push({ title, options: opts }); },
       pushManager: { async subscribe(opts: unknown) { subscribed.push(opts); return { toJSON: () => ({ endpoint: "https://fcm.googleapis.com/fcm/send/baru", keys: { p256dh: "p", auth: "a" } }) }; } },
+      navigationPreload: options.noPreload ? undefined : { async enable() { preloadEnables += 1; } },
     },
     clients: { async matchAll() { return windows; }, async openWindow(url: string) { opened.push(url); }, async claim() {} },
     skipWaiting() {},
     addEventListener(type: string, handler: Handler) { handlers.set(type, handler); },
   };
-  const context = createContext({ self, URL, atob, Uint8Array, Promise, JSON, String, fetch: options.fetch ?? (async () => ({ ok: false, status: 500, json: async () => null })) });
+  const context = createContext({ self, URL, atob, Uint8Array, Promise, JSON, String, Response, fetch: options.fetch ?? (async () => ({ ok: false, status: 500, json: async () => null })) });
   runInContext(SOURCE, context);
   async function dispatch(type: string, extra: Record<string, unknown>) {
     const pending: Promise<unknown>[] = [];
     handlers.get(type)?.({ ...extra, waitUntil: (p: Promise<unknown>) => pending.push(p) });
     await Promise.all(pending);
   }
-  return { dispatch, shown, badges, opened, subscribed, handlers };
+  /** Event fetch: undefined = tidak memanggil respondWith (browser mengambil sendiri). */
+  async function fetchEvent(request: { mode: string; method: string; url: string }, preloadResponse: Promise<unknown> = Promise.resolve(undefined)): Promise<unknown> {
+    let responded: Promise<unknown> | undefined;
+    handlers.get("fetch")?.({ request, preloadResponse, respondWith: (p: Promise<unknown>) => { responded = p; } });
+    return responded === undefined ? undefined : await responded;
+  }
+  return { dispatch, fetchEvent, shown, badges, opened, subscribed, handlers, preloadEnables: () => preloadEnables };
 }
 
 /** Objek dari realm vm punya prototipe lain: bandingkan bentuk JSON-nya. */
@@ -111,8 +119,44 @@ test("pushsubscriptionchange -> langganan ulang lalu PUT; 401 -> refresh -> PUT 
   assert.equal(failing.subscribed.length, 0, "galat ditelan");
 });
 
-test("tanpa handler fetch (respons berautentikasi tidak pernah di-cache)", () => {
+const navigation = (url = `${ORIGIN}/hub`, method = "GET") => ({ mode: "navigate", method, url });
+
+test("navigasi online: respons jaringan / navigation preload diteruskan apa adanya (tidak pernah disimpan)", async () => {
+  const online = new Response("hub");
+  assert.equal(await worker({ fetch: async () => online }).fetchEvent(navigation()), online);
+  const preloaded = new Response("preload");
+  let fetched = 0;
+  const sw = worker({ fetch: async () => { fetched += 1; return online; } });
+  assert.equal(await sw.fetchEvent(navigation(), Promise.resolve(preloaded)), preloaded);
+  assert.equal(fetched, 0, "preload dipakai, tanpa permintaan kedua");
+});
+
+test("navigasi offline (jaringan / preload gagal) -> halaman offline bawaan sw.js: HTML, no-store, Coba lagi", async () => {
+  const sw = worker({ fetch: async () => { throw new TypeError("Failed to fetch"); } });
+  const res = (await sw.fetchEvent(navigation(`${ORIGIN}/hub/my-attendance`))) as Response;
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") ?? "", /^text\/html/);
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.equal(res.headers.get("content-security-policy"), "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
+  const html = await res.text();
+  assert.match(html, /Kamu sedang offline/);
+  assert.match(html, /Coba lagi/);
+  const viaPreload = (await sw.fetchEvent(navigation(), Promise.reject(new TypeError("offline")))) as Response;
+  assert.match(await viaPreload.text(), /Kamu sedang offline/);
+});
+
+test("bukan navigasi GET (API, aset, kiriman formulir) -> tidak disentuh service worker", async () => {
+  const sw = worker({ fetch: async () => { throw new Error("tidak boleh dipanggil"); } });
+  assert.equal(await sw.fetchEvent({ mode: "cors", method: "GET", url: `${ORIGIN}/api/web/auth/me` }), undefined);
+  assert.equal(await sw.fetchEvent({ mode: "no-cors", method: "GET", url: `${ORIGIN}/brand/app-192.png` }), undefined);
+  assert.equal(await sw.fetchEvent(navigation(`${ORIGIN}/hub`, "POST")), undefined);
+});
+
+test("activate: navigation preload dinyalakan bila ada (Safari lama tanpa preload tetap jalan); tanpa Cache Storage sama sekali", async () => {
   const sw = worker();
-  assert.equal(sw.handlers.has("fetch"), false);
-  assert.deepEqual([...sw.handlers.keys()].sort(), ["activate", "install", "notificationclick", "push", "pushsubscriptionchange"]);
+  await sw.dispatch("activate", {});
+  assert.equal(sw.preloadEnables(), 1);
+  await worker({ noPreload: true }).dispatch("activate", {});
+  assert.deepEqual([...sw.handlers.keys()].sort(), ["activate", "fetch", "install", "notificationclick", "push", "pushsubscriptionchange"]);
+  assert.doesNotMatch(SOURCE, /caches\./, "respons berautentikasi tidak pernah di-cache");
 });

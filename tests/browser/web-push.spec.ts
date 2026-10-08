@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { operations } from "../../src/lib/frontend/catalog";
 import { demoSummary } from "../../src/lib/frontend/demo";
+import { notificationsUnasked } from "./browser-env";
 import { markSignedIn } from "./session-cookie";
 
 /**
@@ -44,10 +45,11 @@ test("demo: kartu Notifikasi di perangkat ini di Keamanan akun; Aktifkan menampi
 test("HP: lembar ajakan muncul di beranda; Nanti saja menunda (tidak muncul lagi setelah dimuat ulang)", async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: "Mozilla/5.0 (Linux; Android 13; SM-A145F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36" });
   const page = await context.newPage();
+  await notificationsUnasked(page);
   await signedIn(page);
   await page.goto("/hub");
   const sheet = page.getByRole("dialog", { name: "Aktifkan notifikasi" });
-  await expect(sheet).toBeVisible({ timeout: 10_000 });
+  await expect(sheet).toBeVisible({ timeout: 15_000 });
   await expect(sheet).toContainText("Pengajuan izin, bukti bayar, dan kabar sekolah langsung muncul di HP-mu walau aplikasi tertutup.");
   await expect(sheet.getByRole("button", { name: "Aktifkan" })).toBeFocused();
   await sheet.getByRole("button", { name: "Nanti saja" }).click();

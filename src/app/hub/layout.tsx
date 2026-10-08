@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { BrandingProvider } from "@/components/hub/branding";
 import { HubShell } from "@/components/hub/hub";
 import { SplashScreen } from "@/components/hub/splash-screen";
-import { appIcons, iconUrlFor, splashGeometry } from "@/lib/app-settings/icon-rules";
+import { appIdentityMetadata, iconUrlFor, splashGeometry } from "@/lib/app-settings/icon-rules";
 import { appTitle, logoUrlFor } from "@/lib/app-settings/rules";
 import { getBrandingOrDefault } from "@/lib/app-settings/service";
 import { appEnvOfHost, demoAllowed } from "@/lib/frontend/app-env";
@@ -20,9 +20,7 @@ const SPLASH_IMAGES = ["/brand/splash-body.webp", "/brand/splash-tassel.webp", "
 /** Judul tab & nama aplikasi mengikuti Pengaturan aplikasi (nama bawaan "Student Hub" ada di app/layout.tsx). */
 export async function generateMetadata(): Promise<Metadata> {
   const { appName, logoUpdatedAt } = await getBrandingOrDefault();
-  // Logo unggahan juga menjadi favicon & ikon layar utama iOS (tanpa logo = ikon bawaan app/layout.tsx).
-  const icons = logoUpdatedAt ? { icons: { icon: [{ url: appIcons(logoUpdatedAt).favicon, type: "image/png", sizes: "96x96" }], apple: [{ url: appIcons(logoUpdatedAt).apple, sizes: "180x180" }] } } : {};
-  return { title: { absolute: appTitle(appName), template: `%s - ${appName}` }, applicationName: appName, appleWebApp: { title: appName, capable: true, statusBarStyle: "default" }, ...icons };
+  return { title: { absolute: appTitle(appName), template: `%s - ${appName}` }, ...appIdentityMetadata(appName, logoUpdatedAt) };
 }
 
 /**

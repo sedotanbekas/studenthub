@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appIcons, DEFAULT_ICONS, ICON_VARIANTS, iconUrlFor, isIconVariant, maskGeometry, parseGeometry, splashGeometry } from "./icon-rules";
+import { appIcons, appIdentityMetadata, DEFAULT_ICONS, ICON_VARIANTS, iconUrlFor, isIconVariant, maskGeometry, parseGeometry, splashGeometry } from "./icon-rules";
 import { MARK_INSCRIBED, MARK_ORIGIN } from "@/lib/frontend/splash-rules";
 
 /** Kanvas alfa n×n dari predikat piksel (true = buram). */
@@ -57,4 +57,13 @@ test("iconUrlFor & appIcons: URL berversi untuk logo unggahan; tanpa logo = aset
   assert.equal(iconUrlFor("badge", null), "/brand/badge-96.png");
   assert.deepEqual(appIcons(null), DEFAULT_ICONS);
   assert.equal(appIcons(at).maskable512, `/api/v1/app/icon/maskable-512?v=${at.getTime()}`);
+});
+
+test("appIdentityMetadata: nama aplikasi terpasang + ikon layar utama iOS; tanpa logo unggahan = ikon bawaan root layout", () => {
+  const custom = appIdentityMetadata("Sekolahku", new Date("2026-10-08T00:00:00Z"));
+  assert.equal(custom.applicationName, "Sekolahku");
+  assert.deepEqual(custom.appleWebApp, { title: "Sekolahku", capable: true, statusBarStyle: "default" });
+  const icons = appIcons(new Date("2026-10-08T00:00:00Z"));
+  assert.deepEqual(custom.icons, { icon: [{ url: icons.favicon, type: "image/png", sizes: "96x96" }], apple: [{ url: icons.apple, sizes: "180x180" }] });
+  assert.equal("icons" in appIdentityMetadata("Student Hub", null), false);
 });

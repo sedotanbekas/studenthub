@@ -23,16 +23,30 @@ test("manifest: nama, start_url, tiga ikon PNG yang benar-benar ada", async ({ r
   }
 });
 
-test("/sw.js: JavaScript, tanpa cache, tanpa handler fetch; /hub memuat tautan manifest", async ({ request }) => {
+test("/sw.js: JavaScript, tanpa cache; fetch hanya untuk halaman offline, tanpa Cache Storage; /hub memuat tautan manifest", async ({ request }) => {
   const sw = await request.get("/sw.js");
   expect(sw.status()).toBe(200);
   expect(sw.headers()["content-type"]).toContain("javascript");
   expect(sw.headers()["cache-control"]).toContain("no-cache");
   const source = await sw.text();
   expect(source).toContain('addEventListener("push"');
-  expect(source).not.toContain('addEventListener("fetch"');
+  expect(source).toContain('addEventListener("fetch"');
+  expect(source).toContain("Kamu sedang offline");
+  expect(source).not.toContain("caches.");
   const hub = await request.get("/hub", { headers: { Accept: "text/html" } });
   expect(await hub.text()).toContain('rel="manifest"');
+});
+
+test("/pasang: halaman publik tanpa login — judul, kode QR SVG ke /pasang, tautan manifest, tautan dari halaman masuk", async ({ request }) => {
+  const res = await request.get("/pasang", { headers: { Accept: "text/html" } });
+  expect(res.status()).toBe(200);
+  const html = await res.text();
+  expect(html).toMatch(/<title>Pasang [^<]+<\/title>/);
+  expect(html).toContain('rel="manifest"');
+  expect(html).toMatch(/class="install-qr"[^>]*>.*?<svg [^>]*viewBox=/s);
+  expect(html).toMatch(/https?:\/\/[^<"]+\/pasang/);
+  const hub = await request.get("/hub", { headers: { Accept: "text/html" } });
+  expect(await hub.text()).toContain('href="/pasang"');
 });
 
 test("endpoint Web Push membutuhkan login", async ({ request }) => {

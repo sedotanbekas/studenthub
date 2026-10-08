@@ -21,6 +21,8 @@ import { forgetScrollPositions, restoreScroll } from "./scroll-memory";
 import { loadSections, useSections } from "./sections";
 import { useHubSession } from "./use-session";
 import { WebPushBridge, WebPushPrompt } from "./web-push";
+import { InstallSheet } from "./install";
+import { currentDevice, registerAppWorker } from "@/lib/frontend/app-worker";
 import { useSplash } from "./use-splash";
 
 /**
@@ -89,6 +91,14 @@ function useDrawer() {
   return { open, show, hide };
 }
 
+/**
+ * Service worker (push + halaman offline) didaftarkan untuk akun yang masuk dan aplikasi terpasang; tamu di tab
+ * browser (halaman masuk, target PageSpeed) tidak mendaftarkannya.
+ */
+function useAppWorker(signedIn: boolean) {
+  useEffect(() => { if (signedIn || currentDevice().standalone) void registerAppWorker(); }, [signedIn]);
+}
+
 /** Modul isi bagian (sections.ts) dimuat begitu ada identitas; halaman aplikasi menunggu modul itu. */
 function useSectionsFor(me: Identity | null) {
   const state = useSections();
@@ -116,6 +126,7 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
   const unread = useUnreadBadge(me, demo);
   useAppearance(me);
   useSectionGuard(me, section);
+  useAppWorker(Boolean(me));
   const toast = notice ? <div className="toast" role="status">{notice}</div> : null;
   if (sections.failed) return <main className="standalone"><Brand /><p>Halaman gagal dimuat. Periksa koneksi internet lalu coba lagi.</p><button type="button" className="button primary" onClick={() => void loadSections()}>Coba lagi</button></main>;
   if (!session.ready || resuming || !sections.ready) return <main className="standalone"><Brand /><div className="loader" /><p>Memuat…</p></main>;
@@ -138,7 +149,9 @@ export function HubShell({ hint, env, children }: { hint: SessionHint; env: AppE
     <TabBar me={me} section={restricted ? "security" : section} menuOpen={drawer.open} inert={drawer.open} onMenu={drawer.show} />
     {/* Notifikasi HP mengikat browser ke sesi: tidak pada sesi "Masuk sebagai" (ditolak server IMPERSONATION_FORBIDDEN). */}
     {!me.impersonation && <WebPushBridge key={me.user.id} me={me} demo={demo} />}
-    {!me.impersonation && <WebPushPrompt key={`push-${me.user.id}`} me={me} demo={demo} home={home && !drawer.open} toast={session.setNotice} />}
+    {/* Satu lembar ajakan per kunjungan: Pasang aplikasi dulu (HP belum memasang), selain itu Aktifkan notifikasi. */}
+    {!me.impersonation && <InstallSheet key={`install-${me.user.id}`} demo={demo} restricted={restricted} home={home && !drawer.open} toast={session.setNotice}
+      fallback={<WebPushPrompt key={`push-${me.user.id}`} me={me} demo={demo} home={home && !drawer.open} toast={session.setNotice} />} />}
     {toast}
   </div></HubContext.Provider>;
 }

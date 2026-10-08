@@ -7,6 +7,7 @@ import {
   blockedHelpSteps,
   deviceInfoOf,
   feedbackText,
+  IOS_INSTALL_STEPS,
   isPromptDeferred,
   promptDeferValue,
   promptModeOf,
@@ -16,6 +17,7 @@ import {
   type DeviceInfo,
   type PromptInput,
 } from "./web-push-rules";
+import { installSteps } from "./install-rules";
 
 const IPHONE_16_4 = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1";
 const IPHONE_15 = "Mozilla/5.0 (iPhone; CPU iPhone OS 15_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1";
@@ -45,12 +47,17 @@ test("promptModeOf: hanya di beranda HP/aplikasi, tanpa dialog lain; diblokir & 
   assert.equal(promptModeOf({ ...base, device: { ...deviceInfoOf(DESKTOP, env()), standalone: true } }), "ask", "aplikasi terpasang di desktop");
 });
 
-test("promptModeOf: iPhone di tab Safari -> pasang ke layar utama dulu (hanya iOS 16.4+)", () => {
+test("promptModeOf: browser tanpa Web Push tidak diajak — iPhone di tab Safari dipandu lembar Pasang aplikasi (install-rules)", () => {
   const iphone = deviceInfoOf(IPHONE_16_4, env({ maxTouchPoints: 5, coarse: true, width: 390 }));
-  assert.equal(promptModeOf({ ...base, supported: false, permission: "unsupported", device: iphone }), "install-ios");
+  assert.equal(promptModeOf({ ...base, supported: false, permission: "unsupported", device: iphone }), null);
   assert.equal(promptModeOf({ ...base, supported: false, permission: "unsupported", device: deviceInfoOf(IPHONE_15, env({ maxTouchPoints: 5 })) }), null, "iOS lama tidak bisa sama sekali");
   assert.equal(promptModeOf({ ...base, supported: false, permission: "unsupported", device: { ...iphone, standalone: true } }), null);
   assert.equal(promptModeOf({ ...base, supported: false, permission: "unsupported" }), null, "Android tanpa dukungan");
+});
+
+test("IOS_INSTALL_STEPS (kartu notifikasi iPhone): langkah pasang Safari yang sama + aktifkan notifikasi dari ikon", () => {
+  assert.deepEqual(IOS_INSTALL_STEPS.slice(0, -1), installSteps("ios-safari"));
+  assert.match(IOS_INSTALL_STEPS.at(-1)!, /aktifkan notifikasi/);
 });
 
 test("penundaan 7 hari di perangkat", () => {

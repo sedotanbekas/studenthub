@@ -1,0 +1,10 @@
+/* Pasang aplikasi (PWA, 2026-10-08): item menu, tautan halaman masuk, jendela langkah. Lembar beranda = .push-sheet. */
+.install-menu-button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-2); font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; }
+.install-menu-button:hover { background: var(--primary-soft); }
+.install-menu-button span { flex: 1; min-width: 0; }
+.install-menu-button small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+.login-install { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 4px 0; color: var(--primary-ink); font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.install-intro { color: var(--muted); }
+.install-dialog { width: min(520px, calc(100vw - 24px)); }
+/* Dibuka dari ikon layar utama: ajakan memasang tidak relevan (tanpa JS -> tanpa kedip). */
+@media (display-mode: standalone) { .login-install, .install-menu-button { display: none; } }

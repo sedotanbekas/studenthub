@@ -7,6 +7,9 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3030",
     viewport: { width: 1440, height: 1000 },
+    // /sw.js punya handler fetch (halaman offline) & didaftarkan untuk akun yang masuk; permintaan dari halaman yang
+    // dikendalikan service worker tidak dicegat page.route (mock /api/web). Uji SW sendiri: tests/browser/offline.spec.ts.
+    serviceWorkers: "block",
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {},
     screenshot: "only-on-failure",
   },

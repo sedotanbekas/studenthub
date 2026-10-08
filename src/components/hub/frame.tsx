@@ -13,6 +13,7 @@ import { HubLink } from "./hub-link";
 import { capturePage, setSlideTabs } from "./page-slide";
 import { useBranding } from "./branding";
 import { Brand, BrandMark, Icon } from "./icon";
+import { MenuInstallButton } from "./install";
 
 /** Kerangka hub: sidebar (laci di HP), topbar kaca, tab bar HP, banner demo, dan pilihan tampilan. */
 interface SidebarProps { me: Identity; env: AppEnv | null; modules: Module[]; current?: Module; home: boolean; unread: number; open: boolean; onNavigate: () => void; onLogout: () => Promise<void> }
@@ -27,6 +28,7 @@ export function Sidebar({ me, env, modules, current, home, unread, open, onNavig
   return <aside ref={aside} className={`sidebar ${open ? "open" : ""}`}><HubLink tab href="/hub" className="brand-link" onClick={onNavigate}><Brand /></HubLink><div className="school-switch"><span className="school-icon"><Icon name="school" size={20} /></span><span><strong>{me.school?.name ?? me.sponsor?.companyName ?? (me.region ? (me.region.cityName ?? me.region.provinceName) : null) ?? branding.appName}</strong><small>{roleLabels[me.user.role]}</small></span></div>
     <nav aria-label="Navigasi utama"><HubLink tab onClick={onNavigate} className={`nav-item ${home ? "active" : ""}`} href="/hub" aria-current={home ? "page" : undefined}><Icon name="grid" />Beranda</HubLink>{groups.map(group => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{modules.filter(m => m.group === group).map(m => <HubLink tab key={m.key} onClick={onNavigate} className={`nav-item ${current?.key === m.key ? "active" : ""}`} aria-current={current?.key === m.key ? "page" : undefined} href={`/hub/${m.key}`}><Icon name={m.icon} /><span>{m.title}</span>{m.key === "notifications" && unread > 0 && <b className="count-badge">{badgeLabel(unread)}</b>}</HubLink>)}</div>)}</nav>
     <EnvSwitch env={env} role={me.user.role} />
+    <MenuInstallButton />
     <GlassToggle />
     <button className="account-button" onClick={() => void onLogout()}><span className="avatar">{initials(me.user.name)}</span><span><strong>{me.user.name}</strong><small>Keluar dari akun</small></span><Icon name="logout" size={18} /></button></aside>;
 }

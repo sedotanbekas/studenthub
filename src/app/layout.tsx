@@ -22,6 +22,7 @@ import "../styles/transitions.css";
 import "../styles/print.css";
 import "../styles/splash.css";
 import "../styles/student-rounded.css";
+import "../styles/install.css";
 
 const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 /** Font bulat tebal untuk tulisan logo "StudentHub" (logo & splash). */

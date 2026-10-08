@@ -8,9 +8,7 @@ import { unreadBadge } from "@/lib/frontend/unread-badge";
 import {
   appBadgeAction,
   base64UrlToBytes,
-  deviceInfoOf,
   feedbackText,
-  IOS_INSTALL_STEPS,
   isPromptDeferred,
   navigationKind,
   promptDeferValue,
@@ -18,10 +16,12 @@ import {
   promptText,
   sameServerKey,
   syncAction,
-  type DeviceInfo,
   type PromptMode,
 } from "@/lib/frontend/web-push-rules";
+import { currentDevice, registerAppWorker } from "@/lib/frontend/app-worker";
 import { Icon } from "./icon";
+
+export { currentDevice };
 
 /**
  * Notifikasi HP (Web Push, N3) di browser: status per sesi dari server, langganan per identitas, jembatan pesan
@@ -38,11 +38,6 @@ export const isPushSupported = (): boolean =>
 
 export const currentPermission = (): Permission => (isPushSupported() ? Notification.permission : "unsupported");
 
-export function currentDevice(): DeviceInfo {
-  const standalone = window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return deviceInfoOf(navigator.userAgent, { maxTouchPoints: navigator.maxTouchPoints ?? 0, standalone, coarse: window.matchMedia?.("(pointer: coarse)").matches ?? false, width: window.innerWidth });
-}
-
 export async function loadWebPushStatus(demo: boolean): Promise<WebPushStatus | null> {
   if (demo) return demoRows("/me/web-push") as WebPushStatus;
   try {
@@ -53,8 +48,9 @@ export async function loadWebPushStatus(demo: boolean): Promise<WebPushStatus | 
 }
 
 async function registration(): Promise<ServiceWorkerRegistration> {
-  await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
-  return navigator.serviceWorker.ready;
+  const reg = await registerAppWorker();
+  if (!reg) throw new Error("Service worker tidak tersedia.");
+  return reg;
 }
 
 /** Sinkron langganan sesi ini dengan server (syncAction). true = langganan tersimpan / tidak perlu apa-apa. */
@@ -221,15 +217,14 @@ export function WebPushPrompt({ me, demo, home, toast }: { me: Identity; demo: b
     if (result !== "dismissed") close();
     toast(feedbackText(result, device));
   }
-  const ios = mode === "install-ios";
+  // iPhone di tab Safari (tanpa Web Push) dipandu lembar Pasang aplikasi (install.tsx), bukan lembar ini.
   return <div className="push-sheet" role="dialog" aria-modal="false" aria-labelledby="push-sheet-title">
     <span className="quick-icon tone-0"><Icon name="bell" size={24} /></span>
     <div className="push-sheet-body">
-      <h2 id="push-sheet-title">{ios ? "Tambahkan ke Layar Utama dulu" : "Aktifkan notifikasi"}</h2>
-      {ios ? <><p>Di iPhone, notifikasi hanya aktif bila studenthub.id dibuka dari ikon di layar utama.</p><ol>{IOS_INSTALL_STEPS.map(step => <li key={step}>{step}</li>)}</ol></> : <p>{promptText(me.user.role, device)}</p>}
+      <h2 id="push-sheet-title">Aktifkan notifikasi</h2>
+      <p>{promptText(me.user.role, device)}</p>
       <div className="push-sheet-actions">
-        {ios ? <button ref={primary} type="button" className="button primary small-button" onClick={later}>Mengerti</button>
-          : <><button ref={primary} type="button" className="button primary small-button" disabled={busy} onClick={() => void enable()}>{busy ? "Memproses…" : "Aktifkan"}</button><button type="button" className="text-button" onClick={later}>Nanti saja</button></>}
+        <button ref={primary} type="button" className="button primary small-button" disabled={busy} onClick={() => void enable()}>{busy ? "Memproses…" : "Aktifkan"}</button><button type="button" className="text-button" onClick={later}>Nanti saja</button>
       </div>
     </div>
   </div>;

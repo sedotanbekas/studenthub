@@ -1,4 +1,5 @@
 import type { Role } from "./types";
+import { installSteps } from "./install-rules";
 
 /**
  * Aturan murni Web Push di browser (N3): jenis perangkat, kapan lembar ajakan tampil, langkah membuka blokir,
@@ -34,10 +35,8 @@ export function deviceInfoOf(ua: string, env: DeviceEnv): DeviceInfo {
   return { ios, iosVersion: ios ? iosVersionOf(ua) : null, android, mobile: ios || android || (env.coarse && env.width < MOBILE_MAX_WIDTH), standalone: env.standalone };
 }
 
-/** iOS 16.4+ mendukung Web Push hanya dari ikon layar utama. */
-const IOS_WEB_PUSH_MIN = 16.04;
-
-export type PromptMode = "ask" | "install-ios";
+/** Ajakan memasang ke layar utama (iPhone: syarat Web Push iOS 16.4+) ada di lembar Pasang aplikasi (install-rules.ts). */
+export type PromptMode = "ask";
 
 export interface PromptInput {
   readonly enabled: boolean;
@@ -56,8 +55,7 @@ export interface PromptInput {
 export function promptModeOf(i: PromptInput): PromptMode | null {
   if (i.demo || i.restricted || !i.enabled || i.deferred || !i.home || i.dialogOpen) return null;
   if (!i.device.mobile && !i.device.standalone) return null;
-  if (!i.supported) return i.device.ios && !i.device.standalone && (i.device.iosVersion ?? 0) >= IOS_WEB_PUSH_MIN ? "install-ios" : null;
-  return i.permission === "default" ? "ask" : null;
+  return i.supported && i.permission === "default" ? "ask" : null;
 }
 
 /** "Nanti saja" menunda lembar 7 hari di perangkat ini (localStorage, bukan per tab). */
@@ -92,9 +90,8 @@ export function promptText(role: Role, d: DeviceInfo): string {
 }
 
 export const IOS_INSTALL_STEPS: readonly string[] = [
-  "Ketuk tombol Bagikan (kotak dengan panah ke atas).",
-  "Pilih Tambah ke Layar Utama, lalu Tambah.",
-  "Buka dari ikon baru, masuk sekali lagi, lalu aktifkan notifikasi. Setelah ini selalu buka dari ikon itu: masuk lewat Safari akan mengeluarkan aplikasi di layar utama dan mematikan notifikasinya.",
+  ...installSteps("ios-safari"),
+  "Di aplikasi itu, aktifkan notifikasi. Setelah ini selalu buka dari ikon itu: masuk lewat Safari akan mengeluarkan aplikasi di layar utama dan mematikan notifikasinya.",
 ];
 
 export function feedbackText(kind: "on" | "failed" | "dismissed" | "blocked" | "off", d: DeviceInfo): string {
