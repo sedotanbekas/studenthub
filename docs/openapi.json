@@ -3631,7 +3631,7 @@
                     "description": "Bujur titik pusat geofence (94.5..141.5)."
                   },
                   "geofenceRadiusM": {
-                    "description": "Radius geofence 50..1000 m (default 150).",
+                    "description": "Radius geofence dalam meter: minimal 50, tanpa batas atas selain 32767 (default 150).",
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991

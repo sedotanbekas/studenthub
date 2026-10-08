@@ -85,7 +85,7 @@ Every response uses the envelope `{success, data, error:{code,message,details}, 
 export const TZ_OFFSET_MINUTES = { WIB: 420, WITA: 480, WIT: 540 } as const;
 export const TZ_IANA = { WIB: "Asia/Jakarta", WITA: "Asia/Makassar", WIT: "Asia/Jayapura" } as const;
 export const EARTH_RADIUS_M = 6_371_008.8;
-export const MIN_GEOFENCE_RADIUS_M = 50;           export const MAX_GEOFENCE_RADIUS_M = 1000;
+export const MIN_GEOFENCE_RADIUS_M = 50;           export const MAX_GEOFENCE_RADIUS_M = 32767; // tanpa batas bisnis (2026-10-08), hanya SMALLINT
 export const MAX_ACCEPTED_ACCURACY_M = 100;        export const ACCURACY_TOLERANCE_CAP_M = 50;
 export const LOW_ACCURACY_FLAG_M = 50;             export const SUSPICIOUS_ACCURACY_M = 1;
 export const BLOCK_MOCKED_LOCATION = true;
@@ -254,7 +254,7 @@ Flags are stored in `Attendance.anomalyFlags` as a sorted array of unique codes.
   - `open < start ≤ close`, `close + 5 ≤ dayEnd < 1440` (service rule `DAY_END_AFTER_CLOSE_MIN`; the CHECK constraint only enforces `close ≤ dayEnd`): a check-in accepted just before the close must commit before auto-ALPHA closes the day
   - `start + tolerance < close`
   - tolerance 0–120
-  - radius 50–1000
+  - radius ≥ 50 (batas atas 1000 dihapus 2026-10-08; tinggal batas SMALLINT 32767)
   - mask 1–127
 
 ### 3.7 Auto-ALPHA job
@@ -749,7 +749,7 @@ Announcement, NotificationMute), and `Notification.dedupKey` + unique `(userId, 
   - `source<>'LEAVE' OR (status IN ('IZIN','SAKIT') AND leaveRequestId IS NOT NULL)`
   - `(status='TERLAMBAT') = (lateMinutes IS NOT NULL AND lateMinutes BETWEEN 1 AND 720)`
 - **School:**
-  - `geofenceRadiusM BETWEEN 50 AND 1000`
+  - `geofenceRadiusM >= 50` (dilonggarkan 2026-10-08, sebelumnya `BETWEEN 50 AND 1000`)
   - `lateToleranceMinutes BETWEEN 0 AND 120`
   - `startMinute + lateToleranceMinutes < checkInCloseMinute`
   - `schoolDaysMask BETWEEN 1 AND 127`

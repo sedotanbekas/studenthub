@@ -65,11 +65,13 @@ test("start + toleransi harus < tutup (mirip chk_school_schedule)", () => {
   assert.deepEqual(codes({ startMinute: 500, lateToleranceMinutes: 100 }), ["LATE_THRESHOLD_NOT_BEFORE_CLOSE"]);
 });
 
-test("radius geofence 50..1000", () => {
+test("radius geofence minimal 50, tanpa batas atas selain kolom SMALLINT", () => {
   assert.deepEqual(codes({ geofenceRadiusM: 49 }), ["RADIUS_OUT_OF_RANGE"]);
   assert.deepEqual(codes({ geofenceRadiusM: 50 }), []);
-  assert.deepEqual(codes({ geofenceRadiusM: 1000 }), []);
-  assert.deepEqual(codes({ geofenceRadiusM: 1001 }), ["RADIUS_OUT_OF_RANGE"]);
+  assert.deepEqual(codes({ geofenceRadiusM: 1001 }), []);
+  assert.deepEqual(codes({ geofenceRadiusM: 5000 }), []);
+  assert.deepEqual(codes({ geofenceRadiusM: 32767 }), []);
+  assert.deepEqual(codes({ geofenceRadiusM: 32768 }), ["RADIUS_OUT_OF_RANGE"]);
 });
 
 test("mask hari sekolah 1..127", () => {

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { EDUCATION_LEVEL_GROUPS, EDUCATION_LEVEL_LABELS, EDUCATION_LEVEL_NAMES, type EducationLevel } from "@/lib/schools/education-level";
+import { GEOFENCE_RADIUS_MAX_M, GEOFENCE_RADIUS_MIN_M } from "@/lib/schools/rules";
 import { api } from "@/lib/frontend/api";
 import { regionsFromSchools } from "@/lib/frontend/campaign-rules";
 import { demoTargetSchools } from "@/lib/frontend/demo-ads";
@@ -135,7 +136,7 @@ function LocationStep({ form, update }: StepProps) {
       <label className="field">Provinsi<select value={form.provinceCode} onChange={(e) => update({ provinceCode: e.target.value, cityCode: "", timezone: timezoneForProvince(e.target.value) })}><option value="">Pilih provinsi</option>{provinces.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}</select></label>
       <label className="field">Kabupaten / kota<select value={form.cityCode} disabled={!form.provinceCode} onChange={(e) => update({ cityCode: e.target.value })}><option value="">Pilih kabupaten/kota</option>{cities.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
       <label className="field">Zona waktu<select value={form.timezone} onChange={(e) => update({ timezone: e.target.value as SchoolTz })}>{(["WIB", "WITA", "WIT"] as const).map((tz) => <option key={tz} value={tz}>{tz}</option>)}</select><span className="field-hint">Ditebak dari provinsi; jam absen mengikuti zona ini.</span></label>
-      <label className="field">Radius area absen: {form.radiusM} m<input type="range" min={50} max={1000} step={10} value={form.radiusM} onChange={(e) => update({ radiusM: Number(e.target.value) })} /></label>
+      <label className="field">Radius area absen (meter)<input type="number" inputMode="numeric" min={GEOFENCE_RADIUS_MIN_M} max={GEOFENCE_RADIUS_MAX_M} step={1} value={form.radiusM} onChange={(e) => update({ radiusM: Number(e.target.value) })} /><span className="field-hint">Bebas diatur, minimal {GEOFENCE_RADIUS_MIN_M} m.</span></label>
     </div>
     <FormError text={error} />
     <LocationPicker point={point} radiusM={form.radiusM} focus={provinceCenter(form.provinceCode)} onPick={(p) => update({ latitude: p.latitude, longitude: p.longitude })} />

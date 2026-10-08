@@ -8,7 +8,8 @@ import type { EducationLevel } from "./education-level";
  * Dipakai juga oleh domain lain (mis. absensi) sebagai satu-satunya validator konfigurasi sekolah.
  */
 export const GEOFENCE_RADIUS_MIN_M = 50;
-export const GEOFENCE_RADIUS_MAX_M = 1000;
+/** Tanpa batas atas bisnis (permintaan pemilik 2026-10-08); hanya batas kolom SMALLINT (32767 m ≈ 32 km). */
+export const GEOFENCE_RADIUS_MAX_M = 32767;
 export const LATE_TOLERANCE_MAX_MIN = 120;
 export const MINUTES_PER_DAY = 1440;
 /**

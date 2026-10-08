@@ -58,7 +58,7 @@ export const createSchoolBody = z.strictObject({
   cityCode: z.string().regex(/^\d{2}\.\d{2}$/, "Kode kabupaten/kota berformat 00.00."),
   latitude: z.number().meta({ description: "Lintang titik pusat geofence (-11.5..6.5)." }),
   longitude: z.number().meta({ description: "Bujur titik pusat geofence (94.5..141.5)." }),
-  geofenceRadiusM: z.int().optional().meta({ description: "Radius geofence 50..1000 m (default 150)." }),
+  geofenceRadiusM: z.int().optional().meta({ description: "Radius geofence dalam meter: minimal 50, tanpa batas atas selain 32767 (default 150)." }),
   timezone: z.enum(SCHOOL_TIMEZONES),
   ...bankShape,
 });

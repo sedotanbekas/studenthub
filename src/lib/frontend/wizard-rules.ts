@@ -149,7 +149,7 @@ export function locationProblem(input: { latitude: number; longitude: number; ra
   if (!input.provinceCode || !input.cityCode) return "Pilih provinsi dan kabupaten/kota.";
   const { latMin, latMax, lngMin, lngMax } = INDONESIA_BOUNDS;
   if (!(input.latitude >= latMin && input.latitude <= latMax && input.longitude >= lngMin && input.longitude <= lngMax)) return "Titik lokasi harus di wilayah Indonesia. Klik peta di lokasi sekolah.";
-  if (!(input.radiusM >= GEOFENCE_RADIUS_MIN_M && input.radiusM <= GEOFENCE_RADIUS_MAX_M)) return `Radius area sekolah ${GEOFENCE_RADIUS_MIN_M}–${GEOFENCE_RADIUS_MAX_M} meter.`;
+  if (!(input.radiusM >= GEOFENCE_RADIUS_MIN_M && input.radiusM <= GEOFENCE_RADIUS_MAX_M)) return `Radius area sekolah minimal ${GEOFENCE_RADIUS_MIN_M} meter (maksimal ${GEOFENCE_RADIUS_MAX_M}).`;
   return null;
 }
 

@@ -94,8 +94,8 @@ const SCHOOL_CASES: readonly CheckCase[] = [
   },
   {
     constraint: "chk_school_radius",
-    violations: [() => updateSchool({ geofenceRadiusM: 49 }), () => updateSchool({ geofenceRadiusM: 1001 })],
-    valid: () => createSchool({ data: { geofenceRadiusM: 1000 } }),
+    violations: [() => updateSchool({ geofenceRadiusM: 49 })],
+    valid: () => createSchool({ data: { geofenceRadiusM: 32767 } }),
   },
   {
     constraint: "chk_school_tolerance",
